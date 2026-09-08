@@ -1,0 +1,6 @@
+- [C @claim] The current allocation is sufficient.
+- [G @ground] The measured load is below capacity.
+- [edge @ground +> @claim; @route] Compare the measurement with capacity.
+  - Body describing the route.
+    - [O _> @route] The measurement may omit peak traffic.
+      - [R] The measurement includes the peak window.

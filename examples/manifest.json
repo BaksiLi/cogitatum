@@ -1,0 +1,39 @@
+{
+  "examples": [
+    {
+      "file": "api-timeout.cog.md",
+      "purpose": "An end-to-end technical inquiry with body, aboutness, challenge, reply, distinction, and an open route.",
+      "expectedDiagnosticCodes": []
+    },
+    {
+      "file": "assay-anomaly.cog.md",
+      "purpose": "A scientific anomaly with competing explanations and an open discriminating test.",
+      "expectedDiagnosticCodes": []
+    },
+    {
+      "file": "frege-puzzle.cog.md",
+      "purpose": "A compact philosophical reconstruction with textual and translation notes.",
+      "expectedDiagnosticCodes": []
+    },
+    {
+      "file": "getting-started.cog.md",
+      "purpose": "The smallest public onboarding inquiry used by the site and Playground.",
+      "expectedDiagnosticCodes": []
+    },
+    {
+      "file": "logseq-shaped-note.cog.md",
+      "purpose": "A Logseq-shaped outline used to discuss future native host adaptation without claiming adapter support.",
+      "expectedDiagnosticCodes": []
+    },
+    {
+      "file": "public-records.cog.md",
+      "purpose": "A legal-policy inquiry with a provisional conclusion, privacy objection, reply, and missing governing rule.",
+      "expectedDiagnosticCodes": []
+    },
+    {
+      "file": "syllogism.cog.md",
+      "purpose": "A minimal explicit joint-support reconstruction.",
+      "expectedDiagnosticCodes": []
+    }
+  ]
+}

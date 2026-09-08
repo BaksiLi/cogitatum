@@ -1,0 +1,52 @@
+{
+  "mode": "document",
+  "diagnostics": [],
+  "graphs": [
+    {
+      "points": [
+        {
+          "line": 2,
+          "form": "role",
+          "role": "C",
+          "id": "release-safe"
+        },
+        {
+          "line": 3,
+          "form": "role",
+          "role": "O"
+        },
+        {
+          "line": 4,
+          "form": "role",
+          "role": "R"
+        }
+      ],
+      "bearings": [
+        {
+          "line": 3,
+          "kind": "challenges",
+          "sources": [
+            3
+          ],
+          "target": {
+            "kind": "point",
+            "line": 2
+          },
+          "derivedBy": "operator"
+        },
+        {
+          "line": 4,
+          "kind": "repliesTo",
+          "sources": [
+            4
+          ],
+          "target": {
+            "kind": "point",
+            "line": 3
+          },
+          "derivedBy": "structural"
+        }
+      ]
+    }
+  ]
+}

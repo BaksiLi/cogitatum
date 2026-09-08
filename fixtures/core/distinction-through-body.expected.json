@@ -1,0 +1,36 @@
+{
+  "mode": "document",
+  "diagnostics": [],
+  "graphs": [
+    {
+      "points": [
+        {
+          "line": 1,
+          "form": "role",
+          "role": "G",
+          "id": "g1"
+        },
+        {
+          "line": 3,
+          "form": "role",
+          "role": "D",
+          "id": "d1"
+        }
+      ],
+      "bearings": [
+        {
+          "line": 3,
+          "kind": "clarifies",
+          "sources": [
+            3
+          ],
+          "target": {
+            "kind": "point",
+            "line": 1
+          },
+          "derivedBy": "structural"
+        }
+      ]
+    }
+  ]
+}

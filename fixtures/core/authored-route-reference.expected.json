@@ -1,0 +1,56 @@
+{
+  "mode": "document",
+  "diagnostics": [],
+  "graphs": [
+    {
+      "points": [
+        {
+          "line": 2,
+          "form": "role",
+          "role": "C",
+          "status": "open",
+          "id": "flat-rate"
+        },
+        {
+          "line": 3,
+          "form": "role",
+          "role": "G",
+          "id": "admin-load"
+        },
+        {
+          "line": 4,
+          "form": "gap",
+          "status": "open",
+          "id": "equity-gap"
+        }
+      ],
+      "bearings": [
+        {
+          "line": 3,
+          "kind": "supports",
+          "sources": [
+            3
+          ],
+          "target": {
+            "kind": "point",
+            "line": 2
+          },
+          "derivedBy": "structural",
+          "handle": "flat-route"
+        },
+        {
+          "line": 4,
+          "kind": "about",
+          "sources": [
+            4
+          ],
+          "target": {
+            "kind": "bearing",
+            "line": 3
+          },
+          "derivedBy": "operator"
+        }
+      ]
+    }
+  ]
+}

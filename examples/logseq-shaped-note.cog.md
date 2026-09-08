@@ -1,0 +1,7 @@
+- Reading note
+  - TODO Re-read chapter 2.
+  - tags:: [[phenomenology]], [[method]]
+  - [Q] What does this passage establish?
+    - collapsed:: true
+    - This ordinary Logseq property and body text should not become graph material.
+    - [C?] It establishes a distinction between explanation and justification.

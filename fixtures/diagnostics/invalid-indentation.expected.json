@@ -1,0 +1,53 @@
+{
+  "mode": "document",
+  "diagnostics": [
+    {
+      "line": 3,
+      "code": "UNMATCHED_DEDENT",
+      "severity": "error"
+    },
+    {
+      "line": 4,
+      "code": "UNMATCHED_DEDENT",
+      "severity": "error"
+    }
+  ],
+  "graphs": [
+    {
+      "points": [
+        {
+          "line": 1,
+          "form": "role",
+          "role": "C",
+          "id": "claim"
+        },
+        {
+          "line": 2,
+          "form": "role",
+          "role": "G",
+          "id": "deep-ground"
+        },
+        {
+          "line": 5,
+          "form": "role",
+          "role": "C",
+          "id": "after"
+        }
+      ],
+      "bearings": [
+        {
+          "line": 2,
+          "kind": "supports",
+          "sources": [
+            2
+          ],
+          "target": {
+            "kind": "point",
+            "line": 1
+          },
+          "derivedBy": "structural"
+        }
+      ]
+    }
+  ]
+}

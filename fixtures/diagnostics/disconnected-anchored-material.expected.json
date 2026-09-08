@@ -1,0 +1,22 @@
+{
+  "mode": "document",
+  "diagnostics": [
+    {
+      "line": 1,
+      "code": "DISCONNECTED_ANCHORED_MATERIAL",
+      "severity": "suggestion"
+    }
+  ],
+  "graphs": [
+    {
+      "points": [
+        {
+          "line": 1,
+          "form": "material",
+          "id": "note1"
+        }
+      ],
+      "bearings": []
+    }
+  ]
+}

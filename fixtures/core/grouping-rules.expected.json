@@ -1,0 +1,71 @@
+{
+  "mode": "document",
+  "diagnostics": [],
+  "graphs": [
+    {
+      "points": [
+        {
+          "line": 2,
+          "form": "role",
+          "role": "Q"
+        },
+        {
+          "line": 3,
+          "form": "role",
+          "role": "C",
+          "status": "open",
+          "id": "db-pool"
+        },
+        {
+          "line": 4,
+          "form": "role",
+          "role": "G",
+          "id": "acq-fail"
+        },
+        {
+          "line": 5,
+          "form": "material",
+          "id": "prod-logs"
+        }
+      ],
+      "bearings": [
+        {
+          "line": 3,
+          "kind": "answers",
+          "sources": [
+            3
+          ],
+          "target": {
+            "kind": "point",
+            "line": 2
+          },
+          "derivedBy": "structural"
+        },
+        {
+          "line": 4,
+          "kind": "supports",
+          "sources": [
+            4
+          ],
+          "target": {
+            "kind": "point",
+            "line": 3
+          },
+          "derivedBy": "structural"
+        },
+        {
+          "line": 5,
+          "kind": "about",
+          "sources": [
+            5
+          ],
+          "target": {
+            "kind": "point",
+            "line": 4
+          },
+          "derivedBy": "operator"
+        }
+      ]
+    }
+  ]
+}

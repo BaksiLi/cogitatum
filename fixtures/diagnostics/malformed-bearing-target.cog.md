@@ -1,0 +1,3 @@
+- Malformed Bearing target
+  - [C @c1] Claim.
+    - [G @g1 +> not-a-ref] This Bearing must not compile partially.

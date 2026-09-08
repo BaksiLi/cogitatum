@@ -1,0 +1,175 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cogitatum.baksili.codes/schemas/0.3.0/ast.schema.json",
+  "title": "Cogitatum Document AST",
+  "description": "Ordered parser output. An annotation is a block's only semantic representation; raw text preserves the source and is not reinterpreted during compilation.",
+  "type": "object",
+  "required": ["version", "blocks", "diagnostics"],
+  "properties": {
+    "version": { "const": "0.3.0" },
+    "blocks": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/block" }
+    },
+    "diagnostics": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/diagnostic" }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "sourceSpan": {
+      "type": "object",
+      "required": ["startLine", "startColumn", "endLine", "endColumn"],
+      "properties": {
+        "startLine": { "type": "integer", "minimum": 1 },
+        "startColumn": { "type": "integer", "minimum": 1 },
+        "endLine": { "type": "integer", "minimum": 1 },
+        "endColumn": { "type": "integer", "minimum": 1 }
+      },
+      "additionalProperties": false
+    },
+    "authoredId": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_-]*$"
+    },
+    "ref": {
+      "type": "object",
+      "required": ["id"],
+      "properties": {
+        "id": { "$ref": "#/$defs/authoredId" }
+      },
+      "additionalProperties": false
+    },
+    "operatorClause": {
+      "type": "object",
+      "required": ["op", "sources", "target"],
+      "properties": {
+        "op": { "enum": ["supports", "challenges", "undercuts", "about"] },
+        "sources": {
+          "oneOf": [
+            { "const": "self" },
+            {
+              "type": "array",
+              "items": { "$ref": "#/$defs/ref" },
+              "minItems": 1,
+              "uniqueItems": true
+            }
+          ]
+        },
+        "target": { "$ref": "#/$defs/ref" }
+      },
+      "additionalProperties": false
+    },
+    "selfOperatorClause": {
+      "allOf": [
+        { "$ref": "#/$defs/operatorClause" },
+        { "type": "object", "properties": { "sources": { "const": "self" } } }
+      ]
+    },
+    "edgeOperatorClause": {
+      "allOf": [
+        { "$ref": "#/$defs/operatorClause" },
+        { "type": "object", "properties": { "sources": { "type": "array" } } }
+      ]
+    },
+    "annotationSyntaxErrors": {
+      "type": "array",
+      "items": { "enum": ["operator", "handle"] },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "annotation": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["kind", "role", "raw"],
+          "properties": {
+            "kind": { "const": "role" },
+            "role": { "enum": ["Q", "C", "G", "O", "R", "D"] },
+            "status": { "const": "open" },
+            "anchor": { "$ref": "#/$defs/authoredId" },
+            "operatorClause": { "$ref": "#/$defs/selfOperatorClause" },
+            "syntaxErrors": { "$ref": "#/$defs/annotationSyntaxErrors" },
+            "handle": { "$ref": "#/$defs/authoredId" },
+            "raw": { "type": "string" }
+          },
+          "allOf": [
+            {
+              "if": { "required": ["status"] },
+              "then": { "properties": { "role": { "const": "C" } } }
+            }
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["kind", "status", "raw"],
+          "properties": {
+            "kind": { "const": "gap" },
+            "status": { "const": "open" },
+            "anchor": { "$ref": "#/$defs/authoredId" },
+            "operatorClause": { "$ref": "#/$defs/selfOperatorClause" },
+            "syntaxErrors": { "$ref": "#/$defs/annotationSyntaxErrors" },
+            "handle": { "$ref": "#/$defs/authoredId" },
+            "raw": { "type": "string" }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["kind", "raw"],
+          "properties": {
+            "kind": { "const": "edge" },
+            "operatorClause": { "$ref": "#/$defs/edgeOperatorClause" },
+            "syntaxErrors": { "$ref": "#/$defs/annotationSyntaxErrors" },
+            "handle": { "$ref": "#/$defs/authoredId" },
+            "raw": { "type": "string" }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["kind", "anchor", "raw"],
+          "properties": {
+            "kind": { "const": "anchor" },
+            "anchor": { "$ref": "#/$defs/authoredId" },
+            "operatorClause": { "$ref": "#/$defs/selfOperatorClause" },
+            "syntaxErrors": { "$ref": "#/$defs/annotationSyntaxErrors" },
+            "handle": { "$ref": "#/$defs/authoredId" },
+            "raw": { "type": "string" }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "block": {
+      "type": "object",
+      "required": ["kind", "text", "raw", "children", "sourceSpan"],
+      "properties": {
+        "kind": { "const": "block" },
+        "text": { "type": "string" },
+        "raw": { "type": "string" },
+        "children": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/block" }
+        },
+        "sourceSpan": { "$ref": "#/$defs/sourceSpan" },
+        "annotation": { "$ref": "#/$defs/annotation" }
+      },
+      "additionalProperties": false
+    },
+    "diagnostic": {
+      "type": "object",
+      "required": ["severity", "code", "message"],
+      "properties": {
+        "severity": { "enum": ["error", "warning", "suggestion"] },
+        "code": { "type": "string" },
+        "message": { "type": "string" },
+        "explanation": { "type": "string" },
+        "sourceSpan": { "$ref": "#/$defs/sourceSpan" }
+      },
+      "additionalProperties": false
+    }
+  }
+}

@@ -1,0 +1,53 @@
+{
+  "mode": "document",
+  "diagnostics": [],
+  "graphs": [
+    {
+      "points": [
+        {
+          "line": 2,
+          "form": "role",
+          "role": "C",
+          "id": "claim"
+        },
+        {
+          "line": 3,
+          "form": "material",
+          "id": "premise"
+        },
+        {
+          "line": 5,
+          "form": "role",
+          "role": "O"
+        }
+      ],
+      "bearings": [
+        {
+          "line": 4,
+          "kind": "supports",
+          "sources": [
+            3
+          ],
+          "target": {
+            "kind": "point",
+            "line": 2
+          },
+          "derivedBy": "operator",
+          "handle": "route"
+        },
+        {
+          "line": 5,
+          "kind": "undercuts",
+          "sources": [
+            5
+          ],
+          "target": {
+            "kind": "bearing",
+            "line": 4
+          },
+          "derivedBy": "operator"
+        }
+      ]
+    }
+  ]
+}

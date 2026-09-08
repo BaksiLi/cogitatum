@@ -1,0 +1,3 @@
+- Invalid Bearing handle
+  - [C @c1] Claim.
+    - [G @g1 +> @c1; not-a-ref] The Point is valid, but the handle attached to its operator clause is malformed.

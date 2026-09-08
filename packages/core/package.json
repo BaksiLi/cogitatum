@@ -1,0 +1,55 @@
+{
+  "name": "@cogitatum/core",
+  "version": "0.3.0-alpha.1",
+  "description": "Parse and compile inquiry markup that makes selected reasoning structure explicit inside ordinary prose.",
+  "keywords": [
+    "inquiry",
+    "markup",
+    "markdown",
+    "reasoning",
+    "argument-mapping"
+  ],
+  "homepage": "https://cogitatum.baksili.codes",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "files": [
+    "dist/*.js",
+    "dist/*.d.ts",
+    "dist/*.js.map",
+    "dist/schemas/*.schema.json",
+    "src/*.ts",
+    "!src/*.test.ts",
+    "!dist/*.test.*"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "tag": "alpha"
+  },
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "development": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./schemas/ast": "./dist/schemas/ast.schema.json",
+    "./schemas/graph-ir": "./dist/schemas/graph-ir.schema.json",
+    "./schemas/explain": "./dist/schemas/explain.schema.json"
+  },
+  "scripts": {
+    "build": "tsc -b && node ../../scripts/build-schemas.mjs",
+    "prepack": "npm run build"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/BaksiLi/cogitatum.git",
+    "directory": "packages/core"
+  },
+  "bugs": {
+    "url": "https://github.com/BaksiLi/cogitatum/issues"
+  }
+}

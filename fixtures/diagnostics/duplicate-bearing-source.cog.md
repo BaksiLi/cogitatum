@@ -1,0 +1,3 @@
+- [C @claim] The claim.
+- [G @ground] The ground.
+- [edge @ground, @ground +> @claim] A repeated source does not create linked support.

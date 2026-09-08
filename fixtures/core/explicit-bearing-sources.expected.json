@@ -1,0 +1,76 @@
+{
+  "mode": "document",
+  "diagnostics": [],
+  "graphs": [
+    {
+      "points": [
+        {
+          "line": 2,
+          "form": "role",
+          "role": "C",
+          "id": "c1"
+        },
+        {
+          "line": 3,
+          "form": "material",
+          "id": "g1"
+        },
+        {
+          "line": 4,
+          "form": "material",
+          "id": "g2"
+        },
+        {
+          "line": 6,
+          "form": "role",
+          "role": "O"
+        },
+        {
+          "line": 7,
+          "form": "role",
+          "role": "R"
+        }
+      ],
+      "bearings": [
+        {
+          "line": 5,
+          "kind": "supports",
+          "sources": [
+            3,
+            4
+          ],
+          "target": {
+            "kind": "point",
+            "line": 2
+          },
+          "derivedBy": "operator",
+          "handle": "joint-case"
+        },
+        {
+          "line": 6,
+          "kind": "undercuts",
+          "sources": [
+            6
+          ],
+          "target": {
+            "kind": "bearing",
+            "line": 5
+          },
+          "derivedBy": "operator"
+        },
+        {
+          "line": 7,
+          "kind": "repliesTo",
+          "sources": [
+            7
+          ],
+          "target": {
+            "kind": "point",
+            "line": 6
+          },
+          "derivedBy": "structural"
+        }
+      ]
+    }
+  ]
+}

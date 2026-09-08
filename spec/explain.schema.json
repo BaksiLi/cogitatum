@@ -1,0 +1,248 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cogitatum.baksili.codes/schemas/0.3.0/explain.schema.json",
+  "title": "Cogitatum Explain Projection",
+  "description": "Recognition and compiler effects for one source unit. Emitted summaries obey canonical target restrictions; rejected candidates may retain unresolved or invalid targets. Agreement with a graph is checked separately.",
+  "type": "object",
+  "required": ["version", "entries", "diagnostics"],
+  "properties": {
+    "version": { "const": "0.3.0" },
+    "entries": { "type": "array", "items": { "$ref": "#/$defs/entry" } },
+    "diagnostics": { "type": "array", "items": { "$ref": "#/$defs/diagnostic" } }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "sourceSpan": {
+      "type": "object",
+      "required": ["startLine", "startColumn", "endLine", "endColumn"],
+      "properties": {
+        "startLine": { "type": "integer", "minimum": 1 },
+        "startColumn": { "type": "integer", "minimum": 1 },
+        "endLine": { "type": "integer", "minimum": 1 },
+        "endColumn": { "type": "integer", "minimum": 1 }
+      },
+      "additionalProperties": false
+    },
+    "authoredId": { "type": "string", "pattern": "^[a-z][a-z0-9_-]*$" },
+    "pointKey": { "type": "string", "minLength": 1 },
+    "bearingKey": { "type": "string", "minLength": 1 },
+    "authoredRef": {
+      "type": "object",
+      "required": ["id"],
+      "properties": { "id": { "$ref": "#/$defs/authoredId" } },
+      "additionalProperties": false
+    },
+    "pointRef": {
+      "type": "object",
+      "required": ["key", "kind"],
+      "properties": {
+        "key": { "$ref": "#/$defs/pointKey" },
+        "kind": { "const": "point" }
+      },
+      "additionalProperties": false
+    },
+    "bearingRef": {
+      "type": "object",
+      "required": ["key", "kind"],
+      "properties": {
+        "key": { "$ref": "#/$defs/bearingKey" },
+        "kind": { "const": "bearing" }
+      },
+      "additionalProperties": false
+    },
+    "emittedBearingRef": {
+      "type": "object",
+      "required": ["key", "kind", "graphIndex"],
+      "properties": {
+        "key": { "$ref": "#/$defs/bearingKey" },
+        "kind": { "const": "bearing" },
+        "graphIndex": { "type": "integer", "minimum": 0 },
+        "handle": { "$ref": "#/$defs/authoredId" }
+      },
+      "additionalProperties": false
+    },
+    "bearingSummary": {
+      "type": "object",
+      "required": ["key", "kind", "sources", "target", "derivedBy"],
+      "properties": {
+        "key": { "$ref": "#/$defs/bearingKey" },
+        "handle": { "$ref": "#/$defs/authoredId" },
+        "kind": {
+          "enum": ["supports", "challenges", "undercuts", "about", "repliesTo", "clarifies", "answers"]
+        },
+        "sources": {
+          "type": "array",
+          "items": { "oneOf": [{ "$ref": "#/$defs/pointRef" }, { "$ref": "#/$defs/authoredRef" }] },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "target": {
+          "oneOf": [
+            { "$ref": "#/$defs/pointRef" },
+            { "$ref": "#/$defs/bearingRef" },
+            { "$ref": "#/$defs/authoredRef" }
+          ]
+        },
+        "derivedBy": { "enum": ["operator", "structural"] }
+      },
+      "additionalProperties": false
+    },
+    "emittedBearingSummary": {
+      "allOf": [
+        { "$ref": "#/$defs/bearingSummary" },
+        {
+          "type": "object",
+          "properties": {
+            "sources": { "type": "array", "items": { "$ref": "#/$defs/pointRef" } },
+            "target": { "oneOf": [{ "$ref": "#/$defs/pointRef" }, { "$ref": "#/$defs/bearingRef" }] }
+          },
+          "allOf": [
+            {
+              "if": { "properties": { "kind": { "enum": ["challenges", "answers", "repliesTo", "clarifies"] } }, "required": ["kind"] },
+              "then": { "properties": { "target": { "$ref": "#/$defs/pointRef" } } }
+            },
+            {
+              "if": { "properties": { "kind": { "const": "undercuts" } }, "required": ["kind"] },
+              "then": { "properties": { "target": { "$ref": "#/$defs/bearingRef" } } }
+            }
+          ]
+        }
+      ]
+    },
+    "recognition": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["kind"],
+          "properties": { "kind": { "const": "body" } },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["kind", "role"],
+          "properties": {
+            "kind": { "const": "role" },
+            "role": { "enum": ["Q", "C", "G", "O", "R", "D"] },
+            "status": { "const": "open" }
+          },
+          "allOf": [
+            {
+              "if": { "required": ["status"] },
+              "then": { "properties": { "role": { "const": "C" } } }
+            }
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["kind", "status"],
+          "properties": { "kind": { "const": "gap" }, "status": { "const": "open" } },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["kind"],
+          "properties": { "kind": { "const": "material" } },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["kind"],
+          "properties": { "kind": { "const": "edge" } },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "effect": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["kind"],
+          "properties": { "kind": { "const": "preserveBody" } },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["kind", "ref", "reason"],
+          "properties": {
+            "kind": { "const": "emitPoint" },
+            "ref": { "$ref": "#/$defs/pointRef" },
+            "id": { "$ref": "#/$defs/authoredId" },
+            "reason": { "enum": ["role-annotation", "gap-annotation", "anchor-annotation"] }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["kind", "ref", "reason"],
+          "properties": {
+            "kind": { "const": "rejectPoint" },
+            "ref": { "$ref": "#/$defs/pointRef" },
+            "id": { "$ref": "#/$defs/authoredId" },
+            "reason": { "const": "duplicate-anchor" }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["kind", "ref", "bearing", "reason"],
+          "properties": {
+            "kind": { "const": "emitBearing" },
+            "ref": { "$ref": "#/$defs/emittedBearingRef" },
+            "bearing": { "$ref": "#/$defs/emittedBearingSummary" },
+            "reason": { "enum": ["operator-clause", "annotated-containment"] }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["kind", "reason"],
+          "properties": {
+            "kind": { "const": "rejectBearing" },
+            "bearing": { "$ref": "#/$defs/bearingSummary" },
+            "reason": {
+              "enum": ["annotation-syntax-error", "edge-descendant-requires-explicit-target", "validation-error"]
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["kind", "reason"],
+          "properties": {
+            "kind": { "const": "skipBearing" },
+            "reason": { "enum": ["no-eligible-ancestor", "no-structural-rule"] }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "entry": {
+      "type": "object",
+      "required": ["sourceSpan", "recognition", "effects", "diagnosticCodes"],
+      "properties": {
+        "sourceSpan": { "$ref": "#/$defs/sourceSpan" },
+        "recognition": { "$ref": "#/$defs/recognition" },
+        "effects": { "type": "array", "items": { "$ref": "#/$defs/effect" }, "minItems": 1 },
+        "diagnosticCodes": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "diagnostic": {
+      "type": "object",
+      "required": ["severity", "code", "message"],
+      "properties": {
+        "severity": { "enum": ["error", "warning", "suggestion"] },
+        "code": { "type": "string" },
+        "message": { "type": "string" },
+        "explanation": { "type": "string" },
+        "sourceSpan": { "$ref": "#/$defs/sourceSpan" }
+      },
+      "additionalProperties": false
+    }
+  }
+}

@@ -1,0 +1,4 @@
+- Malformed Bearing source
+  - [C @c1] Claim.
+  - [@g1 ~> @c1] Existing material.
+  - [edge @g1, not-a-ref +> @c1] This Bearing must not compile partially.

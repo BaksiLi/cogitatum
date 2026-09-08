@@ -1,0 +1,172 @@
+{
+  "mode": "document",
+  "diagnostics": [],
+  "graphs": [
+    {
+      "points": [
+        {
+          "line": 3,
+          "form": "role",
+          "role": "C"
+        },
+        {
+          "line": 4,
+          "form": "role",
+          "role": "G"
+        },
+        {
+          "line": 6,
+          "form": "role",
+          "role": "C"
+        },
+        {
+          "line": 7,
+          "form": "role",
+          "role": "G",
+          "id": "ground"
+        },
+        {
+          "line": 8,
+          "form": "material",
+          "id": "ground-note"
+        },
+        {
+          "line": 10,
+          "form": "role",
+          "role": "C"
+        },
+        {
+          "line": 11,
+          "form": "role",
+          "role": "G"
+        },
+        {
+          "line": 12,
+          "form": "role",
+          "role": "O"
+        },
+        {
+          "line": 14,
+          "form": "role",
+          "role": "C"
+        },
+        {
+          "line": 15,
+          "form": "role",
+          "role": "G",
+          "id": "named-ground"
+        },
+        {
+          "line": 16,
+          "form": "material",
+          "id": "ground-source"
+        },
+        {
+          "line": 17,
+          "form": "gap",
+          "status": "open"
+        }
+      ],
+      "bearings": [
+        {
+          "line": 4,
+          "kind": "supports",
+          "sources": [
+            4
+          ],
+          "target": {
+            "kind": "point",
+            "line": 3
+          },
+          "derivedBy": "structural"
+        },
+        {
+          "line": 7,
+          "kind": "supports",
+          "sources": [
+            7
+          ],
+          "target": {
+            "kind": "point",
+            "line": 6
+          },
+          "derivedBy": "structural"
+        },
+        {
+          "line": 8,
+          "kind": "about",
+          "sources": [
+            8
+          ],
+          "target": {
+            "kind": "point",
+            "line": 7
+          },
+          "derivedBy": "operator"
+        },
+        {
+          "line": 11,
+          "kind": "supports",
+          "sources": [
+            11
+          ],
+          "target": {
+            "kind": "point",
+            "line": 10
+          },
+          "derivedBy": "structural",
+          "handle": "route"
+        },
+        {
+          "line": 12,
+          "kind": "undercuts",
+          "sources": [
+            12
+          ],
+          "target": {
+            "kind": "bearing",
+            "line": 11
+          },
+          "derivedBy": "operator"
+        },
+        {
+          "line": 15,
+          "kind": "supports",
+          "sources": [
+            15
+          ],
+          "target": {
+            "kind": "point",
+            "line": 14
+          },
+          "derivedBy": "structural",
+          "handle": "named-route"
+        },
+        {
+          "line": 16,
+          "kind": "about",
+          "sources": [
+            16
+          ],
+          "target": {
+            "kind": "point",
+            "line": 15
+          },
+          "derivedBy": "operator"
+        },
+        {
+          "line": 17,
+          "kind": "about",
+          "sources": [
+            17
+          ],
+          "target": {
+            "kind": "bearing",
+            "line": 15
+          },
+          "derivedBy": "operator"
+        }
+      ]
+    }
+  ]
+}

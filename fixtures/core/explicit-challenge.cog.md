@@ -1,0 +1,4 @@
+- Explicit challenge
+  - [C @release-safe] The release is safe to deploy.
+  - [O -> @release-safe] Production-load behavior has not been tested.
+    - [R] Canary traffic covers the critical load profile.

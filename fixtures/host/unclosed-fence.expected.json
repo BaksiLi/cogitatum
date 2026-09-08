@@ -1,0 +1,23 @@
+{
+  "mode": "host",
+  "diagnostics": [
+    {
+      "line": 5,
+      "code": "UNCLOSED_COGITATUM_FENCE",
+      "severity": "error"
+    }
+  ],
+  "graphs": [
+    {
+      "points": [
+        {
+          "line": 2,
+          "form": "role",
+          "role": "C",
+          "id": "kept"
+        }
+      ],
+      "bearings": []
+    }
+  ]
+}

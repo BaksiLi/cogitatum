@@ -1,0 +1,41 @@
+{
+  "mode": "document",
+  "diagnostics": [],
+  "graphs": [
+    {
+      "points": [
+        {
+          "line": 1,
+          "form": "role",
+          "role": "C",
+          "id": "parent"
+        },
+        {
+          "line": 2,
+          "form": "role",
+          "role": "G"
+        },
+        {
+          "line": 3,
+          "form": "role",
+          "role": "C",
+          "id": "other"
+        }
+      ],
+      "bearings": [
+        {
+          "line": 2,
+          "kind": "challenges",
+          "sources": [
+            2
+          ],
+          "target": {
+            "kind": "point",
+            "line": 3
+          },
+          "derivedBy": "operator"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,3 @@
+- Unknown Bearing target
+  - [C @c1] Claim.
+  - [edge @c1 ~> @missing] An unresolved target must not enter canonical Graph IR.

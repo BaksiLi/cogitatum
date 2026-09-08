@@ -1,0 +1,7 @@
+- Assay anomaly
+  - [Q] Why did the treated samples produce a weaker signal?
+    - [C? @degradation] The detection reagent degraded before the run.
+      - [G] Positive controls using the same reagent were also weaker than their historical range.
+      - [O @position] The low readings may instead be a plate-position effect.
+        - [G] Most low readings occurred along the outer wells.
+    - [?] Repeat with a fresh reagent and randomized well positions.

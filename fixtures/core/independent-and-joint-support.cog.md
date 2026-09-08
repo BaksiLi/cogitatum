@@ -1,0 +1,7 @@
+- Support topology
+  - [C @claim] The service should remain in the current region.
+    - [G @latency] Moving would increase user latency.
+    - [G @contract] The current contract rewards regional continuity.
+  - [@capacity] The current region has spare capacity.
+  - [@forecast] Demand is forecast to remain below that capacity.
+  - [edge @capacity, @forecast +> @claim; @capacity-route] Capacity and forecast support the claim jointly.

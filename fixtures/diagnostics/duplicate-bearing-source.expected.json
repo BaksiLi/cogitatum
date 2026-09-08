@@ -1,0 +1,29 @@
+{
+  "mode": "document",
+  "diagnostics": [
+    {
+      "line": 3,
+      "code": "DUPLICATE_BEARING_SOURCES",
+      "severity": "error"
+    }
+  ],
+  "graphs": [
+    {
+      "points": [
+        {
+          "line": 1,
+          "form": "role",
+          "role": "C",
+          "id": "claim"
+        },
+        {
+          "line": 2,
+          "form": "role",
+          "role": "G",
+          "id": "ground"
+        }
+      ],
+      "bearings": []
+    }
+  ]
+}

@@ -1,0 +1,4 @@
+- Multiple targets are unsupported
+  - [C @c1] One.
+  - [C @c2] Two.
+  - [G @g1 +> @c1, @c2] One ground tries to support two targets.

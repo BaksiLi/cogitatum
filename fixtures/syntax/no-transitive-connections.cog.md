@@ -1,0 +1,6 @@
+- [C @conclusion] The final claim.
+  - [G @middle] An intermediate ground.
+    - [G @first] A reason for the intermediate ground.
+  - [D @distinction] A distinction relevant to the final claim.
+  - [O @objection] An objection to the final claim.
+    - [R @reply] A reply to the objection.

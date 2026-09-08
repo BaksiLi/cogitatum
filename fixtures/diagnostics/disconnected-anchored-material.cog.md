@@ -1,0 +1,2 @@
+- [@note1] Anchored note.
+  - Body elaboration.

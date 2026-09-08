@@ -1,0 +1,76 @@
+{
+  "mode": "document",
+  "diagnostics": [],
+  "graphs": [
+    {
+      "points": [
+        {
+          "line": 2,
+          "form": "role",
+          "role": "Q",
+          "id": "question"
+        },
+        {
+          "line": 3,
+          "form": "role",
+          "role": "C",
+          "id": "answer"
+        },
+        {
+          "line": 4,
+          "form": "role",
+          "role": "C",
+          "id": "elaboration"
+        },
+        {
+          "line": 5,
+          "form": "role",
+          "role": "G"
+        },
+        {
+          "line": 7,
+          "form": "role",
+          "role": "O"
+        }
+      ],
+      "bearings": [
+        {
+          "line": 3,
+          "kind": "answers",
+          "sources": [
+            3
+          ],
+          "target": {
+            "kind": "point",
+            "line": 2
+          },
+          "derivedBy": "structural"
+        },
+        {
+          "line": 5,
+          "kind": "supports",
+          "sources": [
+            5
+          ],
+          "target": {
+            "kind": "point",
+            "line": 4
+          },
+          "derivedBy": "structural"
+        },
+        {
+          "line": 7,
+          "kind": "challenges",
+          "sources": [
+            7
+          ],
+          "target": {
+            "kind": "point",
+            "line": 3
+          },
+          "derivedBy": "structural"
+        }
+      ]
+    }
+  ]
+}

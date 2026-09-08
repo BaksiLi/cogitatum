@@ -1,0 +1,5 @@
+- [C @claim] The claim.
+    - [G @deep-ground] A deeply indented ground.
+  - [O @misaligned] This dedent does not match an ancestor level.
+  - [D @same-invalid-level] This sibling remains on the invalid level.
+- [C @after] A valid root after recovery.

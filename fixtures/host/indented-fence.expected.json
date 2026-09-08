@@ -1,0 +1,54 @@
+{
+  "mode": "host",
+  "diagnostics": [],
+  "graphs": [
+    {
+      "points": [
+        {
+          "line": 6,
+          "form": "role",
+          "role": "Q",
+          "id": "discrepancy"
+        },
+        {
+          "line": 7,
+          "form": "role",
+          "role": "C",
+          "id": "baseline"
+        },
+        {
+          "line": 8,
+          "form": "role",
+          "role": "G",
+          "id": "records"
+        }
+      ],
+      "bearings": [
+        {
+          "line": 7,
+          "kind": "answers",
+          "sources": [
+            7
+          ],
+          "target": {
+            "kind": "point",
+            "line": 6
+          },
+          "derivedBy": "structural"
+        },
+        {
+          "line": 8,
+          "kind": "supports",
+          "sources": [
+            8
+          ],
+          "target": {
+            "kind": "point",
+            "line": 7
+          },
+          "derivedBy": "structural"
+        }
+      ]
+    }
+  ]
+}

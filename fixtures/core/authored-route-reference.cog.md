@@ -1,0 +1,4 @@
+- Meal subsidy reform
+  - [C? @flat-rate] A flat per-student rate is simplest to administer.
+    - [G @admin-load; @flat-route] It removes per-application means testing.
+    - [? @equity-gap ~> @flat-route] Does a flat rate under-serve the poorest students?

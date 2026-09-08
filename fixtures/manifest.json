@@ -1,0 +1,286 @@
+{
+  "fixtures": [
+    {
+      "file": "core/authored-route-reference.cog.md",
+      "input": "document",
+      "purpose": "An authored gap refers to a named structural route within one compilation; no revision stability is asserted.",
+      "expected": "core/authored-route-reference.expected.json"
+    },
+    {
+      "file": "core/body-only.cog.md",
+      "input": "document",
+      "purpose": "Ordinary prose and non-reserved bracketed text create an empty graph.",
+      "expected": "core/body-only.expected.json"
+    },
+    {
+      "file": "core/body-reentry.cog.md",
+      "input": "document",
+      "purpose": "Body preserves containment while the marked descendant supports the nearest Point.",
+      "expected": "core/body-reentry.expected.json"
+    },
+    {
+      "file": "core/body-vs-point.cog.md",
+      "input": "document",
+      "purpose": "Unmarked elaboration produces no Point and no additional support.",
+      "expected": "core/body-vs-point.expected.json"
+    },
+    {
+      "file": "core/distinction-through-body.cog.md",
+      "input": "document",
+      "purpose": "A distinction clarifies its enclosing ground; adjacent body produces no connections.",
+      "expected": "core/distinction-through-body.expected.json"
+    },
+    {
+      "file": "core/edge-description-and-body.cog.md",
+      "input": "document",
+      "purpose": "An edge creates a connection but no Point; its body creates neither.",
+      "expected": "core/edge-description-and-body.expected.json"
+    },
+    {
+      "file": "core/explicit-bearing-sources.cog.md",
+      "input": "document",
+      "purpose": "A joint edge uses existing material Points and can receive an undercut with a reply.",
+      "expected": "core/explicit-bearing-sources.expected.json"
+    },
+    {
+      "file": "core/explicit-challenge.cog.md",
+      "input": "document",
+      "purpose": "An anonymous explicit objection can receive a structural reply.",
+      "expected": "core/explicit-challenge.expected.json"
+    },
+    {
+      "file": "core/forward-route-reference.cog.md",
+      "input": "document",
+      "purpose": "Forward Point names and route handles resolve without reordering graph entities.",
+      "expected": "core/forward-route-reference.expected.json"
+    },
+    {
+      "file": "core/gap-about-bearing.cog.md",
+      "input": "document",
+      "purpose": "A gap can refer to a named reply connection rather than its enclosing Point.",
+      "expected": "core/gap-about-bearing.expected.json"
+    },
+    {
+      "file": "core/grouped-route-pressure.cog.md",
+      "input": "document",
+      "purpose": "Body grouping does not change an explicit edge or the undercut targeting it.",
+      "expected": "core/grouped-route-pressure.expected.json"
+    },
+    {
+      "file": "core/grouping-rules.cog.md",
+      "input": "document",
+      "purpose": "A question can remain anonymous while material explicitly refers to its named descendant.",
+      "expected": "core/grouping-rules.expected.json"
+    },
+    {
+      "file": "core/independent-and-joint-support.cog.md",
+      "input": "document",
+      "purpose": "Two single-source supports and one joint support remain exactly three connections.",
+      "expected": "core/independent-and-joint-support.expected.json"
+    },
+    {
+      "file": "core/light-authoring.cog.md",
+      "input": "document",
+      "purpose": "A named open claim accepts anonymous reasons and objections while context remains body.",
+      "expected": "core/light-authoring.expected.json"
+    },
+    {
+      "file": "core/naming-forms.cog.md",
+      "input": "document",
+      "purpose": "Point names and route handles are independently optional and resolve in their proper roles.",
+      "expected": "core/naming-forms.expected.json"
+    },
+    {
+      "file": "core/nested-grouping.cog.md",
+      "input": "document",
+      "purpose": "Two questions under ordinary groups receive their own answers without cross-group connections.",
+      "expected": "core/nested-grouping.expected.json"
+    },
+    {
+      "file": "core/operator-overrides-indentation.cog.md",
+      "input": "document",
+      "purpose": "An explicit challenge replaces a ground role's default support and uses the authored target.",
+      "expected": "core/operator-overrides-indentation.expected.json"
+    },
+    {
+      "file": "core/point-restores-indentation.cog.md",
+      "input": "document",
+      "purpose": "After an explicit Point below an edge, its children resume ordinary structural connections.",
+      "expected": "core/point-restores-indentation.expected.json"
+    },
+    {
+      "file": "core/route-handle-needed.cog.md",
+      "input": "document",
+      "purpose": "An anonymous claim route can receive both an undercut and positive bearing.",
+      "expected": "core/route-handle-needed.expected.json"
+    },
+    {
+      "file": "diagnostics/bearing-handle-without-bearing.cog.md",
+      "input": "document",
+      "purpose": "A handle cannot create a missing route; the Point survives.",
+      "expected": "diagnostics/bearing-handle-without-bearing.expected.json"
+    },
+    {
+      "file": "diagnostics/bearing-used-as-source.cog.md",
+      "input": "document",
+      "purpose": "A Bearing cannot be an edge source; its valid base route survives.",
+      "expected": "diagnostics/bearing-used-as-source.expected.json"
+    },
+    {
+      "file": "diagnostics/disconnected-anchored-material.cog.md",
+      "input": "document",
+      "purpose": "Unconnected named material remains a Point and receives a suggestion, not an error.",
+      "expected": "diagnostics/disconnected-anchored-material.expected.json"
+    },
+    {
+      "file": "diagnostics/duplicate-bearing-handle.cog.md",
+      "input": "document",
+      "purpose": "Both duplicate routes are rejected while all three Points survive.",
+      "expected": "diagnostics/duplicate-bearing-handle.expected.json"
+    },
+    {
+      "file": "diagnostics/duplicate-bearing-source.cog.md",
+      "input": "document",
+      "purpose": "A repeated source rejects the whole edge rather than silently deduplicating it.",
+      "expected": "diagnostics/duplicate-bearing-source.expected.json"
+    },
+    {
+      "file": "diagnostics/duplicate-point-anchor.cog.md",
+      "input": "document",
+      "purpose": "Both duplicate Points and their dependent route are rejected; the independent source Point survives.",
+      "expected": "diagnostics/duplicate-point-anchor.expected.json"
+    },
+    {
+      "file": "diagnostics/edge-descendant-requires-target.cog.md",
+      "input": "document",
+      "purpose": "The first Point beneath an edge needs an explicit target even through body; its Point still survives the error.",
+      "expected": "diagnostics/edge-descendant-requires-target.expected.json"
+    },
+    {
+      "file": "diagnostics/invalid-bearing-handle.cog.md",
+      "input": "document",
+      "purpose": "An invalid route handle rejects the attached Bearing but preserves the reason Point.",
+      "expected": "diagnostics/invalid-bearing-handle.expected.json"
+    },
+    {
+      "file": "diagnostics/invalid-indentation.cog.md",
+      "input": "document",
+      "purpose": "Unmatched dedents reject apparent annotations until a valid root; the earlier valid ground survives.",
+      "expected": "diagnostics/invalid-indentation.expected.json"
+    },
+    {
+      "file": "diagnostics/malformed-bearing-source.cog.md",
+      "input": "document",
+      "purpose": "One malformed source rejects the entire new edge while an independent about connection survives.",
+      "expected": "diagnostics/malformed-bearing-source.expected.json"
+    },
+    {
+      "file": "diagnostics/malformed-bearing-target.cog.md",
+      "input": "document",
+      "purpose": "A malformed explicit target rejects the route without falling back to indentation.",
+      "expected": "diagnostics/malformed-bearing-target.expected.json"
+    },
+    {
+      "file": "diagnostics/multiple-targets.cog.md",
+      "input": "document",
+      "purpose": "Multiple targets reject the attached Bearing; all source and target Points survive.",
+      "expected": "diagnostics/multiple-targets.expected.json"
+    },
+    {
+      "file": "diagnostics/point-bearing-id-conflict.cog.md",
+      "input": "document",
+      "purpose": "A Point/handle collision preserves both Points but rejects the conflicting route.",
+      "expected": "diagnostics/point-bearing-id-conflict.expected.json"
+    },
+    {
+      "file": "diagnostics/pressure-target-kind.cog.md",
+      "input": "document",
+      "purpose": "Undercuts require Bearing targets and challenges require Point targets; invalid routes do not enter the graph.",
+      "expected": "diagnostics/pressure-target-kind.expected.json"
+    },
+    {
+      "file": "diagnostics/rejected-route-chain.cog.md",
+      "input": "document",
+      "purpose": "Rejection propagates through route targets while all otherwise valid Points remain.",
+      "expected": "diagnostics/rejected-route-chain.expected.json"
+    },
+    {
+      "file": "diagnostics/unknown-bearing-source.cog.md",
+      "input": "document",
+      "purpose": "An unresolved source rejects its whole route.",
+      "expected": "diagnostics/unknown-bearing-source.expected.json"
+    },
+    {
+      "file": "diagnostics/unknown-bearing-target.cog.md",
+      "input": "document",
+      "purpose": "An unresolved target rejects its whole route.",
+      "expected": "diagnostics/unknown-bearing-target.expected.json"
+    },
+    {
+      "file": "host/cross-fence-reference.md",
+      "input": "host",
+      "purpose": "Names in another fence cannot resolve an explicit target; the local anonymous Point survives.",
+      "expected": "host/cross-fence-reference.expected.json"
+    },
+    {
+      "file": "host/empty-fence.md",
+      "input": "host",
+      "purpose": "An empty complete fence is an empty unit with an error rather than an absent unit.",
+      "expected": "host/empty-fence.expected.json"
+    },
+    {
+      "file": "host/fail-closed.md",
+      "input": "host",
+      "purpose": "A malformed edge in one fence leaves valid structure in both independent units.",
+      "expected": "host/fail-closed.expected.json"
+    },
+    {
+      "file": "host/indented-fence.md",
+      "input": "host",
+      "purpose": "Optional fence indentation preserves host-relative graph locations.",
+      "expected": "host/indented-fence.expected.json"
+    },
+    {
+      "file": "host/two-inquiries.md",
+      "input": "host",
+      "purpose": "Separate fences can reuse authored names; host prose and non-Cogitatum fences produce no graph.",
+      "expected": "host/two-inquiries.expected.json"
+    },
+    {
+      "file": "host/unclosed-fence.md",
+      "input": "host",
+      "purpose": "An unclosed fence is diagnosed and omitted while an earlier complete unit survives.",
+      "expected": "host/unclosed-fence.expected.json"
+    },
+    {
+      "file": "syntax/anonymous-point-bearing.cog.md",
+      "input": "document",
+      "purpose": "Explicit operators do not require a name for their source Point.",
+      "expected": "syntax/anonymous-point-bearing.expected.json"
+    },
+    {
+      "file": "syntax/malformed-annotation-prefix.cog.md",
+      "input": "document",
+      "purpose": "Malformed reserved prefixes stay body; a valid descendant survives and ordinary brackets remain prose.",
+      "expected": "syntax/malformed-annotation-prefix.expected.json"
+    },
+    {
+      "file": "syntax/no-transitive-connections.cog.md",
+      "input": "document",
+      "purpose": "Support chains produce no transitive edge; clarifications and replies keep their own kinds.",
+      "expected": "syntax/no-transitive-connections.expected.json"
+    },
+    {
+      "file": "syntax/partial-indentation-defaults.cog.md",
+      "input": "document",
+      "purpose": "An ineligible Point blocks ancestor lookup; an explicit role alone does not always imply a connection.",
+      "expected": "syntax/partial-indentation-defaults.expected.json"
+    },
+    {
+      "file": "syntax/variable-indentation.cog.md",
+      "input": "document",
+      "purpose": "Variable space widths are valid when dedents match active levels.",
+      "expected": "syntax/variable-indentation.expected.json"
+    }
+  ]
+}

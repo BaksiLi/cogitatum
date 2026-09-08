@@ -1,0 +1,4 @@
+- Bearing used as a source
+  - [C @claim] Claim.
+    - [G @ground; @route] Ground creates a named support Bearing.
+  - [edge @route +> @claim; @invalid-source] A Bearing cannot be used as a Bearing source.

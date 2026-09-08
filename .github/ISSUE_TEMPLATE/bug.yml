@@ -1,0 +1,30 @@
+name: Compiler or CLI bug
+description: A source example that does not parse, compile, or report diagnostics as expected.
+body:
+  - type: input
+    id: version
+    attributes:
+      label: Version and environment
+      description: Package or cog --version output, plus Node.js version or browser.
+    validations:
+      required: true
+  - type: textarea
+    id: source
+    attributes:
+      label: Smallest source that reproduces the problem
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Command or steps, and actual result
+      description: Include the input mode and relevant output or diagnostics.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected result
+    validations:
+      required: true

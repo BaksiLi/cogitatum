@@ -1,0 +1,5 @@
+- [C @claim] The claim.
+   - [G @first-ground] A ground at three spaces.
+       - [O] A challenge at seven spaces.
+   - [G @second-ground] A sibling after an exact dedent.
+- [Q @question] A second root.

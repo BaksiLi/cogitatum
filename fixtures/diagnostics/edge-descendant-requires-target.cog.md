@@ -1,0 +1,7 @@
+- Edge descendant semantics
+  - [C @claim] The conclusion follows.
+  - [@ground] The stated premise.
+  - [edge @ground +> @claim; @route] The premise-to-conclusion route.
+    - Explanatory prose about the route may remain body.
+      - [O @implicit-objection] Something is wrong, but the target is not stated.
+    - [O @explicit-objection _> @route] The route assumes an unstated bridge premise.

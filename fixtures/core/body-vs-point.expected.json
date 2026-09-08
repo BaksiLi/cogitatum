@@ -1,0 +1,54 @@
+{
+  "mode": "document",
+  "diagnostics": [],
+  "graphs": [
+    {
+      "points": [
+        {
+          "line": 1,
+          "form": "role",
+          "role": "C",
+          "id": "bad-faith"
+        },
+        {
+          "line": 4,
+          "form": "role",
+          "role": "G",
+          "id": "waiter-case"
+        },
+        {
+          "line": 6,
+          "form": "role",
+          "role": "O",
+          "id": "too-social"
+        }
+      ],
+      "bearings": [
+        {
+          "line": 4,
+          "kind": "supports",
+          "sources": [
+            4
+          ],
+          "target": {
+            "kind": "point",
+            "line": 1
+          },
+          "derivedBy": "structural"
+        },
+        {
+          "line": 6,
+          "kind": "challenges",
+          "sources": [
+            6
+          ],
+          "target": {
+            "kind": "point",
+            "line": 1
+          },
+          "derivedBy": "structural"
+        }
+      ]
+    }
+  ]
+}

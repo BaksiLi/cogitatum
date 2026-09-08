@@ -1,0 +1,33 @@
+{
+  "mode": "document",
+  "diagnostics": [
+    {
+      "line": 2,
+      "code": "MALFORMED_ANNOTATION_PREFIX",
+      "severity": "error"
+    },
+    {
+      "line": 4,
+      "code": "MALFORMED_ANNOTATION_PREFIX",
+      "severity": "error"
+    },
+    {
+      "line": 5,
+      "code": "MALFORMED_ANNOTATION_PREFIX",
+      "severity": "error"
+    }
+  ],
+  "graphs": [
+    {
+      "points": [
+        {
+          "line": 3,
+          "form": "role",
+          "role": "G",
+          "id": "survivor"
+        }
+      ],
+      "bearings": []
+    }
+  ]
+}

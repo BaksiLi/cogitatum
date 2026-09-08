@@ -1,0 +1,4 @@
+- Duplicate Bearing handle
+  - [C @c1] Claim.
+    - [G @g1; @route] One ground names the route.
+    - [G @g2; @route] A second ground reuses the same handle.

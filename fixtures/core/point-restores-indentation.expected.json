@@ -1,0 +1,71 @@
+{
+  "mode": "document",
+  "diagnostics": [],
+  "graphs": [
+    {
+      "points": [
+        {
+          "line": 1,
+          "form": "role",
+          "role": "C",
+          "id": "claim"
+        },
+        {
+          "line": 2,
+          "form": "role",
+          "role": "G",
+          "id": "ground"
+        },
+        {
+          "line": 5,
+          "form": "role",
+          "role": "O"
+        },
+        {
+          "line": 6,
+          "form": "role",
+          "role": "R"
+        }
+      ],
+      "bearings": [
+        {
+          "line": 3,
+          "kind": "supports",
+          "sources": [
+            2
+          ],
+          "target": {
+            "kind": "point",
+            "line": 1
+          },
+          "derivedBy": "operator",
+          "handle": "route"
+        },
+        {
+          "line": 5,
+          "kind": "undercuts",
+          "sources": [
+            5
+          ],
+          "target": {
+            "kind": "bearing",
+            "line": 3
+          },
+          "derivedBy": "operator"
+        },
+        {
+          "line": 6,
+          "kind": "repliesTo",
+          "sources": [
+            6
+          ],
+          "target": {
+            "kind": "point",
+            "line": 5
+          },
+          "derivedBy": "structural"
+        }
+      ]
+    }
+  ]
+}

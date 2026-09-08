@@ -1,0 +1,108 @@
+{
+  "mode": "document",
+  "diagnostics": [],
+  "graphs": [
+    {
+      "points": [
+        {
+          "line": 1,
+          "form": "role",
+          "role": "C",
+          "id": "conclusion"
+        },
+        {
+          "line": 2,
+          "form": "role",
+          "role": "G",
+          "id": "middle"
+        },
+        {
+          "line": 3,
+          "form": "role",
+          "role": "G",
+          "id": "first"
+        },
+        {
+          "line": 4,
+          "form": "role",
+          "role": "D",
+          "id": "distinction"
+        },
+        {
+          "line": 5,
+          "form": "role",
+          "role": "O",
+          "id": "objection"
+        },
+        {
+          "line": 6,
+          "form": "role",
+          "role": "R",
+          "id": "reply"
+        }
+      ],
+      "bearings": [
+        {
+          "line": 2,
+          "kind": "supports",
+          "sources": [
+            2
+          ],
+          "target": {
+            "kind": "point",
+            "line": 1
+          },
+          "derivedBy": "structural"
+        },
+        {
+          "line": 3,
+          "kind": "supports",
+          "sources": [
+            3
+          ],
+          "target": {
+            "kind": "point",
+            "line": 2
+          },
+          "derivedBy": "structural"
+        },
+        {
+          "line": 4,
+          "kind": "clarifies",
+          "sources": [
+            4
+          ],
+          "target": {
+            "kind": "point",
+            "line": 1
+          },
+          "derivedBy": "structural"
+        },
+        {
+          "line": 5,
+          "kind": "challenges",
+          "sources": [
+            5
+          ],
+          "target": {
+            "kind": "point",
+            "line": 1
+          },
+          "derivedBy": "structural"
+        },
+        {
+          "line": 6,
+          "kind": "repliesTo",
+          "sources": [
+            6
+          ],
+          "target": {
+            "kind": "point",
+            "line": 5
+          },
+          "derivedBy": "structural"
+        }
+      ]
+    }
+  ]
+}

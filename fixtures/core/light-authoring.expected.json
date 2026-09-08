@@ -1,0 +1,53 @@
+{
+  "mode": "document",
+  "diagnostics": [],
+  "graphs": [
+    {
+      "points": [
+        {
+          "line": 2,
+          "form": "role",
+          "role": "C",
+          "status": "open",
+          "id": "db-pool"
+        },
+        {
+          "line": 4,
+          "form": "role",
+          "role": "G"
+        },
+        {
+          "line": 5,
+          "form": "role",
+          "role": "O"
+        }
+      ],
+      "bearings": [
+        {
+          "line": 4,
+          "kind": "supports",
+          "sources": [
+            4
+          ],
+          "target": {
+            "kind": "point",
+            "line": 2
+          },
+          "derivedBy": "structural"
+        },
+        {
+          "line": 5,
+          "kind": "challenges",
+          "sources": [
+            5
+          ],
+          "target": {
+            "kind": "point",
+            "line": 2
+          },
+          "derivedBy": "structural"
+        }
+      ]
+    }
+  ]
+}

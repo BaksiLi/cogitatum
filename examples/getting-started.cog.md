@@ -1,0 +1,7 @@
+- API timeout inquiry
+  - The first timeouts appeared just after Tuesday's deployment.
+  - [Q] Why are requests timing out after deployment?
+    - We have rolled back the release while checking the logs.
+    - [C?] Database connection pool exhaustion is causing the timeouts.
+      - [G] Logs show repeated connection acquisition failures.
+      - [O] Upstream latency may be the actual cause.

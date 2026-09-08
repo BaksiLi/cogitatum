@@ -1,0 +1,4 @@
+- [C?] Someone is probably home.
+  - [G; @lights-route] The lights are on.
+  - [O _> @lights-route] The house may use automatic timers.
+  - [@recent-pattern +> @lights-route] Lights here are usually switched on manually after sunset.

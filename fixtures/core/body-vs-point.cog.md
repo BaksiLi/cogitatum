@@ -1,0 +1,7 @@
+- [C @bad-faith] Sartre's bad faith is not a simple lie.
+  - The waiter example does not show mere ignorance.
+  - It shows a distorted self-relation.
+  - [G @waiter-case] The waiter performs a role as if it exhausts what he is.
+    - This child block is body for @waiter-case, not another ground.
+  - [O @too-social] This may reduce bad faith to social performance.
+

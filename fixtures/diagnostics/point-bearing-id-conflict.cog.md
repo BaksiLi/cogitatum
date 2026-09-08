@@ -1,0 +1,3 @@
+- Point and Bearing namespace conflict
+  - [C @claim] Claim.
+    - [G @ground; @claim] Ground whose Bearing handle conflicts with the target Point.

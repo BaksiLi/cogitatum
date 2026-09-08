@@ -1,0 +1,36 @@
+{
+  "mode": "document",
+  "diagnostics": [],
+  "graphs": [
+    {
+      "points": [
+        {
+          "line": 1,
+          "form": "role",
+          "role": "C",
+          "id": "claim"
+        },
+        {
+          "line": 4,
+          "form": "role",
+          "role": "G",
+          "id": "ground"
+        }
+      ],
+      "bearings": [
+        {
+          "line": 4,
+          "kind": "supports",
+          "sources": [
+            4
+          ],
+          "target": {
+            "kind": "point",
+            "line": 1
+          },
+          "derivedBy": "structural"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,23 @@
+{
+  "mode": "document",
+  "diagnostics": [
+    {
+      "line": 1,
+      "code": "BEARING_HANDLE_WITHOUT_BEARING",
+      "severity": "error"
+    }
+  ],
+  "graphs": [
+    {
+      "points": [
+        {
+          "line": 1,
+          "form": "role",
+          "role": "C",
+          "id": "c1"
+        }
+      ],
+      "bearings": []
+    }
+  ]
+}

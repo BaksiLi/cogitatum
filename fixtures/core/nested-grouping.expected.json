@@ -1,0 +1,60 @@
+{
+  "mode": "document",
+  "diagnostics": [],
+  "graphs": [
+    {
+      "points": [
+        {
+          "line": 2,
+          "form": "role",
+          "role": "Q",
+          "id": "paper-q"
+        },
+        {
+          "line": 3,
+          "form": "role",
+          "role": "C",
+          "id": "paper-answer"
+        },
+        {
+          "line": 5,
+          "form": "role",
+          "role": "Q",
+          "id": "section-q"
+        },
+        {
+          "line": 6,
+          "form": "role",
+          "role": "C",
+          "id": "section-answer"
+        }
+      ],
+      "bearings": [
+        {
+          "line": 3,
+          "kind": "answers",
+          "sources": [
+            3
+          ],
+          "target": {
+            "kind": "point",
+            "line": 2
+          },
+          "derivedBy": "structural"
+        },
+        {
+          "line": 6,
+          "kind": "answers",
+          "sources": [
+            6
+          ],
+          "target": {
+            "kind": "point",
+            "line": 5
+          },
+          "derivedBy": "structural"
+        }
+      ]
+    }
+  ]
+}

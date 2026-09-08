@@ -1,0 +1,60 @@
+{
+  "mode": "document",
+  "diagnostics": [
+    {
+      "line": 5,
+      "code": "UNDERCUT_REQUIRES_BEARING_TARGET",
+      "severity": "error"
+    },
+    {
+      "line": 6,
+      "code": "CHALLENGE_REQUIRES_POINT_TARGET",
+      "severity": "error"
+    }
+  ],
+  "graphs": [
+    {
+      "points": [
+        {
+          "line": 2,
+          "form": "role",
+          "role": "C",
+          "id": "claim"
+        },
+        {
+          "line": 3,
+          "form": "role",
+          "role": "G",
+          "id": "ground"
+        },
+        {
+          "line": 5,
+          "form": "role",
+          "role": "O",
+          "id": "point-undercut"
+        },
+        {
+          "line": 6,
+          "form": "role",
+          "role": "O",
+          "id": "route-challenge"
+        }
+      ],
+      "bearings": [
+        {
+          "line": 4,
+          "kind": "supports",
+          "sources": [
+            3
+          ],
+          "target": {
+            "kind": "point",
+            "line": 2
+          },
+          "derivedBy": "operator",
+          "handle": "route"
+        }
+      ]
+    }
+  ]
+}

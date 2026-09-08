@@ -1,0 +1,3 @@
+- Context before any marks.
+  - An observation written in ordinary prose.
+  - [Context for later] Ordinary bracketed prose.

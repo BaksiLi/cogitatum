@@ -1,0 +1,7 @@
+- Indentation defaults are partial
+  - [Q @question] What should be accepted?
+    - [C @answer] The current answer.
+      - [C @elaboration] A more specific formulation.
+        - [G] Evidence for the specific formulation.
+      - Documentary grouping.
+        - [O] A challenge to the current answer.

@@ -1,0 +1,66 @@
+{
+  "mode": "document",
+  "diagnostics": [
+    {
+      "line": 6,
+      "code": "EDGE_DESCENDANT_REQUIRES_EXPLICIT_TARGET",
+      "severity": "error"
+    }
+  ],
+  "graphs": [
+    {
+      "points": [
+        {
+          "line": 2,
+          "form": "role",
+          "role": "C",
+          "id": "claim"
+        },
+        {
+          "line": 3,
+          "form": "material",
+          "id": "ground"
+        },
+        {
+          "line": 6,
+          "form": "role",
+          "role": "O",
+          "id": "implicit-objection"
+        },
+        {
+          "line": 7,
+          "form": "role",
+          "role": "O",
+          "id": "explicit-objection"
+        }
+      ],
+      "bearings": [
+        {
+          "line": 4,
+          "kind": "supports",
+          "sources": [
+            3
+          ],
+          "target": {
+            "kind": "point",
+            "line": 2
+          },
+          "derivedBy": "operator",
+          "handle": "route"
+        },
+        {
+          "line": 7,
+          "kind": "undercuts",
+          "sources": [
+            7
+          ],
+          "target": {
+            "kind": "bearing",
+            "line": 4
+          },
+          "derivedBy": "operator"
+        }
+      ]
+    }
+  ]
+}

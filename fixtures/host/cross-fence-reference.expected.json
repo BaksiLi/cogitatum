@@ -1,0 +1,33 @@
+{
+  "mode": "host",
+  "diagnostics": [
+    {
+      "line": 6,
+      "code": "UNKNOWN_TARGET",
+      "severity": "error"
+    }
+  ],
+  "graphs": [
+    {
+      "points": [
+        {
+          "line": 2,
+          "form": "role",
+          "role": "C",
+          "id": "claim"
+        }
+      ],
+      "bearings": []
+    },
+    {
+      "points": [
+        {
+          "line": 6,
+          "form": "role",
+          "role": "O"
+        }
+      ],
+      "bearings": []
+    }
+  ]
+}

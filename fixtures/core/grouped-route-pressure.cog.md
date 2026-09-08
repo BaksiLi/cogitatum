@@ -1,0 +1,5 @@
+- Route under review
+  - [C @claim] The conclusion.
+  - [@premise] The stated premise.
+  - [edge @premise +> @claim; @route]
+  - [O _> @route] The route depends on an unstated bridge premise.

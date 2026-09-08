@@ -1,0 +1,23 @@
+{
+  "mode": "document",
+  "diagnostics": [
+    {
+      "line": 3,
+      "code": "DUPLICATE_ID",
+      "severity": "error"
+    }
+  ],
+  "graphs": [
+    {
+      "points": [
+        {
+          "line": 4,
+          "form": "role",
+          "role": "G",
+          "id": "ground"
+        }
+      ],
+      "bearings": []
+    }
+  ]
+}

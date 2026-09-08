@@ -1,0 +1,23 @@
+{
+  "mode": "document",
+  "diagnostics": [
+    {
+      "line": 3,
+      "code": "UNKNOWN_SOURCE",
+      "severity": "error"
+    }
+  ],
+  "graphs": [
+    {
+      "points": [
+        {
+          "line": 2,
+          "form": "role",
+          "role": "C",
+          "id": "c1"
+        }
+      ],
+      "bearings": []
+    }
+  ]
+}

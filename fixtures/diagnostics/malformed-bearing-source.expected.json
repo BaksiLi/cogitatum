@@ -1,0 +1,41 @@
+{
+  "mode": "document",
+  "diagnostics": [
+    {
+      "line": 4,
+      "code": "MALFORMED_BEARING_SOURCES",
+      "severity": "error"
+    }
+  ],
+  "graphs": [
+    {
+      "points": [
+        {
+          "line": 2,
+          "form": "role",
+          "role": "C",
+          "id": "c1"
+        },
+        {
+          "line": 3,
+          "form": "material",
+          "id": "g1"
+        }
+      ],
+      "bearings": [
+        {
+          "line": 3,
+          "kind": "about",
+          "sources": [
+            3
+          ],
+          "target": {
+            "kind": "point",
+            "line": 2
+          },
+          "derivedBy": "operator"
+        }
+      ]
+    }
+  ]
+}

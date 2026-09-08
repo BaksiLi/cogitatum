@@ -1,0 +1,35 @@
+{
+  "mode": "document",
+  "diagnostics": [
+    {
+      "line": 4,
+      "code": "MULTIPLE_BEARING_TARGETS_UNSUPPORTED",
+      "severity": "error"
+    }
+  ],
+  "graphs": [
+    {
+      "points": [
+        {
+          "line": 2,
+          "form": "role",
+          "role": "C",
+          "id": "c1"
+        },
+        {
+          "line": 3,
+          "form": "role",
+          "role": "C",
+          "id": "c2"
+        },
+        {
+          "line": 4,
+          "form": "role",
+          "role": "G",
+          "id": "g1"
+        }
+      ],
+      "bearings": []
+    }
+  ]
+}

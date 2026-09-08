@@ -1,0 +1,6 @@
+- Edge description and body
+  - [C @claim] The conclusion.
+  - [G @ground] The reason.
+  - [edge @ground +> @claim]
+    - Documentary explanation retained only in the AST.
+  - [edge @ground ~> @claim] Contextual relevance, not support.

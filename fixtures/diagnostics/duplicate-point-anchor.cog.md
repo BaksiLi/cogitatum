@@ -1,0 +1,4 @@
+- Duplicate Point anchor
+  - [C @same] First claim using the anchor.
+  - [C @same] Second claim using the anchor.
+  - [G @ground +> @same] This valid Point targets an ambiguous identity.

@@ -1,0 +1,5 @@
+- The deploy at 02:00 lined up with the first timeouts.
+- [C? @db-pool] The timeout is caused by DB pool exhaustion.
+  - Most of this note stays as ordinary prose.
+  - [G] Logs show repeated connection acquisition failures.
+  - [O] Upstream latency may be the real cause.

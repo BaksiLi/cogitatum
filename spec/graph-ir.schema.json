@@ -1,0 +1,164 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cogitatum.baksili.codes/schemas/0.3.0/graph-ir.schema.json",
+  "title": "Cogitatum Point-Bearing Graph IR",
+  "description": "Structural contract for a Graph IR projection. Cross-entity uniqueness, reference integrity, and agreement with source require compiler-level checks.",
+  "type": "object",
+  "required": ["version", "points", "bearings", "diagnostics"],
+  "properties": {
+    "version": { "const": "0.3.0" },
+    "points": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/point" }
+    },
+    "bearings": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/bearing" }
+    },
+    "diagnostics": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/diagnostic" }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "sourceSpan": {
+      "type": "object",
+      "required": ["startLine", "startColumn", "endLine", "endColumn"],
+      "properties": {
+        "startLine": { "type": "integer", "minimum": 1 },
+        "startColumn": { "type": "integer", "minimum": 1 },
+        "endLine": { "type": "integer", "minimum": 1 },
+        "endColumn": { "type": "integer", "minimum": 1 }
+      },
+      "additionalProperties": false
+    },
+    "authoredId": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_-]*$"
+    },
+    "pointKey": {
+      "description": "Opaque compilation-local key. Prefixes and numbering are not part of the contract.",
+      "type": "string",
+      "minLength": 1
+    },
+    "bearingKey": {
+      "description": "Opaque compilation-local key. Prefixes and numbering are not part of the contract.",
+      "type": "string",
+      "minLength": 1
+    },
+    "pointRef": {
+      "type": "object",
+      "required": ["key", "kind"],
+      "properties": {
+        "key": { "$ref": "#/$defs/pointKey" },
+        "kind": { "const": "point" }
+      },
+      "additionalProperties": false
+    },
+    "bearingRef": {
+      "type": "object",
+      "required": ["key", "kind"],
+      "properties": {
+        "key": { "$ref": "#/$defs/bearingKey" },
+        "kind": { "const": "bearing" }
+      },
+      "additionalProperties": false
+    },
+    "point": {
+      "type": "object",
+      "required": ["key", "form", "text"],
+      "properties": {
+        "key": { "$ref": "#/$defs/pointKey" },
+        "id": { "$ref": "#/$defs/authoredId" },
+        "form": { "enum": ["role", "material", "gap"] },
+        "role": { "enum": ["Q", "C", "G", "O", "R", "D"] },
+        "status": { "const": "open" },
+        "text": { "type": "string" },
+        "sourceSpan": { "$ref": "#/$defs/sourceSpan" }
+      },
+      "allOf": [
+        {
+          "if": { "required": ["status"] },
+          "then": {
+            "anyOf": [
+              {
+                "required": ["role"],
+                "properties": { "form": { "const": "role" }, "role": { "const": "C" } }
+              },
+              { "properties": { "form": { "const": "gap" } } }
+            ]
+          }
+        },
+        {
+          "if": { "properties": { "form": { "const": "gap" } }, "required": ["form"] },
+          "then": { "required": ["status"] }
+        },
+        {
+          "if": { "properties": { "form": { "const": "role" } }, "required": ["form"] },
+          "then": { "required": ["role"] }
+        },
+        {
+          "if": { "properties": { "form": { "enum": ["gap", "material"] } }, "required": ["form"] },
+          "then": { "not": { "required": ["role"] } }
+        }
+      ],
+      "additionalProperties": false
+    },
+    "bearing": {
+      "type": "object",
+      "required": ["key", "kind", "sources", "target", "derivedBy"],
+      "properties": {
+        "key": { "$ref": "#/$defs/bearingKey" },
+        "handle": { "$ref": "#/$defs/authoredId" },
+        "kind": {
+          "description": "supports records positive bearing, including deductive, inductive, abductive, and explanatory or interpretive grounds. It does not certify truth, strength, or validity.",
+          "enum": ["supports", "challenges", "undercuts", "about", "repliesTo", "clarifies", "answers"]
+        },
+        "sources": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/pointRef" },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "target": {
+          "oneOf": [
+            { "$ref": "#/$defs/pointRef" },
+            { "$ref": "#/$defs/bearingRef" }
+          ]
+        },
+        "text": { "type": "string", "minLength": 1 },
+        "derivedBy": { "enum": ["operator", "structural"] },
+        "sourceSpan": { "$ref": "#/$defs/sourceSpan" }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "kind": { "enum": ["challenges", "answers", "repliesTo", "clarifies"] }
+            },
+            "required": ["kind"]
+          },
+          "then": { "properties": { "target": { "$ref": "#/$defs/pointRef" } } }
+        },
+        {
+          "if": { "properties": { "kind": { "const": "undercuts" } }, "required": ["kind"] },
+          "then": { "properties": { "target": { "$ref": "#/$defs/bearingRef" } } }
+        }
+      ],
+      "additionalProperties": false
+    },
+    "diagnostic": {
+      "type": "object",
+      "required": ["severity", "code", "message"],
+      "properties": {
+        "severity": { "enum": ["error", "warning", "suggestion"] },
+        "code": { "type": "string" },
+        "message": { "type": "string" },
+        "explanation": { "type": "string" },
+        "sourceSpan": { "$ref": "#/$defs/sourceSpan" }
+      },
+      "additionalProperties": false
+    }
+  }
+}

@@ -1,0 +1,10 @@
+- API Timeout Investigation
+  - [Q] Why are requests timing out after deployment?
+    - [C? @db-pool] The timeout is caused by database connection pool exhaustion.
+      - [G @acq-fail] Error logs show repeated connection acquisition failures.
+        - [@prod-logs ~> @acq-fail] Production logs from 02:00–03:00.
+      - [O] Increased upstream latency may be the actual cause rather than a downstream symptom.
+        - [G] The same logs also show increased upstream latency.
+        - [R; @temporal-rebuttal] Upstream latency begins after connection failures, not before.
+          - [? ~> @temporal-rebuttal] Need timestamp ordering across services.
+      - [D] Distinguish root cause from downstream symptom.

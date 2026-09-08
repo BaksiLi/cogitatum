@@ -1,0 +1,3 @@
+- Unknown Bearing source
+  - [C @c1] Claim.
+  - [edge @missing +> @c1] An unresolved source must not enter canonical Graph IR.

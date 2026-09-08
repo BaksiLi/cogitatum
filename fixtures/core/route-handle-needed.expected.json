@@ -1,0 +1,70 @@
+{
+  "mode": "document",
+  "diagnostics": [],
+  "graphs": [
+    {
+      "points": [
+        {
+          "line": 1,
+          "form": "role",
+          "role": "C",
+          "status": "open"
+        },
+        {
+          "line": 2,
+          "form": "role",
+          "role": "G"
+        },
+        {
+          "line": 3,
+          "form": "role",
+          "role": "O"
+        },
+        {
+          "line": 4,
+          "form": "material",
+          "id": "recent-pattern"
+        }
+      ],
+      "bearings": [
+        {
+          "line": 2,
+          "kind": "supports",
+          "sources": [
+            2
+          ],
+          "target": {
+            "kind": "point",
+            "line": 1
+          },
+          "derivedBy": "structural",
+          "handle": "lights-route"
+        },
+        {
+          "line": 3,
+          "kind": "undercuts",
+          "sources": [
+            3
+          ],
+          "target": {
+            "kind": "bearing",
+            "line": 2
+          },
+          "derivedBy": "operator"
+        },
+        {
+          "line": 4,
+          "kind": "supports",
+          "sources": [
+            4
+          ],
+          "target": {
+            "kind": "bearing",
+            "line": 2
+          },
+          "derivedBy": "operator"
+        }
+      ]
+    }
+  ]
+}

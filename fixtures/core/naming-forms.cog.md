@@ -1,0 +1,17 @@
+- Naming only under pressure
+  - Name neither
+    - [C] A local claim.
+      - [G] A local ground.
+  - Name the Point
+    - [C] A claim with targetable support material.
+      - [G @ground] A ground later discussed by a note.
+        - [@ground-note ~> @ground] Context for the ground.
+  - Name the Bearing
+    - [C] A claim whose support route is challenged.
+      - [G; @route] A ground with a named support Bearing.
+      - [O _> @route] The route needs a bridge premise.
+  - Name both
+    - [C] A claim whose ground and route are both discussed.
+      - [G @named-ground; @named-route] A reusable ground with a named support Bearing.
+      - [@ground-source ~> @named-ground] Source context for the ground.
+      - [? ~> @named-route] An open question about the route.

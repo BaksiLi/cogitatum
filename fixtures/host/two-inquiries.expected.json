@@ -1,0 +1,67 @@
+{
+  "mode": "host",
+  "diagnostics": [],
+  "graphs": [
+    {
+      "points": [
+        {
+          "line": 7,
+          "form": "role",
+          "role": "Q",
+          "id": "q"
+        },
+        {
+          "line": 8,
+          "form": "role",
+          "role": "C",
+          "id": "answer"
+        }
+      ],
+      "bearings": [
+        {
+          "line": 8,
+          "kind": "answers",
+          "sources": [
+            8
+          ],
+          "target": {
+            "kind": "point",
+            "line": 7
+          },
+          "derivedBy": "structural"
+        }
+      ]
+    },
+    {
+      "points": [
+        {
+          "line": 19,
+          "form": "role",
+          "role": "Q",
+          "id": "q"
+        },
+        {
+          "line": 20,
+          "form": "role",
+          "role": "C",
+          "status": "open",
+          "id": "answer"
+        }
+      ],
+      "bearings": [
+        {
+          "line": 20,
+          "kind": "answers",
+          "sources": [
+            20
+          ],
+          "target": {
+            "kind": "point",
+            "line": 19
+          },
+          "derivedBy": "structural"
+        }
+      ]
+    }
+  ]
+}

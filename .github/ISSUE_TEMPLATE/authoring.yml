@@ -1,0 +1,24 @@
+name: A note or authoring question
+description: Show where a mark helps, confuses, or gets in the way.
+body:
+  - type: textarea
+    id: purpose
+    attributes:
+      label: What are you trying to write or examine?
+    validations:
+      required: true
+  - type: textarea
+    id: note
+    attributes:
+      label: A small example
+      description: Ordinary prose is welcome; you do not need to know the right notation.
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: difficulty
+    attributes:
+      label: Where does the current behavior or explanation get in the way?
+      description: Include the version or documentation page if relevant.
+    validations:
+      required: true

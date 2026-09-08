@@ -1,0 +1,4 @@
+- [G @g1] The distinction matters only if it changes the inquiry.
+  - Explanatory body before the distinction.
+  - [D @d1] Distinguish ordinary explanation from a reasoning pressure point.
+  - More body after the distinction.

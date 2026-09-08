@@ -1,0 +1,46 @@
+{
+  "name": "@cogitatum/cli",
+  "version": "0.3.0-alpha.1",
+  "description": "Check inquiry markup and inspect the reasoning connections marked in Markdown prose.",
+  "keywords": [
+    "inquiry",
+    "markup",
+    "markdown",
+    "reasoning",
+    "cli"
+  ],
+  "homepage": "https://cogitatum.baksili.codes",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "files": [
+    "dist/*.js",
+    "dist/*.d.ts",
+    "dist/*.js.map",
+    "!dist/*.test.*"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "tag": "alpha"
+  },
+  "type": "module",
+  "bin": {
+    "cog": "dist/index.js"
+  },
+  "dependencies": {
+    "@cogitatum/core": "0.3.0-alpha.1"
+  },
+  "scripts": {
+    "build": "tsc -b && node -e \"require('node:fs').chmodSync('dist/index.js', 0o755)\"",
+    "prepack": "npm run build"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/BaksiLi/cogitatum.git",
+    "directory": "packages/cli"
+  },
+  "bugs": {
+    "url": "https://github.com/BaksiLi/cogitatum/issues"
+  }
+}

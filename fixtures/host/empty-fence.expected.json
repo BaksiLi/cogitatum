@@ -1,0 +1,16 @@
+{
+  "mode": "host",
+  "diagnostics": [
+    {
+      "line": 1,
+      "code": "EMPTY_COGITATUM_FENCE",
+      "severity": "error"
+    }
+  ],
+  "graphs": [
+    {
+      "points": [],
+      "bearings": []
+    }
+  ]
+}

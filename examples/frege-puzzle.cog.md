@@ -1,0 +1,11 @@
+- Frege's Puzzle
+  - [Q] Why can co-referential names differ in cognitive value?
+    - [C? @c1] Sense explains the difference in cognitive value.
+      - [G; @sense-case] Co-referential names may differ in sense.
+      - [D] Distinguish sense from reference.
+      - [? ~> @sense-case] Need to explain why difference in sense explains difference in cognitive value.
+      - [O _> @sense-case] This inference assumes that cognitive value is semantically relevant.
+        - [R] Frege's puzzle is meant to show that semantics must account for cognitive value.
+      - [@frege-text ~> @c1] Source note: Gottlob Frege, “Über Sinn und Bedeutung” (1892).
+        - This example paraphrases a reading; it does not quote the essay.
+      - [@translation-note ~> @frege-text] Check how “Bedeutung” should be translated in this context.

@@ -1,0 +1,1 @@
+- [C @c1; @case1] This is invalid because C alone produces no Bearing.

@@ -1,0 +1,43 @@
+{
+  "mode": "document",
+  "diagnostics": [
+    {
+      "line": 4,
+      "code": "BEARING_IS_NOT_BEARING_SOURCE",
+      "severity": "error"
+    }
+  ],
+  "graphs": [
+    {
+      "points": [
+        {
+          "line": 2,
+          "form": "role",
+          "role": "C",
+          "id": "claim"
+        },
+        {
+          "line": 3,
+          "form": "role",
+          "role": "G",
+          "id": "ground"
+        }
+      ],
+      "bearings": [
+        {
+          "line": 3,
+          "kind": "supports",
+          "sources": [
+            3
+          ],
+          "target": {
+            "kind": "point",
+            "line": 2
+          },
+          "derivedBy": "structural",
+          "handle": "route"
+        }
+      ]
+    }
+  ]
+}

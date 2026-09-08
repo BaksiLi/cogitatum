@@ -1,0 +1,4 @@
+- [C @claim] The proposed explanation is incomplete.
+  - Expository grouping remains ordinary body.
+    - A second body level remains source structure.
+      - [G @ground] The account leaves the observed timing unexplained.

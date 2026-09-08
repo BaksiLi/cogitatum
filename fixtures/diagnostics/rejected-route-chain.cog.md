@@ -1,0 +1,5 @@
+- [C @claim] A surviving claim.
+- [G @ground] A surviving reason.
+- [edge @ground +> @missing; @broken] This route has an unresolved target.
+- [O _> @broken; @pressure] This route targets the rejected route.
+- [? ~> @pressure] This connection depends on the rejected pressure route.

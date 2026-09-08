@@ -1,0 +1,3 @@
+- [C @parent] The enclosing claim.
+  - [G -> @other] This mark explicitly challenges another claim.
+- [C @other] The explicitly selected claim.

@@ -1,0 +1,49 @@
+{
+  "mode": "document",
+  "diagnostics": [
+    {
+      "line": 3,
+      "code": "UNKNOWN_TARGET",
+      "severity": "error"
+    },
+    {
+      "line": 4,
+      "code": "UNRESOLVED_BEARING_TARGET",
+      "severity": "error"
+    },
+    {
+      "line": 5,
+      "code": "UNRESOLVED_BEARING_TARGET",
+      "severity": "error"
+    }
+  ],
+  "graphs": [
+    {
+      "points": [
+        {
+          "line": 1,
+          "form": "role",
+          "role": "C",
+          "id": "claim"
+        },
+        {
+          "line": 2,
+          "form": "role",
+          "role": "G",
+          "id": "ground"
+        },
+        {
+          "line": 4,
+          "form": "role",
+          "role": "O"
+        },
+        {
+          "line": 5,
+          "form": "gap",
+          "status": "open"
+        }
+      ],
+      "bearings": []
+    }
+  ]
+}
