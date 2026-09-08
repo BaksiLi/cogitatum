@@ -26,4 +26,5 @@ jobs:
       - run: npm ci
       - run: npm run check
       - run: npm run check:publication
-      - run: git diff --check "$(git merge-base origin/${{ github.base_ref || 'main' }} HEAD)"..HEAD
+      - name: Check source whitespace
+        run: git diff --check "$(git hash-object -t tree /dev/null)" HEAD

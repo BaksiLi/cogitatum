@@ -4,4 +4,3 @@
   - [G @waiter-case] The waiter performs a role as if it exhausts what he is.
     - This child block is body for @waiter-case, not another ground.
   - [O @too-social] This may reduce bad faith to social performance.
-
