@@ -21,7 +21,7 @@ Four marked points, three explicit connections. The ordinary body remains in the
 
 **Cogitatum 0.3 Public Alpha releases an inquiry markup language and a working compiler.**
 
-Source release: **@cogitatum/core 0.3.0-alpha.1** and **@cogitatum/cli 0.3.0-alpha.1**, with **format 0.3.0**. They are not yet published to npm. Syntax and machine contracts may change before a stable release.
+Source release: **@cogitatum/core 0.3.0-alpha.1** and **@cogitatum/cli 0.3.0-alpha.1**, with **format 0.3.0**. Install with the `alpha` tag: `npm install @cogitatum/core@alpha`, or run the CLI with `npx --package @cogitatum/cli@alpha cog check inquiry.cog.md`. Syntax and machine contracts may change before a stable release.
 
 With Node.js 22.12 or newer, from a source checkout:
 

@@ -51,18 +51,16 @@ or combine several reasons, look up [Bearings](bearings.md).
 
 ## Optional: use files and the CLI
 
-The packages are `@cogitatum/core` and `@cogitatum/cli` at **0.3.0-alpha.1**; they are not yet published to npm. With Node.js 22.12 or newer, clone the [public source](https://github.com/BaksiLi/cogitatum) and run:
+With Node.js 22.12 or newer, run the Alpha CLI on your saved note:
 
 ```sh
-git clone https://github.com/BaksiLi/cogitatum.git cogitatum-public
-cd cogitatum-public
-npm ci
-npm run build:public
-npm exec -- cog check examples/getting-started.cog.md
-npm exec -- cog graph examples/getting-started.cog.md
+npx --package @cogitatum/cli@alpha cog check inquiry.cog.md
+npx --package @cogitatum/cli@alpha cog graph inquiry.cog.md
 ```
 
-Replace the example path with your file. `check` reports syntax and reference problems; `graph` prints the marked connections as JSON. For a visual result, use the playground.
+The packages are `@cogitatum/core` and `@cogitatum/cli` at **0.3.0-alpha.1**. Use the `alpha` tag, or pin this exact version for a reproducible integration. To work on the compiler itself, see the [public source](https://github.com/BaksiLi/cogitatum).
+
+Replace the path with your file. `check` reports syntax and reference problems; `graph` prints the marked connections as JSON. For a visual result, use the playground.
 
 In an existing Markdown document, place the outline in a document-level `cog` fence and use `cog check --input host` followed by the file path. Each fence is independent.
 

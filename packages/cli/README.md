@@ -2,9 +2,16 @@
 
 Check Cogitatum inquiry markup and inspect the reasoning connections marked in ordinary prose.
 
-Public Alpha source release: **0.3.0-alpha.1**, format **0.3.0**. Installation from npm becomes available after publication. Requires Node.js 22.12 or newer.
+Public Alpha: **0.3.0-alpha.1**, format **0.3.0**. Requires Node.js 22.12 or newer.
 
-From a source checkout:
+Run without a global installation:
+
+```sh
+npx --package @cogitatum/cli@alpha cog check inquiry.cog.md
+npx --package @cogitatum/cli@alpha cog graph inquiry.cog.md
+```
+
+Or, from a source checkout:
 
 ```sh
 npm ci

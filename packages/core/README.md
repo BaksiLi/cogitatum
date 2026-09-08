@@ -2,7 +2,11 @@
 
 Cogitatum is a lightweight markup language for making selected reasoning structure explicit inside ordinary prose. This package provides its deterministic parser and compiler for Node.js and browsers.
 
-Public Alpha source release: **0.3.0-alpha.1**, format **0.3.0**. Installation from npm becomes available after publication.
+Public Alpha: **0.3.0-alpha.1**, format **0.3.0**.
+
+```sh
+npm install @cogitatum/core@alpha
+```
 
 ```js
 import { parseDocument, compileGraph } from '@cogitatum/core';
