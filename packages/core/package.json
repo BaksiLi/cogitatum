@@ -37,7 +37,8 @@
     },
     "./schemas/ast": "./dist/schemas/ast.schema.json",
     "./schemas/graph-ir": "./dist/schemas/graph-ir.schema.json",
-    "./schemas/explain": "./dist/schemas/explain.schema.json"
+    "./schemas/explain": "./dist/schemas/explain.schema.json",
+    "./schemas/source": "./dist/schemas/source.schema.json"
   },
   "scripts": {
     "build": "tsc -b && node ../../scripts/build-schemas.mjs",

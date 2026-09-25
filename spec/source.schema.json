@@ -1,0 +1,106 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cogitatum.baksili.codes/schemas/0.3.0/source.schema.json",
+  "title": "Cogitatum Source API Result",
+  "description": "Shape contract for parseSource, compileSource, and explainSource envelopes. Parallel units and projections correspond by array index; equal lengths and cross-reference validity are compiler guarantees that JSON Schema cannot express.",
+  "type": "object",
+  "oneOf": [
+    { "$ref": "#/$defs/parsedSource" },
+    { "$ref": "#/$defs/compiledSource" },
+    { "$ref": "#/$defs/explainedSource" }
+  ],
+  "$defs": {
+    "sourceUnit": {
+      "type": "object",
+      "required": ["kind", "source", "startLine", "endLine"],
+      "properties": {
+        "kind": { "enum": ["document", "fence"] },
+        "source": { "type": "string" },
+        "startLine": { "type": "integer", "minimum": 1 },
+        "endLine": { "type": "integer", "minimum": 0 },
+        "fenceInfo": { "enum": ["cog", "cogitatum"] }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "kind": { "const": "document" } }, "required": ["kind"] },
+          "then": { "not": { "required": ["fenceInfo"] } }
+        },
+        {
+          "if": { "properties": { "kind": { "const": "fence" } }, "required": ["kind"] },
+          "then": { "required": ["fenceInfo"] }
+        }
+      ],
+      "additionalProperties": false
+    },
+    "diagnostic": {
+      "$ref": "https://cogitatum.baksili.codes/schemas/0.3.0/ast.schema.json#/$defs/diagnostic"
+    },
+    "base": {
+      "type": "object",
+      "required": ["version", "mode", "units", "documents", "diagnostics"],
+      "properties": {
+        "version": { "const": "0.3.0" },
+        "mode": { "enum": ["document", "host"] },
+        "units": { "type": "array", "items": { "$ref": "#/$defs/sourceUnit" } },
+        "documents": {
+          "type": "array",
+          "items": { "$ref": "https://cogitatum.baksili.codes/schemas/0.3.0/ast.schema.json" }
+        },
+        "diagnostics": { "type": "array", "items": { "$ref": "#/$defs/diagnostic" } }
+      }
+    },
+    "parsedSource": {
+      "type": "object",
+      "allOf": [
+        { "$ref": "#/$defs/base" },
+        { "not": { "anyOf": [{ "type": "object", "required": ["graphs"] }, { "type": "object", "required": ["explanations"] }] } }
+      ],
+      "unevaluatedProperties": false
+    },
+    "compiledSource": {
+      "type": "object",
+      "allOf": [
+        { "$ref": "#/$defs/base" },
+        {
+          "type": "object",
+          "required": ["graphs"],
+          "properties": {
+            "graphs": {
+              "type": "array",
+              "items": { "$ref": "https://cogitatum.baksili.codes/schemas/0.3.0/graph-ir.schema.json" }
+            }
+          }
+        },
+        { "not": { "type": "object", "required": ["explanations"] } }
+      ],
+      "unevaluatedProperties": false
+    },
+    "explainedSource": {
+      "type": "object",
+      "allOf": [
+        { "$ref": "#/$defs/base" },
+        {
+          "type": "object",
+          "required": ["graphs"],
+          "properties": {
+            "graphs": {
+              "type": "array",
+              "items": { "$ref": "https://cogitatum.baksili.codes/schemas/0.3.0/graph-ir.schema.json" }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["explanations"],
+          "properties": {
+            "explanations": {
+              "type": "array",
+              "items": { "$ref": "https://cogitatum.baksili.codes/schemas/0.3.0/explain.schema.json" }
+            }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    }
+  }
+}

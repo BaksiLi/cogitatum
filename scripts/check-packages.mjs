@@ -11,17 +11,23 @@ const cache = join(temporary, "cache");
 const rootPackage = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
 const tarballs = [];
 
-for (const name of ["core", "cli"]) {
+for (const name of ["core", "cli", "view"]) {
   const directory = join(root, "packages", name);
   const pkg = JSON.parse(readFileSync(join(directory, "package.json"), "utf8"));
   assert.equal(pkg.version, rootPackage.version);
   assert.match(pkg.version, /^\d+\.\d+\.\d+-alpha\.\d+$/);
-  assert.deepEqual(pkg.publishConfig, { access: "public", tag: "alpha" });
+  if (["core", "cli"].includes(name)) {
+    assert.deepEqual(pkg.publishConfig, { access: "public", tag: "alpha" });
+    assert.notEqual(pkg.private, true);
+  } else {
+    assert.equal(pkg.private, true, `${pkg.name} is an experimental checkout package, not a release package.`);
+  }
   const [packed] = JSON.parse(run("npm", ["pack", "--json", "--ignore-scripts", "--cache", cache, "--pack-destination", temporary], directory));
   const paths = packed.files.map((file) => file.path);
   for (const path of paths) {
     const permitted = /^(package\.json|README\.md|LICENSE(?:\.md|\.txt)?|(?:dist|src)\/[a-z-]+\.(?:js|d\.ts|js\.map|ts))$/.test(path)
-      || (name === "core" && /^dist\/schemas\/(ast|graph-ir|explain)\.schema\.json$/.test(path));
+      || (name === "core" && /^dist\/schemas\/(ast|graph-ir|explain|source)\.schema\.json$/.test(path))
+      || (name === "view" && path === "dist/style.css");
     assert.ok(permitted && !path.includes(".test."), `Unexpected ${pkg.name} payload: ${path}`);
   }
   for (const required of ["package.json", "README.md", "dist/index.js", "dist/index.d.ts"]) {
@@ -29,7 +35,7 @@ for (const name of ["core", "cli"]) {
   }
   if (name === "core") {
     assert.ok(paths.includes("src/index.ts"), "Development export must resolve in the packed package.");
-    for (const schema of ["ast", "graph-ir", "explain"]) {
+    for (const schema of ["ast", "graph-ir", "explain", "source"]) {
       assert.ok(paths.includes(`dist/schemas/${schema}.schema.json`), `Missing package schema: ${schema}`);
     }
   }
@@ -39,7 +45,7 @@ for (const name of ["core", "cli"]) {
 
 writeFileSync(join(temporary, "package.json"), JSON.stringify({ private: true, type: "module" }));
 run("npm", ["install", "--offline", "--ignore-scripts", "--no-audit", "--no-fund", "--cache", cache, ...tarballs], temporary);
-for (const name of ["ast", "graph-ir", "explain"]) {
+for (const name of ["ast", "graph-ir", "explain", "source"]) {
   const imported = JSON.parse(run(process.execPath, ["--input-type=module", "-e",
     `import schema from '@cogitatum/core/schemas/${name}' with { type: 'json' }; console.log(JSON.stringify(schema));`
   ], temporary));
@@ -60,6 +66,17 @@ run(process.execPath, ["--input-type=module", "-e", probe], temporary);
 // Consumers may set the development condition; the package must remain usable.
 const tsx = resolve(root, "node_modules/tsx/dist/loader.mjs");
 run(process.execPath, ["--conditions", "development", "--import", tsx, "--input-type=module", "-e", probe], temporary);
+const integrationProbe = `
+import assert from 'node:assert/strict';
+import { compileSource } from '@cogitatum/core';
+import { projectGraph, createGraphView } from '@cogitatum/view';
+const compiled = compileSource('- [C @claim] A claim.\\n  - [G] A reason.\\n', 'document');
+assert.equal(projectGraph(compiled.graphs[0]).nodes.length, 3);
+assert.equal(typeof createGraphView, 'function');
+`;
+run(process.execPath, ["--input-type=module", "-e", integrationProbe], temporary);
+run(process.execPath, ["--conditions", "development", "--import", tsx, "--input-type=module", "-e", integrationProbe], temporary);
+assert.ok(readFileSync(join(temporary, "node_modules/@cogitatum/view/dist/style.css"), "utf8").includes(".cog-graph"));
 const executable = join(temporary, "node_modules", ".bin", "cog");
 assert.match(run(executable, ["--version"], temporary), new RegExp(rootPackage.version.replaceAll(".", "\\.")));
 const graph = JSON.parse(run(executable, ["graph", join(root, "examples/getting-started.cog.md")], temporary));
@@ -68,6 +85,14 @@ assert.equal(graph.bearings.length, 3);
 assert.equal(graph.diagnostics.length, 0);
 
 writeFileSync(join(temporary, "consumer.mts"), `import {type Point, type Bearing, type Annotation, type OperatorClause, type ExplainEmittedBearingSummary, compileGraph, parseDocument} from '@cogitatum/core';
+import { createGraphView } from '@cogitatum/view';
+const mount = (container: HTMLElement) => {
+  const view = createGraphView(container, { onSelect: node => { const text: string = node.text; } });
+  view.update(graph, 'host:source-unit');
+  // @ts-expect-error A host must identify the source unit to retain selection safely.
+  view.update(graph);
+  return view;
+};
 const graph = compileGraph(parseDocument('- [C] Claim.'));
 const points: Point[] = graph.points;
 const bearings: Bearing[] = graph.bearings;

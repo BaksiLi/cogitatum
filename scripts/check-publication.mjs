@@ -22,6 +22,10 @@ for (const name of ["core", "cli"]) {
     problems.push(`${pkg.name}: expected an Alpha version with public access and the alpha tag.`);
   }
 }
+for (const name of ["view"]) {
+  const pkg = JSON.parse(readFileSync(join(root, "packages", name, "package.json"), "utf8"));
+  if (pkg.private !== true) problems.push(`${pkg.name}: experimental package must stay private until its release is reviewed.`);
+}
 
 if (problems.length) {
   process.stderr.write(`Publication is not ready:\n${problems.map((problem) => `- ${problem}`).join("\n")}\n`);

@@ -59,7 +59,7 @@ cd cogitatum-public
 git switch -c fix/describe-the-change
 ```
 
-After `npm ci`, run `npm run build:public` to build both packages. Compiler development needs no website build, API keys, or external model services.
+After `npm ci`, run `npm run build:public` to build Core, CLI, and the experimental View. Compiler development needs no website build, API keys, or external model services.
 
 | Location | Responsibility |
 | --- | --- |
@@ -79,6 +79,8 @@ Keep proposals concrete: include the source, the behavior you expected, and the 
 Project Cogitatum explores inquiry artefacts: writing that keeps questions, reasons, and unresolved work available for further thought. Inquiry markup is its first public part. Its marks are semi-formal: structure has precise rules while prose remains open to interpretation.
 
 Further work under the name **Cogitatio** concerns ongoing inquiry, revision, review, and continuity. Cogitatio and its runtime are not part of this release.
+
+The current development checkout also contains an experimental integration package, marked private and not published with the Alpha: [`@cogitatum/view`](packages/view/README.md) provides an embeddable, source-linked graph renderer. It leaves evidence, persistence, review, and application UI with the host. The language format remains 0.3.0.
 
 The public source covers the language, compiler, CLI, schemas, conformance fixtures, selected examples, and these usage documents. Website source and brand assets are maintained and deployed separately; the website renders the public documents and uses the compiler. Research essays, benchmarks, prompts, and runtime experiments are outside this source distribution.
 

@@ -1,13 +1,26 @@
 import { readFileSync } from "node:fs";
 import { Ajv2020 } from "ajv/dist/2020.js";
 import { describe, expect, it } from "vitest";
-import { compileGraph, compileGraphWithExplain, parseDocument } from "./index.js";
+import {
+  compileGraph,
+  compileGraphWithExplain,
+  compileSource,
+  explainSource,
+  parseDocument,
+  parseSource
+} from "./index.js";
 
 const ajv = new Ajv2020({ allErrors: true });
 const schema = (name: string) => JSON.parse(readFileSync(new URL(`../../../spec/${name}.schema.json`, import.meta.url), "utf8"));
-const validateAst = ajv.compile(schema("ast"));
-const validateGraph = ajv.compile(schema("graph-ir"));
-const validateExplain = ajv.compile(schema("explain"));
+const astSchema = schema("ast");
+const graphSchema = schema("graph-ir");
+const explainSchema = schema("explain");
+const sourceSchema = schema("source");
+for (const contract of [astSchema, graphSchema, explainSchema]) ajv.addSchema(contract);
+const validateAst = ajv.getSchema(astSchema.$id)!;
+const validateGraph = ajv.getSchema(graphSchema.$id)!;
+const validateExplain = ajv.getSchema(explainSchema.$id)!;
+const validateSource = ajv.compile(sourceSchema);
 const json = (value: unknown) => JSON.parse(JSON.stringify(value));
 
 describe("public compiler contract boundaries", () => {
@@ -120,5 +133,29 @@ describe("public compiler contract boundaries", () => {
     emitted.bearing.target.key = "edited";
     emitted.bearing.sources[0].key = "edited-source";
     expect(graph).toEqual(before);
+  });
+
+  it("validates the public source envelopes used by host integrations", () => {
+    const source = [
+      "Introductory prose.",
+      "",
+      "```cog",
+      "- [C @claim] A claim.",
+      "  - [G] A reason.",
+      "```",
+      ""
+    ].join("\n");
+    const parsed = parseSource(source, "host");
+    const compiled = compileSource(source, "host");
+    const explained = explainSource(source, "host");
+
+    for (const result of [parsed, compiled, explained]) expect(validateSource(json(result))).toBe(true);
+    expect(compiled.units).toHaveLength(compiled.documents.length);
+    expect(compiled.units).toHaveLength(compiled.graphs.length);
+    expect(explained.units).toHaveLength(explained.explanations.length);
+
+    const invalid = json(compiled);
+    invalid.units[0].kind = "editor-node";
+    expect(validateSource(invalid)).toBe(false);
   });
 });

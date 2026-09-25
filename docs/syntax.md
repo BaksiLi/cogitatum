@@ -86,6 +86,29 @@ Duplicate Point anchors invalidate all Points with that anchor and dependent Bea
 
 `document` compiles a standalone outline without a wrapper. `host` extracts document-level `cog` or `cogitatum` fences from mixed Markdown. `auto` uses host mode when it finds a Cogitatum fence candidate and otherwise document mode.
 
+Host integrations can use the source envelope to keep each independent fence paired with its AST, graph, and source locations:
+
+```js
+import { compileSource } from '@cogitatum/core';
+
+const markdown = [
+  'Introductory prose.',
+  '',
+  '```cog',
+  '- [C @claim] A claim.',
+  '  - [G] A reason.',
+  '```',
+].join('\n');
+const result = compileSource(markdown, 'host');
+const inquiries = result.units.map((unit, index) => ({
+  unit,
+  ast: result.documents[index],
+  graph: result.graphs[index],
+}));
+```
+
+Each fence compiles independently; anchors and compilation keys do not cross fences. `unit.startLine` and graph `sourceSpan` values locate results in the original host document. Source spans use one-based lines and UTF-16 columns. Keep each source unit paired with the projection at the same array index, and treat diagnostics as part of the result even when a partial graph is available.
+
 ````markdown
 Context outside the selected inquiry.
 
@@ -122,13 +145,13 @@ Format 0.3.0 replaces generated Point IDs, optional Bearing IDs, ID-based graph 
 
 ### Schemas for integrations
 
-The source distribution's `spec/` directory contains self-contained JSON Schemas using draft 2020-12. The Core package includes the same contracts through `@cogitatum/core/schemas/ast`, `@cogitatum/core/schemas/graph-ir`, and `@cogitatum/core/schemas/explain` exports. For example, in Node.js:
+The source distribution's `spec/` directory contains JSON Schemas using draft 2020-12. The current development checkout includes AST, Graph IR, Explain, and source-envelope contracts through `@cogitatum/core/schemas/{ast,graph-ir,explain,source}`. The source-envelope schema refers to the other three by `$id`; load those sibling schemas too when validating it. The published npm `0.3.0-alpha.1` tarball includes only the first three exports. For example, in Node.js:
 
 ```js
 import graphSchema from '@cogitatum/core/schemas/graph-ir' with { type: 'json' };
 ```
 
-The website also serves [AST](https://cogitatum.baksili.codes/schemas/0.3.0/ast.schema.json), [Graph IR](https://cogitatum.baksili.codes/schemas/0.3.0/graph-ir.schema.json), and [Explain](https://cogitatum.baksili.codes/schemas/0.3.0/explain.schema.json) schemas. Their `$id` includes the format version. Schema identifiers and published contracts must change together when a new format is introduced; a package-only fix need not change the format. The package copies support offline use and require no schema downloads.
+The website also serves [AST](https://cogitatum.baksili.codes/schemas/0.3.0/ast.schema.json), [Graph IR](https://cogitatum.baksili.codes/schemas/0.3.0/graph-ir.schema.json), [Explain](https://cogitatum.baksili.codes/schemas/0.3.0/explain.schema.json), and [source-envelope](https://cogitatum.baksili.codes/schemas/0.3.0/source.schema.json) schemas. Their `$id` includes the format version. Schema identifiers and published contracts must change together when a new format is introduced; a package-only fix need not change the format. The package copies support offline use and require no schema downloads.
 
 These schemas validate individual AST, Graph IR, and Explain projections, not the surrounding multi-unit `parseSource` / `compileSource` / `explainSource` envelopes. Validate each document, graph, or explanation in the corresponding array.
 

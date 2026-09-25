@@ -10,7 +10,7 @@
     "packages/*"
   ],
   "scripts": {
-    "build:public": "npm run build -w @cogitatum/core && npm run build -w @cogitatum/cli",
+    "build:public": "npm run build -w @cogitatum/core && npm run build -w @cogitatum/cli && npm run build -w @cogitatum/view",
     "test": "vitest run",
     "check:cli": "node scripts/check-cli.mjs",
     "check:docs": "node --conditions development --import tsx scripts/check-doc-examples.mjs",

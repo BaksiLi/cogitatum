@@ -6,6 +6,7 @@ const cliPackage = await readJson("packages/cli/package.json");
 const astSchema = await readJson("spec/ast.schema.json");
 const graphSchema = await readJson("spec/graph-ir.schema.json");
 const explainSchema = await readJson("spec/explain.schema.json");
+const sourceSchema = await readJson("spec/source.schema.json");
 const typesSource = await readFile("packages/core/src/types.ts", "utf8");
 const formatVersion = /FORMAT_VERSION\s*=\s*"([^"]+)"/.exec(typesSource)?.[1];
 
@@ -17,6 +18,11 @@ const packages = new Map([
   ["CLI package", cliPackage.version],
   ["CLI core dependency", cliPackage.dependencies?.["@cogitatum/core"]]
 ]);
+for (const name of ["view"]) {
+  const pkg = await readJson(`packages/${name}/package.json`);
+  packages.set(`${name} package`, pkg.version);
+  packages.set(`${name} core dependency`, pkg.dependencies?.["@cogitatum/core"]);
+}
 for (const workspace of rootPackage.workspaces ?? []) {
   if (workspace === "site") {
     packages.set("site core dependency", (await readJson("site/package.json")).dependencies?.["@cogitatum/core"]);
@@ -26,9 +32,10 @@ const formats = new Map([
   ["FORMAT_VERSION", formatVersion],
   ["AST schema", astSchema.properties?.version?.const],
   ["Graph IR schema", graphSchema.properties?.version?.const],
-  ["Explain schema", explainSchema.properties?.version?.const]
+  ["Explain schema", explainSchema.properties?.version?.const],
+  ["Source API schema", sourceSchema.$defs?.base?.properties?.version?.const]
 ]);
-for (const [name, schema] of [["ast", astSchema], ["graph-ir", graphSchema], ["explain", explainSchema]]) {
+for (const [name, schema] of [["ast", astSchema], ["graph-ir", graphSchema], ["explain", explainSchema], ["source", sourceSchema]]) {
   const expectedId = `https://cogitatum.baksili.codes/schemas/${expectedFormat}/${name}.schema.json`;
   if (schema.$id !== expectedId) throw new Error(`Schema identifier must be versioned: ${expectedId}`);
 }
