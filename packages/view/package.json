@@ -1,0 +1,16 @@
+{
+  "name": "@cogitatum/view",
+  "private": true,
+  "version": "0.3.0-alpha.1",
+  "description": "Source-linked SVG rendering of Cogitatum Points and Bearings.",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": { ".": { "development": "./src/index.ts", "types": "./dist/index.d.ts", "default": "./dist/index.js" }, "./style.css": "./dist/style.css" },
+  "files": ["dist/*.js", "dist/*.d.ts", "dist/*.js.map", "dist/style.css", "src/*.ts", "!src/*.test.ts"],
+  "scripts": { "build": "tsc -b && node -e \"require('node:fs').copyFileSync('src/style.css','dist/style.css')\"", "prepack": "npm run build" },
+  "dependencies": { "@cogitatum/core": "0.3.0-alpha.1" },
+  "engines": { "node": ">=22.12.0" },
+  "license": "MIT",
+  "repository": { "type": "git", "url": "git+https://github.com/BaksiLi/cogitatum.git", "directory": "packages/view" }
+}

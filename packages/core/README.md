@@ -35,8 +35,9 @@ The package includes self-contained draft 2020-12 JSON Schemas for offline integ
 import astSchema from '@cogitatum/core/schemas/ast' with { type: 'json' };
 import graphSchema from '@cogitatum/core/schemas/graph-ir' with { type: 'json' };
 import explainSchema from '@cogitatum/core/schemas/explain' with { type: 'json' };
+import sourceSchema from '@cogitatum/core/schemas/source' with { type: 'json' };
 ```
 
-Schemas describe individual projections, not multi-unit envelopes. They check data shapes; reference integrity and agreement with source require compiler-level checks. Keys are opaque strings: their numbering is not an integration contract. Store application metadata separately from canonical compiler output.
+The current source checkout also includes `sourceSchema`, which covers the `parseSource`, `compileSource`, and `explainSource` result envelopes and refers to the AST, Graph IR, and Explain schemas by their `$id`; load those sibling schemas into a validator before compiling it. The envelope keeps source units and projections in parallel arrays, paired by index. Schemas check data shapes; array alignment, reference integrity, and agreement with source remain compiler guarantees. Keys are opaque strings: their numbering is not an integration contract. Store application metadata separately from canonical compiler output. This envelope export is new in the development branch and is not in the published npm `0.3.0-alpha.1` tarball.
 
 Read the [introduction](https://cogitatum.baksili.codes/docs/introduction), [syntax](https://cogitatum.baksili.codes/docs/syntax), or try the [playground](https://cogitatum.baksili.codes/playground).
