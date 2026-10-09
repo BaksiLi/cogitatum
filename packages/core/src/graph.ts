@@ -263,7 +263,6 @@ function compileJoin(
     "Join beneath an edge cannot bypass the requirement for an explicitly targeted first Point.");
   if (context.joinAncestor) reject("NESTED_JOIN_UNSUPPORTED",
     "Join cannot be nested beneath another join without an intervening Point.");
-  if (block.text && !block.annotation?.syntaxErrors?.length) reject("JOIN_BODY_UNSUPPORTED", "Put join commentary outside the group and reference its handle.");
   if (!block.children.length) reject("EMPTY_JOIN", "Join requires at least one direct Ground member.");
   for (const child of block.children) {
     if (!isJoinMember(child)) reject("INVALID_JOIN_MEMBER",
@@ -272,6 +271,7 @@ function compileJoin(
   if (valid && context.parent) {
     const bearing = structural(block, "supports", block.children.map(child => pointKeyForBlock(child, pointKeys)),
       pointKeyForBlock(context.parent, pointKeys));
+    if (block.text) bearing.text = block.text;
     bearing.key = `_b${bearings.length + 1}`;
     bearings.push(bearing);
     draft.bearing = { outcome: "candidate", candidate: bearing, reason: "join-containment" };

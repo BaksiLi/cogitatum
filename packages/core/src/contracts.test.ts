@@ -45,7 +45,7 @@ describe("public compiler contract boundaries", () => {
   });
 
   it("validates joins and their recovery/trace variants without admitting Point or operator fields", () => {
-    for (const header of ["[join; @route]", "[join;]", "[join; @a; @b]", "[Join]", "[join"]) {
+    for (const header of ["[join; @route]", "[join; @route] 說明這一步。", "[join;]", "[join; @a; @b]", "[Join]", "[join"]) {
       const ast = parseDocument(`- [C @c] Target.\n  - ${header}\n    - [G @a] First.\n    - [G @b] Second.`);
       const { graph, explain } = compileGraphWithExplain(ast);
       expect(validateAst(json(ast)), header).toBe(true);

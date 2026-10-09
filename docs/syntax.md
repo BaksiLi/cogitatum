@@ -7,7 +7,7 @@ order: 4
 
 # Complete syntax
 
-Public reference for **format 0.4.0**, delivered by the **0.4.0-alpha.1** source candidate packages (not yet published). Syntax and machine contracts may change before a stable release. Examples, schemas, and conformance fixtures are checked against the implementation.
+Public reference for **format 0.4.0**, delivered by the **0.4.0-alpha.2** source candidate packages (not yet published). Syntax and machine contracts may change before a stable release. Examples, schemas, and conformance fixtures are checked against the implementation.
 
 ## Outline and body
 
@@ -37,7 +37,7 @@ ID         := [a-z][a-z0-9_-]*
 OP         := "+>" | "->" | "_>" | "~>"
 ```
 
-Token order and case matter; `edge` and `join` are lowercase. Whitespace separates words and reference lists use commas. Each operator has exactly one target; an `edge` has one or more unique sources. Optional prose follows the closing bracket, except that a `join` header has no commentary text.
+Token order and case matter; `edge` and `join` are lowercase. Whitespace separates words and reference lists use commas. Each operator has exactly one target; an `edge` has one or more unique sources. Optional prose follows the closing bracket.
 
 | Form | Effect |
 | --- | --- |
@@ -56,7 +56,7 @@ Empty brackets, unfinished reserved prefixes, malformed operators, invalid names
 
 Roles are `Q` Question, `C` Claim, `G` Ground, `O` Objection, `R` Reply, and `D` Distinction.
 `C?` is a Claim with open status; `[?]` is a Gap, a separate Point form that is always open.
-A bare anchor marks Material, another Point form without a role.
+A bare anchor marks named content without a role (`form: "material"`), a separate Point form.
 Other roles cannot take `?`.
 Open status is not a confidence score, and its absence does not certify acceptance or truth.
 
@@ -99,12 +99,15 @@ Its target is the nearest enclosing Point, possibly through ordinary body but ne
 Its sources are all its direct child blocks, each a `G` Point without an operator, handle, or annotation error.
 Their roles, content, optional anchors, and individual spans remain intact.
 The join has no Point or operator clause of its own, and its Bearing uses `derivedBy: "structural"` and the header's span.
+Optional prose after the header becomes that Bearing's `text`, exactly as prose after an `edge` does.
+It is a description of the connection, not a new Point, member, or parsed argument.
+An empty description leaves `text` absent.
 
 A singleton is legal; an empty group or missing Point target is an error.
-Header commentary, direct body wrappers, other roles, direct edges, reference members, and direct joins are invalid.
+Direct body wrappers, other roles, direct edges, reference members, and direct joins are invalid.
 A join cannot bypass an edge's explicit-target boundary.
 Direct join nesting, even through body, is rejected; a join inside a member Point's subtree is a separate inference and is legal.
-Put group commentary outside and reference a handle; use `edge` to reuse existing Points.
+Use header prose to describe the joint; use `edge` to reuse existing Points.
 
 Any invalid member rejects the whole joint, never a reduced source set.
 First Points below the group, including through invalid body wrappers, receive no structural connection to the outer target even after rejection.
@@ -122,9 +125,14 @@ Distinct Points with the same prose remain distinct sources.
 
 Unlike an `edge`, a join obtains its sources and target from the local structure.
 An equivalent edge example must move the Grounds out of default-support placement while preserving their content, roles, names, status, and subtrees.
-Compare the resulting topology after ignoring local keys, order, spans, Explain, and structural/operator provenance.
+Use the same header description when comparing semantic content and topology after ignoring local keys, order, spans, Explain, and structural/operator provenance.
 Leaving G children in place and adding an edge intentionally produces both unary and joint Bearings.
 Neither construction adds reasoning closure, validity checks, minimality, or necessary-premise claims.
+
+The 0.4.0-alpha.1 source rejects `[join]` with prose as `JOIN_BODY_UNSUPPORTED` and emits no joint Bearing.
+The unpublished 0.4.0-alpha.2 source accepts it and preserves the description in the joint Bearing's `text`.
+Previously legal notes, including joins without header prose, are unchanged.
+Format 0.4.0 and its schemas remain unchanged: the AST already preserves header text, and Graph IR already admits optional Bearing text.
 
 ## Names and resolution
 

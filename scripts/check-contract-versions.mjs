@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 const rootPackage = await readJson("package.json");
 const corePackage = await readJson("packages/core/package.json");
 const cliPackage = await readJson("packages/cli/package.json");
+const lockfile = await readJson("package-lock.json");
 const astSchema = await readJson("spec/ast.schema.json");
 const graphSchema = await readJson("spec/graph-ir.schema.json");
 const explainSchema = await readJson("spec/explain.schema.json");
@@ -14,6 +15,8 @@ const expectedPackage = rootPackage.version;
 const expectedFormat = expectedPackage.split("-")[0];
 const packages = new Map([
   ["root package", rootPackage.version],
+  ["lockfile", lockfile.version],
+  ["locked root package", lockfile.packages?.[""]?.version],
   ["core package", corePackage.version],
   ["CLI package", cliPackage.version],
   ["CLI core dependency", cliPackage.dependencies?.["@cogitatum/core"]]
@@ -22,6 +25,11 @@ for (const name of ["view"]) {
   const pkg = await readJson(`packages/${name}/package.json`);
   packages.set(`${name} package`, pkg.version);
   packages.set(`${name} core dependency`, pkg.dependencies?.["@cogitatum/core"]);
+}
+for (const name of ["core", "cli", "view"]) {
+  const pkg = lockfile.packages?.[`packages/${name}`];
+  packages.set(`locked ${name} package`, pkg?.version);
+  if (name !== "core") packages.set(`locked ${name} core dependency`, pkg?.dependencies?.["@cogitatum/core"]);
 }
 for (const workspace of rootPackage.workspaces ?? []) {
   if (workspace === "site") {

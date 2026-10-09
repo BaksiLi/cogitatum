@@ -17,7 +17,7 @@ Describe the method in ordinary prose or an `edge` description when it matters. 
 
 ```md cog-check require=supports points=2 bearings=1 diagnostics=0
 - [C @reading] The passage presents the speaker as uncertain.
-- [@hesitation] The speaker interrupts and revises the same sentence twice.
+- [G @hesitation] The speaker interrupts and revises the same sentence twice.
 - [edge @hesitation +> @reading; @reading-route] This is an interpretive reason for the reading.
 ```
 
@@ -40,12 +40,13 @@ You need not classify every relevant passage as support or challenge.
 
 ```md cog-check require=supports,undercuts points=4 bearings=2 diagnostics=0
 - [C @conclusion] The service needs more capacity.
-- [@load] Peak load exceeds current capacity.
-- [@forecast] The forecast predicts further growth.
+- [G @load] Peak load exceeds current capacity.
+- [G @forecast] The forecast predicts further growth.
 - [edge @load, @forecast +> @conclusion; @capacity-route] These reasons bear on the conclusion jointly.
 - [O _> @capacity-route] The forecast assumes a campaign that was cancelled.
 ```
 
+The names are needed for the edge's references; ordinary body cannot serve as an edge source.
 Two separate `[G]` children create two independent connections. One `edge` with two sources creates one joint connection without also creating the independent ones.
 
 ### One reason, two ways to write it
@@ -74,10 +75,11 @@ Both construct Bearings; neither is a new Point role or a measure of reasoning s
 Both original notes below keep the same Claim and two Grounds, including their names, roles, and content.
 Each creates exactly one joint `supports` Bearing named `route`.
 In the explicit version, the Grounds sit outside the Claim's indentation, so they create no extra default supports.
+The prose after each header describes the same connection.
 
 ```md cog-check compare=joint-reasons caption="Local join" require=supports points=3 bearings=1 diagnostics=0
 - [C @mortality] Socrates is mortal.
-  - [join; @route]
+  - [join; @route] Apply the general rule to this case.
     - [G @humans] All humans are mortal.
     - [G @socrates] Socrates is human.
 ```
@@ -86,7 +88,7 @@ In the explicit version, the Grounds sit outside the Claim's indentation, so the
 - [C @mortality] Socrates is mortal.
 - [G @humans] All humans are mortal.
 - [G @socrates] Socrates is human.
-- [edge @humans, @socrates +> @mortality; @route]
+- [edge @humans, @socrates +> @mortality; @route] Apply the general rule to this case.
 ```
 
 The two Grounds keep their own content and roles.
@@ -106,7 +108,9 @@ This is a different topology, not an equivalent spelling.
 
 The handle is optional, and one member is allowed.
 The nearest enclosing Point supplies the target, regardless of its role.
-Members must be direct `G` children without operators or Bearing handles; put commentary outside the group.
+Header prose is optional and becomes the joint Bearing's description, just like `edge` prose.
+It creates no Point and changes neither membership nor the source and target references.
+Members must be direct `G` children without operators or Bearing handles; an unmarked body child is not a member.
 Invalid membership rejects the whole join without falling back to single-source connections.
 Member subtrees retain their ordinary behavior, including a further join below a real intermediate Point.
 For complete restrictions and partial-output behavior, see [local joins](syntax.md#local-joins).
