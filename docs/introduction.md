@@ -12,7 +12,7 @@ Cogitatum is a lightweight markup language for making selected reasoning structu
 
 Use it in an investigation, a reading note, or the reasons for a decision. Start with the writing. Add a mark where seeing a question or connection would help.
 
-```md cog-check require=answers,supports,challenges
+```md cog-check require=answers,supports,challenges points=4 bearings=3 diagnostics=0
 - We noticed slower requests after deployment. These notes collect what we know so far.
   - [Q] Why are requests timing out?
     - [C?] The connection pool may be exhausted.

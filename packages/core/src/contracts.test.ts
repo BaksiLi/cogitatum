@@ -44,11 +44,38 @@ describe("public compiler contract boundaries", () => {
     expect(compileGraphWithExplain(ast).explain.entries[1].recognition).toEqual({ kind: "body" });
   });
 
+  it("validates joins and their recovery/trace variants without admitting Point or operator fields", () => {
+    for (const header of ["[join; @route]", "[join;]", "[join; @a; @b]", "[Join]", "[join"]) {
+      const ast = parseDocument(`- [C @c] Target.\n  - ${header}\n    - [G @a] First.\n    - [G @b] Second.`);
+      const { graph, explain } = compileGraphWithExplain(ast);
+      expect(validateAst(json(ast)), header).toBe(true);
+      expect(validateGraph(json(graph)), header).toBe(true);
+      expect(validateExplain(json(explain)), header).toBe(true);
+      expect(validateSource(json(explainSource(`\`\`\`cog\n- [C] Target.\n  - ${header}\n    - [G] First.\n\`\`\``, "host"))), header).toBe(true);
+      const invalid = json(ast);
+      invalid.blocks[0].children[0].annotation.anchor = "fake-point";
+      expect(validateAst(invalid)).toBe(false);
+      delete invalid.blocks[0].children[0].annotation.anchor;
+      invalid.blocks[0].children[0].annotation.operatorClause = { op: "supports", sources: "self", target: { id: "c" } };
+      expect(validateAst(invalid)).toBe(false);
+    }
+    const ast = parseDocument("- [C] Target.\n  - [join]\n    - [G] First.");
+    // Compiler semantics belong to annotation, not retained raw source.
+    const raw = ast.blocks[0].children[0].raw;
+    delete ast.blocks[0].children[0].annotation;
+    const graph = compileGraph(ast);
+    expect(graph.bearings).toHaveLength(1);
+    expect(graph.bearings[0].sources).toHaveLength(1);
+    expect(ast.blocks[0].children[0].raw).toBe(raw);
+    ast.version = "0.3.0";
+    expect(() => compileGraph(ast)).toThrow("Unsupported AST format 0.3.0");
+  });
+
   it("rejects mirrored AST fields even when they agree with the annotation", () => {
     const ast = parseDocument("- [C @claim] Claim.\n  - [G @reason; @route] Reason.\n");
     for (const [field, value] of Object.entries({
       id: "reason", role: "G", handle: "route", status: "open",
-      syntaxErrors: ["operator"], operatorClause: { op: "supports", sources: "self", target: { id: "claim" } }
+      syntaxErrors: ["operator"], joinSyntaxErrors: ["join"], operatorClause: { op: "supports", sources: "self", target: { id: "claim" } }
     })) {
       const invalid = json(ast);
       invalid.blocks[0].children[0][field] = value;

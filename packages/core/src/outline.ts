@@ -12,7 +12,7 @@ type RawNode = {
 };
 
 const RESERVED_ANNOTATION_START_RE =
-  /^(?:[QCGORD](?:\?)?(?=$|[\s@;+_~>-])|\?(?=$|[\s@;+_~>-])|edge(?=$|\s)|scope(?=$|\s)|@)/i;
+  /^(?:[QCGORD](?:\?)?(?=$|[\s@;+_~>-])|\?(?=$|[\s@;+_~>-])|edge(?=$|\s)|join(?=$|[\s;])|scope(?=$|\s)|@)/i;
 
 export function parseDocument(source: string, options: ParseOptions = {}): DocumentAst {
   const diagnostics: Diagnostic[] = [];
@@ -186,7 +186,12 @@ function toAstBlock(node: RawNode, diagnostics: Diagnostic[]): AstBlock {
   if (parsed) {
     diagnostics.push(...parsed.diagnostics);
   }
-  const annotation = parsed?.annotation;
+  const annotation = parsed?.annotation ?? (
+    // An unclosed reserved join still blocks fallback relationships during recovery.
+    node.indentationValid && /^\[\s*join(?=$|[\s;])/i.test(node.text) && !node.text.includes("]")
+      ? { kind: "join" as const, raw: node.text.slice(1), syntaxErrors: ["join" as const] }
+      : undefined
+  );
   return {
     kind: "block",
     text: node.text,

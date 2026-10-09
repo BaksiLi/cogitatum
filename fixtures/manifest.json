@@ -281,6 +281,24 @@
       "input": "document",
       "purpose": "Variable space widths are valid when dedents match active levels.",
       "expected": "syntax/variable-indentation.expected.json"
+    },
+    {
+      "file": "core/local-join.cog.md",
+      "input": "document",
+      "purpose": "Local joint support coexists with ordinary unary support, premise objections, route undercuts, and a shared premise edge.",
+      "expected": "core/local-join.expected.json"
+    },
+    {
+      "file": "diagnostics/invalid-join-members.cog.md",
+      "input": "document",
+      "purpose": "Invalid join membership rejects the joint atomically, suppresses unary recovery, and preserves explicit operators and independent subtrees.",
+      "expected": "diagnostics/invalid-join-members.expected.json"
+    },
+    {
+      "file": "host/local-join.md",
+      "input": "host",
+      "purpose": "A named singleton join retains its route and original host locations after fence indentation normalization.",
+      "expected": "host/local-join.expected.json"
     }
   ]
 }

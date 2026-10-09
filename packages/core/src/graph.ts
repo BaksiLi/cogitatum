@@ -24,6 +24,7 @@ import { FORMAT_VERSION } from "./types.js";
 type Context = {
   parent?: AstBlock;
   edgeAncestor?: AstBlock;
+  joinAncestor?: AstBlock;
 };
 
 type CandidateBearing = {
@@ -60,21 +61,22 @@ type BearingDraft =
   | {
       outcome: "candidate";
       candidate: CandidateBearing;
-      reason: "operator-clause" | "annotated-containment";
+      reason: "operator-clause" | "annotated-containment" | "join-containment";
     }
   | {
       outcome: "rejected";
-      reason: "annotation-syntax-error" | "edge-descendant-requires-explicit-target";
+      reason: "annotation-syntax-error" | "edge-descendant-requires-explicit-target" | "invalid-join";
     }
   | {
       outcome: "skipped";
-      reason: "no-eligible-ancestor" | "no-structural-rule";
+      reason: "no-eligible-ancestor" | "no-structural-rule" | "join-membership";
     };
 
 type ExplainDraft = {
   block: AstBlock;
   recognition: ExplainRecognition;
   point?: PointDraft;
+  membership?: { joinSpan: SourceSpan; eligible: boolean };
   bearing?: BearingDraft;
 };
 
@@ -155,6 +157,15 @@ function compileBlock(
   };
   explainDrafts.push(draft);
 
+  if (annotation.kind === "join") {
+    compileJoin(block, context, draft, pointKeys, points, bearings, explainDrafts, diagnostics);
+    return;
+  }
+
+  if (context.joinAncestor && annotation.kind !== "edge") {
+    draft.membership = { joinSpan: context.joinAncestor.sourceSpan, eligible: context.joinAncestor.children.includes(block) && isJoinMember(block) };
+  }
+
   if (annotation.kind !== "edge") {
     const point = pointFromBlock(block, pointKeys);
     points.push(point);
@@ -191,6 +202,8 @@ function compileBlock(
     } else {
       draft.bearing = { outcome: "rejected", reason: "annotation-syntax-error" };
     }
+  } else if (context.joinAncestor && annotation.kind !== "edge") {
+    draft.bearing = { outcome: "skipped", reason: "join-membership" };
   } else {
     const bearing = deriveStructuralBearing(block, context.parent, pointKeys);
     if (bearing) {
@@ -224,6 +237,54 @@ function compileBlock(
   }
 }
 
+function isJoinMember(block: AstBlock): boolean {
+  const annotation = block.annotation;
+  return annotation?.kind === "role" && annotation.role === "G" &&
+    !annotation.operatorClause && !annotation.handle && !annotation.syntaxErrors?.length;
+}
+
+function compileJoin(
+  block: AstBlock,
+  context: Context,
+  draft: ExplainDraft,
+  pointKeys: WeakMap<AstBlock, string>,
+  points: Point[],
+  bearings: CandidateBearing[],
+  explainDrafts: ExplainDraft[],
+  diagnostics: Diagnostic[]
+): void {
+  let valid = !block.annotation?.syntaxErrors?.length;
+  const reject = (code: string, message: string, location = block) => {
+    diagnostics.push({ severity: "error", code, message, sourceSpan: location.sourceSpan });
+    valid = false;
+  };
+  if (!context.parent) reject("JOIN_REQUIRES_POINT_TARGET", "Join requires a nearest enclosing Point target.");
+  if (context.edgeAncestor) reject("EDGE_DESCENDANT_REQUIRES_EXPLICIT_TARGET",
+    "Join beneath an edge cannot bypass the requirement for an explicitly targeted first Point.");
+  if (context.joinAncestor) reject("NESTED_JOIN_UNSUPPORTED",
+    "Join cannot be nested beneath another join without an intervening Point.");
+  if (block.text && !block.annotation?.syntaxErrors?.length) reject("JOIN_BODY_UNSUPPORTED", "Put join commentary outside the group and reference its handle.");
+  if (!block.children.length) reject("EMPTY_JOIN", "Join requires at least one direct Ground member.");
+  for (const child of block.children) {
+    if (!isJoinMember(child)) reject("INVALID_JOIN_MEMBER",
+      "Each direct join member must be a Ground Point without an operator, Bearing handle, or annotation error.", child);
+  }
+  if (valid && context.parent) {
+    const bearing = structural(block, "supports", block.children.map(child => pointKeyForBlock(child, pointKeys)),
+      pointKeyForBlock(context.parent, pointKeys));
+    bearing.key = `_b${bearings.length + 1}`;
+    bearings.push(bearing);
+    draft.bearing = { outcome: "candidate", candidate: bearing, reason: "join-containment" };
+  } else {
+    draft.bearing = { outcome: "rejected", reason: "invalid-join" };
+  }
+  // Suppress only first-Point structural relations. Explicit operators and subtrees
+  // remain independent evidence, including when membership invalidates the join.
+  for (const child of block.children) {
+    compileBlock(child, { ...context, joinAncestor: block }, pointKeys, points, bearings, explainDrafts, diagnostics);
+  }
+}
+
 function recognitionForBlock(block: AstBlock): ExplainRecognition {
   const annotation = block.annotation;
   if (!annotation) {
@@ -240,7 +301,7 @@ function recognitionForBlock(block: AstBlock): ExplainRecognition {
   if (annotation.kind === "gap") {
     return { kind: "gap", status: "open" };
   }
-  return { kind: annotation.kind === "anchor" ? "material" : "edge" };
+  return { kind: annotation.kind === "anchor" ? "material" : annotation.kind };
 }
 
 function pointReasonForBlock(block: AstBlock): PointDraft["reason"] {
@@ -539,6 +600,10 @@ function buildExplainEntries(
       effects.push({ kind: "preserveBody" });
     }
 
+    if (draft.membership) {
+      effects.push({ kind: "joinMember", ...draft.membership });
+    }
+
     if (draft.point) {
       const ref = pointRef(draft.point.key);
       const identity = draft.point.id ? { id: draft.point.id } : {};
@@ -672,8 +737,8 @@ function addStructuralDiagnostics(
       anchor &&
       !symbols.duplicatePointIds.has(anchor) &&
       !symbols.conflictingIds.has(anchor) &&
-      !block.annotation?.operatorClause &&
       block.annotation?.kind === "anchor" &&
+      !block.annotation.operatorClause &&
       !connectedKeys.has(symbols.keysById.get(anchor) ?? "")
     ) {
       diagnostics.push({
@@ -768,7 +833,7 @@ function assignPointKeys(blocks: AstBlock[]): WeakMap<AstBlock, string> {
   let nextId = 1;
 
   walkWithParent(blocks, undefined, (block) => {
-    if (block.annotation && block.annotation.kind !== "edge") {
+    if (block.annotation && block.annotation.kind !== "edge" && block.annotation.kind !== "join") {
       pointKeys.set(block, `_p${nextId}`);
       nextId += 1;
     }

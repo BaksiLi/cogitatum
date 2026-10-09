@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://cogitatum.baksili.codes/schemas/0.3.0/source.schema.json",
+  "$id": "https://cogitatum.baksili.codes/schemas/0.4.0/source.schema.json",
   "title": "Cogitatum Source API Result",
   "description": "Shape contract for parseSource, compileSource, and explainSource envelopes. Parallel units and projections correspond by array index; equal lengths and cross-reference validity are compiler guarantees that JSON Schema cannot express.",
   "type": "object",
@@ -33,18 +33,18 @@
       "additionalProperties": false
     },
     "diagnostic": {
-      "$ref": "https://cogitatum.baksili.codes/schemas/0.3.0/ast.schema.json#/$defs/diagnostic"
+      "$ref": "https://cogitatum.baksili.codes/schemas/0.4.0/ast.schema.json#/$defs/diagnostic"
     },
     "base": {
       "type": "object",
       "required": ["version", "mode", "units", "documents", "diagnostics"],
       "properties": {
-        "version": { "const": "0.3.0" },
+        "version": { "const": "0.4.0" },
         "mode": { "enum": ["document", "host"] },
         "units": { "type": "array", "items": { "$ref": "#/$defs/sourceUnit" } },
         "documents": {
           "type": "array",
-          "items": { "$ref": "https://cogitatum.baksili.codes/schemas/0.3.0/ast.schema.json" }
+          "items": { "$ref": "https://cogitatum.baksili.codes/schemas/0.4.0/ast.schema.json" }
         },
         "diagnostics": { "type": "array", "items": { "$ref": "#/$defs/diagnostic" } }
       }
@@ -67,7 +67,7 @@
           "properties": {
             "graphs": {
               "type": "array",
-              "items": { "$ref": "https://cogitatum.baksili.codes/schemas/0.3.0/graph-ir.schema.json" }
+              "items": { "$ref": "https://cogitatum.baksili.codes/schemas/0.4.0/graph-ir.schema.json" }
             }
           }
         },
@@ -85,7 +85,7 @@
           "properties": {
             "graphs": {
               "type": "array",
-              "items": { "$ref": "https://cogitatum.baksili.codes/schemas/0.3.0/graph-ir.schema.json" }
+              "items": { "$ref": "https://cogitatum.baksili.codes/schemas/0.4.0/graph-ir.schema.json" }
             }
           }
         },
@@ -95,7 +95,7 @@
           "properties": {
             "explanations": {
               "type": "array",
-              "items": { "$ref": "https://cogitatum.baksili.codes/schemas/0.3.0/explain.schema.json" }
+              "items": { "$ref": "https://cogitatum.baksili.codes/schemas/0.4.0/explain.schema.json" }
             }
           }
         }

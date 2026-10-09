@@ -1,0 +1,15 @@
+{
+  "mode": "host",
+  "diagnostics": [],
+  "graphs": [{
+    "points": [
+      { "line": 3, "form": "role", "role": "C", "status": "open", "id": "conclusion" },
+      { "line": 5, "form": "role", "role": "G", "id": "premise" },
+      { "line": 6, "form": "role", "role": "O" }
+    ],
+    "bearings": [
+      { "line": 4, "kind": "supports", "sources": [5], "target": { "kind": "point", "line": 3 }, "derivedBy": "structural", "handle": "route" },
+      { "line": 6, "kind": "undercuts", "sources": [6], "target": { "kind": "bearing", "line": 4 }, "derivedBy": "operator" }
+    ]
+  }]
+}

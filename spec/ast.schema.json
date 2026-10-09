@@ -1,12 +1,12 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://cogitatum.baksili.codes/schemas/0.3.0/ast.schema.json",
+  "$id": "https://cogitatum.baksili.codes/schemas/0.4.0/ast.schema.json",
   "title": "Cogitatum Document AST",
   "description": "Ordered parser output. An annotation is a block's only semantic representation; raw text preserves the source and is not reinterpreted during compilation.",
   "type": "object",
   "required": ["version", "blocks", "diagnostics"],
   "properties": {
-    "version": { "const": "0.3.0" },
+    "version": { "const": "0.4.0" },
     "blocks": {
       "type": "array",
       "items": { "$ref": "#/$defs/block" }
@@ -79,8 +79,25 @@
       "minItems": 1,
       "uniqueItems": true
     },
+    "joinSyntaxErrors": {
+      "type": "array",
+      "items": { "enum": ["join", "handle"] },
+      "minItems": 1,
+      "uniqueItems": true
+    },
     "annotation": {
       "oneOf": [
+        {
+          "type": "object",
+          "required": ["kind", "raw"],
+          "properties": {
+            "kind": { "const": "join" },
+            "syntaxErrors": { "$ref": "#/$defs/joinSyntaxErrors" },
+            "handle": { "$ref": "#/$defs/authoredId" },
+            "raw": { "type": "string" }
+          },
+          "additionalProperties": false
+        },
         {
           "type": "object",
           "required": ["kind", "role", "raw"],

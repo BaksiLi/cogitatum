@@ -1,0 +1,10 @@
+- [C @conclusion] Conclusion.
+  - [G @observation] An independent reason.
+  - [join; @joint-route]
+    - [G @first] First joint premise.
+      - [O @objection] Objection to this premise.
+        - [R @reply] Reply to that objection.
+    - [G @second] Second joint premise.
+- [O @undercut _> @joint-route] Objection to the route.
+- [C @other] Another conclusion.
+- [edge @first +> @other; @shared-route]

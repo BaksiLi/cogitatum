@@ -1,13 +1,13 @@
 ---
 title: Complete syntax
-summary: Format 0.3.0 grammar, indentation, references, input modes, and machine contract.
+summary: Format 0.4.0 grammar, indentation, references, input modes, and machine contract.
 section: reference
-order: 3
+order: 4
 ---
 
 # Complete syntax
 
-Public reference for **format 0.3.0**, delivered by the **0.3.0-alpha.1** candidate packages. Syntax and machine contracts may change before a stable release. Examples, schemas, and conformance fixtures are checked against the implementation.
+Public reference for **format 0.4.0**, delivered by the **0.4.0-alpha.1** source candidate packages (not yet published). Syntax and machine contracts may change before a stable release. Examples, schemas, and conformance fixtures are checked against the implementation.
 
 ## Outline and body
 
@@ -15,7 +15,7 @@ Write a Markdown-style outline. Root blocks start at column one. Indent with spa
 
 Every nonblank source line must be a bullet block beginning with `- ` after indentation. An annotation starts the block's content after that marker. Unmarked content remains body. Other line forms produce `UNSUPPORTED_LINE` and are not represented as blocks. Blank lines do not produce blocks. The AST preserves supported block order, raw block lines, body, and source spans; byte-for-byte whitespace round trips are not promised. This is a restricted outline parser, not a complete Markdown parser.
 
-```md cog-check require=supports
+```md cog-check require=supports points=2 bearings=1 diagnostics=0
 - Ordinary context.
   - [C @claim] A claim.
     - An unmarked explanation.
@@ -25,18 +25,19 @@ Every nonblank source line must be a bullet block beginning with `- ` after inde
 ## Annotation grammar
 
 ```text
-annotation := "[" (role | gap | material | edge) "]"
+annotation := "[" (role | gap | material | edge | join) "]"
 role       := ("Q" | "C" | "C?" | "G" | "O" | "R" | "D") [REF] [OP REF] [";" REF]
 gap        := "?" [REF] [OP REF] [";" REF]
 material   := REF [OP REF] [";" REF]
 edge       := "edge" REF_LIST OP REF [";" REF]
+join       := "join" [";" REF]
 REF_LIST   := REF ("," REF)*
 REF        := "@" ID
 ID         := [a-z][a-z0-9_-]*
 OP         := "+>" | "->" | "_>" | "~>"
 ```
 
-Token order and case matter; `edge` is lowercase. Whitespace separates words and reference lists use commas. Each operator has exactly one target; an `edge` has one or more unique sources. Optional prose follows the closing bracket.
+Token order and case matter; `edge` and `join` are lowercase. Whitespace separates words and reference lists use commas. Each operator has exactly one target; an `edge` has one or more unique sources. Optional prose follows the closing bracket, except that a `join` header has no commentary text.
 
 | Form | Effect |
 | --- | --- |
@@ -46,13 +47,18 @@ Token order and case matter; `edge` is lowercase. Whitespace separates words and
 | `[O -> @claim]` | Anonymous Point and explicit challenge |
 | `[G @reason; @route]` | Named Point and named structural Bearing, if the parent permits it |
 | `[edge @a, @b +> @claim; @route]` | One joint Bearing between existing Points; no new Point |
+| `[join; @route]` with direct Grounds | One structural joint support to the nearest enclosing Point; no new Point |
 | Unmarked body or grouping | No Point or Bearing of its own |
 
-Empty brackets, unfinished reserved prefixes, malformed operators, invalid names, repeated sources, and a bare `;` are errors. Invalid annotations remain inspectable in the AST. A valid Point can survive an error in its attached Bearing. `[Context for this section]` and its unclosed counterpart are ordinary body. Only a role token, `?`, `edge`, or `@` at the beginning selects annotation parsing; incorrect case and the retired `scope` prefix are also recognized so they can be diagnosed. Recognition does not make those invalid forms legal. A word beginning with a role letter, such as `Context`, does not select annotation parsing.
+Empty brackets, unfinished reserved prefixes, malformed operators, invalid names, repeated sources, and a bare `;` are errors. Invalid annotations remain inspectable in the AST. A valid Point can survive an error in its attached Bearing. `[Context for this section]` and its unclosed counterpart are ordinary body. Only a role token, `?`, `edge`, `join`, or `@` at the beginning selects annotation parsing; incorrect case and the retired `scope` prefix are also recognized so they can be diagnosed. Recognition does not make those invalid forms legal. A word beginning with a role letter, such as `Context`, does not select annotation parsing.
 
 ## Roles and connections
 
-Roles are `Q` question, `C` claim, `G` ground, `O` objection, `R` reply, and `D` distinction. `C?` is an open claim; `[?]` is a gap. Other roles cannot take `?`.
+Roles are `Q` Question, `C` Claim, `G` Ground, `O` Objection, `R` Reply, and `D` Distinction.
+`C?` is a Claim with open status; `[?]` is a Gap, a separate Point form that is always open.
+A bare anchor marks Material, another Point form without a role.
+Other roles cannot take `?`.
+Open status is not a confidence score, and its absence does not certify acceptance or truth.
 
 | Operator | Kind | Permitted target |
 | --- | --- | --- |
@@ -61,7 +67,7 @@ Roles are `Q` question, `C` claim, `G` ground, `O` objection, `R` reply, and `D`
 | `_>` | `undercuts` | Bearing |
 | `~>` | `about` | Point or Bearing |
 
-Without an operator, use the nearest enclosing Point:
+Outside a join, without an operator, use the nearest enclosing Point:
 
 | Child | Parent | Derived kind |
 | --- | --- | --- |
@@ -74,7 +80,51 @@ Without an operator, use the nearest enclosing Point:
 
 Other combinations produce no structural Bearing. Body does not block lookup, but another Point does. An `edge` cannot be an implicit target: the first Point beneath it, possibly through body, needs an explicit operator and target. Once a Point is reached, its children use the ordinary indentation rules again. An operator overrides the structural default; it does not create a second connection.
 
+A top-level Objection is legal even without a target:
+
+```md cog-check points=1 bearings=0 diagnostics=0
+- [O @draft] A network fault could explain the same observations.
+```
+
+It creates one Point and no Bearing or diagnostic.
+Similarly, a Claim beneath a Gap creates no default connection and does not answer a Question outside the Gap.
+See [connections from indentation](bearings.md#connections-from-indentation) for paired examples.
+
 `supports` means positive bearing without specifying deductive, inductive, abductive, explanatory, or interpretive method. No kind asserts success or validity. The graph adds no negation from absence or transitive closure. See [Bearings](bearings.md) for examples.
+
+## Local joins
+
+`[join]` or `[join; @route]` constructs one `supports` Bearing.
+Its target is the nearest enclosing Point, possibly through ordinary body but never past another Point.
+Its sources are all its direct child blocks, each a `G` Point without an operator, handle, or annotation error.
+Their roles, content, optional anchors, and individual spans remain intact.
+The join has no Point or operator clause of its own, and its Bearing uses `derivedBy: "structural"` and the header's span.
+
+A singleton is legal; an empty group or missing Point target is an error.
+Header commentary, direct body wrappers, other roles, direct edges, reference members, and direct joins are invalid.
+A join cannot bypass an edge's explicit-target boundary.
+Direct join nesting, even through body, is rejected; a join inside a member Point's subtree is a separate inference and is legal.
+Put group commentary outside and reference a handle; use `edge` to reuse existing Points.
+
+Any invalid member rejects the whole joint, never a reduced source set.
+First Points below the group, including through invalid body wrappers, receive no structural connection to the outer target even after rejection.
+Valid Points and their own ordinary subtrees remain available.
+A valid explicit member operator or direct edge remains an independently authored Bearing, subject to ordinary reference validation, while invalidating membership in the join.
+A member's handle without an operator produces no default Bearing and receives `BEARING_HANDLE_WITHOUT_BEARING`.
+Malformed member operators receive their normal syntax diagnostic and no fallback.
+This preserves explicit intent without treating it as a joint source declaration.
+
+Malformed reserved join annotations remain join constructs in the AST, including an unclosed prefix, so recovery cannot turn their members into unary support.
+Membership/context failure yields no route to reference (`UNKNOWN_TARGET` for a subsequent handle reference).
+A candidate rejected during ordinary name/reference validation follows the existing failed-Bearing dependency rules.
+Duplicate member anchors invalidate the entire joint rather than deduplicating or dropping a source.
+Distinct Points with the same prose remain distinct sources.
+
+Unlike an `edge`, a join obtains its sources and target from the local structure.
+An equivalent edge example must move the Grounds out of default-support placement while preserving their content, roles, names, status, and subtrees.
+Compare the resulting topology after ignoring local keys, order, spans, Explain, and structural/operator provenance.
+Leaving G children in place and adding an edge intentionally produces both unary and joint Bearings.
+Neither construction adds reasoning closure, validity checks, minimality, or necessary-premise claims.
 
 ## Names and resolution
 
@@ -85,6 +135,11 @@ Duplicate Point anchors invalidate all Points with that anchor and dependent Bea
 ## Input modes
 
 `document` compiles a standalone outline without a wrapper. `host` extracts document-level `cog` or `cogitatum` fences from mixed Markdown. `auto` uses host mode when it finds a Cogitatum fence candidate and otherwise document mode.
+
+All input modes permit indentation-based authoring, explicit-relation authoring, or a mixture.
+These writing techniques are not additional compiler input modes.
+`derivedBy` records how an individual Bearing was produced, not the input mode or an authoring style for the document.
+Only `supports`, `challenges`, `undercuts`, and `about` have explicit operators; `answers`, `repliesTo`, and `clarifies` are structural only.
 
 Host integrations can use the source envelope to keep each independent fence paired with its AST, graph, and source locations:
 
@@ -109,7 +164,7 @@ const inquiries = result.units.map((unit, index) => ({
 
 Each fence compiles independently; anchors and compilation keys do not cross fences. `unit.startLine` and graph `sourceSpan` values locate results in the original host document. Source spans use one-based lines and UTF-16 columns. Keep each source unit paired with the projection at the same array index, and treat diagnostics as part of the result even when a partial graph is available.
 
-````markdown
+````markdown cog-check input=host require=supports points=2 bearings=1 diagnostics=0
 Context outside the selected inquiry.
 
 ```cog
@@ -126,7 +181,10 @@ Each fence has its own namespace and graph; references cannot cross fences. Miss
 
 `parseDocument` returns an ordered AST; `compileGraph` produces `GraphIR`. `parseSource` and `compileSource` expose envelopes for the input modes.
 
-For debugging, `compileGraphWithExplain` and `explainSource` add a compiler trace: how a block was recognized, which points or connections were emitted or rejected, and why an indentation rule applied or no connection was produced. The CLI exposes this as `cog explain`. It explains compilation decisions, not the truth of the prose, the strength of a reason, or a history of the author's thinking. The trace is an optional Alpha interface; ordinary integrations can use AST and Graph IR alone.
+For debugging, `compileGraphWithExplain` and `explainSource` add a compiler trace: how a block was recognized, which points or connections were emitted or rejected, and why an indentation rule applied or no connection was produced. The CLI exposes this as `cog explain`.
+Join recognition and `joinMember` effects identify the group span and syntactic membership eligibility; `join-membership` explains suppression of a default Bearing.
+The header emits with `join-containment` or rejects with `invalid-join`; later name/reference rejection uses `validation-error`.
+Membership eligibility does not certify that the whole join survived validation. It explains compilation decisions, not the truth of the prose, the strength of a reason, or a history of the author's thinking. The trace is an optional Alpha interface; ordinary integrations can use AST and Graph IR alone.
 
 An AST block holds its text, raw source, children, span, and optional `annotation`. Role, anchor, status, operator, handle, and annotation errors live only inside `annotation`; there are no mirrored block-level semantic fields. A Point name appears as `annotation.anchor` in the AST and `id` in Graph IR. Ordinary body has no annotation. An `operatorClause` contains `op`, `sources`, and one authored `target: { id }`. Point annotations use `sources: "self"`; an `edge` uses a nonempty array of authored source references.
 
@@ -141,7 +199,12 @@ Graph references use `{ key, kind }`; AST references remain `{ id }`. Keys are o
 
 Explain emission references use graph keys; Bearing emissions also have a graph index and optional handle. The index addresses this compilation's Bearing array only. Emitted summaries obey the same kind/target restrictions as canonical Bearings. Rejected candidates can retain unresolved authored `{ id }` references or a resolved target of the wrong kind: that mismatch can explain the rejection. They are not graph entities. Diagnostic codes on an entry come from diagnostics whose source spans overlap that block; they can include diagnostics from its children. The top-level diagnostics retain their actual spans.
 
-Format 0.3.0 replaces generated Point IDs, optional Bearing IDs, ID-based graph references, mirrored AST block fields, and the AST operator's single-element `targets` array (now `target`). Consumers must migrate together; reparse older source rather than relabelling old JSON with the new version.
+Format 0.4.0 reserves `join` and adds its AST and Explain variants.
+Format 0.3.0 treated `[join; @route]` as ordinary body, so nested Grounds produced unary supports; reparsing that source now changes its graph deliberately.
+Ordinary G defaults outside joins are unchanged.
+Upgrade compiler, schemas, and consumers together; reparse source rather than relabelling 0.3.0 JSON.
+
+Format 0.3.0 replaced generated Point IDs, optional Bearing IDs, ID-based graph references, mirrored AST block fields, and the AST operator's single-element `targets` array (now `target`). Consumers must migrate together; reparse older source rather than relabelling old JSON with the new version.
 
 ### Schemas for integrations
 
@@ -151,11 +214,17 @@ The source distribution's `spec/` directory contains JSON Schemas using draft 20
 import graphSchema from '@cogitatum/core/schemas/graph-ir' with { type: 'json' };
 ```
 
-The website also serves [AST](https://cogitatum.baksili.codes/schemas/0.3.0/ast.schema.json), [Graph IR](https://cogitatum.baksili.codes/schemas/0.3.0/graph-ir.schema.json), [Explain](https://cogitatum.baksili.codes/schemas/0.3.0/explain.schema.json), and [source-envelope](https://cogitatum.baksili.codes/schemas/0.3.0/source.schema.json) schemas. Their `$id` includes the format version. Schema identifiers and published contracts must change together when a new format is introduced; a package-only fix need not change the format. The package copies support offline use and require no schema downloads.
+Schema `$id` values now use `/schemas/0.4.0/` and must change with the format contract.
+Use the package copies for offline validation; this source candidate does not publish those URLs or update the hosted compiler.
+The hosted website and published npm Alpha remain separate release surfaces.
 
-These schemas validate individual AST, Graph IR, and Explain projections, not the surrounding multi-unit `parseSource` / `compileSource` / `explainSource` envelopes. Validate each document, graph, or explanation in the corresponding array.
+The AST, Graph IR, and Explain schemas validate individual projections.
+The source-envelope schema validates the shape of the multi-unit `parseSource` / `compileSource` / `explainSource` envelopes, including each projection through its sibling schema.
 
-Schema validation checks field shapes, allowed variants, and local restrictions. It does not establish key or authored-name uniqueness across entities, reference existence, source-span ordering, agreement between Explain and its graph, or whether a graph follows from particular source text. The compiler resolves names and references; conformance tests check its output invariants. Passing a schema also makes no claim about the quality of the reasoning.
+Schema validation checks field shapes, allowed variants, and local restrictions.
+It does not establish equal lengths or correct index pairing of the envelope arrays, key or authored-name uniqueness across entities, reference existence, source-span ordering, agreement between Explain and its graph, or whether a graph follows from particular source text.
+The compiler pairs source units with their projections and resolves names and references; conformance tests check its output invariants.
+Passing a schema also makes no claim about the quality of the reasoning.
 
 Canonical objects reject unknown fields. Integration metadata, confidence scores, inference-method profiles, and workflow history should be stored alongside the compiler output, with their own contracts, rather than injected into it. This keeps the meaning of existing Bearings explicit while leaving integrations free to add their own interpretations.
 

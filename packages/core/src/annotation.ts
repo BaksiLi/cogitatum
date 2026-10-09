@@ -29,6 +29,27 @@ export function parseAnnotation(raw: string, sourceSpan?: SourceSpan): Annotatio
   const trimmed = raw.trim();
   const semicolonParts = trimmed.split(";").map((part) => part.trim());
 
+  // Retain malformed join intent so its children never fall back to unary support.
+  if (/^join(?=$|[\s;])/i.test(trimmed)) {
+    const main = semicolonParts[0];
+    const handle = semicolonParts.length === 2 ? parseSingleRef(semicolonParts[1]) : undefined;
+    const invalidSyntax = main !== "join" || semicolonParts.length > 2;
+    const invalidHandle = semicolonParts.length === 2 && !handle;
+    if (invalidSyntax) {
+      diagnostics.push({ severity: "error", code: "MALFORMED_JOIN_ANNOTATION",
+        message: "Join annotations must look like [join] or [join; @route].", sourceSpan });
+    }
+    if (invalidHandle) {
+      diagnostics.push({ severity: "error", code: "MALFORMED_BEARING_HANDLE",
+        message: "Bearing handle separator ';' must be followed by exactly one valid @id.", sourceSpan });
+    }
+    const errors: ("join" | "handle")[] = [];
+    if (invalidSyntax) errors.push("join");
+    if (invalidHandle) errors.push("handle");
+    return { annotation: { kind: "join", raw, handle,
+      syntaxErrors: errors.length ? errors : undefined }, diagnostics };
+  }
+
   if (semicolonParts.length > 2) {
     diagnostics.push({
       severity: "error",
@@ -286,8 +307,8 @@ function duplicateRefIds(refs: Ref[]): string[] {
   return [...duplicates];
 }
 
-function syntaxErrors(invalidOperator: boolean, invalidHandle: boolean): AnnotationSyntaxError[] | undefined {
-  const errors: AnnotationSyntaxError[] = [];
+function syntaxErrors(invalidOperator: boolean, invalidHandle: boolean): Exclude<AnnotationSyntaxError, "join">[] | undefined {
+  const errors: Exclude<AnnotationSyntaxError, "join">[] = [];
   if (invalidOperator) {
     errors.push("operator");
   }

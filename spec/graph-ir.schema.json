@@ -1,12 +1,12 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://cogitatum.baksili.codes/schemas/0.3.0/graph-ir.schema.json",
+  "$id": "https://cogitatum.baksili.codes/schemas/0.4.0/graph-ir.schema.json",
   "title": "Cogitatum Point-Bearing Graph IR",
   "description": "Structural contract for a Graph IR projection. Cross-entity uniqueness, reference integrity, and agreement with source require compiler-level checks.",
   "type": "object",
   "required": ["version", "points", "bearings", "diagnostics"],
   "properties": {
-    "version": { "const": "0.3.0" },
+    "version": { "const": "0.4.0" },
     "points": {
       "type": "array",
       "items": { "$ref": "#/$defs/point" }

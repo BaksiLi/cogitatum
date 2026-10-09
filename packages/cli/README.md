@@ -2,7 +2,8 @@
 
 Check Cogitatum inquiry markup and inspect the reasoning connections marked in ordinary prose.
 
-Public Alpha: **0.3.0-alpha.1**, format **0.3.0**. Requires Node.js 22.12 or newer.
+Source candidate: **0.4.0-alpha.1**, format **0.4.0**, with local `join` support.
+This candidate is not yet published; npm `alpha` currently provides **0.3.0-alpha.1** without join. Requires Node.js 22.12 or newer.
 
 Run without a global installation:
 

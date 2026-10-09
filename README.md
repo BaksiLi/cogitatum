@@ -4,7 +4,7 @@ Cogitatum is a lightweight markup language for making selected reasoning structu
 
 Use it in reading notes, investigations, or the reasons for a decision. Keep the context in words; mark a question, reason, objection, or missing piece when making it explicit helps.
 
-```md cog-check require=answers,supports,challenges
+```md cog-check require=answers,supports,challenges points=4 bearings=3 diagnostics=0
 - We noticed slower requests after deployment and are collecting possible causes.
   - [Q] Why are requests timing out?
     - [C?] The database connection pool may be exhausted.
@@ -21,7 +21,11 @@ Four marked points, three explicit connections. The ordinary body remains in the
 
 **Cogitatum 0.3 Public Alpha releases an inquiry markup language and a working compiler.**
 
-Source release: **@cogitatum/core 0.3.0-alpha.1** and **@cogitatum/cli 0.3.0-alpha.1**, with **format 0.3.0**. Install with the `alpha` tag: `npm install @cogitatum/core@alpha`, or run the CLI with `npx --package @cogitatum/cli@alpha cog check inquiry.cog.md`. Syntax and machine contracts may change before a stable release.
+Published Alpha: **@cogitatum/core 0.3.0-alpha.1** and **@cogitatum/cli 0.3.0-alpha.1**, with **format 0.3.0**. Install with the `alpha` tag: `npm install @cogitatum/core@alpha`, or run the CLI with `npx --package @cogitatum/cli@alpha cog check inquiry.cog.md`. Syntax and machine contracts may change before a stable release.
+
+This checkout is the **0.4.0-alpha.1** source candidate, with **format 0.4.0** and local `join` support.
+It has not been published; the npm `alpha` tag and hosted playground do not gain join support from this source change.
+See [local joint reasons](docs/bearings.md#local-joint-reasons) and the [compatibility boundary](docs/syntax.md#machine-contract-and-cli).
 
 With Node.js 22.12 or newer, from a source checkout:
 
@@ -38,6 +42,7 @@ The core provides a deterministic parser and compiler for Node.js and browser in
 
 - [Points](docs/points.md): marked material and optional names.
 - [Bearings](docs/bearings.md): positive bearing, objections, explicit targets, and joint reasons.
+- [English / 繁體中文 glossary](docs/glossary.md): terminology for reading and argument reconstruction.
 - [Complete syntax](docs/syntax.md): grammar, input modes, resolution, and machine contracts.
 - `spec/`: JSON Schemas; `fixtures/`: conformance cases; `examples/`: curated source notes.
 
@@ -68,7 +73,7 @@ After `npm ci`, run `npm run build:public` to build Core, CLI, and the experimen
 | `spec/` | Authoritative JSON Schemas; builds copy them into the Core package |
 | `fixtures/` | Language conformance cases, including invalid input and expected diagnostics |
 | `examples/` | Public notes registered in the example manifest |
-| `docs/` | Introduction, quick start, Points, Bearings, and complete syntax |
+| `docs/` | Introduction, quick start, Points, Bearings, glossary, and complete syntax |
 
 For a compiler fix, add a small regression case and run `npx vitest run packages/core`. A [conformance fixture](fixtures/README.md) needs a specific purpose and a reviewed expected result, including diagnostics and the complete surviving graph topology. For a CLI fix, run `npx vitest run packages/cli`. For documentation, run `npm run check:docs` and review the Markdown. Finish with `npm run check`, which also verifies packed packages in an isolated consumer project.
 
@@ -80,7 +85,7 @@ Project Cogitatum explores inquiry artefacts: writing that keeps questions, reas
 
 Further work under the name **Cogitatio** concerns ongoing inquiry, revision, review, and continuity. Cogitatio and its runtime are not part of this release.
 
-The current development checkout also contains an experimental integration package, marked private and not published with the Alpha: [`@cogitatum/view`](packages/view/README.md) provides an embeddable, source-linked graph renderer. It leaves evidence, persistence, review, and application UI with the host. The language format remains 0.3.0.
+The current development checkout also contains an experimental integration package, marked private and not published with the Alpha: [`@cogitatum/view`](packages/view/README.md) provides an embeddable, source-linked graph renderer. It leaves evidence, persistence, review, and application UI with the host. The source candidate uses format 0.4.0.
 
 The public source covers the language, compiler, CLI, schemas, conformance fixtures, selected examples, and these usage documents. Website source and brand assets are maintained and deployed separately; the website renders the public documents and uses the compiler. Research essays, benchmarks, prompts, and runtime experiments are outside this source distribution.
 

@@ -1,12 +1,12 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://cogitatum.baksili.codes/schemas/0.3.0/explain.schema.json",
+  "$id": "https://cogitatum.baksili.codes/schemas/0.4.0/explain.schema.json",
   "title": "Cogitatum Explain Projection",
   "description": "Recognition and compiler effects for one source unit. Emitted summaries obey canonical target restrictions; rejected candidates may retain unresolved or invalid targets. Agreement with a graph is checked separately.",
   "type": "object",
   "required": ["version", "entries", "diagnostics"],
   "properties": {
-    "version": { "const": "0.3.0" },
+    "version": { "const": "0.4.0" },
     "entries": { "type": "array", "items": { "$ref": "#/$defs/entry" } },
     "diagnostics": { "type": "array", "items": { "$ref": "#/$defs/diagnostic" } }
   },
@@ -148,13 +148,23 @@
         {
           "type": "object",
           "required": ["kind"],
-          "properties": { "kind": { "const": "edge" } },
+          "properties": { "kind": { "enum": ["edge", "join"] } },
           "additionalProperties": false
         }
       ]
     },
     "effect": {
       "oneOf": [
+        {
+          "type": "object",
+          "required": ["kind", "joinSpan", "eligible"],
+          "properties": {
+            "kind": { "const": "joinMember" },
+            "joinSpan": { "$ref": "#/$defs/sourceSpan" },
+            "eligible": { "type": "boolean" }
+          },
+          "additionalProperties": false
+        },
         {
           "type": "object",
           "required": ["kind"],
@@ -190,7 +200,7 @@
             "kind": { "const": "emitBearing" },
             "ref": { "$ref": "#/$defs/emittedBearingRef" },
             "bearing": { "$ref": "#/$defs/emittedBearingSummary" },
-            "reason": { "enum": ["operator-clause", "annotated-containment"] }
+            "reason": { "enum": ["operator-clause", "annotated-containment", "join-containment"] }
           },
           "additionalProperties": false
         },
@@ -201,7 +211,7 @@
             "kind": { "const": "rejectBearing" },
             "bearing": { "$ref": "#/$defs/bearingSummary" },
             "reason": {
-              "enum": ["annotation-syntax-error", "edge-descendant-requires-explicit-target", "validation-error"]
+              "enum": ["annotation-syntax-error", "edge-descendant-requires-explicit-target", "validation-error", "invalid-join"]
             }
           },
           "additionalProperties": false
@@ -211,7 +221,7 @@
           "required": ["kind", "reason"],
           "properties": {
             "kind": { "const": "skipBearing" },
-            "reason": { "enum": ["no-eligible-ancestor", "no-structural-rule"] }
+            "reason": { "enum": ["no-eligible-ancestor", "no-structural-rule", "join-membership"] }
           },
           "additionalProperties": false
         }

@@ -28,10 +28,10 @@ describe("cog CLI", () => {
     const version = runCli("--version");
 
     expect(help.status).toBe(0);
-    expect(help.stdout).toContain("Cogitatum 0.3.0-alpha.1 (Alpha; format 0.3.0)");
+    expect(help.stdout).toContain("Cogitatum 0.4.0-alpha.1 (Alpha; format 0.4.0)");
     expect(help.stdout).toContain("cog <command>");
     expect(version.status).toBe(0);
-    expect(version.stdout).toContain("cog 0.3.0-alpha.1 (Alpha; format 0.3.0)");
+    expect(version.stdout).toContain("cog 0.4.0-alpha.1 (Alpha; format 0.4.0)");
   });
 
   it("checks valid source and preserves compiler diagnostics", () => {
@@ -42,7 +42,7 @@ describe("cog CLI", () => {
     );
 
     expect(valid.status).toBe(0);
-    expect(JSON.parse(valid.stdout)).toMatchObject({ version: "0.3.0", diagnostics: [] });
+    expect(JSON.parse(valid.stdout)).toMatchObject({ version: "0.4.0", diagnostics: [] });
     expect(invalid.status).toBe(1);
     expect(JSON.parse(invalid.stdout).diagnostics).toEqual(
       expect.arrayContaining([expect.objectContaining({ code: "BEARING_HANDLE_WITHOUT_BEARING" })])

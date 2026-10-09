@@ -1,11 +1,11 @@
-export const FORMAT_VERSION = "0.3.0";
+export const FORMAT_VERSION = "0.4.0";
 
 export type Role = "Q" | "C" | "G" | "O" | "R" | "D";
 export type BearingOp = "supports" | "challenges" | "undercuts" | "about";
 export type BearingKind = BearingOp | "repliesTo" | "clarifies" | "answers";
 export type BearingDerivedBy = "operator" | "structural";
 export type Severity = "error" | "warning" | "suggestion";
-export type AnnotationSyntaxError = "operator" | "handle";
+export type AnnotationSyntaxError = "operator" | "handle" | "join";
 export type SourceParseMode = "document" | "host" | "auto";
 export type SourceUnitKind = "document" | "fence";
 
@@ -36,8 +36,8 @@ export type OperatorClause = {
   target: Ref;
 };
 
-type AnnotationBase = {
-  syntaxErrors?: AnnotationSyntaxError[];
+type AnnotationBase<ErrorKind extends AnnotationSyntaxError = "operator" | "handle"> = {
+  syntaxErrors?: ErrorKind[];
   handle?: string;
   raw: string;
 };
@@ -55,6 +55,7 @@ export type Annotation =
   | (PointAnnotationBase & RoleMark & { kind: "role" })
   | (PointAnnotationBase & { kind: "gap"; status: "open" })
   | (PointAnnotationBase & { kind: "anchor"; anchor: string })
+  | (AnnotationBase<"join" | "handle"> & { kind: "join" })
   | (AnnotationBase & {
       kind: "edge";
       operatorClause?: OperatorClause & { sources: Ref[] };
@@ -153,7 +154,8 @@ export type ExplainRecognition =
   | { kind: "role"; role: Exclude<Role, "C">; status?: never }
   | { kind: "gap"; status: "open" }
   | { kind: "material" }
-  | { kind: "edge" };
+  | { kind: "edge" }
+  | { kind: "join" };
 
 export type ExplainBearingRef = {
   kind: "bearing";
@@ -177,6 +179,7 @@ export type ExplainBearingSummary = {
 export type ExplainEmittedBearingSummary = Omit<BearingBase, "text" | "sourceSpan"> & BearingRelation;
 
 export type ExplainEffect =
+  | { kind: "joinMember"; joinSpan: SourceSpan; eligible: boolean }
   | { kind: "preserveBody" }
   | {
       kind: "emitPoint";
@@ -189,7 +192,7 @@ export type ExplainEffect =
       kind: "emitBearing";
       ref: ExplainBearingRef;
       bearing: ExplainEmittedBearingSummary;
-      reason: "operator-clause" | "annotated-containment";
+      reason: "operator-clause" | "annotated-containment" | "join-containment";
     }
   | {
       kind: "rejectBearing";
@@ -197,11 +200,12 @@ export type ExplainEffect =
       reason:
         | "annotation-syntax-error"
         | "edge-descendant-requires-explicit-target"
-        | "validation-error";
+        | "validation-error"
+        | "invalid-join";
     }
   | {
       kind: "skipBearing";
-      reason: "no-eligible-ancestor" | "no-structural-rule";
+      reason: "no-eligible-ancestor" | "no-structural-rule" | "join-membership";
     };
 
 export type ExplainEntry = {

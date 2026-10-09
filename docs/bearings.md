@@ -15,7 +15,7 @@ A Bearing is an explicit connection from one or more marked points to another po
 
 Describe the method in ordinary prose or an `edge` description when it matters. This version has no inference-method annotation or subtype taxonomy. Future typed methods would need explicit definitions and a versioned contract; tools must not silently infer them from `supports`.
 
-```md cog-check require=supports
+```md cog-check require=supports points=2 bearings=1 diagnostics=0
 - [C @reading] The passage presents the speaker as uncertain.
 - [@hesitation] The speaker interrupts and revises the same sentence twice.
 - [edge @hesitation +> @reading; @reading-route] This is an interpretive reason for the reading.
@@ -32,7 +32,13 @@ Describe the method in ordinary prose or an `edge` description when it matters. 
 
 A Point annotation with an operator uses that Point as its source. An `edge` connects existing Points and creates no Point of its own.
 
-```md cog-check require=supports,undercuts
+Use `~>` when the intended connection is relevance without taking a positive or negative position toward the target.
+It is useful both while developing an inquiry and while reconstructing one.
+In reconstruction, preserve an author's explicit supporting or opposing relation when the source warrants it; uncertainty about your analysis does not by itself make that relation `about`.
+If the relation is unclear, describe that uncertainty in prose or mark your own Question or Gap without attributing a new position to the author.
+You need not classify every relevant passage as support or challenge.
+
+```md cog-check require=supports,undercuts points=4 bearings=2 diagnostics=0
 - [C @conclusion] The service needs more capacity.
 - [@load] Peak load exceeds current capacity.
 - [@forecast] The forecast predicts further growth.
@@ -42,9 +48,35 @@ A Point annotation with an operator uses that Point as its source. An `edge` con
 
 Two separate `[G]` children create two independent connections. One `edge` with two sources creates one joint connection without also creating the independent ones.
 
+## Local joint reasons
+
+Use `join` when nearby Grounds belong to one supporting connection.
+Use `edge` when connecting existing Points by reference, including shared premises or distant targets.
+Both construct Bearings; neither is a new Point role or a measure of reasoning strength.
+
+```md cog-check require=supports,undercuts points=4 bearings=2 diagnostics=0
+- [C] Socrates is mortal.
+  - [join; @mortality-route]
+    - [G] All humans are mortal.
+    - [G] Socrates is human.
+- [O _> @mortality-route] Does the inference apply to this use of “human”?
+```
+
+The two Grounds keep their own content and roles.
+They produce one joint `supports`, with no additional single-source supports to the Claim and no intermediate Point.
+A joint connection does not assert that its sources are minimal, that each is necessary, or that the inference is valid.
+An objection beneath a Ground targets that premise; an undercut of the handle targets the route.
+
+The handle is optional, and one member is allowed.
+The nearest enclosing Point supplies the target, regardless of its role.
+Members must be direct `G` children without operators or Bearing handles; put commentary outside the group.
+Invalid membership rejects the whole join without falling back to single-source connections.
+Member subtrees retain their ordinary behavior, including a further join below a real intermediate Point.
+For complete restrictions and partial-output behavior, see [local joins](syntax.md#local-joins).
+
 ## Connections from indentation
 
-Without an operator, the nearest enclosing Point and the child's role determine whether a connection is produced:
+Outside a `join`, without an operator, the nearest enclosing Point and the child's role determine whether a connection is produced:
 
 | Child | Enclosing Point | Connection |
 | --- | --- | --- |
@@ -59,11 +91,37 @@ Other combinations create no default connection. Ordinary body can be crossed wh
 
 Derived connections still have meaning. `derivedBy: "structural"` describes their source; `"operator"` means an operator was written. Neither measures confidence. An answer can be wrong, a reply ineffective, and a positive reason weak. The graph adds no transitive links, proof rules, or conclusions from missing connections.
 
+For example, either Claim form beneath a Question produces an answer:
+
+```md cog-check require=answers points=3 bearings=2 diagnostics=0
+- [Q] What caused the timeouts?
+  - [C] Pool exhaustion caused the timeouts.
+  - [C?] A network fault caused the timeouts.
+```
+
+A Gap changes the nearest enclosing Point:
+
+```md cog-check require=about points=3 bearings=1 diagnostics=0
+- [Q] What caused the timeouts?
+  - [?] My reconstruction: the report leaves the causal step unexplained.
+    - [C] The report says connection acquisition failed.
+```
+
+This produces three Points and one `about` Bearing from the Gap to the Question.
+The Claim is retained but has no default Bearing to the Gap, and does not answer the outer Question through it.
+A legal absence of a connection is not a lost Point or a syntax error.
+If you intend a connection, choose the placement or an explicit operator that expresses it.
+
+Indentation-based authoring and explicit-relation authoring can be mixed in one note.
+They are writing techniques, distinct from the [input modes](syntax.md#input-modes) and from each Bearing's `derivedBy` value.
+They do not express every relationship interchangeably: `answers`, `repliesTo`, and `clarifies` have indentation rules but no explicit operators in this version.
+Explicit references can point forward or backward, but are not a complete graph serialization syntax.
+
 ## Naming routes
 
 Sometimes the weak part is how a reason bears on a claim. Name that connection with `; @route`, then use `_>` to question it:
 
-```md cog-check require=supports,undercuts,about
+```md cog-check require=supports,undercuts,about points=4 bearings=3 diagnostics=0
 - [C? @cause] The connection pool may be exhausted.
   - [G; @log-route] Logs show connection acquisition failures.
 - [O _> @log-route] The same log message can result from a network failure.
