@@ -48,24 +48,61 @@ You need not classify every relevant passage as support or challenge.
 
 Two separate `[G]` children create two independent connections. One `edge` with two sources creates one joint connection without also creating the independent ones.
 
+### One reason, two ways to write it
+
+These original notes compile to the same Claim, Ground, and single `supports` connection.
+The explicit operator keeps the Ground's role, name, and content while moving it out of the Claim's indentation.
+On the website, choose either source's **View structure** to edit it and see the compiler's result.
+Edits belong to the chosen note; they do not translate into the other note or preserve equivalence automatically.
+
+```md cog-check compare=one-reason caption="Indentation" require=supports points=2 bearings=1 diagnostics=0
+- [C @reading] The passage presents the speaker as uncertain.
+  - [G @hesitation] The speaker interrupts and revises the same sentence twice.
+```
+
+```md cog-check compare=one-reason caption="Explicit operator" require=supports points=2 bearings=1 diagnostics=0
+- [C @reading] The passage presents the speaker as uncertain.
+- [G @hesitation +> @reading] The speaker interrupts and revises the same sentence twice.
+```
+
 ## Local joint reasons
 
 Use `join` when nearby Grounds belong to one supporting connection.
 Use `edge` when connecting existing Points by reference, including shared premises or distant targets.
 Both construct Bearings; neither is a new Point role or a measure of reasoning strength.
 
-```md cog-check require=supports,undercuts points=4 bearings=2 diagnostics=0
-- [C] Socrates is mortal.
-  - [join; @mortality-route]
-    - [G] All humans are mortal.
-    - [G] Socrates is human.
-- [O _> @mortality-route] Does the inference apply to this use of “human”?
+Both original notes below keep the same Claim and two Grounds, including their names, roles, and content.
+Each creates exactly one joint `supports` Bearing named `route`.
+In the explicit version, the Grounds sit outside the Claim's indentation, so they create no extra default supports.
+
+```md cog-check compare=joint-reasons caption="Local join" require=supports points=3 bearings=1 diagnostics=0
+- [C @mortality] Socrates is mortal.
+  - [join; @route]
+    - [G @humans] All humans are mortal.
+    - [G @socrates] Socrates is human.
+```
+
+```md cog-check compare=joint-reasons caption="Explicit edge" require=supports points=3 bearings=1 diagnostics=0
+- [C @mortality] Socrates is mortal.
+- [G @humans] All humans are mortal.
+- [G @socrates] Socrates is human.
+- [edge @humans, @socrates +> @mortality; @route]
 ```
 
 The two Grounds keep their own content and roles.
 They produce one joint `supports`, with no additional single-source supports to the Claim and no intermediate Point.
 A joint connection does not assert that its sources are minimal, that each is necessary, or that the inference is valid.
 An objection beneath a Ground targets that premise; an undercut of the handle targets the route.
+
+**Counterexample: ordinary sibling Grounds are independent.**
+Removing the `join` creates two single-source Bearings, rather than the one joint Bearing above.
+This is a different topology, not an equivalent spelling.
+
+```md cog-check require=supports points=3 bearings=2 diagnostics=0
+- [C @mortality] Socrates is mortal.
+  - [G @humans] All humans are mortal.
+  - [G @socrates] Socrates is human.
+```
 
 The handle is optional, and one member is allowed.
 The nearest enclosing Point supplies the target, regardless of its role.
