@@ -12,7 +12,8 @@
         },
         {
           "line": 3,
-          "form": "material",
+          "form": "role",
+          "role": "G",
           "id": "premise"
         },
         {

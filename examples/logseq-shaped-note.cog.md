@@ -1,7 +1,8 @@
-- Reading note
+- Reading note on a hypothetical passage
   - TODO Re-read chapter 2.
   - tags:: [[phenomenology]], [[method]]
   - [Q] What does this passage establish?
     - collapsed:: true
-    - This ordinary Logseq property and body text should not become graph material.
+    - Compare the two questions at the next reading group.
     - [C?] It establishes a distinction between explanation and justification.
+      - [G] The passage traces a belief to habit but separately asks whether the evidence supports it.

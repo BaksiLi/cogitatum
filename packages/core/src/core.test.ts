@@ -982,18 +982,23 @@ describe("Cogitatum language contracts", () => {
     }
   });
 
-  it("compiles joint support without adding independent support routes", () => {
+  it("compiles a local joint of Grounds without adding independent support routes", () => {
     const graph = compileGraph(parseDocument(example("syllogism.cog.md")));
     const supports = graph.bearings.filter((bearing) => bearing.kind === "supports");
+
+    expect(graph.points.map(point => [point.role, point.text])).toEqual([
+      ["Q", "Is Socrates mortal?"], ["C", "Socrates is mortal."],
+      ["G", "All humans are mortal."], ["G", "Socrates is human."]
+    ]);
 
     expect(supports).toEqual([
       expect.objectContaining({
         sources: [
-          pointRef(graph, "human-mortal"),
-          pointRef(graph, "socrates-human")
+          { key: graph.points[2].key, kind: "point" },
+          { key: graph.points[3].key, kind: "point" }
         ],
-        target: pointRef(graph, "mortal"),
-        derivedBy: "operator"
+        target: { key: graph.points[1].key, kind: "point" },
+        derivedBy: "structural"
       })
     ]);
     expect(graph.diagnostics).toEqual([]);
@@ -1003,14 +1008,18 @@ describe("Cogitatum language contracts", () => {
     const graph = compileGraph(parseDocument(fixture("core/independent-and-joint-support.cog.md")));
     const supports = graph.bearings.filter((bearing) => bearing.kind === "supports");
 
+    expect(graph.points.map(point => [point.id, point.role])).toEqual([
+      ["claim", "C"], [undefined, "G"], [undefined, "G"], ["capacity", "G"], ["forecast", "G"]
+    ]);
+
     expect(supports).toEqual([
       expect.objectContaining({
-        sources: [pointRef(graph, "latency")],
+        sources: [{ key: graph.points[1].key, kind: "point" }],
         target: pointRef(graph, "claim"),
         derivedBy: "structural"
       }),
       expect.objectContaining({
-        sources: [pointRef(graph, "contract")],
+        sources: [{ key: graph.points[2].key, kind: "point" }],
         target: pointRef(graph, "claim"),
         derivedBy: "structural"
       }),
@@ -1254,6 +1263,25 @@ describe("Cogitatum language contracts", () => {
     }
   });
 
+  it("keeps Logseq-shaped properties as body while retaining the reading note's reason", () => {
+    const ast = parseDocument(example("logseq-shaped-note.cog.md"));
+    const graph = compileGraph(ast);
+    const note = ast.blocks[0];
+    expect([note.children[0], note.children[1], note.children[2].children[0]]
+      .map(block => [block.text, block.annotation])).toEqual([
+        ["TODO Re-read chapter 2.", undefined],
+        ["tags:: [[phenomenology]], [[method]]", undefined],
+        ["collapsed:: true", undefined]
+      ]);
+    expect(graph.points.map(point => point.role)).toEqual(["Q", "C", "G"]);
+    expect(graph.points[1].status).toBe("open");
+    expect(graph.bearings.map(bearing => [bearing.kind, bearing.sources, bearing.target])).toEqual([
+      ["answers", [{ kind: "point", key: graph.points[1].key }], { kind: "point", key: graph.points[0].key }],
+      ["supports", [{ kind: "point", key: graph.points[2].key }], { kind: "point", key: graph.points[1].key }]
+    ]);
+    expect(graph.diagnostics).toEqual([]);
+  });
+
   it("validates corpus schemas and reconciles every compiler trace with its graph", () => {
     const ajv = new Ajv2020({ allErrors: true });
     const validateAst = ajv.compile(JSON.parse(readFileSync(join(repoRoot, "spec", "ast.schema.json"), "utf8")));
@@ -1322,11 +1350,12 @@ describe("Cogitatum language contracts", () => {
     const validateExplain = ajv.compile(
       JSON.parse(readFileSync(join(repoRoot, "spec", "explain.schema.json"), "utf8"))
     );
-    const ast = jsonValue(parseDocument(example("syllogism.cog.md")));
-    const compilation = compileGraphWithExplain(parseDocument(example("syllogism.cog.md")));
+    const source = fixture("core/explicit-bearing-sources.cog.md");
+    const ast = jsonValue(parseDocument(source));
+    const compilation = compileGraphWithExplain(parseDocument(source));
     const graph = jsonValue(compilation.graph);
     const explanation = jsonValue(compilation.explain);
-    const edgeSources = ast.blocks[0].children[0].children[0].children[2].annotation?.operatorClause?.sources;
+    const edgeSources = ast.blocks[0].children.find(block => block.annotation?.kind === "edge")?.annotation?.operatorClause?.sources;
 
     expect(validateAst(ast), JSON.stringify(validateAst.errors)).toBe(true);
     expect(validateGraph(graph), JSON.stringify(validateGraph.errors)).toBe(true);

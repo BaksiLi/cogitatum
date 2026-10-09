@@ -1,6 +1,6 @@
 - Socrates mortality argument
   - [Q] Is Socrates mortal?
-    - [C @mortal] Socrates is mortal.
-      - [@human-mortal] All humans are mortal.
-      - [@socrates-human] Socrates is human.
-      - [edge @human-mortal, @socrates-human +> @mortal]
+    - [C] Socrates is mortal.
+      - [join]
+        - [G] All humans are mortal.
+        - [G] Socrates is human.

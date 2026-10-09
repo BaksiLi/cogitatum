@@ -13,23 +13,23 @@
         {
           "line": 3,
           "form": "role",
-          "role": "G",
-          "id": "latency"
+          "role": "G"
         },
         {
           "line": 4,
           "form": "role",
-          "role": "G",
-          "id": "contract"
+          "role": "G"
         },
         {
           "line": 5,
-          "form": "material",
+          "form": "role",
+          "role": "G",
           "id": "capacity"
         },
         {
           "line": 6,
-          "form": "material",
+          "form": "role",
+          "role": "G",
           "id": "forecast"
         }
       ],

@@ -87,6 +87,31 @@ describe("local joint support", () => {
     ]);
   });
 
+  it("keeps a member's body and Gap separate from the joint's sources", () => {
+    const ast = parseDocument(`- [C @c] The run can proceed.
+  - [join]
+    - [G @calibration] The calibration passed.
+      - Certificate checked at the bench.
+      - [?] The certificate's validity period has not been checked.
+    - [G @seal] The chamber is sealed.`);
+    const graph = compileGraph(ast);
+    expect(graph.diagnostics).toEqual([]);
+    expect(ast.blocks[0].children[0].children[0].children[0]).toMatchObject({
+      text: "Certificate checked at the bench.", children: []
+    });
+    expect(ast.blocks[0].children[0].children[0].children[0].annotation).toBeUndefined();
+    expect(graph.points.map(p => [p.id, p.form, p.role, p.text])).toEqual([
+      ["c", "role", "C", "The run can proceed."],
+      ["calibration", "role", "G", "The calibration passed."],
+      [undefined, "gap", undefined, "The certificate's validity period has not been checked."],
+      ["seal", "role", "G", "The chamber is sealed."]
+    ]);
+    expect(graph.bearings.map(b => ({ kind: b.kind, sources: b.sources, target: b.target }))).toEqual([
+      { kind: "supports", sources: [{ key: graph.points[1].key, kind: "point" }, { key: graph.points[3].key, kind: "point" }], target: { key: graph.points[0].key, kind: "point" } },
+      { kind: "about", sources: [{ key: graph.points[2].key, kind: "point" }], target: { key: graph.points[1].key, kind: "point" } }
+    ]);
+  });
+
   it.each(["Q", "C?", "G", "O", "R", "D", "?", "@target"])("targets the nearest %s Point", mark => {
     const graph = compile(`- [${mark}] Target.\n  - [join; @route] Singleton route.\n    - [G] Premise.`);
     expect(codes(graph)).toEqual([]);
@@ -149,6 +174,21 @@ describe("local joint support", () => {
     const graph = compile(`- [C] Conclusion.\n  - [join]\n    - [G] Good premise.\n    - [${mark}] Invalid member.`);
     expect(graph.bearings).toEqual([]);
     expect(codes(graph)).toContain("INVALID_JOIN_MEMBER");
+  });
+
+  it("rejects a direct Gap atomically without losing it or restoring unary support", () => {
+    const graph = compile("- [C] Conclusion.\n  - [join]\n    - [G] Good premise.\n    - [?] Invalid member.");
+    expect(graph.points.map(p => [p.form, p.role, p.status, p.text])).toEqual([
+      ["role", "C", undefined, "Conclusion."],
+      ["role", "G", undefined, "Good premise."],
+      ["gap", undefined, "open", "Invalid member."]
+    ]);
+    expect(graph.bearings).toEqual([]);
+    expect(graph.diagnostics).toEqual([{
+      severity: "error", code: "INVALID_JOIN_MEMBER",
+      message: "Each direct join member must be a Ground Point without an operator, Bearing handle, or annotation error.",
+      sourceSpan: { startLine: 4, startColumn: 7, endLine: 4, endColumn: 26 }
+    }]);
   });
 
   it("retains a valid member operator as independent intent while rejecting the joint", () => {

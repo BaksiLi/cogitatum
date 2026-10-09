@@ -22,7 +22,7 @@
     },
     {
       "file": "logseq-shaped-note.cog.md",
-      "purpose": "A Logseq-shaped outline used to discuss future native host adaptation without claiming adapter support.",
+      "purpose": "A hypothetical reading inquiry with a stated reason; Logseq-shaped properties remain body without claiming native adapter support.",
       "expectedDiagnosticCodes": []
     },
     {
@@ -32,7 +32,7 @@
     },
     {
       "file": "syllogism.cog.md",
-      "purpose": "A minimal explicit joint-support reconstruction.",
+      "purpose": "A minimal local joint-support reconstruction that keeps both premises as Grounds.",
       "expectedDiagnosticCodes": []
     }
   ]
