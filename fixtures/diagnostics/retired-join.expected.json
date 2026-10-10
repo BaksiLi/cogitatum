@@ -1,8 +1,7 @@
 {
   "mode": "document",
   "diagnostics": [
-    { "line": 2, "code": "RETIRED_JOIN_ANNOTATION", "severity": "error" },
-    { "line": 5, "code": "INVALID_LINKED_MEMBER", "severity": "error" }
+    { "line": 2, "code": "RETIRED_JOIN_ANNOTATION", "severity": "error" }
   ],
   "graphs": [{
     "points": [

@@ -3,7 +3,6 @@
   "diagnostics": [
     { "line": 4, "code": "INVALID_LINKED_MEMBER", "severity": "error" },
     { "line": 6, "code": "INVALID_LINKED_MEMBER", "severity": "error" },
-    { "line": 9, "code": "INVALID_LINKED_MEMBER", "severity": "error" },
     { "line": 10, "code": "UNKNOWN_TARGET", "severity": "error" }
   ],
   "graphs": [{

@@ -2,4 +2,4 @@
   - [Q] Why are requests timing out?
     - [C? @db-pool] The database pool is exhausted.
       - [G @acq-fail] Logs show repeated connection acquisition failures.
-      - [@prod-logs ~> @acq-fail] Production logs from 02:00-03:00.
+      - [. @prod-logs ~> @acq-fail] Production logs from 02:00-03:00.

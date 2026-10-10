@@ -1,0 +1,15 @@
+- A configuration hypothesis is being revisited in two local contexts.
+- [C? @observation] Two retries timed out.
+- [C @claim] The shared configuration may explain the timeouts.
+  - This later step uses the observation without repeating its declaration.
+  - [G use @observation; @step] The observation matters here as a Ground.
+    - [O/ @objection] A transient environment fault could explain the observation.
+      - [R @reply] A control run kept the environment stable.
+- [C @second] The evidence also motivates a controlled configuration test.
+  - [linked; @joint] The observation and control reply participate jointly.
+    - [G use @observation]
+    - [G use @reply]
+    - [O/ use @objection; @review] Reconsider the objection at this joint step.
+      - [R use @reply] The reply applies to this locally marked Objection.
+- [C @third] The configuration hypothesis motivates checking the loaded values.
+  - [G use @claim; @serial] Reuse the earlier Claim as a local Ground.

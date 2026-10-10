@@ -44,7 +44,8 @@ for (const name of ["core", "cli", "view"]) {
 }
 
 writeFileSync(join(temporary, "package.json"), JSON.stringify({ private: true, type: "module" }));
-run("npm", ["install", "--offline", "--ignore-scripts", "--no-audit", "--no-fund", "--cache", cache, ...tarballs], temporary);
+run("npm", ["install", "--ignore-scripts", "--no-audit", "--no-fund", "--cache", cache, ...tarballs], temporary);
+run("npm", ["ci", "--offline", "--ignore-scripts", "--no-audit", "--no-fund", "--cache", cache], temporary);
 for (const name of ["ast", "graph-ir", "explain", "source"]) {
   const imported = JSON.parse(run(process.execPath, ["--input-type=module", "-e",
     `import schema from '@cogitatum/core/schemas/${name}' with { type: 'json' }; console.log(JSON.stringify(schema));`
@@ -53,14 +54,35 @@ for (const name of ["ast", "graph-ir", "explain", "source"]) {
 }
 const probe = `
 import assert from 'node:assert/strict';
-import { compileGraphWithExplain, parseDocument } from '@cogitatum/core';
-const { graph, explain } = compileGraphWithExplain(parseDocument('- Ordinary context.\\n  - [C @claim] A claim.\\n    - [G; @route] A reason.\\n- [O _> @route] A route objection.\\n'));
+import { compileGraphWithExplain, compileSource, parseDocument } from '@cogitatum/core';
+const { graph, explain } = compileGraphWithExplain(parseDocument('- Ordinary context.\\n  - [C @claim] A claim.\\n    - [G; @route] A reason.\\n- [O /> @route] A route objection.\\n'));
 assert.equal(graph.points.length, 3);
 assert.equal(graph.points[1].id, undefined);
 assert.equal(graph.bearings[0].handle, 'route');
 assert.deepEqual(graph.bearings[1].target, {key: graph.bearings[0].key, kind: 'bearing'});
 assert.ok(explain.entries.some(entry => entry.recognition.kind === 'body'));
 assert.deepEqual(graph.diagnostics, []);
+const fence = String.fromCharCode(96).repeat(3);
+const hostText = ['<!--', fence + 'cog', '- [C @hidden] Hidden.', fence, '-->', '', fence + 'cog', '- [C @visible] Visible.', fence].join('\\n');
+const host = compileSource(hostText, 'host');
+assert.equal(host.graphs.length, 1);
+assert.equal(host.graphs[0].points[0].id, 'visible');
+assert.equal(host.graphs[0].points[0].sourceSpan.startLine, 8);
+assert.deepEqual(host.diagnostics, []);
+const local = compileGraphWithExplain(parseDocument('- [C @claim] Claim.\\n  - [G; @step] Ground.\\n    - [O/] Assessment.'));
+assert.deepEqual(local.graph.diagnostics, []);
+assert.equal(local.graph.bearings[1].kind, 'undercuts');
+const reuse = compileGraphWithExplain(parseDocument('- [C? @premise] Original.\\n- [C @claim] Claim.\\n  - [G use @premise; @step] Local prose.\\n    - [O/ use @premise] Reuse as objection.'));
+assert.deepEqual(reuse.graph.diagnostics, []);
+assert.equal(reuse.graph.points.length, 2);
+assert.equal(reuse.graph.points[0].text, 'Original.');
+assert.equal(reuse.graph.points[0].status, 'open');
+assert.equal(reuse.graph.bearings.length, 2);
+assert.deepEqual(reuse.graph.bearings[0].sources, [{key: reuse.graph.points[0].key, kind: 'point'}]);
+assert.ok(reuse.explain.entries[2].effects.some(effect => effect.kind === 'focusPoint' && effect.ref.key === reuse.graph.points[0].key));
+assert.equal(reuse.explain.entries[3].recognition.kind, 'use');
+assert.deepEqual(local.graph.bearings[1].target, {key: local.graph.bearings[0].key, kind: 'bearing'});
+assert.ok(local.explain.entries[2].effects.some(effect => effect.kind === 'selectAttachment'));
 `;
 run(process.execPath, ["--input-type=module", "-e", probe], temporary);
 // Consumers may set the development condition; the package must remain usable.
@@ -83,6 +105,9 @@ const graph = JSON.parse(run(executable, ["graph", join(root, "examples/getting-
 assert.equal(graph.points.length, 4);
 assert.equal(graph.bearings.length, 3);
 assert.equal(graph.diagnostics.length, 0);
+const reused = JSON.parse(run(executable, ["explain", join(root, "fixtures/core/narrative-reference-reuse.cog.md")], temporary));
+assert.deepEqual(reused.diagnostics, []);
+assert.equal(reused.entries.filter(entry => entry.effects.some(effect => effect.kind === "focusPoint")).length, 6);
 
 writeFileSync(join(temporary, "consumer.mts"), `import {type Point, type Bearing, type Annotation, type OperatorClause, type ExplainEmittedBearingSummary, compileGraph, parseDocument} from '@cogitatum/core';
 import { createGraphView } from '@cogitatum/view';
@@ -106,6 +131,28 @@ const undercut: ExplainEmittedBearingSummary = {...summary, kind: 'undercuts', t
 const invalidUndercut: ExplainEmittedBearingSummary = {...summary, kind: 'undercuts', target: pointTarget};
 // @ts-expect-error Only C admits open role status.
 const invalidRole: Annotation = {kind: 'role', role: 'G', status: 'open', raw: 'G?'};
+const namedKind: Annotation = {kind: 'edge', raw: 'edge @a answers @b', operatorClause: {op: 'answers', sources: [{id: 'a'}], target: {id: 'b'}}};
+const localSelector: Annotation = {kind: 'role', role: 'O', selector: 'attachment', raw: 'O/'};
+const pointUse: Annotation = {kind: 'use', ref: {id: 'p'}, role: 'G', raw: 'G use @p'};
+const neutralPoint: Annotation = {kind: 'material', raw: '.'};
+const neutralUse: Annotation = {kind: 'use', ref: {id: 'p'}, raw: '. use @p'};
+// @ts-expect-error Neutral material is a Point variant, not a local role.
+const neutralRole: Annotation = {kind: 'material', role: 'G', raw: '.'};
+const selectorUse: Annotation = {kind: 'use', ref: {id: 'p'}, role: 'O', selector: 'attachment', raw: 'O/ use @p'};
+// @ts-expect-error A use operand is not a declaration anchor.
+const aliasedUse: Annotation = {kind: 'use', ref: {id: 'p'}, anchor: 'alias', raw: ''};
+// @ts-expect-error Occurrence status is excluded.
+const statusUse: Annotation = {kind: 'use', ref: {id: 'p'}, role: 'C', status: 'open', raw: ''};
+// @ts-expect-error A use selector excludes an explicit operator clause.
+const excludedUse: Annotation = {kind: 'use', ref: {id: 'p'}, role: 'O', selector: 'attachment', operatorClause: {op: 'undercuts', sources: 'self', target: {id: 'b'}}, raw: ''};
+// @ts-expect-error Only G and O can select local attachments.
+const invalidUseSelector: Annotation = {kind: 'use', ref: {id: 'p'}, role: 'Q', selector: 'attachment', raw: ''};
+// @ts-expect-error A selector and a complete operator clause are mutually exclusive.
+const excludedSelector: Annotation = {kind: 'role', role: 'O', selector: 'attachment', operatorClause: {op: 'undercuts', sources: 'self', target: {id: 'b'}}, raw: ''};
+// @ts-expect-error Only G and O support a selector.
+const invalidSelector: Annotation = {kind: 'role', role: 'Q', selector: 'attachment', raw: 'Q/'};
+// @ts-expect-error Named kinds are only adopted on edge clauses.
+const namedSelf: Annotation = {kind: 'role', role: 'Q', raw: '', operatorClause: {op: 'repliesTo', sources: 'self', target: {id: 'b'}}};
 // @ts-expect-error Operator clauses have exactly one target.
 const multipleTargets: OperatorClause = {op: 'supports', sources: 'self', target: [{id: 'a'}, {id: 'b'}]};
 // @ts-expect-error Point annotations use themselves as the source.
@@ -114,7 +161,7 @@ const otherSource: Annotation = {kind: 'role', role: 'G', raw: '', operatorClaus
 graph.points[0] && parseDocument('- [C] Claim.').blocks[0].role;
 `);
 run(process.execPath, [join(root, "node_modules/typescript/bin/tsc"), "--noEmit", "--strict", "--skipLibCheck", "--module", "NodeNext", "--target", "ES2022", "consumer.mts"], temporary);
-process.stdout.write(`Packed packages passed isolated offline installation, API, CLI, and TypeScript checks.\nReviewable tarballs: ${temporary}\n`);
+process.stdout.write(`Packed packages passed isolated installation, offline reinstall, API, CLI, and TypeScript checks.\nReviewable tarballs: ${temporary}\n`);
 
 function run(command, args, cwd) {
   const result = spawnSync(command, args, { cwd, encoding: "utf8" });

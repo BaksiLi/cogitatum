@@ -24,6 +24,75 @@ const validateSource = ajv.compile(sourceSchema);
 const json = (value: unknown) => JSON.parse(JSON.stringify(value));
 
 describe("public compiler contract boundaries", () => {
+  it("validates distinct use operands, local focus effects, and rejected uses", () => {
+    for (const source of [
+      "- [.] Anonymous neutral.\n- [. @named] Named neutral.\n- [_ @named supports @named] Explicit self-support.",
+      "- [C @claim] Claim.\n  - [G_] Retired selector.\n- [@old] Retired declaration.\n- [use @claim] Retired use.",
+      "- [. @source] Source.\n- [C @claim] Claim.\n- [_ @source +> @claim; @route]\n- [O _> @route] Retired operator.",
+      "- [C? @premise] Original.\n- [C @claim] Claim.\n  - [G use @premise; @step] Local prose.\n    - [O/ use @premise] Assessment.",
+      "- [. use @missing] Unknown.\n  - [G] Valid child.",
+      "- [C? use @missing] Unsupported status.",
+      "- [G use @missing",
+      "- [O/ use @missing /> @route] Excluded combination."
+    ]) {
+      const ast = parseDocument(source);
+      const { graph, explain } = compileGraphWithExplain(ast);
+      expect(validateAst(json(ast)), source).toBe(true);
+      expect(validateGraph(json(graph)), source).toBe(true);
+      expect(validateExplain(json(explain)), source).toBe(true);
+    }
+    const invalid = json(parseDocument("- [. use @point] Local prose."));
+    invalid.blocks[0].annotation.anchor = "point";
+    expect(validateAst(invalid)).toBe(false);
+    delete invalid.blocks[0].annotation.anchor;
+    invalid.blocks[0].annotation.status = "open";
+    expect(validateAst(invalid)).toBe(false);
+  });
+
+  it("validates retained selector syntax and owned attachment explanations", () => {
+    const ast = parseDocument("- [C @claim] Claim.\n  - [linked]\n    - [G] Premise.\n    - [G/] Warrant.\n    - [O/] Objection.\n      - [R] Reply.");
+    const { graph, explain } = compileGraphWithExplain(ast);
+    expect(graph.diagnostics).toEqual([]);
+    expect(validateAst(json(ast))).toBe(true);
+    expect(validateGraph(json(graph))).toBe(true);
+    expect(validateExplain(json(explain))).toBe(true);
+    const invalid = json(ast);
+    invalid.blocks[0].children[0].children[1].annotation.role = "Q";
+    expect(validateAst(invalid)).toBe(false);
+    const malformed = parseDocument("- [C] Claim.\n  - [G] Ground.\n    - [O/ /> @missing] Excluded combination.");
+    const result = compileGraphWithExplain(malformed);
+    expect(validateAst(json(malformed))).toBe(true);
+    expect(validateExplain(json(result.explain))).toBe(true);
+  });
+
+  it("validates failed Point annotations as retained source boundaries", () => {
+    const ast = parseDocument("- [C @outer] Outer.\n  - [O?] Invalid.\n    - [G] Valid child.");
+    const { graph, explain } = compileGraphWithExplain(ast);
+    expect(validateAst(json(ast))).toBe(true);
+    expect(validateGraph(json(graph))).toBe(true);
+    expect(validateExplain(json(explain))).toBe(true);
+  });
+
+  it("validates all named edge kinds without admitting those clauses on Point annotations", () => {
+    for (const kind of ["supports", "challenges", "undercuts", "about", "answers", "repliesTo", "clarifies"]) {
+      const target = kind === "undercuts" ? "route" : "claim";
+      const source = "- [C? @claim] Claim.\n- [. @material] Material.\n- [edge @material supports @claim; @route]\n- [edge @claim " + kind + " @" + target + "]";
+      const ast = parseDocument(source);
+      const { graph, explain } = compileGraphWithExplain(ast);
+      expect(graph.diagnostics, kind).toEqual([]);
+      expect(validateAst(json(ast)), kind).toBe(true);
+      expect(validateGraph(json(graph)), kind).toBe(true);
+      expect(validateExplain(json(explain)), kind).toBe(true);
+      const fence = String.fromCharCode(96).repeat(3);
+      expect(validateSource(json(explainSource(fence + "cog\n" + source + "\n" + fence, "host"))), kind).toBe(true);
+    }
+    const self = json(parseDocument("- [C @claim] Claim.\n- [G +> @claim] Ground."));
+    for (const kind of ["answers", "repliesTo", "clarifies"]) {
+      self.blocks[1].annotation.operatorClause.op = kind;
+      expect(validateAst(self), kind).toBe(false);
+    }
+  });
+
   it("compiles the annotation as the sole semantic source and leaves raw text untouched", () => {
     const ast = parseDocument("- [C @claim] A claim.\n  - [G @reason] A reason.\n");
     const reason = ast.blocks[0].children[0];
@@ -103,7 +172,7 @@ describe("public compiler contract boundaries", () => {
   });
 
   it("distinguishes self-sourced Point operators from edge source lists", () => {
-    for (const mark of ["G", "?", "@material"]) {
+    for (const mark of ["G", "?", ". @material"]) {
       const ast = json(parseDocument(`- [C @claim] Claim.\n- [${mark} +> @claim] Reason.\n`));
       expect(validateAst(ast)).toBe(true);
       ast.blocks[1].annotation.operatorClause.sources = [{ id: "claim" }];
@@ -140,7 +209,7 @@ describe("public compiler contract boundaries", () => {
 
   it("accepts opaque graph keys without making the compiler's numbering a schema requirement", () => {
     const { graph, explain } = json(compileGraphWithExplain(parseDocument(
-      "- [C @claim] Claim.\n  - [G; @route] Reason.\n- [O _> @route] Objection.\n"
+      "- [C @claim] Claim.\n  - [G; @route] Reason.\n- [O /> @route] Objection.\n"
     )));
     const keys = new Map<string, string>([
       ...graph.points.map((point: { key: string }, i: number) => [point.key, `point:${i}:opaque`]),
@@ -160,7 +229,7 @@ describe("public compiler contract boundaries", () => {
   });
 
   it("permits rejected target mismatches in Explain, but never in emitted summaries", () => {
-    const { explain } = compileGraphWithExplain(parseDocument("- [C @claim] Claim.\n- [O _> @claim] Invalid undercut.\n"));
+    const { explain } = compileGraphWithExplain(parseDocument("- [C @claim] Claim.\n- [O /> @claim] Invalid undercut.\n"));
     const rejected = json(explain);
     expect(validateExplain(rejected)).toBe(true);
     expect(rejected.entries[1].effects).toContainEqual(expect.objectContaining({

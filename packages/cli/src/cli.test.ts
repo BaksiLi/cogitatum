@@ -16,6 +16,8 @@ beforeAll(() => {
   writeFileSync(join(workingDirectory, "valid.cog.md"), "- [C] A claim.\n", "utf8");
   writeFileSync(join(workingDirectory, "-named.cog.md"), "- [C] A named claim.\n", "utf8");
   writeFileSync(join(workingDirectory, "--help"), "- [C] A file named like an option.\n", "utf8");
+  const fence = String.fromCharCode(96).repeat(3);
+  writeFileSync(join(workingDirectory, "host.md"), ["<!--", fence + "cog", "- [C @hidden] Hidden.", fence, "-->"].join("\n"), "utf8");
 });
 
 afterAll(() => {
@@ -23,15 +25,28 @@ afterAll(() => {
 });
 
 describe("cog CLI", () => {
+  it("requires an explicit context instead of accepting auto", () => {
+    const result = runCli("check", "--input", "auto", "valid.cog.md");
+    expect(result.status).toBe(2);
+    expect(JSON.parse(result.stdout).diagnostics).toEqual([expect.objectContaining({ code: "INVALID_INPUT_MODE", message: expect.stringContaining("Auto selection is retired") })]);
+    expect(result.stderr).toBe("");
+  });
+
+  it("leaves comment-contained annotations inactive in explicit host context", () => {
+    const result = runCli("graph", "--input", "host", "host.md");
+    expect(result.status).toBe(0);
+    expect(JSON.parse(result.stdout)).toMatchObject({ mode: "host", units: [], documents: [], graphs: [], diagnostics: [] });
+  });
+
   it("prints Alpha help and version information", () => {
     const help = runCli("--help");
     const version = runCli("--version");
 
     expect(help.status).toBe(0);
-    expect(help.stdout).toContain("Cogitatum 0.4.0-alpha.3 (Alpha; format 0.4.0)");
+    expect(help.stdout).toContain("Cogitatum 0.4.0-alpha.6 (Alpha; format 0.4.0)");
     expect(help.stdout).toContain("cog <command>");
     expect(version.status).toBe(0);
-    expect(version.stdout).toContain("cog 0.4.0-alpha.3 (Alpha; format 0.4.0)");
+    expect(version.stdout).toContain("cog 0.4.0-alpha.6 (Alpha; format 0.4.0)");
   });
 
   it("checks valid source and preserves compiler diagnostics", () => {

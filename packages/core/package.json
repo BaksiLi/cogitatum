@@ -1,6 +1,6 @@
 {
   "name": "@cogitatum/core",
-  "version": "0.4.0-alpha.3",
+  "version": "0.4.0-alpha.6",
   "description": "Parse and compile inquiry markup that makes selected reasoning structure explicit inside ordinary prose.",
   "keywords": [
     "inquiry",
@@ -52,5 +52,12 @@
   },
   "bugs": {
     "url": "https://github.com/BaksiLi/cogitatum/issues"
+  },
+  "dependencies": {
+    "remark-parse": "^11.0.0",
+    "unified": "^11.0.5"
+  },
+  "devDependencies": {
+    "@types/mdast": "^4.0.4"
   }
 }

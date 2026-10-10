@@ -27,7 +27,7 @@ Describe the method in ordinary prose or an `edge` description when it matters. 
 | --- | --- | --- |
 | `+>` | `supports`: positive bearing | Point or named Bearing |
 | `->` | `challenges`: objection to the target | Point |
-| `_>` | `undercuts`: pressure on a connection | Named Bearing |
+| `/>` | `undercuts`: pressure on a connection | Named Bearing |
 | `~>` | `about`: relevance without positive or negative commitment | Point or named Bearing |
 
 A Point annotation with an operator uses that Point as its source. An `edge` connects existing Points and creates no Point of its own.
@@ -43,11 +43,79 @@ You need not classify every relevant passage as support or challenge.
 - [G @load] Peak load exceeds current capacity.
 - [G @forecast] The forecast predicts further growth.
 - [edge @load, @forecast +> @conclusion; @capacity-route] These reasons bear on the conclusion jointly.
-- [O _> @capacity-route] The forecast assumes a campaign that was cancelled.
+- [O /> @capacity-route] The forecast assumes a campaign that was cancelled.
 ```
 
 The names are needed for the edge's references; ordinary body cannot serve as an edge source.
 Two separate `[G]` children create two independent connections. One `edge` with two sources creates one joint connection without also creating the independent ones.
+
+### Named canonical kinds
+
+An `edge` can name any canonical kind directly: `[edge @sources KIND @target; @optional-handle]`.
+Use the exact spellings below, including the capital T in `repliesTo`:
+
+| Kind | Target |
+| --- | --- |
+| `supports`, `about` | Point or named Bearing |
+| `challenges`, `answers`, `repliesTo`, `clarifies` | Point |
+| `undercuts` | Named Bearing |
+
+Each source is an existing Point; its role, form, status, content, and identity remain unchanged.
+Sources are ordered and duplicate-free, and there is exactly one target.
+The indentation defaults do not impose global source or target roles on explicitly authored relations.
+A Question can reply to an objection, and a concession can reply without challenging it:
+`repliesTo` records the direction of a reply; it does not imply `answers`, `challenges`, or that an objection has been defeated.
+Its explicit target is a Point and need not carry O; the R-under-O rule is a local authoring default.
+
+```md cog-check require=repliesTo points=3 bearings=2 diagnostics=0
+- [O @objection] The explanation lacks a time scale.
+- [Q @question] Which time scale do you mean?
+- [C @concession] The timing is uncertain.
+- [edge @question repliesTo @objection; @clarification-question]
+- [edge @concession repliesTo @objection; @conceding]
+```
+
+The following original sources preserve the same Point declarations and selected graph structure.
+The comparison ignores local keys, source locations, narrative organization, Explain, and structural/operator provenance; it is not source round-trip equality.
+
+```md cog-check compare=complete-explicit caption="Local defaults" require=answers,clarifies,challenges,repliesTo points=5 bearings=4 diagnostics=0
+- [Q @question] Why did the measurement change?
+  - [C? @answer] Calibration may have shifted.
+    - [D @distinction] Drift and noise are different hypotheses.
+    - [O @objection] That does not explain the timing.
+      - [R @reply] Recalibration happened immediately before the change.
+```
+
+```md cog-check compare=complete-explicit caption="Named constructors" require=answers,clarifies,challenges,repliesTo points=5 bearings=4 diagnostics=0
+- [Q @question] Why did the measurement change?
+- [C? @answer] Calibration may have shifted.
+- [D @distinction] Drift and noise are different hypotheses.
+- [O @objection] That does not explain the timing.
+- [R @reply] Recalibration happened immediately before the change.
+- [edge @answer answers @question]
+- [edge @distinction clarifies @answer]
+- [edge @objection challenges @answer]
+- [edge @reply repliesTo @objection]
+```
+
+Identity reuse can follow the explanation's order without copying content or importing an earlier subtree:
+
+```md cog-check require=supports,undercuts,repliesTo points=4 bearings=3 diagnostics=0
+- [. @measurement] Two independent retries timed out.
+- The sample is small; we discuss that limitation before using the observation.
+- [C? @cause] A persistent configuration fault may explain the timeouts.
+- [edge @measurement supports @cause; @support] Reuse the earlier observation in this step.
+- [O @limitation] The two retries may share a transient fault.
+- [edge @limitation undercuts @support] Object to this attachment rather than copying the observation.
+- [Q @followup] Which environment did the retries share?
+- [edge @followup repliesTo @limitation]
+```
+
+Unknown/case-mismatched kinds, incomplete clauses, duplicate sources, multiple targets, and kind/target mismatches are diagnosed without partial relations or implicit fallback.
+For example, `[edge @answer answers @support]` fails when `support` names a Bearing.
+Named Point-attached forms such as `[Q @question repliesTo @objection]` are not supported.
+Prose after an `edge` annotation describes that individual Bearing and is not parsed as another clause.
+An automatic flat-source formatter is deferred; these constructors do not reconstruct the original document.
 
 ### One reason, two ways to write it
 
@@ -113,9 +181,55 @@ The nearest enclosing Point supplies the target, regardless of its role.
 Header prose is optional and becomes the joint Bearing's description, just like `edge` prose.
 It creates no Point and changes neither membership nor the source and target references.
 Members must be direct `G` children without operators or Bearing handles; an unmarked body child is not a member.
-Invalid membership rejects the whole linked block without falling back to single-source connections.
+Invalid source or unclassified intent rejects the whole linked block without falling back to single-source connections.
+G/ and O/ and complete explicit clauses are commentary or independent relations, separate from the ordered joint sources.
 Member subtrees retain their ordinary behavior, including a further linked block below a real intermediate Point.
 For complete restrictions and partial-output behavior, see [local linked blocks](syntax.md#local-linked-blocks).
+
+## Assess a local attachment
+
+Use G/ to support and O/ to object to the Bearing owned by the nearest ancestor constructor.
+These are ordinary G and O Points with a retained local selector, not new roles.
+Body is transparent; another Point, linked, or edge is a boundary even when its attachment is missing or rejected.
+Selection never scans a Point's other outgoing Bearings, crosses an unattached Point, or selects the commentary relation being created by the same annotation.
+
+```md cog-check require=supports,undercuts,repliesTo points=6 bearings=4 diagnostics=0
+- [C @claim] A persistent fault may explain the timeouts.
+  - [linked; @step]
+    - [G @first] Two retries timed out.
+    - [G @second] Both loaded the same configuration.
+    - [G/] The configuration connects these observations.
+    - [O/ @objection] A transient environment fault may explain both.
+      - [R] A control run found the environment stable.
+```
+
+In a Point context the ordinary table remains G supports, O challenges, D clarifies, Gap about, C answers only a locally Q-marked parent, and R repliesTo only a locally O-marked parent.
+Q and Material have no default.
+Unsuffixed roles have no default in a Bearing context; direct linked G instead contributes one source without an individual unary attachment.
+G/ and O/ select the nearest constructor's attachment in either context.
+An explicit clause overrides the ordinary default, and combining one with a selector is diagnosed.
+
+The following pair preserves selected graph structure, declaration metadata, individual instances, ordered sources and typed targets.
+Spans, derivedBy, Explain and original source remain separate from that comparison.
+
+```md cog-check compare=local-attachment caption="Local selector" require=supports,undercuts points=3 bearings=2 diagnostics=0
+- [C @claim] Claim.
+  - [G @premise; @step] Premise.
+    - [O/ @objection; @attack] This step assumes a stable environment.
+```
+
+```md cog-check compare=local-attachment caption="Complete target" require=supports,undercuts points=3 bearings=2 diagnostics=0
+- [C @claim] Claim.
+  - [G @premise; @step] Premise.
+    - [O @objection /> @step; @attack] This step assumes a stable environment.
+```
+
+A G/ and O/ below a linked member fails: the member owns no unary Bearing.
+Move commentary to the linked context or specify a complete target.
+A comments-only linked is invalid; commentary cannot invent its target.
+Unknown references in complete independent clauses fail independently; incomplete G +> rejects the whole joint.
+Only G/ and O/ are supported; no Q_, C_, R_, D_, suffixed Gap or targetless /> is introduced.
+The canonical negative mapping remains challenges for Point targets and undercuts for Bearing targets.
 
 ## Argument structures
 
@@ -198,17 +312,17 @@ If you intend a connection, choose the placement or an explicit operator that ex
 
 Indentation-based authoring and explicit-relation authoring can be mixed in one note.
 They are writing techniques, distinct from the [input modes](syntax.md#input-modes) and from each Bearing's `derivedBy` value.
-They do not express every relationship interchangeably: `answers`, `repliesTo`, and `clarifies` have indentation rules but no explicit operators in this version.
-Explicit references can point forward or backward, but are not a complete graph serialization syntax.
+Every adopted canonical kind has an explicit `edge` constructor, while local shorthand still follows its lexical context.
+Explicit references can point forward or backward; generated source would remain separate from the authored document and needs its own formatter contract.
 
 ## Naming routes
 
-Sometimes the weak part is how a reason bears on a claim. Name that connection with `; @route`, then use `_>` to question it:
+Sometimes the weak part is how a reason bears on a claim. Name that connection with `; @route`, then use `/>` to question it:
 
 ```md cog-check require=supports,undercuts,about points=4 bearings=3 diagnostics=0
 - [C? @cause] The connection pool may be exhausted.
   - [G; @log-route] Logs show connection acquisition failures.
-- [O _> @log-route] The same log message can result from a network failure.
+- [O /> @log-route] The same log message can result from a network failure.
 - [? ~> @log-route] We need a trace separating these two causes.
 ```
 

@@ -3,4 +3,4 @@
   - [O -> @claim] A direct challenge without authored Point identity.
   - [G @ground] The ground.
   - [edge @ground +> @claim; @route]
-  - [O _> @route] An undercut without authored Point identity.
+  - [O /> @route] An undercut without authored Point identity.

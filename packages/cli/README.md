@@ -2,7 +2,8 @@
 
 Check Cogitatum inquiry markup and inspect the reasoning connections marked in ordinary prose.
 
-Source candidate: **0.4.0-alpha.3**, format **0.4.0**, with local `linked` support and optional linked header descriptions.
+Source candidate: **0.4.0-alpha.6**, format **0.4.0**, with local `linked` support and optional linked header descriptions.
+Explicit `edge` clauses accept all canonical kind names, including `answers`, `repliesTo`, and `clarifies`.
 This candidate is not yet published; npm `alpha` currently provides **0.3.0-alpha.1** without linked. Requires Node.js 22.12 or newer.
 
 Run without a global installation:
@@ -22,6 +23,10 @@ npm exec -- cog graph examples/getting-started.cog.md
 ```
 
 `check` reports syntax and reference diagnostics; `ast` and `graph` print JSON projections. Use `--input host` for mixed Markdown with `cog` fences. Exit status is 0 for success, 1 for source or I/O errors, and 2 for invalid arguments. Diagnostics check the markup, not whether the reasoning succeeds.
+
+Input defaults to `document` independently of file contents; `--input auto` is retired and reports `INVALID_INPUT_MODE`.
+Explicit `host` mode selects actual document-level Markdown fences, leaves comments/raw HTML/literal code inactive, and never falls back to parsing the host as an outline.
+A host without active regions succeeds with empty projections; actual fences nested in lists or blockquotes are diagnosed and omitted.
 
 For debugging a note, `cog explain inquiry.cog.md` prints an optional Alpha compiler trace: recognition, emitted or rejected points and connections, and the compilation rules involved. This command explains how the markup was compiled. It does not explain the prose or evaluate an argument.
 

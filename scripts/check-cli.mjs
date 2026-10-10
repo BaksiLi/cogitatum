@@ -45,9 +45,17 @@ assert.ok(!rejectedLinked.bearings.some((bearing) => bearing.handle === "failed-
 const retired = run(["graph", "fixtures/diagnostics/retired-join.cog.md"], 1);
 assert.equal(retired.points.length, 4);
 assert.equal(retired.bearings.length, 2);
-assert.deepEqual(retired.diagnostics.map(diagnostic => diagnostic.code), ["RETIRED_JOIN_ANNOTATION", "INVALID_LINKED_MEMBER"]);
+assert.deepEqual(retired.diagnostics.map(diagnostic => diagnostic.code), ["RETIRED_JOIN_ANNOTATION"]);
 
-process.stdout.write("CLI Explain and linked contracts passed.\n");
+const reuse = run(["explain", "fixtures/core/narrative-reference-reuse.cog.md"], 0);
+assert.deepEqual(reuse.diagnostics, []);
+assert.equal(reuse.entries.filter(entry => entry.effects.some(effect => effect.kind === "focusPoint")).length, 6);
+const reusedGraph = run(["graph", "fixtures/core/narrative-reference-reuse.cog.md"], 0);
+assert.equal(reusedGraph.points.length, 6);
+assert.equal(reusedGraph.bearings.length, 7);
+assert.equal(reusedGraph.points.find(point => point.id === "observation").status, "open");
+
+process.stdout.write("CLI Explain, linked and reference-use contracts passed.\n");
 
 function run(args, expectedStatus) {
   const result = spawnSync(process.execPath, [cli, ...args], { encoding: "utf8" });

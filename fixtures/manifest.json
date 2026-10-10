@@ -1,6 +1,36 @@
 {
   "fixtures": [
     {
+      "file": "diagnostics/retired-authoring-spellings.cog.md",
+      "input": "document",
+      "purpose": "Retired declaration/use/selector spelling receives migration errors while failure boundaries preserve valid descendants and independently targeted relations.",
+      "expected": "diagnostics/retired-authoring-spellings.expected.json"
+    },
+    {
+      "file": "core/narrative-reference-reuse.cog.md",
+      "input": "document",
+      "purpose": "Reference-only uses preserve declaration identity, reader order and local attachments across serial reuse, linked support and objection replies.",
+      "expected": "core/narrative-reference-reuse.expected.json"
+    },
+    {
+      "file": "core/local-bearing-commentary.cog.md",
+      "input": "document",
+      "purpose": "Linked sources, local Bearing commentary, replies and independent clauses preserve ordered sources and exact typed targets.",
+      "expected": "core/local-bearing-commentary.expected.json"
+    },
+    {
+      "file": "core/named-bearing-constructors.cog.md",
+      "input": "document",
+      "purpose": "All canonical kinds can be explicitly constructed while retaining same-text Point identities, declaration metadata, narrative body and typed Bearing targets.",
+      "expected": "core/named-bearing-constructors.expected.json"
+    },
+    {
+      "file": "host/literal-and-nested-regions.md",
+      "input": "host",
+      "purpose": "Comments and raw HTML remain literal; an actual nested fence is diagnosed while the independent top-level unit survives with original locations.",
+      "expected": "host/literal-and-nested-regions.expected.json"
+    },
+    {
       "file": "diagnostics/retired-join.cog.md",
       "input": "document",
       "purpose": "Retired join remains a rejected boundary while valid descendant objections and independently targeted relations survive.",
@@ -267,7 +297,7 @@
     {
       "file": "syntax/malformed-annotation-prefix.cog.md",
       "input": "document",
-      "purpose": "Malformed reserved prefixes stay body; a valid descendant survives and ordinary brackets remain prose.",
+      "purpose": "Malformed reserved Point prefixes retain failed boundaries; valid descendants survive and ordinary brackets remain prose.",
       "expected": "syntax/malformed-annotation-prefix.expected.json"
     },
     {

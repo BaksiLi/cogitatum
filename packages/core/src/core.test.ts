@@ -362,8 +362,8 @@ describe("Cogitatum language contracts", () => {
     const malformed = compilation.explain.entries.find((entry) => entry.sourceSpan.startLine === 2);
 
     expect(malformed).toMatchObject({
-      recognition: { kind: "body" },
-      effects: [{ kind: "preserveBody" }],
+      recognition: { kind: "invalid" },
+      effects: [{ kind: "rejectBearing", reason: "annotation-syntax-error" }],
       diagnosticCodes: ["MALFORMED_ANNOTATION_PREFIX"]
     });
     expect(compilation.graph.points.map((point) => point.id)).toEqual(["survivor"]);
@@ -456,22 +456,17 @@ describe("Cogitatum language contracts", () => {
     expect(unevenContent[0].source).toBe("- First root.\n- Second root.");
   });
 
-  it("rejects Cogitatum fence candidates outside the text host indentation contract", () => {
+  it("leaves indented code examples inactive in host context", () => {
     for (const indentation of ["    ", "\t"]) {
       const compiled = compileSource(
         `${indentation}\`\`\`cog\n${indentation}- [C @hidden] Not an extracted source unit.\n${indentation}\`\`\`\n`,
-        "auto"
+        "host"
       );
 
       expect(compiled.mode).toBe("host");
       expect(compiled.units).toEqual([]);
       expect(compiled.graphs).toEqual([]);
-      expect(compiled.diagnostics).toEqual([
-        expect.objectContaining({
-          code: "UNSUPPORTED_HOST_FENCE_INDENTATION",
-          sourceSpan: { startLine: 1, startColumn: 1, endLine: 1, endColumn: indentation.length + 7 }
-        })
-      ]);
+      expect(compiled.diagnostics).toEqual([]);
     }
   });
 
@@ -491,10 +486,8 @@ describe("Cogitatum language contracts", () => {
     ]);
   });
 
-  it("reports missing, empty, and unclosed Cogitatum host fences", () => {
-    expect(compileSource("# Host only\n", "host").diagnostics).toEqual([
-      expect.objectContaining({ code: "NO_COGITATUM_FENCE" })
-    ]);
+  it("allows an empty host context but diagnoses empty and unclosed active fences", () => {
+    expect(compileSource("# Host only\n", "host").diagnostics).toEqual([]);
     expect(compileSource("```cog\n```\n", "host").diagnostics).toEqual([
       expect.objectContaining({ code: "EMPTY_COGITATUM_FENCE" })
     ]);
@@ -508,12 +501,12 @@ describe("Cogitatum language contracts", () => {
     const compiled = compileSource(source, "host");
 
     expect(compiled.units).toEqual([]);
-    expect(compiled.diagnostics).toEqual([expect.objectContaining({ code: "NO_COGITATUM_FENCE" })]);
+    expect(compiled.diagnostics).toEqual([]);
   });
 
-  it("uses host fences in auto mode and otherwise falls back to document mode", () => {
-    expect(parseSource(fixture("host/two-inquiries.md"), "auto").mode).toBe("host");
-    expect(parseSource(example("syllogism.cog.md"), "auto").mode).toBe("document");
+  it("defaults to document context independently of the presence of fences", () => {
+    expect(parseSource(fixture("host/two-inquiries.md")).mode).toBe("document");
+    expect(parseSource(example("syllogism.cog.md")).mode).toBe("document");
   });
 
   it("uses ordinary body containers for titled grouping", () => {
@@ -547,7 +540,7 @@ describe("Cogitatum language contracts", () => {
     const host = compileSource(`# Host\n\n\`\`\`cog\n${source}\`\`\`\n`, "host");
 
     expect(ast.blocks[0].children[0]).toMatchObject({
-      annotation: undefined,
+      annotation: { kind: "invalid" },
       text: "[C @claim Missing closing bracket."
     });
     expect(ast.blocks[0].children[0].children[0]).toMatchObject({ annotation: { kind: "role", anchor: "survivor", role: "G" } });
@@ -558,13 +551,13 @@ describe("Cogitatum language contracts", () => {
     expect(graph.points.map((point) => point.id)).toEqual(["survivor"]);
     expect(graph.bearings).toEqual([]);
     expect(graph.diagnostics.map((diagnostic) => diagnostic.code)).toEqual(
-      Array(3).fill("MALFORMED_ANNOTATION_PREFIX")
+      [...Array(3).fill("MALFORMED_ANNOTATION_PREFIX"), "FAILED_CONTEXT_REQUIRES_EXPLICIT_TARGET"]
     );
-    expect(graph.diagnostics.map((diagnostic) => diagnostic.sourceSpan?.startLine)).toEqual([2, 4, 5]);
+    expect(graph.diagnostics.map((diagnostic) => diagnostic.sourceSpan?.startLine)).toEqual([2, 4, 5, 3]);
     expect(host.diagnostics.map((diagnostic) => diagnostic.code)).toEqual(
-      Array(3).fill("MALFORMED_ANNOTATION_PREFIX")
+      [...Array(3).fill("MALFORMED_ANNOTATION_PREFIX"), "FAILED_CONTEXT_REQUIRES_EXPLICIT_TARGET"]
     );
-    expect(host.diagnostics.map((diagnostic) => diagnostic.sourceSpan?.startLine)).toEqual([5, 7, 8]);
+    expect(host.diagnostics.map((diagnostic) => diagnostic.sourceSpan?.startLine)).toEqual([5, 7, 8, 6]);
   });
 
   it("preserves closed and unclosed prose brackets without swallowing their text", () => {
@@ -803,7 +796,7 @@ describe("Cogitatum language contracts", () => {
   it("requires the edge keyword for Bearing-only annotations", () => {
     const graph = compileGraph(
       parseDocument(
-        "- Keyword boundary\n  - [C @c1] Claim.\n  - [@p1] Premise one.\n  - [@p2] Premise two.\n  - [@p1, @p2 +> @c1] Legacy ambiguous edge.\n"
+        "- Keyword boundary\n  - [C @c1] Claim.\n  - [. @p1] Premise one.\n  - [. @p2] Premise two.\n  - [. @p1, @p2 +> @c1] Legacy ambiguous edge.\n"
       )
     );
 
@@ -816,7 +809,7 @@ describe("Cogitatum language contracts", () => {
   it("keeps roleless materials as Points when they have annotated children", () => {
     const graph = compileGraph(
       parseDocument(
-        "- Material pressure\n  - [C @c1] Claim.\n    - [@p1] Linked premise.\n      - [O @o1] Objection to the premise.\n    - [edge @p1 +> @c1; @route] Premise supports claim.\n"
+        "- Material pressure\n  - [C @c1] Claim.\n    - [. @p1] Linked premise.\n      - [O @o1] Objection to the premise.\n    - [edge @p1 +> @c1; @route] Premise supports claim.\n"
       )
     );
 
@@ -1100,7 +1093,7 @@ describe("Cogitatum language contracts", () => {
   it("rejects Bearings that target another Bearing which failed compilation", () => {
     const graph = compileGraph(
       parseDocument(
-        "- Dependent invalid Bearing\n  - [C @c1] Claim.\n  - [edge @missing +> @c1; @bad] Invalid base Bearing.\n  - [O @o1 _> @bad] Dependent undercut.\n"
+        "- Dependent invalid Bearing\n  - [C @c1] Claim.\n  - [edge @missing +> @c1; @bad] Invalid base Bearing.\n  - [O @o1 /> @bad] Dependent undercut.\n"
       )
     );
 
@@ -1179,7 +1172,7 @@ describe("Cogitatum language contracts", () => {
   });
 
   it("separates all compilation identities from authored names across revisions", () => {
-    const source = "- Ordinary body.\n- [C @claim] Claim.\n  - [G; @route] Reason.\n- [O _> @route] Objection.\n";
+    const source = "- Ordinary body.\n- [C @claim] Claim.\n  - [G; @route] Reason.\n- [O /> @route] Objection.\n";
     const first = compileGraphWithExplain(parseDocument(source));
     const revised = compileGraph(parseDocument("- [Q] An earlier question.\n" + source));
 
@@ -1200,7 +1193,7 @@ describe("Cogitatum language contracts", () => {
 
   it("does not confuse a rejected candidate key with an emitted graph index", () => {
     const { graph, explain } = compileGraphWithExplain(parseDocument(
-      "- [C @claim] Claim.\n- [G @reason] Reason.\n- [edge @missing +> @claim; @bad]\n- [edge @reason +> @claim; @good]\n- [O _> @good] Objection.\n"
+      "- [C @claim] Claim.\n- [G @reason] Reason.\n- [edge @missing +> @claim; @bad]\n- [edge @reason +> @claim; @good]\n- [O /> @good] Objection.\n"
     ));
     expect(graph.bearings.map((bearing) => bearing.key)).toEqual(["_b2", "_b3"]);
     const effects = explain.entries.flatMap((entry) => entry.effects);
@@ -1455,7 +1448,7 @@ describe("Cogitatum language contracts", () => {
     expect(validateAst(ast)).toBe(false);
     expect(validateGraph(graph)).toBe(false);
 
-    const malformedMaterial = jsonValue(compileGraph(parseDocument("- [@material] Material.\n")));
+    const malformedMaterial = jsonValue(compileGraph(parseDocument("- [. @material] Material.\n")));
     malformedMaterial.points[0].role = "G";
     expect(validateGraph(malformedMaterial)).toBe(false);
   });

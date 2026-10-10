@@ -21,7 +21,7 @@ for (const file of files) {
 
     checked += 1;
     const input = meta.find((part) => part.startsWith("input="))?.slice("input=".length) ?? "document";
-    if (!["document", "host", "auto"].includes(input)) {
+    if (!["document", "host"].includes(input)) {
       failures.push({ file, line: node.position?.start.line, invalidInput: input });
       return;
     }

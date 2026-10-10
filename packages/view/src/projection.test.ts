@@ -4,7 +4,7 @@ import { layoutGraph, projectGraph, referenceKey } from "./projection.js";
 
 describe("faithful graph projection", () => {
   it("retains joint support and pressure on that same bearing", () => {
-    const graph = compileSource('- [C @c] Claim.\n- [G @a] First.\n- [G @b] Second.\n- [edge @a, @b +> @c; @route]\n- [O _> @route] Route objection.','document').graphs[0];
+    const graph = compileSource('- [C @c] Claim.\n- [G @a] First.\n- [G @b] Second.\n- [edge @a, @b +> @c; @route]\n- [O /> @route] Route objection.','document').graphs[0];
     const p = projectGraph(graph);
     expect(p.nodes).toHaveLength(6); expect(p.links).toHaveLength(5);
     const route = graph.bearings.find(b=>b.handle==='route')!;
