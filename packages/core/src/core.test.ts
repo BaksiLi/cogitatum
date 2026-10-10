@@ -456,22 +456,17 @@ describe("Cogitatum language contracts", () => {
     expect(unevenContent[0].source).toBe("- First root.\n- Second root.");
   });
 
-  it("rejects Cogitatum fence candidates outside the text host indentation contract", () => {
+  it("leaves indented code examples inactive in host context", () => {
     for (const indentation of ["    ", "\t"]) {
       const compiled = compileSource(
         `${indentation}\`\`\`cog\n${indentation}- [C @hidden] Not an extracted source unit.\n${indentation}\`\`\`\n`,
-        "auto"
+        "host"
       );
 
       expect(compiled.mode).toBe("host");
       expect(compiled.units).toEqual([]);
       expect(compiled.graphs).toEqual([]);
-      expect(compiled.diagnostics).toEqual([
-        expect.objectContaining({
-          code: "UNSUPPORTED_HOST_FENCE_INDENTATION",
-          sourceSpan: { startLine: 1, startColumn: 1, endLine: 1, endColumn: indentation.length + 7 }
-        })
-      ]);
+      expect(compiled.diagnostics).toEqual([]);
     }
   });
 
@@ -491,10 +486,8 @@ describe("Cogitatum language contracts", () => {
     ]);
   });
 
-  it("reports missing, empty, and unclosed Cogitatum host fences", () => {
-    expect(compileSource("# Host only\n", "host").diagnostics).toEqual([
-      expect.objectContaining({ code: "NO_COGITATUM_FENCE" })
-    ]);
+  it("allows an empty host context but diagnoses empty and unclosed active fences", () => {
+    expect(compileSource("# Host only\n", "host").diagnostics).toEqual([]);
     expect(compileSource("```cog\n```\n", "host").diagnostics).toEqual([
       expect.objectContaining({ code: "EMPTY_COGITATUM_FENCE" })
     ]);
@@ -508,12 +501,12 @@ describe("Cogitatum language contracts", () => {
     const compiled = compileSource(source, "host");
 
     expect(compiled.units).toEqual([]);
-    expect(compiled.diagnostics).toEqual([expect.objectContaining({ code: "NO_COGITATUM_FENCE" })]);
+    expect(compiled.diagnostics).toEqual([]);
   });
 
-  it("uses host fences in auto mode and otherwise falls back to document mode", () => {
-    expect(parseSource(fixture("host/two-inquiries.md"), "auto").mode).toBe("host");
-    expect(parseSource(example("syllogism.cog.md"), "auto").mode).toBe("document");
+  it("defaults to document context independently of the presence of fences", () => {
+    expect(parseSource(fixture("host/two-inquiries.md")).mode).toBe("document");
+    expect(parseSource(example("syllogism.cog.md")).mode).toBe("document");
   });
 
   it("uses ordinary body containers for titled grouping", () => {

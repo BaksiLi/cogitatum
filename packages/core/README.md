@@ -2,7 +2,7 @@
 
 Cogitatum is a lightweight markup language for making selected reasoning structure explicit inside ordinary prose. This package provides its deterministic parser and compiler for Node.js and browsers.
 
-Source candidate: **0.4.0-alpha.3**, format **0.4.0**, with local `linked` support and optional linked header descriptions.
+Source candidate: **0.4.0-alpha.4**, format **0.4.0**, with local `linked` support and optional linked header descriptions.
 This candidate is not yet published; npm `alpha` currently provides **0.3.0-alpha.1** without linked.
 
 ```sh
@@ -24,7 +24,12 @@ Ordinary body stays in the source AST; only marked structure produces graph enti
 
 Every Point and Bearing has a compilation-local `key`. Only authored Point anchors populate `id`; only authored route names populate a Bearing's `handle`. Graph references use `{ key, kind }`. Keys must not be persisted as stable references across revisions or source units.
 
-`parseSource` and `compileSource` support input modes; host mode compiles document-level Markdown `cog` fences independently. ESM; Node.js 22.12 or newer for development and CLI use.
+`parseSource`, `compileSource`, `explainSource`, and `extractCogitatumSourceUnits` default to the owned `document` context.
+Pass `host` explicitly for Markdown: actual document-level `cog`/`cogitatum` fences compile independently; comments, raw HTML, and literal code remain inactive.
+Nested active fences are diagnosed and omitted; a host with no active regions returns empty projections without parsing host prose as an outline.
+`auto` is retired and explicit JavaScript uses receive a `TypeError` with migration guidance.
+Keep the original host and pair selected units with AST/Graph/Explain by array index; source spans refer to original one-based UTF-16 positions.
+ESM; Node.js 22.12 or newer for development and CLI use.
 
 Optional Alpha debugging APIs, `compileGraphWithExplain` and `explainSource`, add a compiler trace of recognition, emitted or rejected entities, and diagnostics. This trace explains compilation decisions; it does not assess reasoning or record inquiry history. Use AST and Graph IR for integrations that do not need it.
 

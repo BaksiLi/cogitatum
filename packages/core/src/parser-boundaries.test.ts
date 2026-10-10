@@ -11,7 +11,7 @@ const schemas = ["ast", "graph-ir", "explain"].map((name) =>
 for (const schema of schemas) ajv.addSchema(schema);
 const [validateAst, validateGraph, validateExplain] = schemas.map((schema) => ajv.getSchema(schema.$id)!);
 
-function explainUnit(source: string, mode: Exclude<SourceParseMode, "auto">) {
+function explainUnit(source: string, mode: SourceParseMode) {
   const input = mode === "host" ? `Host prose.\n\n\`\`\`cog\n${source}\n\`\`\`\n` : source;
   const result = explainSource(input, mode);
   return { ast: result.documents[0], graph: result.graphs[0], explain: result.explanations[0] };

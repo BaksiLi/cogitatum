@@ -1,3 +1,6 @@
+import type { Nodes } from "mdast";
+import remarkParse from "remark-parse";
+import { unified } from "unified";
 import { compileGraph, compileGraphWithExplain } from "./graph.js";
 import { parseDocument } from "./outline.js";
 import { FORMAT_VERSION } from "./types.js";
@@ -13,7 +16,7 @@ import type {
 } from "./types.js";
 
 const FENCE_RE = /^( {0,3})(`{3,}|~{3,})(.*)$/;
-const FENCE_CANDIDATE_RE = /^([ \t]*)(`{3,}|~{3,})(.*)$/;
+const markdownParser = unified().use(remarkParse);
 
 type SelectedSourceUnit = {
   sourceUnit: CogitatumSourceUnit;
@@ -21,16 +24,16 @@ type SelectedSourceUnit = {
 };
 
 type SelectedSource = {
-  mode: Exclude<SourceParseMode, "auto">;
+  mode: SourceParseMode;
   units: SelectedSourceUnit[];
   diagnostics: Diagnostic[];
 };
 
-export function extractCogitatumSourceUnits(source: string, mode: SourceParseMode = "auto"): CogitatumSourceUnit[] {
+export function extractCogitatumSourceUnits(source: string, mode: SourceParseMode = "document"): CogitatumSourceUnit[] {
   return selectSource(source, mode).units.map((selected) => selected.sourceUnit);
 }
 
-export function parseSource(source: string, mode: SourceParseMode = "auto"): ParsedSource {
+export function parseSource(source: string, mode: SourceParseMode = "document"): ParsedSource {
   const selected = selectSource(source, mode);
   const documents = parseSelectedDocuments(selected);
 
@@ -43,7 +46,7 @@ export function parseSource(source: string, mode: SourceParseMode = "auto"): Par
   };
 }
 
-export function compileSource(source: string, mode: SourceParseMode = "auto"): CompiledSource {
+export function compileSource(source: string, mode: SourceParseMode = "document"): CompiledSource {
   const selected = selectSource(source, mode);
   const documents = parseSelectedDocuments(selected);
   const graphs = documents.map(compileGraph);
@@ -58,7 +61,7 @@ export function compileSource(source: string, mode: SourceParseMode = "auto"): C
   };
 }
 
-export function explainSource(source: string, mode: SourceParseMode = "auto"): ExplainedSource {
+export function explainSource(source: string, mode: SourceParseMode = "document"): ExplainedSource {
   const selected = selectSource(source, mode);
   const documents = parseSelectedDocuments(selected);
   const compilations = documents.map(compileGraphWithExplain);
@@ -89,20 +92,10 @@ function selectSource(source: string, requestedMode: SourceParseMode): SelectedS
     return { mode: "document", units: [selectedDocumentUnit(source)], diagnostics: [] };
   }
 
-  const host = extractHostUnits(source);
-  if (requestedMode === "host" || host.sawCogitatumFence || host.sawUnsupportedCogitatumFence) {
-    const diagnostics = [...host.diagnostics];
-    if (!host.sawCogitatumFence && !host.sawUnsupportedCogitatumFence) {
-      diagnostics.push({
-        severity: "error",
-        code: "NO_COGITATUM_FENCE",
-        message: "Host mode requires at least one fenced `cog` or `cogitatum` source unit."
-      });
-    }
-    return { mode: "host", units: host.units, diagnostics };
+  if (requestedMode !== "host") {
+    throw new TypeError("Source context must be document or host; auto selection is retired. Pass host explicitly for Markdown.");
   }
-
-  return { mode: "document", units: [selectedDocumentUnit(source)], diagnostics: [] };
+  return { mode: "host", ...extractHostUnits(source) };
 }
 
 function selectedDocumentUnit(source: string): SelectedSourceUnit {
@@ -118,166 +111,73 @@ function documentUnit(source: string): CogitatumSourceUnit {
   };
 }
 
-function extractHostUnits(source: string): {
-  units: SelectedSourceUnit[];
-  diagnostics: Diagnostic[];
-  sawCogitatumFence: boolean;
-  sawUnsupportedCogitatumFence: boolean;
-} {
+function extractHostUnits(source: string): Pick<SelectedSource, "units" | "diagnostics"> {
   const units: SelectedSourceUnit[] = [];
   const diagnostics: Diagnostic[] = [];
-  const lines = source.replace(/\r\n/g, "\n").split("\n");
-  let sawCogitatumFence = false;
-  let sawUnsupportedCogitatumFence = false;
-  let ignoredFence: { marker: "`" | "~"; fenceLength: number } | undefined;
-  let open:
-    | {
-        marker: "`" | "~";
-        fenceLength: number;
-        fenceInfo: "cog" | "cogitatum";
-        openingLine: number;
-        startLine: number;
-        indentation: number;
-        content: string[];
-        contentColumnOffsets: number[];
-      }
-    | undefined;
+  const lines = source.split(/\r\n|\r|\n/);
+  const tree = markdownParser.parse(source);
 
-  for (let index = 0; index < lines.length; index += 1) {
-    const line = lines[index];
-    const lineNumber = index + 1;
-
-    if (ignoredFence) {
-      if (isClosingFence(line, ignoredFence.marker, ignoredFence.fenceLength)) {
-        ignoredFence = undefined;
+  function visitBlock(block: Nodes, nested: boolean): void {
+    if (block.type !== "code") {
+      if ("children" in block) {
+        for (const child of block.children) visitBlock(child, true);
       }
-      continue;
+      return;
+    }
+    const fenceInfo = block.lang === "cog" || block.lang === "cogitatum" ? block.lang : undefined;
+    if (!fenceInfo || !block.position) return;
+    const { start, end } = block.position;
+    if (nested) {
+      diagnostics.push({
+        severity: "error",
+        code: "UNSUPPORTED_NESTED_COGITATUM_FENCE",
+        message: "Cogitatum fences inside Markdown containers are unsupported. Move this fence to document level.",
+        sourceSpan: { startLine: start.line, startColumn: start.column, endLine: end.line, endColumn: end.column }
+      });
+      return;
     }
 
-    if (open) {
-      if (isClosingFence(line, open.marker, open.fenceLength)) {
-        const unit: CogitatumSourceUnit = {
-          kind: "fence",
-          source: open.content.join("\n"),
-          startLine: open.startLine,
-          endLine: lineNumber - 1,
-          fenceInfo: open.fenceInfo
-        };
-        units.push({ sourceUnit: unit, lineColumnOffsets: open.contentColumnOffsets });
-        if (open.content.every((contentLine) => contentLine.trim() === "")) {
-          diagnostics.push({
-            severity: "error",
-            code: "EMPTY_COGITATUM_FENCE",
-            message: "Cogitatum source fence is empty.",
-            sourceSpan: span(open.openingLine, 1, lines[open.openingLine - 1].length + 1)
-          });
-        }
-        open = undefined;
-      } else {
-        const stripped = stripOpeningFenceIndent(line, open.indentation);
-        open.content.push(stripped.line);
-        open.contentColumnOffsets.push(stripped.removedSpaces);
-      }
-      continue;
+    const opening = FENCE_RE.exec(lines[start.line - 1]);
+    if (!opening) return;
+    const markerText = opening[2];
+    if (end.line <= start.line || !isClosingFence(lines[end.line - 1], markerText[0], markerText.length)) {
+      diagnostics.push({
+        severity: "error",
+        code: "UNCLOSED_COGITATUM_FENCE",
+        message: "Cogitatum source fence opened on line " + start.line + " is not closed.",
+        sourceSpan: span(start.line, 1, lines[start.line - 1].length + 1)
+      });
+      return;
     }
 
-    const fence = parseOpeningFence(line);
-    if (!fence) {
-      if (isUnsupportedCogitatumFenceCandidate(line)) {
-        sawUnsupportedCogitatumFence = true;
-        diagnostics.push({
-          severity: "error",
-          code: "UNSUPPORTED_HOST_FENCE_INDENTATION",
-          message: "Text host mode supports Cogitatum opening fences preceded by at most three spaces.",
-          explanation:
-            "Use a document-level fence or a native host adapter for list, blockquote, or block-tree containment.",
-          sourceSpan: span(lineNumber, 1, line.length + 1)
-        });
-      }
-      continue;
-    }
-    if (!fence.fenceInfo) {
-      ignoredFence = { marker: fence.marker, fenceLength: fence.fenceLength };
-      continue;
-    }
-
-    sawCogitatumFence = true;
-    open = {
-      marker: fence.marker,
-      fenceLength: fence.fenceLength,
-      fenceInfo: fence.fenceInfo,
-      openingLine: lineNumber,
-      startLine: lineNumber + 1,
-      indentation: fence.indentation,
-      content: [],
-      contentColumnOffsets: []
-    };
-  }
-
-  if (open) {
-    diagnostics.push({
-      severity: "error",
-      code: "UNCLOSED_COGITATUM_FENCE",
-      message: `Cogitatum source fence opened on line ${open.openingLine} is not closed.`,
-      sourceSpan: span(open.openingLine, 1, lines[open.openingLine - 1].length + 1)
+    const content = lines.slice(start.line, end.line - 1)
+      .map(line => stripOpeningFenceIndent(line, opening[1].length));
+    units.push({
+      sourceUnit: {
+        kind: "fence",
+        source: content.map(line => line.line).join("\n"),
+        startLine: start.line + 1,
+        endLine: end.line - 1,
+        fenceInfo
+      },
+      lineColumnOffsets: content.map(line => line.removedSpaces)
     });
-  }
-
-  return { units, diagnostics, sawCogitatumFence, sawUnsupportedCogitatumFence };
-}
-
-function normalizeFenceInfo(info: string): "cog" | "cogitatum" | undefined {
-  const firstWord = info.trim().split(/[ \t]+/, 1)[0];
-  if (firstWord === "cog" || firstWord === "cogitatum") {
-    return firstWord;
-  }
-  return undefined;
-}
-
-function isClosingFence(line: string, marker: "`" | "~", fenceLength: number): boolean {
-  const re = new RegExp(`^ {0,3}${marker}{${fenceLength},}[ \\t]*$`);
-  return re.test(line);
-}
-
-function parseOpeningFence(line: string):
-  | {
-      marker: "`" | "~";
-      fenceLength: number;
-      fenceInfo?: "cog" | "cogitatum";
-      indentation: number;
+    if (content.every(line => line.line.trim() === "")) {
+      diagnostics.push({
+        severity: "error",
+        code: "EMPTY_COGITATUM_FENCE",
+        message: "Cogitatum source fence is empty.",
+        sourceSpan: span(start.line, 1, lines[start.line - 1].length + 1)
+      });
     }
-  | undefined {
-  const match = FENCE_RE.exec(line);
-  if (!match) {
-    return undefined;
   }
 
-  const markerText = match[2];
-  const rawInfo = match[3].trim();
-  if (markerText[0] === "`" && rawInfo.includes("`")) {
-    return undefined;
-  }
-
-  return {
-    marker: markerText[0] as "`" | "~",
-    fenceLength: markerText.length,
-    fenceInfo: normalizeFenceInfo(rawInfo),
-    indentation: match[1].length
-  };
+  for (const block of tree.children) visitBlock(block, false);
+  return { units, diagnostics };
 }
 
-function isUnsupportedCogitatumFenceCandidate(line: string): boolean {
-  const match = FENCE_CANDIDATE_RE.exec(line);
-  if (!match || (!match[1].includes("\t") && match[1].length <= 3)) {
-    return false;
-  }
-
-  const markerText = match[2];
-  const rawInfo = match[3].trim();
-  if (markerText[0] === "`" && rawInfo.includes("`")) {
-    return false;
-  }
-  return normalizeFenceInfo(rawInfo) !== undefined;
+function isClosingFence(line: string, marker: string, fenceLength: number): boolean {
+  return new RegExp("^ {0,3}" + marker + "{" + fenceLength + ",}[ \\t]*$").test(line);
 }
 
 function stripOpeningFenceIndent(line: string, indentation: number): { line: string; removedSpaces: number } {

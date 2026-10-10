@@ -1,6 +1,12 @@
 {
   "fixtures": [
     {
+      "file": "host/literal-and-nested-regions.md",
+      "input": "host",
+      "purpose": "Comments and raw HTML remain literal; an actual nested fence is diagnosed while the independent top-level unit survives with original locations.",
+      "expected": "host/literal-and-nested-regions.expected.json"
+    },
+    {
       "file": "diagnostics/retired-join.cog.md",
       "input": "document",
       "purpose": "Retired join remains a rejected boundary while valid descendant objections and independently targeted relations survive.",

@@ -44,7 +44,8 @@ for (const name of ["core", "cli", "view"]) {
 }
 
 writeFileSync(join(temporary, "package.json"), JSON.stringify({ private: true, type: "module" }));
-run("npm", ["install", "--offline", "--ignore-scripts", "--no-audit", "--no-fund", "--cache", cache, ...tarballs], temporary);
+run("npm", ["install", "--ignore-scripts", "--no-audit", "--no-fund", "--cache", cache, ...tarballs], temporary);
+run("npm", ["ci", "--offline", "--ignore-scripts", "--no-audit", "--no-fund", "--cache", cache], temporary);
 for (const name of ["ast", "graph-ir", "explain", "source"]) {
   const imported = JSON.parse(run(process.execPath, ["--input-type=module", "-e",
     `import schema from '@cogitatum/core/schemas/${name}' with { type: 'json' }; console.log(JSON.stringify(schema));`
@@ -53,7 +54,7 @@ for (const name of ["ast", "graph-ir", "explain", "source"]) {
 }
 const probe = `
 import assert from 'node:assert/strict';
-import { compileGraphWithExplain, parseDocument } from '@cogitatum/core';
+import { compileGraphWithExplain, compileSource, parseDocument } from '@cogitatum/core';
 const { graph, explain } = compileGraphWithExplain(parseDocument('- Ordinary context.\\n  - [C @claim] A claim.\\n    - [G; @route] A reason.\\n- [O _> @route] A route objection.\\n'));
 assert.equal(graph.points.length, 3);
 assert.equal(graph.points[1].id, undefined);
@@ -61,6 +62,13 @@ assert.equal(graph.bearings[0].handle, 'route');
 assert.deepEqual(graph.bearings[1].target, {key: graph.bearings[0].key, kind: 'bearing'});
 assert.ok(explain.entries.some(entry => entry.recognition.kind === 'body'));
 assert.deepEqual(graph.diagnostics, []);
+const fence = String.fromCharCode(96).repeat(3);
+const hostText = ['<!--', fence + 'cog', '- [C @hidden] Hidden.', fence, '-->', '', fence + 'cog', '- [C @visible] Visible.', fence].join('\\n');
+const host = compileSource(hostText, 'host');
+assert.equal(host.graphs.length, 1);
+assert.equal(host.graphs[0].points[0].id, 'visible');
+assert.equal(host.graphs[0].points[0].sourceSpan.startLine, 8);
+assert.deepEqual(host.diagnostics, []);
 `;
 run(process.execPath, ["--input-type=module", "-e", probe], temporary);
 // Consumers may set the development condition; the package must remain usable.
@@ -114,7 +122,7 @@ const otherSource: Annotation = {kind: 'role', role: 'G', raw: '', operatorClaus
 graph.points[0] && parseDocument('- [C] Claim.').blocks[0].role;
 `);
 run(process.execPath, [join(root, "node_modules/typescript/bin/tsc"), "--noEmit", "--strict", "--skipLibCheck", "--module", "NodeNext", "--target", "ES2022", "consumer.mts"], temporary);
-process.stdout.write(`Packed packages passed isolated offline installation, API, CLI, and TypeScript checks.\nReviewable tarballs: ${temporary}\n`);
+process.stdout.write(`Packed packages passed isolated installation, offline reinstall, API, CLI, and TypeScript checks.\nReviewable tarballs: ${temporary}\n`);
 
 function run(command, args, cwd) {
   const result = spawnSync(command, args, { cwd, encoding: "utf8" });

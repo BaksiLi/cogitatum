@@ -6,7 +6,7 @@ export type BearingKind = BearingOp | "repliesTo" | "clarifies" | "answers";
 export type BearingDerivedBy = "operator" | "structural";
 export type Severity = "error" | "warning" | "suggestion";
 export type AnnotationSyntaxError = "operator" | "handle" | "linked";
-export type SourceParseMode = "document" | "host" | "auto";
+export type SourceParseMode = "document" | "host";
 export type SourceUnitKind = "document" | "fence";
 
 export type SourceSpan = {
@@ -92,7 +92,7 @@ export type CogitatumSourceUnit = {
 
 export type ParsedSource = {
   version: string;
-  mode: Exclude<SourceParseMode, "auto">;
+  mode: SourceParseMode;
   units: CogitatumSourceUnit[];
   documents: DocumentAst[];
   diagnostics: Diagnostic[];

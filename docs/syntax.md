@@ -154,7 +154,13 @@ Duplicate Point anchors invalidate all Points with that anchor and dependent Bea
 
 ## Input modes
 
-`document` compiles a standalone outline without a wrapper. `host` extracts document-level `cog` or `cogitatum` fences from mixed Markdown. `auto` uses host mode when it finds a Cogitatum fence candidate and otherwise document mode.
+`document` compiles a standalone owned outline without a wrapper and is the default for both source APIs and the CLI.
+`host` explicitly selects a Markdown host and extracts its document-level `cog` or `cogitatum` fenced code blocks.
+Source selection uses the Markdown block tree, so comments, raw HTML, indented code examples, and apparent fences inside other literal code blocks stay inactive.
+Host mode never falls back to the raw outline; no active regions means zero units, documents, and graphs, with no selection diagnostic.
+Unfenced annotations stay host prose whether a fence is added or removed.
+`auto` is retired: TypeScript callers choose `document | host`, JavaScript callers passing `auto` receive a `TypeError`, and CLI `--input auto` receives `INVALID_INPUT_MODE`.
+When migrating a call that relied on automatic fence selection, pass `host` explicitly and reparse the original host.
 
 All input modes permit indentation-based authoring, explicit-relation authoring, or a mixture.
 These writing techniques are not additional compiler input modes.
@@ -195,7 +201,27 @@ Context outside the selected inquiry.
 
 Fences use at least three backticks or tildes with zero to three leading spaces; their first info word is exactly `cog` or `cogitatum`. A closer uses the same marker and at least the opener's length, independently indented zero to three spaces. Up to the opener's indentation is removed from each content line. Source spans retain host line and column positions.
 
-Each fence has its own namespace and graph; references cannot cross fences. Missing, empty, unclosed, tab-indented, or over-indented Cogitatum fences produce diagnostics. The scanner does not parse host lists or blockquotes; use document-level fences. Host prose stays with the host document.
+Each fence has its own namespace and graph; references cannot cross fences.
+An actual Cogitatum fence nested in a Markdown list or blockquote receives `UNSUPPORTED_NESTED_COGITATUM_FENCE` and is omitted.
+Its diagnostic retains the original host span, including the original location after container prefixes; it creates no source unit or graph entity.
+Four-space or tab-indented code examples are literal host content rather than attempted active regions.
+Empty closed active fences remain selected empty units with `EMPTY_COGITATUM_FENCE`.
+Cogitatum deliberately requires a closer even though Markdown permits an unclosed code block: an unclosed active fence receives `UNCLOSED_COGITATUM_FENCE` and is omitted, preserving earlier complete units.
+
+For example, this comment creates no active source and no annotation diagnostic:
+
+````markdown cog-check input=host points=0 bearings=0 diagnostics=0
+<!--
+```cog
+- [C @hidden] Hidden in a comment.
+```
+-->
+````
+
+Keep the original host alongside its mappings; selected unit text is not a replacement for the document.
+The parallel `units[]`, `documents[]`, `graphs[]`, and optional `explanations[]` arrays pair by selected-unit index in reader order.
+Skipped literal content and rejected nested regions occupy no index and never import a namespace.
+No native Markdown annotation grammar, extension-based profile, or document-wide namespace is introduced here.
 
 ## Machine contract and CLI
 
@@ -219,7 +245,11 @@ Graph references use `{ key, kind }`; AST references remain `{ id }`. Keys are o
 
 Explain emission references use graph keys; Bearing emissions also have a graph index and optional handle. The index addresses this compilation's Bearing array only. Emitted summaries obey the same kind/target restrictions as canonical Bearings. Rejected candidates can retain unresolved authored `{ id }` references or a resolved target of the wrong kind: that mismatch can explain the rejection. They are not graph entities. Diagnostic codes on an entry come from diagnostics whose source spans overlap that block; they can include diagnostics from its children. The top-level diagnostics retain their actual spans.
 
-The **0.4.0-alpha.3** source candidate retains the **unpublished format identifier 0.4.0**.
+The **0.4.0-alpha.4** source candidate retains the **unpublished format identifier 0.4.0**, including the alpha.3 linked migration below.
+Its source-selection baseline is alpha.3 at `8fc2f6a72cbaebcf07286cf62a41db4ca13461d7`.
+Alpha.4 requires explicit source context, parses actual Markdown blocks, rejects nested active fences, and permits an empty host result.
+These source-selection changes leave GraphIR/ref/typed-target shapes and all canonical negative kinds unchanged.
+Old host envelopes must be regenerated from the original document with the chosen context; relabelling an older envelope, AST, or Explain projection does not apply the new selection policy.
 Its exact migration baseline is the reviewed tree `5725f873abf5d3ad7c1eefb5b9f1416d59cf5f95`, which includes the parser-boundary fixes on main `f6eefef12b6ffd620d61ab28d31d9a8c5f6e1b02` (alpha.2).
 The alpha.1/alpha.2 candidates used `join`; alpha.3 reserves `linked` and rejects the retired spelling.
 The shared unpublished format number does **not** make those AST/Explain contracts compatible.
