@@ -80,6 +80,8 @@ Outside a join, without an operator, use the nearest enclosing Point:
 
 Other combinations produce no structural Bearing. Body does not block lookup, but another Point does. An `edge` cannot be an implicit target: the first Point beneath it, possibly through body, needs an explicit operator and target. Once a Point is reached, its children use the ordinary indentation rules again. An operator overrides the structural default; it does not create a second connection.
 
+Recognized malformed `edge` headers retain this boundary in the AST, including incorrect case, an unclosed bracket, and invalid `;` separators. Their descendants cannot acquire a default connection to an outer Point because the edge failed. Valid descendant Points, their ordinary subtrees, and relations with independent explicit targets remain available in the partial result. The exact keyword is reserved: `[edgeless]` remains ordinary body.
+
 A top-level Objection is legal even without a target:
 
 ```md cog-check points=1 bearings=0 diagnostics=0
@@ -248,3 +250,4 @@ cog --version
 Commands output JSON; help and version output text. Exit status is `0` without error diagnostics, `1` for source or I/O errors, and `2` for invalid arguments. `--` ends option parsing for a filename starting with `-`. Warnings and suggestions do not fail a command. Diagnostics provide compiler evidence, not substantive review.
 
 Native editor adapters, execution semantics, collaboration state, and Cogitatio runtime are outside this prerelease. For a working note, return to the [quick start](quick-start.md) or [examples](https://cogitatum.baksili.codes/examples).
+

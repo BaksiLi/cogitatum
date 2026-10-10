@@ -12,12 +12,12 @@ import type {
 const ROLE_RE = /^(Q|C|G|O|R|D)$/;
 const INVALID_OPEN_ROLE_RE = /^(Q|G|O|R|D)\?$/;
 const ANCHOR_RE = /^@([a-z][a-z0-9_-]*)$/;
-const OP_TO_BEARING: Record<string, BearingOp> = {
-  "+>": "supports",
-  "->": "challenges",
-  "_>": "undercuts",
-  "~>": "about"
-};
+const OP_TO_BEARING = new Map<string, BearingOp>([
+  ["+>", "supports"],
+  ["->", "challenges"],
+  ["_>", "undercuts"],
+  ["~>", "about"]
+]);
 
 export type AnnotationParseResult = {
   annotation?: Annotation;
@@ -28,6 +28,7 @@ export function parseAnnotation(raw: string, sourceSpan?: SourceSpan): Annotatio
   const diagnostics: Diagnostic[] = [];
   const trimmed = raw.trim();
   const semicolonParts = trimmed.split(";").map((part) => part.trim());
+  const edgeIntent = /^edge(?=$|[\s;])/i.test(trimmed);
 
   // Retain malformed join intent so its children never fall back to unary support.
   if (/^join(?=$|[\s;])/i.test(trimmed)) {
@@ -57,7 +58,10 @@ export function parseAnnotation(raw: string, sourceSpan?: SourceSpan): Annotatio
       message: "Annotation may contain at most one Bearing handle separator.",
       sourceSpan
     });
-    return { diagnostics };
+    return {
+      annotation: edgeIntent ? { kind: "edge", raw, syntaxErrors: ["operator"] } : undefined,
+      diagnostics
+    };
   }
 
   const main = semicolonParts[0] ?? "";
@@ -85,14 +89,24 @@ export function parseAnnotation(raw: string, sourceSpan?: SourceSpan): Annotatio
     return { diagnostics };
   }
 
-  const opIndex = tokens.findIndex((token) => token in OP_TO_BEARING);
+  const opIndex = tokens.findIndex((token) => OP_TO_BEARING.has(token));
   if (opIndex >= 0) {
     const prefix = tokens.slice(0, opIndex);
     const targets = tokens.slice(opIndex + 1);
     const op = tokens[opIndex];
 
-    if (prefix[0] === "edge") {
-      const operatorClause = parseOperatorClause(op, prefix.slice(1), targets, sourceSpan, diagnostics);
+    if (edgeIntent) {
+      const operatorClause = prefix[0] === "edge"
+        ? parseOperatorClause(op, prefix.slice(1), targets, sourceSpan, diagnostics)
+        : undefined;
+      if (prefix[0] !== "edge") {
+        diagnostics.push({
+          severity: "error",
+          code: "MALFORMED_EXPLICIT_BEARING",
+          message: "Edge annotations must begin with the lowercase edge keyword.",
+          sourceSpan
+        });
+      }
       return {
         annotation: {
           kind: "edge",
@@ -123,7 +137,7 @@ export function parseAnnotation(raw: string, sourceSpan?: SourceSpan): Annotatio
   }
 
   const first = tokens[0];
-  if (first === "edge") {
+  if (edgeIntent) {
     diagnostics.push({
       severity: "error",
       code: "MALFORMED_EDGE_ANNOTATION",
@@ -234,7 +248,7 @@ function parseOperatorClause(
   sourceSpan: SourceSpan | undefined,
   diagnostics: Diagnostic[]
 ): OperatorClause | undefined {
-  const op = OP_TO_BEARING[opToken];
+  const op = OP_TO_BEARING.get(opToken);
   if (!op || (sourceTokens !== "self" && sourceTokens.length === 0) || targetTokens.length === 0) {
     diagnostics.push({
       severity: "error",
@@ -441,3 +455,4 @@ function splitTokens(input: string): string[] {
     .split(/\s+/)
     .filter(Boolean);
 }
+
