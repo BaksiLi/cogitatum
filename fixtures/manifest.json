@@ -1,6 +1,12 @@
 {
   "fixtures": [
     {
+      "file": "core/named-bearing-constructors.cog.md",
+      "input": "document",
+      "purpose": "All canonical kinds can be explicitly constructed while retaining same-text Point identities, declaration metadata, narrative body and typed Bearing targets.",
+      "expected": "core/named-bearing-constructors.expected.json"
+    },
+    {
       "file": "host/literal-and-nested-regions.md",
       "input": "host",
       "purpose": "Comments and raw HTML remain literal; an actual nested fence is diagnosed while the independent top-level unit survives with original locations.",

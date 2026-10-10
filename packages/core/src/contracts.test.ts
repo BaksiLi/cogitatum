@@ -24,6 +24,26 @@ const validateSource = ajv.compile(sourceSchema);
 const json = (value: unknown) => JSON.parse(JSON.stringify(value));
 
 describe("public compiler contract boundaries", () => {
+  it("validates all named edge kinds without admitting those clauses on Point annotations", () => {
+    for (const kind of ["supports", "challenges", "undercuts", "about", "answers", "repliesTo", "clarifies"]) {
+      const target = kind === "undercuts" ? "route" : "claim";
+      const source = "- [C? @claim] Claim.\n- [@material] Material.\n- [edge @material supports @claim; @route]\n- [edge @claim " + kind + " @" + target + "]";
+      const ast = parseDocument(source);
+      const { graph, explain } = compileGraphWithExplain(ast);
+      expect(graph.diagnostics, kind).toEqual([]);
+      expect(validateAst(json(ast)), kind).toBe(true);
+      expect(validateGraph(json(graph)), kind).toBe(true);
+      expect(validateExplain(json(explain)), kind).toBe(true);
+      const fence = String.fromCharCode(96).repeat(3);
+      expect(validateSource(json(explainSource(fence + "cog\n" + source + "\n" + fence, "host"))), kind).toBe(true);
+    }
+    const self = json(parseDocument("- [C @claim] Claim.\n- [G +> @claim] Ground."));
+    for (const kind of ["answers", "repliesTo", "clarifies"]) {
+      self.blocks[1].annotation.operatorClause.op = kind;
+      expect(validateAst(self), kind).toBe(false);
+    }
+  });
+
   it("compiles the annotation as the sole semantic source and leaves raw text untouched", () => {
     const ast = parseDocument("- [C @claim] A claim.\n  - [G @reason] A reason.\n");
     const reason = ast.blocks[0].children[0];

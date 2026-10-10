@@ -31,7 +31,7 @@ export type BearingRef = {
 };
 
 export type OperatorClause = {
-  op: BearingOp;
+  op: BearingKind;
   sources: Ref[] | "self";
   target: Ref;
 };
@@ -48,7 +48,7 @@ type RoleMark =
 
 type PointAnnotationBase = AnnotationBase & {
   anchor?: string;
-  operatorClause?: OperatorClause & { sources: "self" };
+  operatorClause?: OperatorClause & { op: BearingOp; sources: "self" };
 };
 
 export type Annotation =

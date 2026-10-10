@@ -2,7 +2,8 @@
 
 Cogitatum is a lightweight markup language for making selected reasoning structure explicit inside ordinary prose. This package provides its deterministic parser and compiler for Node.js and browsers.
 
-Source candidate: **0.4.0-alpha.4**, format **0.4.0**, with local `linked` support and optional linked header descriptions.
+Source candidate: **0.4.0-alpha.5**, format **0.4.0**, with local `linked` support and optional linked header descriptions.
+Explicit `edge` clauses can use any canonical kind name; Point-attached clauses retain the four symbolic operators.
 This candidate is not yet published; npm `alpha` currently provides **0.3.0-alpha.1** without linked.
 
 ```sh
@@ -34,6 +35,10 @@ ESM; Node.js 22.12 or newer for development and CLI use.
 Optional Alpha debugging APIs, `compileGraphWithExplain` and `explainSource`, add a compiler trace of recognition, emitted or rejected entities, and diagnostics. This trace explains compilation decisions; it does not assess reasoning or record inquiry history. Use AST and Graph IR for integrations that do not need it.
 
 AST blocks keep their semantic fields only in `annotation`; source `raw` and block text are retained separately. Reparse older source to migrate from format 0.2.0. The compiler rejects ASTs with a different format version.
+
+`OperatorClause.op` holds the canonical selected `BearingKind`; edge sources are existing Point references, and self-sourced Point annotations admit only symbolic `BearingOp` kinds.
+Using a Point as an explicit source preserves its declaration metadata; indentation defaults do not add global role restrictions to explicit construction.
+Match this unpublished candidate's schemas and source ref even when an older candidate also reports format `0.4.0`.
 
 The package includes self-contained draft 2020-12 JSON Schemas for offline integration:
 

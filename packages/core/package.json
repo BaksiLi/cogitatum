@@ -1,6 +1,6 @@
 {
   "name": "@cogitatum/core",
-  "version": "0.4.0-alpha.4",
+  "version": "0.4.0-alpha.5",
   "description": "Parse and compile inquiry markup that makes selected reasoning structure explicit inside ordinary prose.",
   "keywords": [
     "inquiry",

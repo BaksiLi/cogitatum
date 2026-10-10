@@ -29,12 +29,14 @@ annotation := "[" (role | gap | material | edge | linked) "]"
 role       := ("Q" | "C" | "C?" | "G" | "O" | "R" | "D") [REF] [OP REF] [";" REF]
 gap        := "?" [REF] [OP REF] [";" REF]
 material   := REF [OP REF] [";" REF]
-edge       := "edge" REF_LIST OP REF [";" REF]
+edge       := "edge" REF_LIST (OP | KIND) REF [";" REF]
 linked     := "linked" [";" REF]
 REF_LIST   := REF ("," REF)*
 REF        := "@" ID
 ID         := [a-z][a-z0-9_-]*
 OP         := "+>" | "->" | "_>" | "~>"
+KIND       := "supports" | "challenges" | "undercuts" | "about"
+            | "answers" | "repliesTo" | "clarifies"
 ```
 
 Token order and case matter; `edge` and `linked` are lowercase. Whitespace separates words and reference lists use commas. Each operator has exactly one target; an `edge` has one or more unique sources. Optional prose follows the closing bracket.
@@ -165,7 +167,9 @@ When migrating a call that relied on automatic fence selection, pass `host` expl
 All input modes permit indentation-based authoring, explicit-relation authoring, or a mixture.
 These writing techniques are not additional compiler input modes.
 `derivedBy` records how an individual Bearing was produced, not the input mode or an authoring style for the document.
-Only `supports`, `challenges`, `undercuts`, and `about` have explicit operators; `answers`, `repliesTo`, and `clarifies` are structural only.
+The four symbolic operators retain their meanings.
+An `edge` may instead use any case-sensitive canonical kind name, including `answers`, `repliesTo`, and `clarifies`.
+Named-kind clauses are adopted only for `edge`; Point-attached clauses continue to use symbolic operators.
 
 Host integrations can use the source envelope to keep each independent fence paired with its AST, graph, and source locations:
 
@@ -245,7 +249,11 @@ Graph references use `{ key, kind }`; AST references remain `{ id }`. Keys are o
 
 Explain emission references use graph keys; Bearing emissions also have a graph index and optional handle. The index addresses this compilation's Bearing array only. Emitted summaries obey the same kind/target restrictions as canonical Bearings. Rejected candidates can retain unresolved authored `{ id }` references or a resolved target of the wrong kind: that mismatch can explain the rejection. They are not graph entities. Diagnostic codes on an entry come from diagnostics whose source spans overlap that block; they can include diagnostics from its children. The top-level diagnostics retain their actual spans.
 
-The **0.4.0-alpha.4** source candidate retains the **unpublished format identifier 0.4.0**, including the alpha.3 linked migration below.
+The **0.4.0-alpha.5** source candidate retains the **unpublished format identifier 0.4.0**, including the alpha.3 linked and alpha.4 host migrations below.
+Its named-constructor baseline is alpha.4 at `1c494e825ceafe9dc247c6489d8c6f93db70e168`.
+The AST `edge.operatorClause.op` now admits every canonical `BearingKind`; self-sourced Point clauses remain limited to the four symbolic `BearingOp` kinds.
+GraphIR and Explain kind/target shapes are unchanged, and explicit construction uses the existing `operator-clause` trace reason and `derivedBy: "operator"`.
+Earlier candidate AST schemas reject newly expressible named kinds; use the exact matching compiler/schema candidate rather than assuming compatibility from `0.4.0` alone.
 Its source-selection baseline is alpha.3 at `8fc2f6a72cbaebcf07286cf62a41db4ca13461d7`.
 Alpha.4 requires explicit source context, parses actual Markdown blocks, rejects nested active fences, and permits an empty host result.
 These source-selection changes leave GraphIR/ref/typed-target shapes and all canonical negative kinds unchanged.

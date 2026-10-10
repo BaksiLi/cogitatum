@@ -1,6 +1,7 @@
 import type {
   Annotation,
   AnnotationSyntaxError,
+  BearingKind,
   BearingOp,
   Diagnostic,
   OperatorClause,
@@ -17,6 +18,16 @@ const OP_TO_BEARING = new Map<string, BearingOp>([
   ["->", "challenges"],
   ["_>", "undercuts"],
   ["~>", "about"]
+]);
+const EDGE_TO_BEARING = new Map<string, BearingKind>([
+  ...OP_TO_BEARING,
+  ["supports", "supports"],
+  ["challenges", "challenges"],
+  ["undercuts", "undercuts"],
+  ["about", "about"],
+  ["answers", "answers"],
+  ["repliesTo", "repliesTo"],
+  ["clarifies", "clarifies"]
 ]);
 
 export type AnnotationParseResult = {
@@ -95,7 +106,7 @@ export function parseAnnotation(raw: string, sourceSpan?: SourceSpan): Annotatio
     return { diagnostics };
   }
 
-  const opIndex = tokens.findIndex((token) => OP_TO_BEARING.has(token));
+  const opIndex = tokens.findIndex((token) => (edgeIntent ? EDGE_TO_BEARING : OP_TO_BEARING).has(token));
   if (opIndex >= 0) {
     const prefix = tokens.slice(0, opIndex);
     const targets = tokens.slice(opIndex + 1);
@@ -134,7 +145,7 @@ export function parseAnnotation(raw: string, sourceSpan?: SourceSpan): Annotatio
     return {
       annotation: {
         ...host,
-        operatorClause: operatorClause ? { ...operatorClause, sources: "self" } : undefined,
+        operatorClause: operatorClause ? { ...operatorClause, op: OP_TO_BEARING.get(op)!, sources: "self" } : undefined,
         syntaxErrors: syntaxErrors(!operatorClause, invalidHandle),
         handle
       },
@@ -147,7 +158,7 @@ export function parseAnnotation(raw: string, sourceSpan?: SourceSpan): Annotatio
     diagnostics.push({
       severity: "error",
       code: "MALFORMED_EDGE_ANNOTATION",
-      message: "Edge annotations require sources, an operator, and one target.",
+      message: "Edge annotations require sources, a symbolic operator or canonical kind, and one target.",
       sourceSpan
     });
     return {
@@ -254,7 +265,7 @@ function parseOperatorClause(
   sourceSpan: SourceSpan | undefined,
   diagnostics: Diagnostic[]
 ): OperatorClause | undefined {
-  const op = OP_TO_BEARING.get(opToken);
+  const op = EDGE_TO_BEARING.get(opToken);
   if (!op || (sourceTokens !== "self" && sourceTokens.length === 0) || targetTokens.length === 0) {
     diagnostics.push({
       severity: "error",

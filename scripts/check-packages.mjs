@@ -114,6 +114,9 @@ const undercut: ExplainEmittedBearingSummary = {...summary, kind: 'undercuts', t
 const invalidUndercut: ExplainEmittedBearingSummary = {...summary, kind: 'undercuts', target: pointTarget};
 // @ts-expect-error Only C admits open role status.
 const invalidRole: Annotation = {kind: 'role', role: 'G', status: 'open', raw: 'G?'};
+const namedKind: Annotation = {kind: 'edge', raw: 'edge @a answers @b', operatorClause: {op: 'answers', sources: [{id: 'a'}], target: {id: 'b'}}};
+// @ts-expect-error Named kinds are only adopted on edge clauses.
+const namedSelf: Annotation = {kind: 'role', role: 'Q', raw: '', operatorClause: {op: 'repliesTo', sources: 'self', target: {id: 'b'}}};
 // @ts-expect-error Operator clauses have exactly one target.
 const multipleTargets: OperatorClause = {op: 'supports', sources: 'self', target: [{id: 'a'}, {id: 'b'}]};
 // @ts-expect-error Point annotations use themselves as the source.

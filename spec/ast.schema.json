@@ -45,7 +45,7 @@
       "type": "object",
       "required": ["op", "sources", "target"],
       "properties": {
-        "op": { "enum": ["supports", "challenges", "undercuts", "about"] },
+        "op": { "enum": ["supports", "challenges", "undercuts", "about", "answers", "repliesTo", "clarifies"] },
         "sources": {
           "oneOf": [
             { "const": "self" },
@@ -64,7 +64,7 @@
     "selfOperatorClause": {
       "allOf": [
         { "$ref": "#/$defs/operatorClause" },
-        { "type": "object", "properties": { "sources": { "const": "self" } } }
+        { "type": "object", "properties": { "sources": { "const": "self" }, "op": { "enum": ["supports", "challenges", "undercuts", "about"] } } }
       ]
     },
     "edgeOperatorClause": {

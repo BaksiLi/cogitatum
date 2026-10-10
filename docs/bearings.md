@@ -49,6 +49,74 @@ You need not classify every relevant passage as support or challenge.
 The names are needed for the edge's references; ordinary body cannot serve as an edge source.
 Two separate `[G]` children create two independent connections. One `edge` with two sources creates one joint connection without also creating the independent ones.
 
+### Named canonical kinds
+
+An `edge` can name any canonical kind directly: `[edge @sources KIND @target; @optional-handle]`.
+Use the exact spellings below, including the capital T in `repliesTo`:
+
+| Kind | Target |
+| --- | --- |
+| `supports`, `about` | Point or named Bearing |
+| `challenges`, `answers`, `repliesTo`, `clarifies` | Point |
+| `undercuts` | Named Bearing |
+
+Each source is an existing Point; its role, form, status, content, and identity remain unchanged.
+Sources are ordered and duplicate-free, and there is exactly one target.
+The indentation defaults do not impose global source or target roles on explicitly authored relations.
+A Question can reply to an objection, and a concession can reply without challenging it:
+`repliesTo` records the direction of a reply; it does not imply `answers`, `challenges`, or that an objection has been defeated.
+Its explicit target is a Point and need not carry O; the R-under-O rule is a local authoring default.
+
+```md cog-check require=repliesTo points=3 bearings=2 diagnostics=0
+- [O @objection] The explanation lacks a time scale.
+- [Q @question] Which time scale do you mean?
+- [C @concession] The timing is uncertain.
+- [edge @question repliesTo @objection; @clarification-question]
+- [edge @concession repliesTo @objection; @conceding]
+```
+
+The following original sources preserve the same Point declarations and selected graph structure.
+The comparison ignores local keys, source locations, narrative organization, Explain, and structural/operator provenance; it is not source round-trip equality.
+
+```md cog-check compare=complete-explicit caption="Local defaults" require=answers,clarifies,challenges,repliesTo points=5 bearings=4 diagnostics=0
+- [Q @question] Why did the measurement change?
+  - [C? @answer] Calibration may have shifted.
+    - [D @distinction] Drift and noise are different hypotheses.
+    - [O @objection] That does not explain the timing.
+      - [R @reply] Recalibration happened immediately before the change.
+```
+
+```md cog-check compare=complete-explicit caption="Named constructors" require=answers,clarifies,challenges,repliesTo points=5 bearings=4 diagnostics=0
+- [Q @question] Why did the measurement change?
+- [C? @answer] Calibration may have shifted.
+- [D @distinction] Drift and noise are different hypotheses.
+- [O @objection] That does not explain the timing.
+- [R @reply] Recalibration happened immediately before the change.
+- [edge @answer answers @question]
+- [edge @distinction clarifies @answer]
+- [edge @objection challenges @answer]
+- [edge @reply repliesTo @objection]
+```
+
+Identity reuse can follow the explanation's order without copying content or importing an earlier subtree:
+
+```md cog-check require=supports,undercuts,repliesTo points=4 bearings=3 diagnostics=0
+- [@measurement] Two independent retries timed out.
+- The sample is small; we discuss that limitation before using the observation.
+- [C? @cause] A persistent configuration fault may explain the timeouts.
+- [edge @measurement supports @cause; @support] Reuse the earlier observation in this step.
+- [O @limitation] The two retries may share a transient fault.
+- [edge @limitation undercuts @support] Object to this attachment rather than copying the observation.
+- [Q @followup] Which environment did the retries share?
+- [edge @followup repliesTo @limitation]
+```
+
+Unknown/case-mismatched kinds, incomplete clauses, duplicate sources, multiple targets, and kind/target mismatches are diagnosed without partial relations or implicit fallback.
+For example, `[edge @answer answers @support]` fails when `support` names a Bearing.
+Named Point-attached forms such as `[Q @question repliesTo @objection]` are not supported.
+Prose after an `edge` annotation describes that individual Bearing and is not parsed as another clause.
+An automatic flat-source formatter is deferred; these constructors do not reconstruct the original document.
+
 ### One reason, two ways to write it
 
 These original notes compile to the same Claim, Ground, and single `supports` connection.
@@ -198,8 +266,8 @@ If you intend a connection, choose the placement or an explicit operator that ex
 
 Indentation-based authoring and explicit-relation authoring can be mixed in one note.
 They are writing techniques, distinct from the [input modes](syntax.md#input-modes) and from each Bearing's `derivedBy` value.
-They do not express every relationship interchangeably: `answers`, `repliesTo`, and `clarifies` have indentation rules but no explicit operators in this version.
-Explicit references can point forward or backward, but are not a complete graph serialization syntax.
+Every adopted canonical kind has an explicit `edge` constructor, while local shorthand still follows its lexical context.
+Explicit references can point forward or backward; generated source would remain separate from the authored document and needs its own formatter contract.
 
 ## Naming routes
 
