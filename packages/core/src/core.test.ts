@@ -362,8 +362,8 @@ describe("Cogitatum language contracts", () => {
     const malformed = compilation.explain.entries.find((entry) => entry.sourceSpan.startLine === 2);
 
     expect(malformed).toMatchObject({
-      recognition: { kind: "body" },
-      effects: [{ kind: "preserveBody" }],
+      recognition: { kind: "invalid" },
+      effects: [{ kind: "rejectBearing", reason: "annotation-syntax-error" }],
       diagnosticCodes: ["MALFORMED_ANNOTATION_PREFIX"]
     });
     expect(compilation.graph.points.map((point) => point.id)).toEqual(["survivor"]);
@@ -540,7 +540,7 @@ describe("Cogitatum language contracts", () => {
     const host = compileSource(`# Host\n\n\`\`\`cog\n${source}\`\`\`\n`, "host");
 
     expect(ast.blocks[0].children[0]).toMatchObject({
-      annotation: undefined,
+      annotation: { kind: "invalid" },
       text: "[C @claim Missing closing bracket."
     });
     expect(ast.blocks[0].children[0].children[0]).toMatchObject({ annotation: { kind: "role", anchor: "survivor", role: "G" } });
@@ -551,13 +551,13 @@ describe("Cogitatum language contracts", () => {
     expect(graph.points.map((point) => point.id)).toEqual(["survivor"]);
     expect(graph.bearings).toEqual([]);
     expect(graph.diagnostics.map((diagnostic) => diagnostic.code)).toEqual(
-      Array(3).fill("MALFORMED_ANNOTATION_PREFIX")
+      [...Array(3).fill("MALFORMED_ANNOTATION_PREFIX"), "FAILED_CONTEXT_REQUIRES_EXPLICIT_TARGET"]
     );
-    expect(graph.diagnostics.map((diagnostic) => diagnostic.sourceSpan?.startLine)).toEqual([2, 4, 5]);
+    expect(graph.diagnostics.map((diagnostic) => diagnostic.sourceSpan?.startLine)).toEqual([2, 4, 5, 3]);
     expect(host.diagnostics.map((diagnostic) => diagnostic.code)).toEqual(
-      Array(3).fill("MALFORMED_ANNOTATION_PREFIX")
+      [...Array(3).fill("MALFORMED_ANNOTATION_PREFIX"), "FAILED_CONTEXT_REQUIRES_EXPLICIT_TARGET"]
     );
-    expect(host.diagnostics.map((diagnostic) => diagnostic.sourceSpan?.startLine)).toEqual([5, 7, 8]);
+    expect(host.diagnostics.map((diagnostic) => diagnostic.sourceSpan?.startLine)).toEqual([5, 7, 8, 6]);
   });
 
   it("preserves closed and unclosed prose brackets without swallowing their text", () => {

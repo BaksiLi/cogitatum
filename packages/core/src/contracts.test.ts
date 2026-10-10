@@ -24,6 +24,14 @@ const validateSource = ajv.compile(sourceSchema);
 const json = (value: unknown) => JSON.parse(JSON.stringify(value));
 
 describe("public compiler contract boundaries", () => {
+  it("validates failed Point annotations as retained source boundaries", () => {
+    const ast = parseDocument("- [C @outer] Outer.\n  - [O?] Invalid.\n    - [G] Valid child.");
+    const { graph, explain } = compileGraphWithExplain(ast);
+    expect(validateAst(json(ast))).toBe(true);
+    expect(validateGraph(json(graph))).toBe(true);
+    expect(validateExplain(json(explain))).toBe(true);
+  });
+
   it("validates all named edge kinds without admitting those clauses on Point annotations", () => {
     for (const kind of ["supports", "challenges", "undercuts", "about", "answers", "repliesTo", "clarifies"]) {
       const target = kind === "undercuts" ? "route" : "claim";

@@ -196,7 +196,9 @@ function toAstBlock(node: RawNode, diagnostics: Diagnostic[]): AstBlock {
       ? { kind: "linked" as const, raw: node.text.slice(1), syntaxErrors: ["linked" as const] }
       : unclosedConstructor === "edge"
         ? { kind: "edge" as const, raw: node.text.slice(1), syntaxErrors: ["operator" as const] }
-        : undefined
+        : (parsed?.diagnostics.length || (node.indentationValid && !node.annotationRaw && classifyMalformedAnnotationPrefix(node.text))) && !/^scope(?=$|\s)/i.test((node.annotationRaw ?? node.text.slice(1)).trimStart())
+          ? { kind: "invalid" as const, raw: node.annotationRaw ?? node.text.slice(1) }
+          : undefined
   );
   return {
     kind: "block",

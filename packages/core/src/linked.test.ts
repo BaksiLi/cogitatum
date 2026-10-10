@@ -277,7 +277,7 @@ describe("local joint support", () => {
     - [linked]
       - [G] Premise.
         - [O] Objection.`);
-    expect(codes(graph)).toEqual(["LINKED_REQUIRES_POINT_TARGET", "EDGE_DESCENDANT_REQUIRES_EXPLICIT_TARGET", "EDGE_DESCENDANT_REQUIRES_EXPLICIT_TARGET"]);
+    expect(codes(graph)).toEqual(["LINKED_REQUIRES_POINT_TARGET", "EDGE_DESCENDANT_REQUIRES_EXPLICIT_TARGET"]);
     expect(graph.points).toHaveLength(4);
     expect(graph.bearings.map(b => b.kind)).toEqual(["supports", "challenges"]);
   });

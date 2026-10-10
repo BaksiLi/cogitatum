@@ -17,15 +17,15 @@ import type {
   Point,
   PointRef,
   Ref,
+  Role,
   SourceSpan
 } from "./types.js";
 import { FORMAT_VERSION } from "./types.js";
 
-type Context = {
-  parent?: AstBlock;
-  edgeAncestor?: AstBlock;
-  linkedAncestor?: AstBlock;
-};
+type Context =
+  | { kind: "point"; block: AstBlock; focus?: PointRef; mark?: Role; attachment?: CandidateBearing }
+  | { kind: "bearing"; block: AstBlock; attachment?: CandidateBearing }
+  | undefined;
 
 type CandidateBearing = {
   key: string;
@@ -65,7 +65,7 @@ type BearingDraft =
     }
   | {
       outcome: "rejected";
-      reason: "annotation-syntax-error" | "edge-descendant-requires-explicit-target" | "invalid-linked";
+      reason: "annotation-syntax-error" | "edge-descendant-requires-explicit-target" | "failed-context-requires-explicit-target" | "invalid-linked";
     }
   | {
       outcome: "skipped";
@@ -101,7 +101,7 @@ export function compileGraphWithExplain(ast: DocumentAst): GraphCompilation {
   const explainDrafts: ExplainDraft[] = [];
 
   for (const block of ast.blocks) {
-    compileBlock(block, {}, pointKeys, compiledPoints, compiledBearings, explainDrafts, diagnostics);
+    compileBlock(block, undefined, pointKeys, compiledPoints, compiledBearings, explainDrafts, diagnostics);
   }
 
   const points = compiledPoints.filter((point) => !point.id || !symbols.duplicatePointIds.has(point.id));
@@ -157,13 +157,23 @@ function compileBlock(
   };
   explainDrafts.push(draft);
 
+  if (annotation.kind === "invalid") {
+    draft.bearing = { outcome: "rejected", reason: "annotation-syntax-error" };
+    for (const child of block.children) {
+      compileBlock(child, { kind: "point", block }, pointKeys, points, bearings, explainDrafts, diagnostics);
+    }
+    return;
+  }
+
   if (annotation.kind === "linked") {
     compileLinked(block, context, draft, pointKeys, points, bearings, explainDrafts, diagnostics);
     return;
   }
 
-  if (context.linkedAncestor && annotation.kind !== "edge") {
-    draft.membership = { linkedSpan: context.linkedAncestor.sourceSpan, eligible: context.linkedAncestor.children.includes(block) && isLinkedMember(block) };
+  const linkedAncestor = context?.kind === "bearing" && context.block.annotation?.kind === "linked" ? context.block : undefined;
+  const edgeAncestor = context?.kind === "bearing" && context.block.annotation?.kind === "edge" ? context.block : undefined;
+  if (linkedAncestor && annotation.kind !== "edge") {
+    draft.membership = { linkedSpan: linkedAncestor.sourceSpan, eligible: linkedAncestor.children.includes(block) && isLinkedMember(block) };
   }
 
   if (annotation.kind !== "edge") {
@@ -172,10 +182,10 @@ function compileBlock(
     draft.point = { key: point.key, ...(point.id ? { id: point.id } : {}), reason: pointReasonForBlock(block) };
   }
 
-  let producedBearing = false;
+  let producedBearing: CandidateBearing | undefined;
   const bearingSyntaxFailed = Boolean(annotation.syntaxErrors && annotation.syntaxErrors.length > 0);
   const implicitEdgeDescendant = Boolean(
-    context.edgeAncestor && annotation.kind !== "edge" && !annotation.operatorClause && !bearingSyntaxFailed
+    edgeAncestor && annotation.kind !== "edge" && !annotation.operatorClause && !bearingSyntaxFailed
   );
   if (implicitEdgeDescendant) {
     draft.bearing = {
@@ -189,32 +199,34 @@ function compileBlock(
         "The first Point beneath an edge, possibly through body, must use an explicit target; edge containment does not derive a Bearing.",
       sourceSpan: block.sourceSpan
     });
+  } else if (context?.kind === "point" && !context.focus && annotation.kind !== "edge" && !annotation.operatorClause && !bearingSyntaxFailed) {
+    draft.bearing = { outcome: "rejected", reason: "failed-context-requires-explicit-target" };
+    diagnostics.push({ severity: "error", code: "FAILED_CONTEXT_REQUIRES_EXPLICIT_TARGET", message: "This Point is beneath a failed constructor; use an explicit target rather than falling back to an outer Point.", sourceSpan: block.sourceSpan });
   } else if (bearingSyntaxFailed) {
     draft.bearing = { outcome: "rejected", reason: "annotation-syntax-error" };
-    producedBearing = false;
   } else if (annotation.operatorClause) {
     const bearing = bearingFromOperator(block, annotation.operatorClause, pointKeys);
     if (bearing) {
       bearing.key = `_b${bearings.length + 1}`;
       bearings.push(bearing);
       draft.bearing = { outcome: "candidate", candidate: bearing, reason: "operator-clause" };
-      producedBearing = true;
+      producedBearing = bearing;
     } else {
       draft.bearing = { outcome: "rejected", reason: "annotation-syntax-error" };
     }
-  } else if (context.linkedAncestor && annotation.kind !== "edge") {
+  } else if (linkedAncestor && annotation.kind !== "edge") {
     draft.bearing = { outcome: "skipped", reason: "linked-membership" };
   } else {
-    const bearing = deriveStructuralBearing(block, context.parent, pointKeys);
+    const bearing = deriveStructuralBearing(block, context?.kind === "point" ? context : undefined, pointKeys);
     if (bearing) {
       bearing.key = `_b${bearings.length + 1}`;
       bearings.push(bearing);
       draft.bearing = { outcome: "candidate", candidate: bearing, reason: "annotated-containment" };
-      producedBearing = true;
+      producedBearing = bearing;
     } else {
       draft.bearing = {
         outcome: "skipped",
-        reason: context.parent ? "no-structural-rule" : "no-eligible-ancestor"
+        reason: context ? "no-structural-rule" : "no-eligible-ancestor"
       };
     }
   }
@@ -228,10 +240,10 @@ function compileBlock(
     });
   }
 
-  const childContext =
+  const childContext: Context =
     annotation.kind === "edge"
-      ? { parent: context.parent, edgeAncestor: block }
-      : { parent: block };
+      ? { kind: "bearing", block, attachment: producedBearing }
+      : { kind: "point", block, focus: pointRef(pointKeyForBlock(block, pointKeys)), mark: pointRole(block), attachment: producedBearing };
   for (const child of block.children) {
     compileBlock(child, childContext, pointKeys, points, bearings, explainDrafts, diagnostics);
   }
@@ -253,35 +265,36 @@ function compileLinked(
   explainDrafts: ExplainDraft[],
   diagnostics: Diagnostic[]
 ): void {
-  let valid = !block.annotation?.syntaxErrors?.length;
+  let valid = block.annotation?.kind === "linked" && !block.annotation.syntaxErrors?.length;
   const reject = (code: string, message: string, location = block) => {
     diagnostics.push({ severity: "error", code, message, sourceSpan: location.sourceSpan });
     valid = false;
   };
-  if (!context.parent) reject("LINKED_REQUIRES_POINT_TARGET", "Linked requires a nearest enclosing Point target.");
-  if (context.edgeAncestor) reject("EDGE_DESCENDANT_REQUIRES_EXPLICIT_TARGET",
+  const target = context?.kind === "point" ? context.focus : undefined;
+  if (!target && context?.block.annotation?.kind !== "linked") reject("LINKED_REQUIRES_POINT_TARGET", "Linked requires a nearest enclosing Point target.");
+  if (context?.block.annotation?.kind === "edge") reject("EDGE_DESCENDANT_REQUIRES_EXPLICIT_TARGET",
     "Linked beneath an edge cannot bypass the requirement for an explicitly targeted first Point.");
-  if (context.linkedAncestor) reject("NESTED_LINKED_UNSUPPORTED",
+  if (context?.block.annotation?.kind === "linked") reject("NESTED_LINKED_UNSUPPORTED",
     "Linked cannot be nested beneath another linked without an intervening Point.");
   if (!block.children.length) reject("EMPTY_LINKED", "Linked requires at least one direct Ground member.");
   for (const child of block.children) {
     if (!isLinkedMember(child)) reject("INVALID_LINKED_MEMBER",
       "Each direct linked member must be a Ground Point without an operator, Bearing handle, or annotation error.", child);
   }
-  if (valid && context.parent) {
+  let attachment: CandidateBearing | undefined;
+  if (valid && target) {
     const bearing = structural(block, "supports", block.children.map(child => pointKeyForBlock(child, pointKeys)),
-      pointKeyForBlock(context.parent, pointKeys));
+      target);
     if (block.text) bearing.text = block.text;
     bearing.key = `_b${bearings.length + 1}`;
     bearings.push(bearing);
     draft.bearing = { outcome: "candidate", candidate: bearing, reason: "linked-containment" };
+    attachment = bearing;
   } else {
     draft.bearing = { outcome: "rejected", reason: "invalid-linked" };
   }
-  // Suppress only first-Point structural relations. Explicit operators and subtrees
-  // remain independent evidence, including when membership invalidates the linked.
   for (const child of block.children) {
-    compileBlock(child, { ...context, linkedAncestor: block }, pointKeys, points, bearings, explainDrafts, diagnostics);
+    compileBlock(child, { kind: "bearing", block, attachment }, pointKeys, points, bearings, explainDrafts, diagnostics);
   }
 }
 
@@ -319,6 +332,7 @@ function bearingFromOperator(
   operator: OperatorClause,
   pointKeys: WeakMap<AstBlock, string>
 ): CandidateBearing | undefined {
+  const handle = block.annotation && "handle" in block.annotation ? block.annotation.handle : undefined;
   const sources =
     operator.sources === "self"
       ? [pointRef(pointKeyForBlock(block, pointKeys))]
@@ -331,7 +345,7 @@ function bearingFromOperator(
 
   return {
     key: "",
-    ...(block.annotation?.handle ? { handle: block.annotation?.handle } : {}),
+    ...(handle ? { handle } : {}),
     kind: operator.op,
     sources,
     target: { id: target.id },
@@ -343,17 +357,17 @@ function bearingFromOperator(
 
 function deriveStructuralBearing(
   block: AstBlock,
-  parent: AstBlock | undefined,
+  parent: Extract<Context, { kind: "point" }> | undefined,
   pointKeys: WeakMap<AstBlock, string>
 ): CandidateBearing | undefined {
-  if (!parent) {
+  if (!parent?.focus) {
     return undefined;
   }
 
   const source = pointKeyForBlock(block, pointKeys);
-  const target = pointKeyForBlock(parent, pointKeys);
+  const target = parent.focus;
 
-  if (pointRole(block) === "C" && pointRole(parent) === "Q") {
+  if (pointRole(block) === "C" && parent.mark === "Q") {
     return structural(block, "answers", [source], target);
   }
   if (pointRole(block) === "G") {
@@ -362,7 +376,7 @@ function deriveStructuralBearing(
   if (pointRole(block) === "O") {
     return structural(block, "challenges", [source], target);
   }
-  if (pointRole(block) === "R" && pointRole(parent) === "O") {
+  if (pointRole(block) === "R" && parent.mark === "O") {
     return structural(block, "repliesTo", [source], target);
   }
   if (pointRole(block) === "D") {
@@ -378,14 +392,15 @@ function structural(
   block: AstBlock,
   kind: BearingKind,
   sourceIds: string[],
-  targetId: string
+  target: BearingTarget
 ): CandidateBearing {
+  const handle = block.annotation && "handle" in block.annotation ? block.annotation.handle : undefined;
   return {
     key: "",
-    ...(block.annotation?.handle ? { handle: block.annotation?.handle } : {}),
+    ...(handle ? { handle } : {}),
     kind,
     sources: sourceIds.map(pointRef),
-    target: pointRef(targetId),
+    target,
     derivedBy: "structural",
     sourceSpan: block.sourceSpan
   };
@@ -833,7 +848,7 @@ function assignPointKeys(blocks: AstBlock[]): WeakMap<AstBlock, string> {
   let nextId = 1;
 
   walkWithParent(blocks, undefined, (block) => {
-    if (block.annotation && block.annotation.kind !== "edge" && block.annotation.kind !== "linked") {
+    if (block.annotation && block.annotation.kind !== "edge" && block.annotation.kind !== "linked" && block.annotation.kind !== "invalid") {
       pointKeys.set(block, `_p${nextId}`);
       nextId += 1;
     }

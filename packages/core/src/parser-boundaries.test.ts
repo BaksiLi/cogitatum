@@ -168,11 +168,9 @@ describe("parser failure boundaries", () => {
       "- [C @c] Claim.\n  - [G invalid] [edge\n    - [O @o] Objection.",
       "document"
     );
-    expect(result.ast.blocks[0].children[0]).toMatchObject({ text: "[edge", annotation: undefined });
-    expect(result.graph.bearings).toEqual([
-      expect.objectContaining({ kind: "challenges", sources: [pointRef(result.graph, "o")], target: pointRef(result.graph, "c") })
-    ]);
-    expect(result.graph.diagnostics.map((item) => item.code)).toEqual(["MALFORMED_ROLE_ANNOTATION"]);
+    expect(result.ast.blocks[0].children[0]).toMatchObject({ text: "[edge", annotation: { kind: "invalid", raw: "G invalid" } });
+    expect(result.graph.bearings).toEqual([]);
+    expect(result.graph.diagnostics.map((item) => item.code)).toEqual(["MALFORMED_ROLE_ANNOTATION", "FAILED_CONTEXT_REQUIRES_EXPLICIT_TARGET"]);
     expectValidContracts(result);
   });
 });

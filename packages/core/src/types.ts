@@ -52,6 +52,7 @@ type PointAnnotationBase = AnnotationBase & {
 };
 
 export type Annotation =
+  | { kind: "invalid"; raw: string }
   | (PointAnnotationBase & RoleMark & { kind: "role" })
   | (PointAnnotationBase & { kind: "gap"; status: "open" })
   | (PointAnnotationBase & { kind: "anchor"; anchor: string })
@@ -149,7 +150,7 @@ export type GraphIR = {
 };
 
 export type ExplainRecognition =
-  | { kind: "body" }
+  | { kind: "body" | "invalid" }
   | { kind: "role"; role: "C"; status?: "open" }
   | { kind: "role"; role: Exclude<Role, "C">; status?: never }
   | { kind: "gap"; status: "open" }
@@ -200,6 +201,7 @@ export type ExplainEffect =
       reason:
         | "annotation-syntax-error"
         | "edge-descendant-requires-explicit-target"
+        | "failed-context-requires-explicit-target"
         | "validation-error"
         | "invalid-linked";
     }

@@ -229,6 +229,13 @@ No native Markdown annotation grammar, extension-based profile, or document-wide
 
 ## Machine contract and CLI
 
+Recognized failed Point declarations retain an AST annotation with kind "invalid" and their original annotation raw text.
+They emit no Point, remain source boundaries in Explain, and prevent implicit descendants from attaching to a more distant outer Point.
+Valid descendant Points, their own subtrees, and independent explicit relations survive; the first implicit Point receives FAILED_CONTEXT_REQUIRES_EXPLICIT_TARGET.
+Ordinary bracket prose remains transparent body, and the removed scope directive retains its separately documented rejection policy.
+This unpublished candidate is distinguished by its exact source/schema ref rather than a new package label for every PR.
+The ownership repair follows alpha.6 at dc1a011c94e434996e0faec9a3c094779ee73277; previous candidate AST/Explain schemas do not admit the new invalid recognition merely because both report format 0.4.0.
+
 `parseDocument` returns an ordered AST; `compileGraph` produces `GraphIR`. `parseSource` and `compileSource` expose envelopes for the input modes.
 
 For debugging, `compileGraphWithExplain` and `explainSource` add a compiler trace: how a block was recognized, which points or connections were emitted or rejected, and why an indentation rule applied or no connection was produced. The CLI exposes this as `cog explain`.

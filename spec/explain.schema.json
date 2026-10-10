@@ -114,7 +114,7 @@
         {
           "type": "object",
           "required": ["kind"],
-          "properties": { "kind": { "const": "body" } },
+          "properties": { "kind": { "enum": ["body", "invalid"] } },
           "additionalProperties": false
         },
         {
@@ -211,7 +211,7 @@
             "kind": { "const": "rejectBearing" },
             "bearing": { "$ref": "#/$defs/bearingSummary" },
             "reason": {
-              "enum": ["annotation-syntax-error", "edge-descendant-requires-explicit-target", "validation-error", "invalid-linked"]
+              "enum": ["annotation-syntax-error", "edge-descendant-requires-explicit-target", "failed-context-requires-explicit-target", "validation-error", "invalid-linked"]
             }
           },
           "additionalProperties": false

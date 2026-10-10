@@ -90,6 +90,12 @@
         {
           "type": "object",
           "required": ["kind", "raw"],
+          "properties": { "kind": { "const": "invalid" }, "raw": { "type": "string" } },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["kind", "raw"],
           "properties": {
             "kind": { "const": "linked" },
             "syntaxErrors": { "$ref": "#/$defs/linkedSyntaxErrors" },
