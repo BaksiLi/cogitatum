@@ -1,6 +1,12 @@
 {
   "fixtures": [
     {
+      "file": "core/local-bearing-commentary.cog.md",
+      "input": "document",
+      "purpose": "Linked sources, local Bearing commentary, replies and independent clauses preserve ordered sources and exact typed targets.",
+      "expected": "core/local-bearing-commentary.expected.json"
+    },
+    {
       "file": "core/named-bearing-constructors.cog.md",
       "input": "document",
       "purpose": "All canonical kinds can be explicitly constructed while retaining same-text Point identities, declaration metadata, narrative body and typed Bearing targets.",

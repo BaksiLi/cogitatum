@@ -1,0 +1,9 @@
+- [C @claim] A configuration fault may explain the repeated timeouts.
+  - [linked; @joint] The observations participate jointly in this step.
+    - [G @first] Two retries timed out.
+    - [G @second] The same configuration was loaded each time.
+    - [G_ @warrant] The shared configuration connects these observations.
+    - [O_ @objection] A transient environment fault may explain both retries.
+      - [R @reply] The environment remained stable in a control run.
+    - [G @independent +> @other; @separate] An independent explicit relation.
+- [C @other] Another conclusion.

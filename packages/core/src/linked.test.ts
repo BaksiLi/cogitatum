@@ -79,7 +79,7 @@ describe("local joint support", () => {
     expect(ast.blocks[0].children[0]).toMatchObject({ annotation: { kind: "linked", handle: "route" }, text: "說明這一步。", children: [{ text: "Same prose." }, { text: "Same prose." }] });
     expect(explain.entries[1]).toMatchObject({ recognition: { kind: "linked" }, effects: [{ kind: "emitBearing", reason: "linked-containment" }] });
     for (const entry of explain.entries.slice(2)) {
-      expect(entry.effects).toContainEqual({ kind: "linkedMember", linkedSpan: ast.blocks[0].children[0].sourceSpan, eligible: true });
+      expect(entry.effects).toContainEqual({ kind: "linkedMember", linkedSpan: ast.blocks[0].children[0].sourceSpan, eligible: true, function: "source" });
       expect(entry.effects).toContainEqual({ kind: "skipBearing", reason: "linked-membership" });
     }
   });
@@ -223,30 +223,31 @@ describe("local joint support", () => {
     expect(graph.bearings).toEqual([]);
     expect(graph.diagnostics).toEqual([{
       severity: "error", code: "INVALID_LINKED_MEMBER",
-      message: "Each direct linked member must be a Ground Point without an operator, Bearing handle, or annotation error.",
+      message: "Direct linked children must be bare Ground sources, local selector commentary, or complete independent clauses.",
       sourceSpan: { startLine: 4, startColumn: 7, endLine: 4, endColumn: 26 }
     }]);
   });
 
-  it("retains a valid member operator as independent intent while rejecting the joint", () => {
+  it("retains a complete operator as independent commentary alongside the joint", () => {
     const graph = compile(`- [C @c] Conclusion.
   - [linked; @route] Rejected route description.
     - [G @a +> @other; @explicit] Explicit reason.
       - [O @o] Objection.
     - [G @b] Other premise.
 - [C @other] Other target.`);
-    expect(codes(graph)).toEqual(["INVALID_LINKED_MEMBER"]);
+    expect(codes(graph)).toEqual([]);
     expect(routes(graph)).toEqual(expect.arrayContaining([
+      { kind: "supports", handle: "route", sources: ["b"], target: { kind: "point", name: "c" } },
       { kind: "supports", handle: "explicit", sources: ["a"], target: { kind: "point", name: "other" } },
       { kind: "challenges", handle: undefined, sources: ["o"], target: { kind: "point", name: "a" } }
     ]));
-    expect(graph.bearings).toHaveLength(2);
+    expect(graph.bearings).toHaveLength(3);
   });
 
   it("keeps a direct edge independent but never accepts it as a member", () => {
     const graph = compile("- [C @c] Conclusion.\n  - [linked]\n    - [G @a] Premise.\n    - [edge @a +> @c; @explicit]");
-    expect(codes(graph)).toEqual(["INVALID_LINKED_MEMBER"]);
-    expect(graph.bearings.map(b => b.handle)).toEqual(["explicit"]);
+    expect(codes(graph)).toEqual([]);
+    expect(graph.bearings.map(b => b.handle)).toEqual([undefined, "explicit"]);
   });
 
   it("rejects body-wrapped members without restoring unary support", () => {
@@ -322,7 +323,7 @@ describe("local joint support", () => {
     expect(graph.bearings[0].sourceSpan).toEqual({ startLine: 4, endLine: 4, startColumn: 7, endColumn: source.split("\n")[3].length + 1 });
     expect(graph.bearings[0].sourceSpan!.endColumn).toBe(33);
     expect(graph.points[1].sourceSpan).toEqual({ startLine: 5, endLine: 5, startColumn: 9, endColumn: source.split("\n")[4].length + 1 });
-    expect(result.explanations[0].entries[2].effects).toContainEqual({ kind: "linkedMember", linkedSpan: graph.bearings[0].sourceSpan, eligible: true });
+    expect(result.explanations[0].entries[2].effects).toContainEqual({ kind: "linkedMember", linkedSpan: graph.bearings[0].sourceSpan, eligible: true, function: "source" });
   });
 
   it("matches normalized edge topology while retaining Point role, form, status, content, and names", () => {

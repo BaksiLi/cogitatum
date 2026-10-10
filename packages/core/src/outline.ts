@@ -187,11 +187,12 @@ function toAstBlock(node: RawNode, diagnostics: Diagnostic[]): AstBlock {
     ? /^\[\s*(linked|join|edge)(?=$|[\s;])/i.exec(node.text)?.[1].toLowerCase()
     : undefined;
   const annotationRaw = node.annotationRaw ?? (unclosedConstructor === "join" ? node.text.slice(1) : undefined);
+  const unclosedSelector = node.indentationValid && !node.annotationRaw && !node.text.includes("]") && /^\[\s*[GO]_/i.test(node.text);
   const parsed = annotationRaw ? parseAnnotation(annotationRaw, node.sourceSpan) : undefined;
   if (parsed) {
     diagnostics.push(...parsed.diagnostics);
   }
-  const annotation = parsed?.annotation ?? (
+  const annotation = unclosedSelector ? { kind: "invalid" as const, raw: node.text.slice(1), selector: "attachment" as const } : parsed?.annotation ?? (
     unclosedConstructor === "linked"
       ? { kind: "linked" as const, raw: node.text.slice(1), syntaxErrors: ["linked" as const] }
       : unclosedConstructor === "edge"

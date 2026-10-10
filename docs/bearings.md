@@ -181,9 +181,55 @@ The nearest enclosing Point supplies the target, regardless of its role.
 Header prose is optional and becomes the joint Bearing's description, just like `edge` prose.
 It creates no Point and changes neither membership nor the source and target references.
 Members must be direct `G` children without operators or Bearing handles; an unmarked body child is not a member.
-Invalid membership rejects the whole linked block without falling back to single-source connections.
+Invalid source or unclassified intent rejects the whole linked block without falling back to single-source connections.
+G_/O_ and complete explicit clauses are commentary or independent relations, separate from the ordered joint sources.
 Member subtrees retain their ordinary behavior, including a further linked block below a real intermediate Point.
 For complete restrictions and partial-output behavior, see [local linked blocks](syntax.md#local-linked-blocks).
+
+## Assess a local attachment
+
+Use G_ to support and O_ to object to the Bearing owned by the nearest ancestor constructor.
+These are ordinary G and O Points with a retained local selector, not new roles.
+Body is transparent; another Point, linked, or edge is a boundary even when its attachment is missing or rejected.
+Selection never scans a Point's other outgoing Bearings, crosses an unattached Point, or selects the commentary relation being created by the same annotation.
+
+```md cog-check require=supports,undercuts,repliesTo points=6 bearings=4 diagnostics=0
+- [C @claim] A persistent fault may explain the timeouts.
+  - [linked; @step]
+    - [G @first] Two retries timed out.
+    - [G @second] Both loaded the same configuration.
+    - [G_] The configuration connects these observations.
+    - [O_ @objection] A transient environment fault may explain both.
+      - [R] A control run found the environment stable.
+```
+
+In a Point context the ordinary table remains G supports, O challenges, D clarifies, Gap about, C answers only a locally Q-marked parent, and R repliesTo only a locally O-marked parent.
+Q and Material have no default.
+Unsuffixed roles have no default in a Bearing context; direct linked G instead contributes one source without an individual unary attachment.
+G_/O_ select the nearest constructor's attachment in either context.
+An explicit clause overrides the ordinary default, and combining one with a selector is diagnosed.
+
+The following pair preserves selected graph structure, declaration metadata, individual instances, ordered sources and typed targets.
+Spans, derivedBy, Explain and original source remain separate from that comparison.
+
+```md cog-check compare=local-attachment caption="Local selector" require=supports,undercuts points=3 bearings=2 diagnostics=0
+- [C @claim] Claim.
+  - [G @premise; @step] Premise.
+    - [O_ @objection; @attack] This step assumes a stable environment.
+```
+
+```md cog-check compare=local-attachment caption="Complete target" require=supports,undercuts points=3 bearings=2 diagnostics=0
+- [C @claim] Claim.
+  - [G @premise; @step] Premise.
+    - [O @objection _> @step; @attack] This step assumes a stable environment.
+```
+
+A G_/O_ below a linked member fails: the member owns no unary Bearing.
+Move commentary to the linked context or specify a complete target.
+A comments-only linked is invalid; commentary cannot invent its target.
+Unknown references in complete independent clauses fail independently; incomplete G +> rejects the whole joint.
+Only G_/O_ are supported; no Q_, C_, R_, D_, suffixed Gap or targetless _> is introduced.
+The canonical negative mapping remains challenges for Point targets and undercuts for Bearing targets.
 
 ## Argument structures
 

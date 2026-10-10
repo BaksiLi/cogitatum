@@ -25,7 +25,7 @@ Every nonblank source line must be a bullet block beginning with `- ` after inde
 ## Annotation grammar
 
 ```text
-annotation := "[" (role | gap | material | edge | linked) "]"
+annotation := "[" (role | gap | material | edge | linked | selector) "]"
 role       := ("Q" | "C" | "C?" | "G" | "O" | "R" | "D") [REF] [OP REF] [";" REF]
 gap        := "?" [REF] [OP REF] [";" REF]
 material   := REF [OP REF] [";" REF]
@@ -35,6 +35,7 @@ REF_LIST   := REF ("," REF)*
 REF        := "@" ID
 ID         := [a-z][a-z0-9_-]*
 OP         := "+>" | "->" | "_>" | "~>"
+selector   := ("G_" | "O_") [REF] [";" REF]
 KIND       := "supports" | "challenges" | "undercuts" | "about"
             | "answers" | "repliesTo" | "clarifies"
 ```
@@ -87,7 +88,7 @@ Outside a linked block, without an operator, use the nearest enclosing Point:
 | `D` | Any Point | `clarifies` |
 | `?` | Any Point | `about` |
 
-Other combinations produce no structural Bearing. Body does not block lookup, but another Point does. An `edge` cannot be an implicit target: the first Point beneath it, possibly through body, needs an explicit operator and target. Once a Point is reached, its children use the ordinary indentation rules again. An operator overrides the structural default; it does not create a second connection.
+Other combinations produce no structural Bearing. Body does not block lookup, but another Point does. An edge supplies a Bearing context: its first unsuffixed Point, possibly through body, needs an explicit operator and target. G_/O_ may instead select its owned attachment. Once a Point is reached, its children use the ordinary indentation rules again. An operator overrides the structural default; it does not create a second connection.
 
 Recognized malformed `edge` headers retain this boundary in the AST, including incorrect case, an unclosed bracket, and invalid `;` separators. Their descendants cannot acquire a default connection to an outer Point because the edge failed. Valid descendant Points, their ordinary subtrees, and relations with independent explicit targets remain available in the partial result. The exact keyword is reserved: `[edgeless]` remains ordinary body.
 
@@ -107,7 +108,8 @@ See [connections from indentation](bearings.md#connections-from-indentation) for
 
 `[linked]` or `[linked; @route]` constructs one `supports` Bearing.
 Its target is the nearest enclosing Point, possibly through ordinary body but never past another Point.
-Its sources are all its direct child blocks, each a `G` Point without an operator, handle, or annotation error.
+Its sources are the direct bare G children without an operator, selector, handle, or annotation error.
+Classify direct children before lowering any selector: G_/O_ are commentary, and complete explicit Point clauses or edges are independent relations, never joint sources.
 Their roles, content, optional anchors, and individual spans remain intact.
 The linked block has no Point or operator clause of its own, and its Bearing uses `derivedBy: "structural"` and the header's span.
 Optional prose after the header becomes that Bearing's `text`, exactly as prose after an `edge` does.
@@ -115,7 +117,8 @@ It is a description of the connection, not a new Point, member, or parsed argume
 An empty description leaves `text` absent.
 
 A singleton is legal; an empty group or missing Point target is an error.
-Direct body wrappers, other roles, direct edges, reference members, and direct linked blocks are invalid.
+Direct body wrappers, unsuffixed other roles, reference members, and direct linked blocks are invalid.
+Bare O in a Bearing context is not an alias for O_; the suffix or a complete target makes that request explicit.
 A linked block cannot bypass an edge's explicit-target boundary.
 Direct linked-block nesting, even through body, is rejected; a linked block inside a member Point's subtree is a separate inference and is legal.
 Use header prose to describe the joint; use `edge` to reuse existing Points.
@@ -123,7 +126,9 @@ Use header prose to describe the joint; use `edge` to reuse existing Points.
 Any invalid member rejects the whole joint, never a reduced source set.
 First Points below the group, including through invalid body wrappers, receive no structural connection to the outer target even after rejection.
 Valid Points and their own ordinary subtrees remain available.
-A valid explicit member operator or direct edge remains an independently authored Bearing, subject to ordinary reference validation, while invalidating membership in the linked.
+A complete explicit Point clause or direct edge remains independently authored and does not invalidate otherwise valid sources.
+For example, G +> @missing rejects its own relation; incomplete G +> is unclassified and rejects the whole joint.
+Clearly retained malformed selector intent remains commentary, receives its own diagnostic, and cannot become a G source.
 A member's handle without an operator produces no default Bearing and receives `BEARING_HANDLE_WITHOUT_BEARING`.
 Malformed member operators receive their normal syntax diagnostic and no fallback.
 This preserves explicit intent without treating it as a joint source declaration.
@@ -239,7 +244,10 @@ The ownership repair follows alpha.6 at dc1a011c94e434996e0faec9a3c094779ee73277
 `parseDocument` returns an ordered AST; `compileGraph` produces `GraphIR`. `parseSource` and `compileSource` expose envelopes for the input modes.
 
 For debugging, `compileGraphWithExplain` and `explainSource` add a compiler trace: how a block was recognized, which points or connections were emitted or rejected, and why an indentation rule applied or no connection was produced. The CLI exposes this as `cog explain`.
-Linked recognition and `linkedMember` effects identify the group span and syntactic membership eligibility; `linked-membership` explains suppression of a default Bearing.
+Linked recognition and linkedMember effects identify the group span, syntactic eligibility and function: source, commentary, independent or unclassified.
+Eligibility alone never certifies that the whole joint survived validation.
+selectAttachment records the nearest ownerSpan and optional candidate Bearing target; a failed candidate is not a canonical graph entity.
+local-attachment explains selector emissions, while no-local-attachment explains missing ownership; failed targets follow validation-error and dependency diagnostics.
 The header emits with `linked-containment` or rejects with `invalid-linked`; later name/reference rejection uses `validation-error`.
 Membership eligibility does not certify that the whole linked survived validation. It explains compilation decisions, not the truth of the prose, the strength of a reason, or a history of the author's thinking. The trace is an optional Alpha interface; ordinary integrations can use AST and Graph IR alone.
 
@@ -258,6 +266,9 @@ Explain emission references use graph keys; Bearing emissions also have a graph 
 
 The **0.4.0-alpha.6** source candidate retains the **unpublished format identifier 0.4.0**, including the alpha.3 linked and alpha.4 host migrations below.
 Its initial-BOM host-selection repair follows alpha.5 at `a003e89e1fa780377ebe887b2c7d823ec58a9ad0`.
+Local attachment selection and linked commentary follow the nearest-frame repair at 2b0ccac660507b5ef7e3d535d7642eec64808344.
+This candidate retains alpha.6 while unpublished; its exact source/schema ref identifies the AST selector and expanded Explain contract.
+Previous candidate AST/Explain schemas reject these additions; no same-label JSON relabeling establishes compatibility.
 An initial U+FEFF is recognized at the Markdown document boundary without stripping the original host or later content.
 Original UTF-16 diagnostic columns include that initial code unit; selected content locations remain in the original host.
 Its named-constructor baseline is alpha.4 at `1c494e825ceafe9dc247c6489d8c6f93db70e168`.

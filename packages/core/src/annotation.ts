@@ -68,6 +68,31 @@ export function parseAnnotation(raw: string, sourceSpan?: SourceSpan): Annotatio
       syntaxErrors: errors.length ? errors : undefined }, diagnostics };
   }
 
+  const selectorIntent = /^([QCGORD?])_/i.exec(trimmed);
+  if (selectorIntent) {
+    const role = selectorIntent[1].toUpperCase();
+    if (role !== "G" && role !== "O") {
+      diagnostics.push({ severity: "error", code: "UNSUPPORTED_LOCAL_BEARING_SELECTOR", message: "Only G_ and O_ select a local Bearing attachment.", sourceSpan });
+      return { annotation: { kind: "invalid", raw }, diagnostics };
+    }
+    const tokens = splitTokens(semicolonParts[0]);
+    const anchor = tokens.length === 2 ? parseSingleRef(tokens[1]) : undefined;
+    const handle = semicolonParts.length === 2 ? parseSingleRef(semicolonParts[1]) : undefined;
+    const combined = tokens.some(token => OP_TO_BEARING.has(token));
+    const invalidSelector = tokens[0] !== role + "_" || tokens.length > 2 || (tokens.length === 2 && !anchor) || semicolonParts.length > 2;
+    const invalidHandle = semicolonParts.length === 2 && !handle;
+    const errors: ("selector" | "handle")[] = [];
+    if (invalidSelector) {
+      errors.push("selector");
+      diagnostics.push({ severity: "error", code: combined ? "LOCAL_SELECTOR_WITH_EXPLICIT_CLAUSE" : "MALFORMED_LOCAL_BEARING_SELECTOR", message: combined ? "A local selector and an explicit operator clause are mutually exclusive; use G +> @route or O _> @route instead." : "Local selectors must look like [G_], [O_ @id], or [O_ @id; @attack].", sourceSpan });
+    }
+    if (invalidHandle) {
+      errors.push("handle");
+      diagnostics.push({ severity: "error", code: "MALFORMED_BEARING_HANDLE", message: "Bearing handle separator ';' must be followed by exactly one valid @id.", sourceSpan });
+    }
+    return { annotation: { kind: "role", role, selector: "attachment", anchor, handle, raw, syntaxErrors: errors.length ? errors : undefined }, diagnostics };
+  }
+
   if (semicolonParts.length > 2) {
     diagnostics.push({
       severity: "error",
@@ -384,7 +409,7 @@ function parseBearingHost(
   raw: string,
   sourceSpan: SourceSpan | undefined,
   diagnostics: Diagnostic[]
-): Extract<Annotation, { kind: "role" | "gap" | "anchor" }> | undefined {
+): (Extract<Annotation, { kind: "role" | "gap" | "anchor" }> & { selector?: never }) | undefined {
   const first = prefix[0];
   const parsedRole = first ? parseRoleToken(first) : undefined;
 

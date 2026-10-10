@@ -5,7 +5,8 @@ export type BearingOp = "supports" | "challenges" | "undercuts" | "about";
 export type BearingKind = BearingOp | "repliesTo" | "clarifies" | "answers";
 export type BearingDerivedBy = "operator" | "structural";
 export type Severity = "error" | "warning" | "suggestion";
-export type AnnotationSyntaxError = "operator" | "handle" | "linked";
+export type AnnotationSyntaxError = "operator" | "handle" | "linked" | "selector";
+export type LinkedChildFunction = "source" | "commentary" | "independent" | "unclassified";
 export type SourceParseMode = "document" | "host";
 export type SourceUnitKind = "document" | "fence";
 
@@ -36,15 +37,16 @@ export type OperatorClause = {
   target: Ref;
 };
 
-type AnnotationBase<ErrorKind extends AnnotationSyntaxError = "operator" | "handle"> = {
+type AnnotationBase<ErrorKind extends AnnotationSyntaxError = "operator" | "handle" | "selector"> = {
   syntaxErrors?: ErrorKind[];
   handle?: string;
   raw: string;
 };
 
 type RoleMark =
-  | { role: "C"; status?: "open" }
-  | { role: Exclude<Role, "C">; status?: never };
+  | { role: "C"; status?: "open"; selector?: never }
+  | { role: "G" | "O"; status?: never; selector: "attachment"; operatorClause?: never }
+  | { role: Exclude<Role, "C">; status?: never; selector?: never };
 
 type PointAnnotationBase = AnnotationBase & {
   anchor?: string;
@@ -52,7 +54,7 @@ type PointAnnotationBase = AnnotationBase & {
 };
 
 export type Annotation =
-  | { kind: "invalid"; raw: string }
+  | { kind: "invalid"; raw: string; selector?: "attachment" }
   | (PointAnnotationBase & RoleMark & { kind: "role" })
   | (PointAnnotationBase & { kind: "gap"; status: "open" })
   | (PointAnnotationBase & { kind: "anchor"; anchor: string })
@@ -150,9 +152,9 @@ export type GraphIR = {
 };
 
 export type ExplainRecognition =
-  | { kind: "body" | "invalid" }
-  | { kind: "role"; role: "C"; status?: "open" }
-  | { kind: "role"; role: Exclude<Role, "C">; status?: never }
+  | { kind: "body" }
+  | { kind: "invalid"; selector?: "attachment" }
+  | ({ kind: "role" } & RoleMark)
   | { kind: "gap"; status: "open" }
   | { kind: "material" }
   | { kind: "edge" }
@@ -180,7 +182,8 @@ export type ExplainBearingSummary = {
 export type ExplainEmittedBearingSummary = Omit<BearingBase, "text" | "sourceSpan"> & BearingRelation;
 
 export type ExplainEffect =
-  | { kind: "linkedMember"; linkedSpan: SourceSpan; eligible: boolean }
+  | { kind: "linkedMember"; linkedSpan: SourceSpan; eligible: boolean; function: LinkedChildFunction }
+  | { kind: "selectAttachment"; ownerSpan?: SourceSpan; target?: BearingRef }
   | { kind: "preserveBody" }
   | {
       kind: "emitPoint";
@@ -193,7 +196,7 @@ export type ExplainEffect =
       kind: "emitBearing";
       ref: ExplainBearingRef;
       bearing: ExplainEmittedBearingSummary;
-      reason: "operator-clause" | "annotated-containment" | "linked-containment";
+      reason: "operator-clause" | "annotated-containment" | "linked-containment" | "local-attachment";
     }
   | {
       kind: "rejectBearing";
@@ -202,6 +205,7 @@ export type ExplainEffect =
         | "annotation-syntax-error"
         | "edge-descendant-requires-explicit-target"
         | "failed-context-requires-explicit-target"
+        | "no-local-attachment"
         | "validation-error"
         | "invalid-linked";
     }

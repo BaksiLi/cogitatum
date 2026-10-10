@@ -75,7 +75,7 @@
     },
     "annotationSyntaxErrors": {
       "type": "array",
-      "items": { "enum": ["operator", "handle"] },
+      "items": { "enum": ["operator", "handle", "selector"] },
       "minItems": 1,
       "uniqueItems": true
     },
@@ -90,7 +90,7 @@
         {
           "type": "object",
           "required": ["kind", "raw"],
-          "properties": { "kind": { "const": "invalid" }, "raw": { "type": "string" } },
+          "properties": { "kind": { "const": "invalid" }, "raw": { "type": "string" }, "selector": { "const": "attachment" } },
           "additionalProperties": false
         },
         {
@@ -110,6 +110,7 @@
           "properties": {
             "kind": { "const": "role" },
             "role": { "enum": ["Q", "C", "G", "O", "R", "D"] },
+            "selector": { "const": "attachment" },
             "status": { "const": "open" },
             "anchor": { "$ref": "#/$defs/authoredId" },
             "operatorClause": { "$ref": "#/$defs/selfOperatorClause" },
@@ -121,6 +122,10 @@
             {
               "if": { "required": ["status"] },
               "then": { "properties": { "role": { "const": "C" } } }
+            },
+            {
+              "if": { "required": ["selector"] },
+              "then": { "properties": { "role": { "enum": ["G", "O"] } }, "not": { "required": ["operatorClause"] } }
             }
           ],
           "additionalProperties": false

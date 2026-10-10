@@ -24,6 +24,22 @@ const validateSource = ajv.compile(sourceSchema);
 const json = (value: unknown) => JSON.parse(JSON.stringify(value));
 
 describe("public compiler contract boundaries", () => {
+  it("validates retained selector syntax and owned attachment explanations", () => {
+    const ast = parseDocument("- [C @claim] Claim.\n  - [linked]\n    - [G] Premise.\n    - [G_] Warrant.\n    - [O_] Objection.\n      - [R] Reply.");
+    const { graph, explain } = compileGraphWithExplain(ast);
+    expect(graph.diagnostics).toEqual([]);
+    expect(validateAst(json(ast))).toBe(true);
+    expect(validateGraph(json(graph))).toBe(true);
+    expect(validateExplain(json(explain))).toBe(true);
+    const invalid = json(ast);
+    invalid.blocks[0].children[0].children[1].annotation.role = "Q";
+    expect(validateAst(invalid)).toBe(false);
+    const malformed = parseDocument("- [C] Claim.\n  - [G] Ground.\n    - [O_ _> @missing] Excluded combination.");
+    const result = compileGraphWithExplain(malformed);
+    expect(validateAst(json(malformed))).toBe(true);
+    expect(validateExplain(json(result.explain))).toBe(true);
+  });
+
   it("validates failed Point annotations as retained source boundaries", () => {
     const ast = parseDocument("- [C @outer] Outer.\n  - [O?] Invalid.\n    - [G] Valid child.");
     const { graph, explain } = compileGraphWithExplain(ast);

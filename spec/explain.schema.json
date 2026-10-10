@@ -114,7 +114,13 @@
         {
           "type": "object",
           "required": ["kind"],
-          "properties": { "kind": { "enum": ["body", "invalid"] } },
+          "properties": { "kind": { "const": "body" } },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["kind"],
+          "properties": { "kind": { "const": "invalid" }, "selector": { "const": "attachment" } },
           "additionalProperties": false
         },
         {
@@ -123,12 +129,17 @@
           "properties": {
             "kind": { "const": "role" },
             "role": { "enum": ["Q", "C", "G", "O", "R", "D"] },
+            "selector": { "const": "attachment" },
             "status": { "const": "open" }
           },
           "allOf": [
             {
               "if": { "required": ["status"] },
               "then": { "properties": { "role": { "const": "C" } } }
+            },
+            {
+              "if": { "required": ["selector"] },
+              "then": { "properties": { "role": { "enum": ["G", "O"] } } }
             }
           ],
           "additionalProperties": false
@@ -157,11 +168,18 @@
       "oneOf": [
         {
           "type": "object",
-          "required": ["kind", "linkedSpan", "eligible"],
+          "required": ["kind"],
+          "properties": { "kind": { "const": "selectAttachment" }, "ownerSpan": { "$ref": "#/$defs/sourceSpan" }, "target": { "$ref": "#/$defs/bearingRef" } },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["kind", "linkedSpan", "eligible", "function"],
           "properties": {
             "kind": { "const": "linkedMember" },
             "linkedSpan": { "$ref": "#/$defs/sourceSpan" },
-            "eligible": { "type": "boolean" }
+            "eligible": { "type": "boolean" },
+            "function": { "enum": ["source", "commentary", "independent", "unclassified"] }
           },
           "additionalProperties": false
         },
@@ -200,7 +218,7 @@
             "kind": { "const": "emitBearing" },
             "ref": { "$ref": "#/$defs/emittedBearingRef" },
             "bearing": { "$ref": "#/$defs/emittedBearingSummary" },
-            "reason": { "enum": ["operator-clause", "annotated-containment", "linked-containment"] }
+            "reason": { "enum": ["operator-clause", "annotated-containment", "linked-containment", "local-attachment"] }
           },
           "additionalProperties": false
         },
@@ -211,7 +229,7 @@
             "kind": { "const": "rejectBearing" },
             "bearing": { "$ref": "#/$defs/bearingSummary" },
             "reason": {
-              "enum": ["annotation-syntax-error", "edge-descendant-requires-explicit-target", "failed-context-requires-explicit-target", "validation-error", "invalid-linked"]
+              "enum": ["annotation-syntax-error", "edge-descendant-requires-explicit-target", "failed-context-requires-explicit-target", "validation-error", "invalid-linked", "no-local-attachment"]
             }
           },
           "additionalProperties": false

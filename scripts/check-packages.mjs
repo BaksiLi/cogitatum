@@ -69,6 +69,11 @@ assert.equal(host.graphs.length, 1);
 assert.equal(host.graphs[0].points[0].id, 'visible');
 assert.equal(host.graphs[0].points[0].sourceSpan.startLine, 8);
 assert.deepEqual(host.diagnostics, []);
+const local = compileGraphWithExplain(parseDocument('- [C @claim] Claim.\\n  - [G; @step] Ground.\\n    - [O_] Assessment.'));
+assert.deepEqual(local.graph.diagnostics, []);
+assert.equal(local.graph.bearings[1].kind, 'undercuts');
+assert.deepEqual(local.graph.bearings[1].target, {key: local.graph.bearings[0].key, kind: 'bearing'});
+assert.ok(local.explain.entries[2].effects.some(effect => effect.kind === 'selectAttachment'));
 `;
 run(process.execPath, ["--input-type=module", "-e", probe], temporary);
 // Consumers may set the development condition; the package must remain usable.
@@ -115,6 +120,11 @@ const invalidUndercut: ExplainEmittedBearingSummary = {...summary, kind: 'underc
 // @ts-expect-error Only C admits open role status.
 const invalidRole: Annotation = {kind: 'role', role: 'G', status: 'open', raw: 'G?'};
 const namedKind: Annotation = {kind: 'edge', raw: 'edge @a answers @b', operatorClause: {op: 'answers', sources: [{id: 'a'}], target: {id: 'b'}}};
+const localSelector: Annotation = {kind: 'role', role: 'O', selector: 'attachment', raw: 'O_'};
+// @ts-expect-error A selector and a complete operator clause are mutually exclusive.
+const excludedSelector: Annotation = {kind: 'role', role: 'O', selector: 'attachment', operatorClause: {op: 'undercuts', sources: 'self', target: {id: 'b'}}, raw: ''};
+// @ts-expect-error Only G and O support a selector.
+const invalidSelector: Annotation = {kind: 'role', role: 'Q', selector: 'attachment', raw: 'Q_'};
 // @ts-expect-error Named kinds are only adopted on edge clauses.
 const namedSelf: Annotation = {kind: 'role', role: 'Q', raw: '', operatorClause: {op: 'repliesTo', sources: 'self', target: {id: 'b'}}};
 // @ts-expect-error Operator clauses have exactly one target.

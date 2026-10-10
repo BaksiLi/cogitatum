@@ -45,7 +45,7 @@ assert.ok(!rejectedLinked.bearings.some((bearing) => bearing.handle === "failed-
 const retired = run(["graph", "fixtures/diagnostics/retired-join.cog.md"], 1);
 assert.equal(retired.points.length, 4);
 assert.equal(retired.bearings.length, 2);
-assert.deepEqual(retired.diagnostics.map(diagnostic => diagnostic.code), ["RETIRED_JOIN_ANNOTATION", "INVALID_LINKED_MEMBER"]);
+assert.deepEqual(retired.diagnostics.map(diagnostic => diagnostic.code), ["RETIRED_JOIN_ANNOTATION"]);
 
 process.stdout.write("CLI Explain and linked contracts passed.\n");
 
