@@ -182,20 +182,17 @@ function isAnnotationCandidate(raw: string): boolean {
 }
 
 function toAstBlock(node: RawNode, diagnostics: Diagnostic[]): AstBlock {
-  const parsed = node.annotationRaw ? parseAnnotation(node.annotationRaw, node.sourceSpan) : undefined;
-  if (parsed) {
-    diagnostics.push(...parsed.diagnostics);
-  }
   // Failed constructors retain their context boundary even without a closing bracket.
   const unclosedConstructor = node.indentationValid && !node.annotationRaw && !node.text.includes("]")
     ? /^\[\s*(linked|join|edge)(?=$|[\s;])/i.exec(node.text)?.[1].toLowerCase()
     : undefined;
-  if (unclosedConstructor === "join") {
-    diagnostics.push({ severity: "error", code: "RETIRED_JOIN_ANNOTATION",
-      message: "The join keyword is retired. Use linked and recompile the original source.", sourceSpan: node.sourceSpan });
+  const annotationRaw = node.annotationRaw ?? (unclosedConstructor === "join" ? node.text.slice(1) : undefined);
+  const parsed = annotationRaw ? parseAnnotation(annotationRaw, node.sourceSpan) : undefined;
+  if (parsed) {
+    diagnostics.push(...parsed.diagnostics);
   }
   const annotation = parsed?.annotation ?? (
-    unclosedConstructor === "linked" || unclosedConstructor === "join"
+    unclosedConstructor === "linked"
       ? { kind: "linked" as const, raw: node.text.slice(1), syntaxErrors: ["linked" as const] }
       : unclosedConstructor === "edge"
         ? { kind: "edge" as const, raw: node.text.slice(1), syntaxErrors: ["operator" as const] }

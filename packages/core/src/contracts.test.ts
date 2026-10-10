@@ -45,7 +45,7 @@ describe("public compiler contract boundaries", () => {
   });
 
   it("validates linked blocks and their recovery/trace variants without admitting Point or operator fields", () => {
-    for (const header of ["[linked; @route]", "[linked; @route] 說明這一步。", "[linked;]", "[linked; @a; @b]", "[Linked]", "[linked"]) {
+    for (const header of ["[linked; @route]", "[linked; @route] 說明這一步。", "[linked;]", "[linked; @a; @b]", "[Linked]", "[linked", "[join; @route]", "[join;]", "[JOIN]", "[join"]) {
       const ast = parseDocument(`- [C @c] Target.\n  - ${header}\n    - [G @a] First.\n    - [G @b] Second.`);
       const { graph, explain } = compileGraphWithExplain(ast);
       expect(validateAst(json(ast)), header).toBe(true);
@@ -69,6 +69,25 @@ describe("public compiler contract boundaries", () => {
     expect(ast.blocks[0].children[0].raw).toBe(raw);
     ast.version = "0.3.0";
     expect(() => compileGraph(ast)).toThrow("Unsupported AST format 0.3.0");
+  });
+
+  it("rejects prior unpublished join AST and Explain variants despite their matching format label", () => {
+    const { graph, explain } = compileGraphWithExplain(parseDocument("- [C] Target.\n  - [linked]\n    - [G] Premise."));
+    expect(validateGraph(json(graph))).toBe(true);
+    const oldAst = json(parseDocument("- [linked]"));
+    oldAst.blocks[0].annotation.kind = "join";
+    expect(validateAst(oldAst)).toBe(false);
+    oldAst.blocks[0].annotation.kind = "linked";
+    oldAst.blocks[0].annotation.syntaxErrors = ["join"];
+    expect(validateAst(oldAst)).toBe(false);
+    for (const mutation of ["recognition", "membership", "emission", "skip"] as const) {
+      const oldExplain = json(explain);
+      if (mutation === "recognition") oldExplain.entries[1].recognition.kind = "join";
+      if (mutation === "membership") oldExplain.entries[2].effects[0] = { kind: "joinMember", joinSpan: oldExplain.entries[1].sourceSpan, eligible: true };
+      if (mutation === "emission") oldExplain.entries[1].effects.find((effect: { kind: string }) => effect.kind === "emitBearing").reason = "join-containment";
+      if (mutation === "skip") oldExplain.entries[2].effects.find((effect: { kind: string }) => effect.kind === "skipBearing").reason = "join-membership";
+      expect(validateExplain(oldExplain), mutation).toBe(false);
+    }
   });
 
   it("rejects mirrored AST fields even when they agree with the annotation", () => {

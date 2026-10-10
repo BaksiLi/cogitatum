@@ -77,7 +77,7 @@ Each creates exactly one joint `supports` Bearing named `route`.
 In the explicit version, the Grounds sit outside the Claim's indentation, so they create no extra default supports.
 The prose after each header describes the same connection.
 
-```md cog-check compare=joint-reasons caption="Local linked" require=supports points=3 bearings=1 diagnostics=0
+```md cog-check compare=joint-reasons caption="Local linked block" require=supports points=3 bearings=1 diagnostics=0
 - [C @mortality] Socrates is mortal.
   - [linked; @route] Apply the general rule to this case.
     - [G @humans] All humans are mortal.
@@ -107,12 +107,14 @@ This is a different topology, not an equivalent spelling.
 ```
 
 The handle is optional, and one member is allowed.
+The authoring construct is a linked block; its name does not classify every instance as a multi-premise Linked argument structure.
+A singleton linked block gives a single support step an explicit position, while a multi-source `edge` can express a Linked structure without the `linked` keyword.
 The nearest enclosing Point supplies the target, regardless of its role.
 Header prose is optional and becomes the joint Bearing's description, just like `edge` prose.
 It creates no Point and changes neither membership nor the source and target references.
 Members must be direct `G` children without operators or Bearing handles; an unmarked body child is not a member.
-Invalid membership rejects the whole linked without falling back to single-source connections.
-Member subtrees retain their ordinary behavior, including a further linked below a real intermediate Point.
+Invalid membership rejects the whole linked block without falling back to single-source connections.
+Member subtrees retain their ordinary behavior, including a further linked block below a real intermediate Point.
 For complete restrictions and partial-output behavior, see [local linked blocks](syntax.md#local-linked-blocks).
 
 ## Argument structures
@@ -158,7 +160,7 @@ No additional Convergent or Serial keyword is required.
 
 ## Connections from indentation
 
-Outside a `linked`, without an operator, the nearest enclosing Point and the child's role determine whether a connection is produced:
+Outside a linked block, without an operator, the nearest enclosing Point and the child's role determine whether a connection is produced:
 
 | Child | Enclosing Point | Connection |
 | --- | --- | --- |

@@ -30,16 +30,19 @@ export function parseAnnotation(raw: string, sourceSpan?: SourceSpan): Annotatio
   const semicolonParts = trimmed.split(";").map((part) => part.trim());
   const edgeIntent = /^edge(?=$|[\s;])/i.test(trimmed);
 
-  const retiredJoin = /^join(?=$|[\s;])/i.test(trimmed);
-  if (retiredJoin || /^linked(?=$|[\s;])/i.test(trimmed)) {
+  if (/^join(?=$|[\s;])/i.test(trimmed)) {
+    return {
+      annotation: { kind: "linked", raw, syntaxErrors: ["linked"] },
+      diagnostics: [{ severity: "error", code: "RETIRED_JOIN_ANNOTATION",
+        message: "The join keyword is retired. Replace a grouping header with [linked] or [linked; @route], then recompile the original source.", sourceSpan }]
+    };
+  }
+  if (/^linked(?=$|[\s;])/i.test(trimmed)) {
     const main = semicolonParts[0];
     const handle = semicolonParts.length === 2 ? parseSingleRef(semicolonParts[1]) : undefined;
-    const invalidSyntax = retiredJoin || main !== "linked" || semicolonParts.length > 2;
+    const invalidSyntax = main !== "linked" || semicolonParts.length > 2;
     const invalidHandle = semicolonParts.length === 2 && !handle;
-    if (retiredJoin) {
-      diagnostics.push({ severity: "error", code: "RETIRED_JOIN_ANNOTATION",
-        message: "The join keyword is retired. Use linked and recompile the original source.", sourceSpan });
-    } else if (invalidSyntax) {
+    if (invalidSyntax) {
       diagnostics.push({ severity: "error", code: "MALFORMED_LINKED_ANNOTATION",
         message: "Linked annotations must look like [linked] or [linked; @route].", sourceSpan });
     }

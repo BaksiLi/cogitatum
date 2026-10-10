@@ -38,10 +38,14 @@ const route = joint.bearings.find((bearing) => bearing.handle === "joint-route")
 assert.equal(route.derivedBy, "structural");
 assert.equal(route.sourceSpan.startLine, 3);
 assert.deepEqual(route.sources.map((source) => joint.points.find((point) => point.key === source.key).sourceSpan.startLine), [4, 7]);
-const rejectedLinkedt = run(["graph", "fixtures/diagnostics/invalid-linked-members.cog.md"], 1);
-assert.equal(rejectedLinkedt.points.length, 8);
-assert.equal(rejectedLinkedt.bearings.length, 3);
-assert.ok(!rejectedLinkedt.bearings.some((bearing) => bearing.handle === "failed-route"));
+const rejectedLinked = run(["graph", "fixtures/diagnostics/invalid-linked-members.cog.md"], 1);
+assert.equal(rejectedLinked.points.length, 8);
+assert.equal(rejectedLinked.bearings.length, 3);
+assert.ok(!rejectedLinked.bearings.some((bearing) => bearing.handle === "failed-route"));
+const retired = run(["graph", "fixtures/diagnostics/retired-join.cog.md"], 1);
+assert.equal(retired.points.length, 4);
+assert.equal(retired.bearings.length, 2);
+assert.deepEqual(retired.diagnostics.map(diagnostic => diagnostic.code), ["RETIRED_JOIN_ANNOTATION", "INVALID_LINKED_MEMBER"]);
 
 process.stdout.write("CLI Explain and linked contracts passed.\n");
 

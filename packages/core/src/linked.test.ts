@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { compileGraph, compileGraphWithExplain, explainSource, parseDocument } from "./index.js";
+import { compileGraph, compileGraphWithExplain, explainSource, parseAnnotation, parseDocument } from "./index.js";
 import type { GraphIR } from "./types.js";
 
 const compile = (source: string) => compileGraph(parseDocument(source));
@@ -29,6 +29,29 @@ function routes(graph: GraphIR) {
 }
 
 describe("local joint support", () => {
+  it.each(["join", "join;", "join; @route", "join; @a; @b", "JOIN", "join @ref", "join +> @c", "join the debate"])("diagnoses retired %s through one rejection path", raw => {
+    const parsed = parseAnnotation(raw);
+    expect(parsed.diagnostics.map(diagnostic => diagnostic.code)).toEqual(["RETIRED_JOIN_ANNOTATION"]);
+    expect(parsed.annotation).toEqual({ kind: "linked", raw, syntaxErrors: ["linked"] });
+  });
+
+  it("leaves no retired route binding to collide with valid names", () => {
+    const missing = compile("- [C @c] Conclusion.\n  - [join; @route]\n    - [G] Premise.\n- [O _> @route] Objection.");
+    expect(codes(missing)).toEqual(["RETIRED_JOIN_ANNOTATION", "UNKNOWN_TARGET"]);
+    const valid = compile("- [C @c] Conclusion.\n  - [join; @route]\n    - [G] Old premise.\n  - [linked; @route]\n    - [G] Current premise.\n- [O _> @route] Objection.");
+    expect(codes(valid)).toEqual(["RETIRED_JOIN_ANNOTATION"]);
+    expect(valid.bearings.map(bearing => bearing.kind)).toEqual(["supports", "undercuts"]);
+    const pointName = compile("- [C @route] Conclusion.\n  - [join; @route]\n    - [G] Premise.");
+    expect(codes(pointName)).toEqual(["RETIRED_JOIN_ANNOTATION"]);
+  });
+
+  it.each(["[join the debate]", "[linked evidence]"])("reserves annotation-shaped %s and keeps its failed boundary", header => {
+    const graph = compile("- [C] Conclusion.\n  - " + header + " Context.\n    - [G] Reason.");
+    expect(graph.points).toHaveLength(2);
+    expect(graph.bearings).toEqual([]);
+    expect(codes(graph)).toEqual([header.startsWith("[join ") ? "RETIRED_JOIN_ANNOTATION" : "MALFORMED_LINKED_ANNOTATION"]);
+  });
+
   it.each(["[join]", "[join; @route]", "[join;]", "[join; @a; @b]", "[Join]", "[join", "[ join", "[  JOIN; @route"])("rejects retired %s without retargeting its descendants", header => {
     const source = "- [C @c] Conclusion.\n  - " + header + "\n    - [G @a] Premise.\n      - [O] Premise objection.\n    - [G @b +> @c; @independent] Independent intent.";
     const ast = parseDocument(source);
@@ -311,8 +334,8 @@ describe("local joint support", () => {
     expect(normalize(linked)).toEqual(normalize(edge));
   });
 
-  it("keeps ordinary G siblings unary and treats linked-like prose as body", () => {
-    const graph = compile("- [C] Conclusion.\n  - [joining the discussion] Context.\n    - [G] First.\n    - [G] Second.");
+  it.each(["[joining the discussion]", "[joined]", "[linking]", "[linked-data]"])("keeps ordinary G siblings unary through %s body", header => {
+    const graph = compile("- [C] Conclusion.\n  - " + header + " Context.\n    - [G] First.\n    - [G] Second.");
     expect(codes(graph)).toEqual([]);
     expect(graph.bearings.map(b => b.sources.length)).toEqual([1, 1]);
     const ast = parseDocument("  - [linked");

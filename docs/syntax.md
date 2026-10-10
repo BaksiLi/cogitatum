@@ -30,7 +30,7 @@ role       := ("Q" | "C" | "C?" | "G" | "O" | "R" | "D") [REF] [OP REF] [";" REF
 gap        := "?" [REF] [OP REF] [";" REF]
 material   := REF [OP REF] [";" REF]
 edge       := "edge" REF_LIST OP REF [";" REF]
-linked       := "linked" [";" REF]
+linked     := "linked" [";" REF]
 REF_LIST   := REF ("," REF)*
 REF        := "@" ID
 ID         := [a-z][a-z0-9_-]*
@@ -50,7 +50,14 @@ Token order and case matter; `edge` and `linked` are lowercase. Whitespace separ
 | `[linked; @route]` with direct Grounds | One structural joint support to the nearest enclosing Point; no new Point |
 | Unmarked body or grouping | No Point or Bearing of its own |
 
-Empty brackets, unfinished reserved prefixes, malformed operators, invalid names, repeated sources, and a bare `;` are errors. Invalid annotations remain inspectable in the AST. A valid Point can survive an error in its attached Bearing. `[Context for this section]` and its unclosed counterpart are ordinary body. Only a role token, `?`, `edge`, `linked`, or `@` at the beginning selects annotation parsing; incorrect case and the retired `scope` prefix are also recognized so they can be diagnosed. Recognition does not make those invalid forms legal. A word beginning with a role letter, such as `Context`, does not select annotation parsing.
+Empty brackets, unfinished reserved prefixes, malformed operators, invalid names, repeated sources, and a bare `;` are errors.
+Invalid annotations remain inspectable in the AST; a valid Point can survive an error in its attached Bearing.
+`[Context for this section]` and its unclosed counterpart are ordinary body.
+A role token, `?`, `edge`, `linked`, or `@` at the beginning selects annotation parsing; incorrect case and the retired `join` and `scope` prefixes are also recognized for diagnostics.
+Recognition does not make invalid forms legal.
+Words such as `Context`, `joined`, and `linked-data` do not select annotation parsing.
+Annotation-shaped `[linked evidence]` is now reserved and diagnosed instead of remaining transparent body; `[join the debate]` likewise receives the retirement diagnostic.
+To keep such text as ordinary prose, omit the annotation-shaped brackets or place prose before them.
 
 ## Roles and connections
 
@@ -67,7 +74,7 @@ Open status is not a confidence score, and its absence does not certify acceptan
 | `_>` | `undercuts` | Bearing |
 | `~>` | `about` | Point or Bearing |
 
-Outside a linked, without an operator, use the nearest enclosing Point:
+Outside a linked block, without an operator, use the nearest enclosing Point:
 
 | Child | Parent | Derived kind |
 | --- | --- | --- |
@@ -107,8 +114,8 @@ An empty description leaves `text` absent.
 
 A singleton is legal; an empty group or missing Point target is an error.
 Direct body wrappers, other roles, direct edges, reference members, and direct linked blocks are invalid.
-A linked cannot bypass an edge's explicit-target boundary.
-Direct linked nesting, even through body, is rejected; a linked inside a member Point's subtree is a separate inference and is legal.
+A linked block cannot bypass an edge's explicit-target boundary.
+Direct linked-block nesting, even through body, is rejected; a linked block inside a member Point's subtree is a separate inference and is legal.
 Use header prose to describe the joint; use `edge` to reuse existing Points.
 
 Any invalid member rejects the whole joint, never a reduced source set.
@@ -125,7 +132,7 @@ A candidate rejected during ordinary name/reference validation follows the exist
 Duplicate member anchors invalidate the entire joint rather than deduplicating or dropping a source.
 Distinct Points with the same prose remain distinct sources.
 
-Unlike an `edge`, a linked obtains its sources and target from the local structure.
+Unlike an `edge`, a linked block obtains its sources and target from the local structure.
 An equivalent edge example must move the Grounds out of default-support placement while preserving their content, roles, names, status, and subtrees.
 Use the same header description when comparing semantic content and topology after ignoring local keys, order, spans, Explain, and structural/operator provenance.
 Leaving G children in place and adding an edge intentionally produces both unary and joint Bearings.
@@ -136,6 +143,8 @@ They remain rejected linked boundaries in the AST, with the original spelling re
 Their descendants cannot recover as unary supports to the outer Point.
 Ordinary non-reserved text such as `[joining the discussion]` remains body.
 Replace the old header with `linked`, then recompile the original source.
+The rejected header creates no handle binding and receives one retirement diagnostic from annotation parsing.
+Unclosed brackets may also receive the outline's malformed-prefix diagnostic, and invalid context or membership remains observable through the grouping diagnostics.
 
 ## Names and resolution
 
@@ -211,11 +220,16 @@ Graph references use `{ key, kind }`; AST references remain `{ id }`. Keys are o
 Explain emission references use graph keys; Bearing emissions also have a graph index and optional handle. The index addresses this compilation's Bearing array only. Emitted summaries obey the same kind/target restrictions as canonical Bearings. Rejected candidates can retain unresolved authored `{ id }` references or a resolved target of the wrong kind: that mismatch can explain the rejection. They are not graph entities. Diagnostic codes on an entry come from diagnostics whose source spans overlap that block; they can include diagnostics from its children. The top-level diagnostics retain their actual spans.
 
 The **0.4.0-alpha.3** source candidate retains the **unpublished format identifier 0.4.0**.
-Its exact migration baseline is `f6eefef12b6ffd620d61ab28d31d9a8c5f6e1b02` (alpha.2), with the reviewed parser-boundary fixes at `5725f873abf5d3ad7c1eefb5b9f1416d59cf5f95`.
+Its exact migration baseline is the reviewed tree `5725f873abf5d3ad7c1eefb5b9f1416d59cf5f95`, which includes the parser-boundary fixes on main `f6eefef12b6ffd620d61ab28d31d9a8c5f6e1b02` (alpha.2).
 The alpha.1/alpha.2 candidates used `join`; alpha.3 reserves `linked` and rejects the retired spelling.
 The shared unpublished format number does **not** make those AST/Explain contracts compatible.
 Upgrade compiler, matching schemas, and consumers together; migrate source headers and reparse source instead of relabelling old JSON.
 Historical 0.3 research records remain evidence of that version's behavior.
+Published format 0.3.0 treated `[join; @route]` as body, so its child Grounds produced separate unary supports.
+The unpublished alpha.1/alpha.2 candidates introduced joint support through `join`; alpha.3 requires `linked` for that deliberate topology change.
+Migration from published 0.3 therefore requires reviewing the intended grouping, not merely replacing every occurrence of a word.
+Old AST/Explain variants containing `kind: "join"`, `joinMember`, or `join-*` reasons fail the current schemas.
+Their absence does not establish candidate compatibility; retain the producing compiler's exact version/ref with stored JSON.
 
 AST annotation kind and syntax-error name `join` become `linked`.
 Explain recognition `join`, effect `joinMember`/`joinSpan`, and reasons `join-containment`, `join-membership`, and `invalid-join` become `linked`, `linkedMember`/`linkedSpan`, `linked-containment`, `linked-membership`, and `invalid-linked`.
@@ -225,7 +239,8 @@ GraphIR shape and all canonical kinds remain unchanged: old `challenges` stays `
 Valid renamed groups preserve individual identities and exactly one joint support.
 Ordinary G defaults outside linked blocks are unchanged.
 
-Consumers address entities by `(graph index, ref.kind, ref.key)` within one compilation.
+Consumers address entities by `(unit index, ref.kind, ref.key)` within one compilation; the unit index selects the corresponding `graphs[]` entry.
+Explain's emission `graphIndex` instead indexes that selected graph's Bearing array.
 Each document or fence unit has its own authored namespace; the same name in another unit is unrelated.
 AST block order preserves reader order; its `sourceSpan` and Explain entry spans locate the original occurrence using one-based UTF-16 line/column positions.
 A linked header's span can identify its Bearing, and a Point annotation can identify both its Point and its attached Bearing.
