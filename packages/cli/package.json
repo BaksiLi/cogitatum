@@ -1,6 +1,6 @@
 {
   "name": "@cogitatum/cli",
-  "version": "0.4.0-alpha.2",
+  "version": "0.4.0-alpha.3",
   "description": "Check inquiry markup and inspect the reasoning connections marked in Markdown prose.",
   "keywords": [
     "inquiry",
@@ -28,7 +28,7 @@
     "cog": "dist/index.js"
   },
   "dependencies": {
-    "@cogitatum/core": "0.4.0-alpha.2"
+    "@cogitatum/core": "0.4.0-alpha.3"
   },
   "scripts": {
     "build": "tsc -b && node -e \"require('node:fs').chmodSync('dist/index.js', 0o755)\"",

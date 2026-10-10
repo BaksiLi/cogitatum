@@ -2,8 +2,8 @@
 
 Cogitatum is a lightweight markup language for making selected reasoning structure explicit inside ordinary prose. This package provides its deterministic parser and compiler for Node.js and browsers.
 
-Source candidate: **0.4.0-alpha.2**, format **0.4.0**, with local `join` support and optional join header descriptions.
-This candidate is not yet published; npm `alpha` currently provides **0.3.0-alpha.1** without join.
+Source candidate: **0.4.0-alpha.3**, format **0.4.0**, with local `linked` support and optional linked header descriptions.
+This candidate is not yet published; npm `alpha` currently provides **0.3.0-alpha.1** without linked.
 
 ```sh
 npm install @cogitatum/core@alpha

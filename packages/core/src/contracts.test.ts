@@ -44,8 +44,8 @@ describe("public compiler contract boundaries", () => {
     expect(compileGraphWithExplain(ast).explain.entries[1].recognition).toEqual({ kind: "body" });
   });
 
-  it("validates joins and their recovery/trace variants without admitting Point or operator fields", () => {
-    for (const header of ["[join; @route]", "[join; @route] 說明這一步。", "[join;]", "[join; @a; @b]", "[Join]", "[join"]) {
+  it("validates linked blocks and their recovery/trace variants without admitting Point or operator fields", () => {
+    for (const header of ["[linked; @route]", "[linked; @route] 說明這一步。", "[linked;]", "[linked; @a; @b]", "[Linked]", "[linked"]) {
       const ast = parseDocument(`- [C @c] Target.\n  - ${header}\n    - [G @a] First.\n    - [G @b] Second.`);
       const { graph, explain } = compileGraphWithExplain(ast);
       expect(validateAst(json(ast)), header).toBe(true);
@@ -59,7 +59,7 @@ describe("public compiler contract boundaries", () => {
       invalid.blocks[0].children[0].annotation.operatorClause = { op: "supports", sources: "self", target: { id: "c" } };
       expect(validateAst(invalid)).toBe(false);
     }
-    const ast = parseDocument("- [C] Target.\n  - [join]\n    - [G] First.");
+    const ast = parseDocument("- [C] Target.\n  - [linked]\n    - [G] First.");
     // Compiler semantics belong to annotation, not retained raw source.
     const raw = ast.blocks[0].children[0].raw;
     delete ast.blocks[0].children[0].annotation;
@@ -75,7 +75,7 @@ describe("public compiler contract boundaries", () => {
     const ast = parseDocument("- [C @claim] Claim.\n  - [G @reason; @route] Reason.\n");
     for (const [field, value] of Object.entries({
       id: "reason", role: "G", handle: "route", status: "open",
-      syntaxErrors: ["operator"], joinSyntaxErrors: ["join"], operatorClause: { op: "supports", sources: "self", target: { id: "claim" } }
+      syntaxErrors: ["operator"], linkedSyntaxErrors: ["linked"], operatorClause: { op: "supports", sources: "self", target: { id: "claim" } }
     })) {
       const invalid = json(ast);
       invalid.blocks[0].children[0][field] = value;

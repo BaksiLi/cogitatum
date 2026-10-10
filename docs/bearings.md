@@ -68,7 +68,7 @@ Edits belong to the chosen note; they do not translate into the other note or pr
 
 ## Local joint reasons
 
-Use `join` when nearby Grounds belong to one supporting connection.
+Use `linked` when nearby Grounds belong to one supporting connection.
 Use `edge` when connecting existing Points by reference, including shared premises or distant targets.
 Both construct Bearings; neither is a new Point role or a measure of reasoning strength.
 
@@ -77,9 +77,9 @@ Each creates exactly one joint `supports` Bearing named `route`.
 In the explicit version, the Grounds sit outside the Claim's indentation, so they create no extra default supports.
 The prose after each header describes the same connection.
 
-```md cog-check compare=joint-reasons caption="Local join" require=supports points=3 bearings=1 diagnostics=0
+```md cog-check compare=joint-reasons caption="Local linked" require=supports points=3 bearings=1 diagnostics=0
 - [C @mortality] Socrates is mortal.
-  - [join; @route] Apply the general rule to this case.
+  - [linked; @route] Apply the general rule to this case.
     - [G @humans] All humans are mortal.
     - [G @socrates] Socrates is human.
 ```
@@ -97,7 +97,7 @@ A joint connection does not assert that its sources are minimal, that each is ne
 An objection beneath a Ground targets that premise; an undercut of the handle targets the route.
 
 **Counterexample: ordinary sibling Grounds are independent.**
-Removing the `join` creates two single-source Bearings, rather than the one joint Bearing above.
+Removing the `linked` creates two single-source Bearings, rather than the one joint Bearing above.
 This is a different topology, not an equivalent spelling.
 
 ```md cog-check require=supports points=3 bearings=2 diagnostics=0
@@ -111,13 +111,54 @@ The nearest enclosing Point supplies the target, regardless of its role.
 Header prose is optional and becomes the joint Bearing's description, just like `edge` prose.
 It creates no Point and changes neither membership nor the source and target references.
 Members must be direct `G` children without operators or Bearing handles; an unmarked body child is not a member.
-Invalid membership rejects the whole join without falling back to single-source connections.
-Member subtrees retain their ordinary behavior, including a further join below a real intermediate Point.
-For complete restrictions and partial-output behavior, see [local joins](syntax.md#local-joins).
+Invalid membership rejects the whole linked without falling back to single-source connections.
+Member subtrees retain their ordinary behavior, including a further linked below a real intermediate Point.
+For complete restrictions and partial-output behavior, see [local linked blocks](syntax.md#local-linked-blocks).
+
+## Argument structures
+
+Linked, Convergent, and Serial describe composable argument structures.
+A premise is content serving as a source in a particular support step; its Point role need not change when it later serves as a conclusion.
+These names describe the graph's arrangement, not the success of the reasoning.
+
+| Structure | Arrangement |
+| --- | --- |
+| Linked / 聯結 | Several premises participate in one multi-source supporting Bearing. |
+| Convergent / 匯聚 | Separate supporting Bearings target the same conclusion. |
+| Serial / 串聯 | One step's conclusion becomes a premise in a later step. |
+
+The two-premise linked block and the ordinary sibling Grounds above illustrate Linked and Convergent respectively.
+Serial authoring uses a real intermediate Point:
+
+```md cog-check require=supports points=3 bearings=2 diagnostics=0
+- [C @conclusion] The incident needs investigation.
+  - [G @intermediate] The timeouts are reproducible.
+    - [G @observation] Two independent retries timed out.
+```
+
+Structures can combine: p and q jointly support i; i and r jointly support c; s and t separately form another joint route to c.
+The two routes into c form a Convergent arrangement, while the path through i is Serial.
+The explicit references reuse i's identity without copying its subtree or changing its role:
+
+```md cog-check require=supports points=7 bearings=3 diagnostics=0
+- [G @p] First observation.
+- [G @q] Second observation.
+- [C @i] Intermediate conclusion.
+- [G @r] Additional reason.
+- [G @s] Independent observation.
+- [G @t] Corroborating observation.
+- [C @c] Final conclusion.
+- [edge @p, @q +> @i; @first]
+- [edge @i, @r +> @c; @second]
+- [edge @s, @t +> @c; @third]
+```
+
+Argumentation includes developing, presenting, and examining arguments; it is not limited to debate between people.
+No additional Convergent or Serial keyword is required.
 
 ## Connections from indentation
 
-Outside a `join`, without an operator, the nearest enclosing Point and the child's role determine whether a connection is produced:
+Outside a `linked`, without an operator, the nearest enclosing Point and the child's role determine whether a connection is produced:
 
 | Child | Enclosing Point | Connection |
 | --- | --- | --- |

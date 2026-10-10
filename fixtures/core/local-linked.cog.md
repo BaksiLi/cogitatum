@@ -1,6 +1,6 @@
 - [C @conclusion] Conclusion.
   - [G @observation] An independent reason.
-  - [join; @joint-route]
+  - [linked; @joint-route]
     - [G @first] First joint premise.
       - [O @objection] Objection to this premise.
         - [R @reply] Reply to that objection.

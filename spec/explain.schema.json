@@ -148,7 +148,7 @@
         {
           "type": "object",
           "required": ["kind"],
-          "properties": { "kind": { "enum": ["edge", "join"] } },
+          "properties": { "kind": { "enum": ["edge", "linked"] } },
           "additionalProperties": false
         }
       ]
@@ -157,10 +157,10 @@
       "oneOf": [
         {
           "type": "object",
-          "required": ["kind", "joinSpan", "eligible"],
+          "required": ["kind", "linkedSpan", "eligible"],
           "properties": {
-            "kind": { "const": "joinMember" },
-            "joinSpan": { "$ref": "#/$defs/sourceSpan" },
+            "kind": { "const": "linkedMember" },
+            "linkedSpan": { "$ref": "#/$defs/sourceSpan" },
             "eligible": { "type": "boolean" }
           },
           "additionalProperties": false
@@ -200,7 +200,7 @@
             "kind": { "const": "emitBearing" },
             "ref": { "$ref": "#/$defs/emittedBearingRef" },
             "bearing": { "$ref": "#/$defs/emittedBearingSummary" },
-            "reason": { "enum": ["operator-clause", "annotated-containment", "join-containment"] }
+            "reason": { "enum": ["operator-clause", "annotated-containment", "linked-containment"] }
           },
           "additionalProperties": false
         },
@@ -211,7 +211,7 @@
             "kind": { "const": "rejectBearing" },
             "bearing": { "$ref": "#/$defs/bearingSummary" },
             "reason": {
-              "enum": ["annotation-syntax-error", "edge-descendant-requires-explicit-target", "validation-error", "invalid-join"]
+              "enum": ["annotation-syntax-error", "edge-descendant-requires-explicit-target", "validation-error", "invalid-linked"]
             }
           },
           "additionalProperties": false
@@ -221,7 +221,7 @@
           "required": ["kind", "reason"],
           "properties": {
             "kind": { "const": "skipBearing" },
-            "reason": { "enum": ["no-eligible-ancestor", "no-structural-rule", "join-membership"] }
+            "reason": { "enum": ["no-eligible-ancestor", "no-structural-rule", "linked-membership"] }
           },
           "additionalProperties": false
         }

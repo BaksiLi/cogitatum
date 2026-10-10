@@ -12,7 +12,7 @@ type RawNode = {
 };
 
 const RESERVED_ANNOTATION_START_RE =
-  /^(?:[QCGORD](?:\?)?(?=$|[\s@;+_~>-])|\?(?=$|[\s@;+_~>-])|edge(?=$|[\s;])|join(?=$|[\s;])|scope(?=$|\s)|@)/i;
+  /^(?:[QCGORD](?:\?)?(?=$|[\s@;+_~>-])|\?(?=$|[\s@;+_~>-])|edge(?=$|[\s;])|linked(?=$|[\s;])|join(?=$|[\s;])|scope(?=$|\s)|@)/i;
 
 export function parseDocument(source: string, options: ParseOptions = {}): DocumentAst {
   const diagnostics: Diagnostic[] = [];
@@ -188,11 +188,15 @@ function toAstBlock(node: RawNode, diagnostics: Diagnostic[]): AstBlock {
   }
   // Failed constructors retain their context boundary even without a closing bracket.
   const unclosedConstructor = node.indentationValid && !node.annotationRaw && !node.text.includes("]")
-    ? /^\[\s*(join|edge)(?=$|[\s;])/i.exec(node.text)?.[1].toLowerCase()
+    ? /^\[\s*(linked|join|edge)(?=$|[\s;])/i.exec(node.text)?.[1].toLowerCase()
     : undefined;
+  if (unclosedConstructor === "join") {
+    diagnostics.push({ severity: "error", code: "RETIRED_JOIN_ANNOTATION",
+      message: "The join keyword is retired. Use linked and recompile the original source.", sourceSpan: node.sourceSpan });
+  }
   const annotation = parsed?.annotation ?? (
-    unclosedConstructor === "join"
-      ? { kind: "join" as const, raw: node.text.slice(1), syntaxErrors: ["join" as const] }
+    unclosedConstructor === "linked" || unclosedConstructor === "join"
+      ? { kind: "linked" as const, raw: node.text.slice(1), syntaxErrors: ["linked" as const] }
       : unclosedConstructor === "edge"
         ? { kind: "edge" as const, raw: node.text.slice(1), syntaxErrors: ["operator" as const] }
         : undefined

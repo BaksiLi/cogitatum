@@ -1,5 +1,5 @@
 - [C @conclusion] Conclusion.
-  - [join; @failed-route]
+  - [linked; @failed-route]
     - [G @first] First premise.
     - [O @objection] Invalid member.
       - [R @reply] A surviving reply.

@@ -1,6 +1,12 @@
 {
   "fixtures": [
     {
+      "file": "diagnostics/retired-join.cog.md",
+      "input": "document",
+      "purpose": "Retired join remains a rejected boundary while valid descendant objections and independently targeted relations survive.",
+      "expected": "diagnostics/retired-join.expected.json"
+    },
+    {
       "file": "core/authored-route-reference.cog.md",
       "input": "document",
       "purpose": "An authored gap refers to a named structural route within one compilation; no revision stability is asserted.",
@@ -283,22 +289,22 @@
       "expected": "syntax/variable-indentation.expected.json"
     },
     {
-      "file": "core/local-join.cog.md",
+      "file": "core/local-linked.cog.md",
       "input": "document",
       "purpose": "Local joint support coexists with ordinary unary support, premise objections, route undercuts, and a shared premise edge.",
-      "expected": "core/local-join.expected.json"
+      "expected": "core/local-linked.expected.json"
     },
     {
-      "file": "diagnostics/invalid-join-members.cog.md",
+      "file": "diagnostics/invalid-linked-members.cog.md",
       "input": "document",
-      "purpose": "Invalid join membership rejects the joint atomically, suppresses unary recovery, and preserves explicit operators and independent subtrees.",
-      "expected": "diagnostics/invalid-join-members.expected.json"
+      "purpose": "Invalid linked membership rejects the joint atomically, suppresses unary recovery, and preserves explicit operators and independent subtrees.",
+      "expected": "diagnostics/invalid-linked-members.expected.json"
     },
     {
-      "file": "host/local-join.md",
+      "file": "host/local-linked.md",
       "input": "host",
-      "purpose": "A named singleton join retains its route and original host locations after fence indentation normalization.",
-      "expected": "host/local-join.expected.json"
+      "purpose": "A named singleton linked retains its route and original host locations after fence indentation normalization.",
+      "expected": "host/local-linked.expected.json"
     }
   ]
 }

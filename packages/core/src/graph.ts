@@ -24,7 +24,7 @@ import { FORMAT_VERSION } from "./types.js";
 type Context = {
   parent?: AstBlock;
   edgeAncestor?: AstBlock;
-  joinAncestor?: AstBlock;
+  linkedAncestor?: AstBlock;
 };
 
 type CandidateBearing = {
@@ -61,22 +61,22 @@ type BearingDraft =
   | {
       outcome: "candidate";
       candidate: CandidateBearing;
-      reason: "operator-clause" | "annotated-containment" | "join-containment";
+      reason: "operator-clause" | "annotated-containment" | "linked-containment";
     }
   | {
       outcome: "rejected";
-      reason: "annotation-syntax-error" | "edge-descendant-requires-explicit-target" | "invalid-join";
+      reason: "annotation-syntax-error" | "edge-descendant-requires-explicit-target" | "invalid-linked";
     }
   | {
       outcome: "skipped";
-      reason: "no-eligible-ancestor" | "no-structural-rule" | "join-membership";
+      reason: "no-eligible-ancestor" | "no-structural-rule" | "linked-membership";
     };
 
 type ExplainDraft = {
   block: AstBlock;
   recognition: ExplainRecognition;
   point?: PointDraft;
-  membership?: { joinSpan: SourceSpan; eligible: boolean };
+  membership?: { linkedSpan: SourceSpan; eligible: boolean };
   bearing?: BearingDraft;
 };
 
@@ -157,13 +157,13 @@ function compileBlock(
   };
   explainDrafts.push(draft);
 
-  if (annotation.kind === "join") {
-    compileJoin(block, context, draft, pointKeys, points, bearings, explainDrafts, diagnostics);
+  if (annotation.kind === "linked") {
+    compileLinked(block, context, draft, pointKeys, points, bearings, explainDrafts, diagnostics);
     return;
   }
 
-  if (context.joinAncestor && annotation.kind !== "edge") {
-    draft.membership = { joinSpan: context.joinAncestor.sourceSpan, eligible: context.joinAncestor.children.includes(block) && isJoinMember(block) };
+  if (context.linkedAncestor && annotation.kind !== "edge") {
+    draft.membership = { linkedSpan: context.linkedAncestor.sourceSpan, eligible: context.linkedAncestor.children.includes(block) && isLinkedMember(block) };
   }
 
   if (annotation.kind !== "edge") {
@@ -202,8 +202,8 @@ function compileBlock(
     } else {
       draft.bearing = { outcome: "rejected", reason: "annotation-syntax-error" };
     }
-  } else if (context.joinAncestor && annotation.kind !== "edge") {
-    draft.bearing = { outcome: "skipped", reason: "join-membership" };
+  } else if (context.linkedAncestor && annotation.kind !== "edge") {
+    draft.bearing = { outcome: "skipped", reason: "linked-membership" };
   } else {
     const bearing = deriveStructuralBearing(block, context.parent, pointKeys);
     if (bearing) {
@@ -237,13 +237,13 @@ function compileBlock(
   }
 }
 
-function isJoinMember(block: AstBlock): boolean {
+function isLinkedMember(block: AstBlock): boolean {
   const annotation = block.annotation;
   return annotation?.kind === "role" && annotation.role === "G" &&
     !annotation.operatorClause && !annotation.handle && !annotation.syntaxErrors?.length;
 }
 
-function compileJoin(
+function compileLinked(
   block: AstBlock,
   context: Context,
   draft: ExplainDraft,
@@ -258,15 +258,15 @@ function compileJoin(
     diagnostics.push({ severity: "error", code, message, sourceSpan: location.sourceSpan });
     valid = false;
   };
-  if (!context.parent) reject("JOIN_REQUIRES_POINT_TARGET", "Join requires a nearest enclosing Point target.");
+  if (!context.parent) reject("LINKED_REQUIRES_POINT_TARGET", "Linked requires a nearest enclosing Point target.");
   if (context.edgeAncestor) reject("EDGE_DESCENDANT_REQUIRES_EXPLICIT_TARGET",
-    "Join beneath an edge cannot bypass the requirement for an explicitly targeted first Point.");
-  if (context.joinAncestor) reject("NESTED_JOIN_UNSUPPORTED",
-    "Join cannot be nested beneath another join without an intervening Point.");
-  if (!block.children.length) reject("EMPTY_JOIN", "Join requires at least one direct Ground member.");
+    "Linked beneath an edge cannot bypass the requirement for an explicitly targeted first Point.");
+  if (context.linkedAncestor) reject("NESTED_LINKED_UNSUPPORTED",
+    "Linked cannot be nested beneath another linked without an intervening Point.");
+  if (!block.children.length) reject("EMPTY_LINKED", "Linked requires at least one direct Ground member.");
   for (const child of block.children) {
-    if (!isJoinMember(child)) reject("INVALID_JOIN_MEMBER",
-      "Each direct join member must be a Ground Point without an operator, Bearing handle, or annotation error.", child);
+    if (!isLinkedMember(child)) reject("INVALID_LINKED_MEMBER",
+      "Each direct linked member must be a Ground Point without an operator, Bearing handle, or annotation error.", child);
   }
   if (valid && context.parent) {
     const bearing = structural(block, "supports", block.children.map(child => pointKeyForBlock(child, pointKeys)),
@@ -274,14 +274,14 @@ function compileJoin(
     if (block.text) bearing.text = block.text;
     bearing.key = `_b${bearings.length + 1}`;
     bearings.push(bearing);
-    draft.bearing = { outcome: "candidate", candidate: bearing, reason: "join-containment" };
+    draft.bearing = { outcome: "candidate", candidate: bearing, reason: "linked-containment" };
   } else {
-    draft.bearing = { outcome: "rejected", reason: "invalid-join" };
+    draft.bearing = { outcome: "rejected", reason: "invalid-linked" };
   }
   // Suppress only first-Point structural relations. Explicit operators and subtrees
-  // remain independent evidence, including when membership invalidates the join.
+  // remain independent evidence, including when membership invalidates the linked.
   for (const child of block.children) {
-    compileBlock(child, { ...context, joinAncestor: block }, pointKeys, points, bearings, explainDrafts, diagnostics);
+    compileBlock(child, { ...context, linkedAncestor: block }, pointKeys, points, bearings, explainDrafts, diagnostics);
   }
 }
 
@@ -601,7 +601,7 @@ function buildExplainEntries(
     }
 
     if (draft.membership) {
-      effects.push({ kind: "joinMember", ...draft.membership });
+      effects.push({ kind: "linkedMember", ...draft.membership });
     }
 
     if (draft.point) {
@@ -833,7 +833,7 @@ function assignPointKeys(blocks: AstBlock[]): WeakMap<AstBlock, string> {
   let nextId = 1;
 
   walkWithParent(blocks, undefined, (block) => {
-    if (block.annotation && block.annotation.kind !== "edge" && block.annotation.kind !== "join") {
+    if (block.annotation && block.annotation.kind !== "edge" && block.annotation.kind !== "linked") {
       pointKeys.set(block, `_p${nextId}`);
       nextId += 1;
     }

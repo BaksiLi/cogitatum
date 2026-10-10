@@ -23,8 +23,8 @@ Four marked points, three explicit connections. The ordinary body remains in the
 
 Published Alpha: **@cogitatum/core 0.3.0-alpha.1** and **@cogitatum/cli 0.3.0-alpha.1**, with **format 0.3.0**. Install with the `alpha` tag: `npm install @cogitatum/core@alpha`, or run the CLI with `npx --package @cogitatum/cli@alpha cog check inquiry.cog.md`. Syntax and machine contracts may change before a stable release.
 
-This checkout is the **0.4.0-alpha.2** source candidate, with **format 0.4.0**, local `join` support, and optional join header descriptions.
-It has not been published; the npm `alpha` tag and hosted playground do not gain join support from this source change.
+This checkout is the **0.4.0-alpha.3** source candidate, with **format 0.4.0**, local `linked` support, and optional linked header descriptions.
+It has not been published; the npm `alpha` tag and hosted playground do not gain linked support from this source change.
 See [local joint reasons](docs/bearings.md#local-joint-reasons) and the [compatibility boundary](docs/syntax.md#machine-contract-and-cli).
 
 With Node.js 22.12 or newer, from a source checkout:

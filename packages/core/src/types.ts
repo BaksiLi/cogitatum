@@ -5,7 +5,7 @@ export type BearingOp = "supports" | "challenges" | "undercuts" | "about";
 export type BearingKind = BearingOp | "repliesTo" | "clarifies" | "answers";
 export type BearingDerivedBy = "operator" | "structural";
 export type Severity = "error" | "warning" | "suggestion";
-export type AnnotationSyntaxError = "operator" | "handle" | "join";
+export type AnnotationSyntaxError = "operator" | "handle" | "linked";
 export type SourceParseMode = "document" | "host" | "auto";
 export type SourceUnitKind = "document" | "fence";
 
@@ -55,7 +55,7 @@ export type Annotation =
   | (PointAnnotationBase & RoleMark & { kind: "role" })
   | (PointAnnotationBase & { kind: "gap"; status: "open" })
   | (PointAnnotationBase & { kind: "anchor"; anchor: string })
-  | (AnnotationBase<"join" | "handle"> & { kind: "join" })
+  | (AnnotationBase<"linked" | "handle"> & { kind: "linked" })
   | (AnnotationBase & {
       kind: "edge";
       operatorClause?: OperatorClause & { sources: Ref[] };
@@ -155,7 +155,7 @@ export type ExplainRecognition =
   | { kind: "gap"; status: "open" }
   | { kind: "material" }
   | { kind: "edge" }
-  | { kind: "join" };
+  | { kind: "linked" };
 
 export type ExplainBearingRef = {
   kind: "bearing";
@@ -179,7 +179,7 @@ export type ExplainBearingSummary = {
 export type ExplainEmittedBearingSummary = Omit<BearingBase, "text" | "sourceSpan"> & BearingRelation;
 
 export type ExplainEffect =
-  | { kind: "joinMember"; joinSpan: SourceSpan; eligible: boolean }
+  | { kind: "linkedMember"; linkedSpan: SourceSpan; eligible: boolean }
   | { kind: "preserveBody" }
   | {
       kind: "emitPoint";
@@ -192,7 +192,7 @@ export type ExplainEffect =
       kind: "emitBearing";
       ref: ExplainBearingRef;
       bearing: ExplainEmittedBearingSummary;
-      reason: "operator-clause" | "annotated-containment" | "join-containment";
+      reason: "operator-clause" | "annotated-containment" | "linked-containment";
     }
   | {
       kind: "rejectBearing";
@@ -201,11 +201,11 @@ export type ExplainEffect =
         | "annotation-syntax-error"
         | "edge-descendant-requires-explicit-target"
         | "validation-error"
-        | "invalid-join";
+        | "invalid-linked";
     }
   | {
       kind: "skipBearing";
-      reason: "no-eligible-ancestor" | "no-structural-rule" | "join-membership";
+      reason: "no-eligible-ancestor" | "no-structural-rule" | "linked-membership";
     };
 
 export type ExplainEntry = {

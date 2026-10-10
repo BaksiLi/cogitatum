@@ -30,24 +30,27 @@ export function parseAnnotation(raw: string, sourceSpan?: SourceSpan): Annotatio
   const semicolonParts = trimmed.split(";").map((part) => part.trim());
   const edgeIntent = /^edge(?=$|[\s;])/i.test(trimmed);
 
-  // Retain malformed join intent so its children never fall back to unary support.
-  if (/^join(?=$|[\s;])/i.test(trimmed)) {
+  const retiredJoin = /^join(?=$|[\s;])/i.test(trimmed);
+  if (retiredJoin || /^linked(?=$|[\s;])/i.test(trimmed)) {
     const main = semicolonParts[0];
     const handle = semicolonParts.length === 2 ? parseSingleRef(semicolonParts[1]) : undefined;
-    const invalidSyntax = main !== "join" || semicolonParts.length > 2;
+    const invalidSyntax = retiredJoin || main !== "linked" || semicolonParts.length > 2;
     const invalidHandle = semicolonParts.length === 2 && !handle;
-    if (invalidSyntax) {
-      diagnostics.push({ severity: "error", code: "MALFORMED_JOIN_ANNOTATION",
-        message: "Join annotations must look like [join] or [join; @route].", sourceSpan });
+    if (retiredJoin) {
+      diagnostics.push({ severity: "error", code: "RETIRED_JOIN_ANNOTATION",
+        message: "The join keyword is retired. Use linked and recompile the original source.", sourceSpan });
+    } else if (invalidSyntax) {
+      diagnostics.push({ severity: "error", code: "MALFORMED_LINKED_ANNOTATION",
+        message: "Linked annotations must look like [linked] or [linked; @route].", sourceSpan });
     }
     if (invalidHandle) {
       diagnostics.push({ severity: "error", code: "MALFORMED_BEARING_HANDLE",
         message: "Bearing handle separator ';' must be followed by exactly one valid @id.", sourceSpan });
     }
-    const errors: ("join" | "handle")[] = [];
-    if (invalidSyntax) errors.push("join");
+    const errors: ("linked" | "handle")[] = [];
+    if (invalidSyntax) errors.push("linked");
     if (invalidHandle) errors.push("handle");
-    return { annotation: { kind: "join", raw, handle,
+    return { annotation: { kind: "linked", raw, handle,
       syntaxErrors: errors.length ? errors : undefined }, diagnostics };
   }
 
@@ -321,8 +324,8 @@ function duplicateRefIds(refs: Ref[]): string[] {
   return [...duplicates];
 }
 
-function syntaxErrors(invalidOperator: boolean, invalidHandle: boolean): Exclude<AnnotationSyntaxError, "join">[] | undefined {
-  const errors: Exclude<AnnotationSyntaxError, "join">[] = [];
+function syntaxErrors(invalidOperator: boolean, invalidHandle: boolean): Exclude<AnnotationSyntaxError, "linked">[] | undefined {
+  const errors: Exclude<AnnotationSyntaxError, "linked">[] = [];
   if (invalidOperator) {
     errors.push("operator");
   }

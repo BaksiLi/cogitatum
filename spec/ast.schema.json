@@ -79,9 +79,9 @@
       "minItems": 1,
       "uniqueItems": true
     },
-    "joinSyntaxErrors": {
+    "linkedSyntaxErrors": {
       "type": "array",
-      "items": { "enum": ["join", "handle"] },
+      "items": { "enum": ["linked", "handle"] },
       "minItems": 1,
       "uniqueItems": true
     },
@@ -91,8 +91,8 @@
           "type": "object",
           "required": ["kind", "raw"],
           "properties": {
-            "kind": { "const": "join" },
-            "syntaxErrors": { "$ref": "#/$defs/joinSyntaxErrors" },
+            "kind": { "const": "linked" },
+            "syntaxErrors": { "$ref": "#/$defs/linkedSyntaxErrors" },
             "handle": { "$ref": "#/$defs/authoredId" },
             "raw": { "type": "string" }
           },
