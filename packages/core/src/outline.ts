@@ -215,4 +215,3 @@ function spanForLine(line: number, startColumn: number, endColumn: number): Sour
     endColumn
   };
 }
-
