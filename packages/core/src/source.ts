@@ -115,6 +115,7 @@ function extractHostUnits(source: string): Pick<SelectedSource, "units" | "diagn
   const units: SelectedSourceUnit[] = [];
   const diagnostics: Diagnostic[] = [];
   const lines = source.split(/\r\n|\r|\n/);
+  const initialBomLength = source.startsWith("\uFEFF") ? 1 : 0;
   const tree = markdownParser.parse(source);
 
   function visitBlock(block: Nodes, nested: boolean): void {
@@ -132,12 +133,13 @@ function extractHostUnits(source: string): Pick<SelectedSource, "units" | "diagn
         severity: "error",
         code: "UNSUPPORTED_NESTED_COGITATUM_FENCE",
         message: "Cogitatum fences inside Markdown containers are unsupported. Move this fence to document level.",
-        sourceSpan: { startLine: start.line, startColumn: start.column, endLine: end.line, endColumn: end.column }
+        sourceSpan: { startLine: start.line, startColumn: start.column + (start.line === 1 ? initialBomLength : 0), endLine: end.line, endColumn: end.column + (end.line === 1 ? initialBomLength : 0) }
       });
       return;
     }
 
-    const opening = FENCE_RE.exec(lines[start.line - 1]);
+    const openingLine = lines[start.line - 1].slice(start.line === 1 ? initialBomLength : 0);
+    const opening = FENCE_RE.exec(openingLine);
     if (!opening) return;
     const markerText = opening[2];
     if (end.line <= start.line || !isClosingFence(lines[end.line - 1], markerText[0], markerText.length)) {
@@ -145,7 +147,7 @@ function extractHostUnits(source: string): Pick<SelectedSource, "units" | "diagn
         severity: "error",
         code: "UNCLOSED_COGITATUM_FENCE",
         message: "Cogitatum source fence opened on line " + start.line + " is not closed.",
-        sourceSpan: span(start.line, 1, lines[start.line - 1].length + 1)
+        sourceSpan: span(start.line, 1 + (start.line === 1 ? initialBomLength : 0), lines[start.line - 1].length + 1)
       });
       return;
     }
@@ -167,7 +169,7 @@ function extractHostUnits(source: string): Pick<SelectedSource, "units" | "diagn
         severity: "error",
         code: "EMPTY_COGITATUM_FENCE",
         message: "Cogitatum source fence is empty.",
-        sourceSpan: span(start.line, 1, lines[start.line - 1].length + 1)
+        sourceSpan: span(start.line, 1 + (start.line === 1 ? initialBomLength : 0), lines[start.line - 1].length + 1)
       });
     }
   }

@@ -6,6 +6,45 @@ const fence = String.fromCharCode(96).repeat(3);
 const active = [fence + "cog", "- [C @visible] Visible.", fence].join("\n");
 
 describe("explicit Markdown source selection", () => {
+  it.each(["", "  "])("selects a closed initial-BOM fence with indentation %j and original mappings", indentation => {
+    const line = indentation + "- [C @bom] 😀 Initial unit.";
+    const source = "\uFEFF" + indentation + fence + "cog\r\n" + line + "\r\n" + fence + "\r\n\r\n" + active;
+    const explained = explainSource(source, "host");
+    expect(explained.diagnostics).toEqual([]);
+    expect(explained.units.map(unit => unit.startLine)).toEqual([2, 6]);
+    expect(explained.graphs.map(graph => graph.points[0].id)).toEqual(["bom", "visible"]);
+    expect(explained.graphs[0].points[0].sourceSpan).toEqual({ startLine: 2, startColumn: indentation.length + 3, endLine: 2, endColumn: line.length + 1 });
+    expect(explained.documents[0].blocks[0].raw).toBe("- [C @bom] 😀 Initial unit.");
+    expect(explained.explanations[0].entries[0].sourceSpan).toEqual(explained.graphs[0].points[0].sourceSpan);
+  });
+
+  it("diagnoses an unclosed initial-BOM fence in original UTF-16 columns", () => {
+    const opening = "\uFEFF  " + fence + "cog";
+    const explained = explainSource(opening + "\n  - [C @discarded] Unclosed.", "host");
+    expect(explained.units).toEqual([]);
+    expect(explained.graphs).toEqual([]);
+    expect(explained.diagnostics).toEqual([expect.objectContaining({ code: "UNCLOSED_COGITATUM_FENCE", sourceSpan: { startLine: 1, startColumn: 2, endLine: 1, endColumn: opening.length + 1 } })]);
+  });
+
+  it("keeps initial-BOM literal regions inactive and preserves later BOM content", () => {
+    const line = "- [C @later] 😀 \uFEFFPreserved.";
+    const source = "\uFEFF<!--\n" + active + "\n-->\n\n" + fence + "cog\n" + line + "\n" + fence;
+    const explained = explainSource(source, "host");
+    expect(explained.diagnostics).toEqual([]);
+    expect(explained.units).toHaveLength(1);
+    expect(explained.units[0].startLine).toBe(8);
+    expect(explained.units[0].source).toBe(line);
+    expect(explained.documents[0].blocks[0].raw).toBe(line);
+    expect(explained.graphs[0].points[0]).toMatchObject({ id: "later", text: "😀 \uFEFFPreserved.", sourceSpan: { startLine: 8, startColumn: 3, endLine: 8, endColumn: line.length + 1 } });
+  });
+
+  it("maps an initial-BOM nested fence diagnostic back to the original host", () => {
+    const source = "\uFEFF" + active.split("\n").map(line => "> " + line).join("\n");
+    const explained = explainSource(source, "host");
+    expect(explained.units).toEqual([]);
+    expect(explained.diagnostics).toEqual([expect.objectContaining({ code: "UNSUPPORTED_NESTED_COGITATUM_FENCE", sourceSpan: { startLine: 1, startColumn: 4, endLine: 3, endColumn: 6 } })]);
+  });
+
   it.each([
     ["comment", "<!--\n" + active.replace("visible", "hidden") + "\n-->"],
     ["pre", "<pre>\n" + active.replace("visible", "hidden") + "\n</pre>"],

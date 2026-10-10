@@ -249,7 +249,10 @@ Graph references use `{ key, kind }`; AST references remain `{ id }`. Keys are o
 
 Explain emission references use graph keys; Bearing emissions also have a graph index and optional handle. The index addresses this compilation's Bearing array only. Emitted summaries obey the same kind/target restrictions as canonical Bearings. Rejected candidates can retain unresolved authored `{ id }` references or a resolved target of the wrong kind: that mismatch can explain the rejection. They are not graph entities. Diagnostic codes on an entry come from diagnostics whose source spans overlap that block; they can include diagnostics from its children. The top-level diagnostics retain their actual spans.
 
-The **0.4.0-alpha.5** source candidate retains the **unpublished format identifier 0.4.0**, including the alpha.3 linked and alpha.4 host migrations below.
+The **0.4.0-alpha.6** source candidate retains the **unpublished format identifier 0.4.0**, including the alpha.3 linked and alpha.4 host migrations below.
+Its initial-BOM host-selection repair follows alpha.5 at `a003e89e1fa780377ebe887b2c7d823ec58a9ad0`.
+An initial U+FEFF is recognized at the Markdown document boundary without stripping the original host or later content.
+Original UTF-16 diagnostic columns include that initial code unit; selected content locations remain in the original host.
 Its named-constructor baseline is alpha.4 at `1c494e825ceafe9dc247c6489d8c6f93db70e168`.
 The AST `edge.operatorClause.op` now admits every canonical `BearingKind`; self-sourced Point clauses remain limited to the four symbolic `BearingOp` kinds.
 GraphIR and Explain kind/target shapes are unchanged, and explicit construction uses the existing `operator-clause` trace reason and `derivedBy: "operator"`.

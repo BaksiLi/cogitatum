@@ -23,7 +23,7 @@ Four marked points, three explicit connections. The ordinary body remains in the
 
 Published Alpha: **@cogitatum/core 0.3.0-alpha.1** and **@cogitatum/cli 0.3.0-alpha.1**, with **format 0.3.0**. Install with the `alpha` tag: `npm install @cogitatum/core@alpha`, or run the CLI with `npx --package @cogitatum/cli@alpha cog check inquiry.cog.md`. Syntax and machine contracts may change before a stable release.
 
-This checkout is the **0.4.0-alpha.5** source candidate, with **format 0.4.0**, local `linked` support, and optional linked header descriptions.
+This checkout is the **0.4.0-alpha.6** source candidate, with **format 0.4.0**, local `linked` support, and optional linked header descriptions.
 Explicit `edge` constructors accept all canonical kind names, including `answers`, `repliesTo`, and `clarifies`.
 Source APIs default to the owned `document` context; select Markdown explicitly with `host`.
 Host selection follows Markdown blocks and preserves original source locations; content-dependent `auto` is retired.
