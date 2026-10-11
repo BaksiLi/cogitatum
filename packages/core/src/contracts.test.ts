@@ -34,6 +34,18 @@ describe("public compiler contract boundaries", () => {
       expect(validateExplain(json(explain)), JSON.stringify(validateExplain.errors)).toBe(true);
     }
     const original = json(parseDocument(declarations + "\n- [_ use @route] Note."));
+    expect(validateAst(original)).toBe(true);
+    const missingOperand = structuredClone(original);
+    delete missingOperand.blocks[3].annotation.ref;
+    expect(validateAst(missingOperand)).toBe(false);
+    const diagnosedMissingOperand = json(parseDocument("- [_ use] Missing operand."));
+    expect(diagnosedMissingOperand.blocks[0].annotation).toMatchObject({ kind: "bearingUse", syntaxErrors: ["reference"] });
+    expect(diagnosedMissingOperand.diagnostics.map((diagnostic: { code: string }) => diagnostic.code)).toContain("MALFORMED_BEARING_USE");
+    expect(validateAst(diagnosedMissingOperand)).toBe(true);
+    for (const ast of [structuredClone(original), missingOperand]) {
+      ast.blocks[3].annotation.syntaxErrors = [];
+      expect(validateAst(ast)).toBe(false);
+    }
     for (const field of ["anchor", "handle", "role", "operatorClause"]) {
       const invalid = structuredClone(original);
       invalid.blocks[3].annotation[field] = field === "operatorClause" ? { op: "supports", sources: "self", target: { id: "c" } } : "alias";

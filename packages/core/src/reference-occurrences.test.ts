@@ -131,6 +131,10 @@ describe("reference-only Point occurrences", () => {
 
   it("keeps use prose ordinary and isolates identities between host units", () => {
     expect(compile("- [use case] Ordinary prose.").graph.diagnostics).toEqual([]);
+    expect(parseDocument("- [use case] Ordinary prose.").blocks[0].annotation).toBeUndefined();
+    const malformedMarkedUse = parseDocument("- [. use case] Malformed marked use.");
+    expect(malformedMarkedUse.blocks[0].annotation).toMatchObject({ kind: "use", syntaxErrors: ["reference"] });
+    expect(malformedMarkedUse.diagnostics.map(diagnostic => diagnostic.code)).toContain("MALFORMED_POINT_USE");
     const fence = String.fromCharCode(96).repeat(3);
     const result = explainSource([fence + "cog", "- [C @premise] First unit.", fence, fence + "cog", "- [. use @premise] Another unit.", fence].join("\n"), "host");
     expect(result.graphs[1].points).toEqual([]);

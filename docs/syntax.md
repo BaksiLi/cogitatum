@@ -190,7 +190,7 @@ Its children focus p but have no imported Q/O mark for answer/reply defaults.
 It does not generate whether/why question text, transform the Point, reopen it or change shared status.
 The author chooses the content/mark fit; declare a separate Question when different question content is intended.
 A complete symbolic override, such as `[. use @p +> @claim; @step]`, constructs exactly one local attachment.
-O//G/ beneath that occurrence select step; beneath a bare use or linked member they fail.
+`O/` or `G/` beneath that occurrence selects step; beneath a bare use or linked member they fail.
 A handle without a locally constructed attachment is diagnosed.
 
 ```md cog-check require=supports,undercuts,repliesTo points=4 bearings=3 diagnostics=0
@@ -205,7 +205,8 @@ Unknown, duplicate/ambiguous names and Bearing operands have no Point focus.
 They retain a failed boundary; implicit descendants never fall back to an outer Point or use a Bearing as a Point focus.
 Valid descendant declarations, their own subtrees and complete independent relations survive.
 When only a use's attachment syntax fails, its otherwise valid Point operand retains focus but owns no attachment.
-`[. use case]` remains ordinary bracket prose; bare use intent is reserved only before @, a separator or end.
+`[use case]` remains ordinary bracket prose; bare use intent is reserved only before @, a separator or end.
+`[. use case]` is a malformed marked use and receives `MALFORMED_POINT_USE`.
 Incorrect case, malformed reserved uses and unclosed use prefixes are diagnosed boundaries.
 
 ### Bearing occurrences and reading
