@@ -162,7 +162,7 @@ describe("Cogitatum language contracts", () => {
     expect(graph.bearings.some((bearing) => bearing.sources.some((source) => source.key === pointRef(graph, "elaboration").key))).toBe(
       false
     );
-    expect(graph.diagnostics).toEqual([]);
+    expect(graph.diagnostics).toEqual([expect.objectContaining({ code: "IMPLICIT_ATTACHMENT_THROUGH_BODY", severity: "suggestion", sourceSpan: expect.objectContaining({ startLine: 7 }) })]);
   });
 
   it("does not add transitive support or coerce clarifications and replies to support", () => {
@@ -299,6 +299,7 @@ describe("Cogitatum language contracts", () => {
       recognition: { kind: "role", role: "G" },
       effects: [
         { kind: "emitPoint", ref: pointRef(compilation.graph, "ground"), reason: "role-annotation" },
+        { kind: "implicitAttachment", target: pointRef(compilation.graph, "claim"), contextSpan: claim.sourceSpan, crossedBodySpans: [firstBody.sourceSpan, secondBody.sourceSpan] },
         {
           kind: "emitBearing",
           ref: { kind: "bearing", graphIndex: 0 },
@@ -312,7 +313,7 @@ describe("Cogitatum language contracts", () => {
         }
       ]
     });
-    expect(compilation.explain.diagnostics).toEqual([]);
+    expect(compilation.explain.diagnostics).toEqual([expect.objectContaining({ code: "IMPLICIT_ATTACHMENT_THROUGH_BODY", severity: "suggestion" })]);
   });
 
   it("retains rejected Bearing candidates in Explain while Graph IR fails closed", () => {
@@ -694,8 +695,8 @@ describe("Cogitatum language contracts", () => {
     }
   });
 
-  it("accepts open status only on C and keeps ? as a distinct Gap form", () => {
-    const valid = compileGraph(parseDocument("- [C? @claim] Open claim.\n- [? @gap] Open gap.\n"));
+  it("keeps openness only on the distinct Gap form", () => {
+    const valid = compileGraph(parseDocument("- [C @claim] Open claim.\n- [? @gap] Open gap.\n"));
     const invalid = compileGraph(
       parseDocument(
         ["Q?", "G?", "O?", "R?", "D?"].map((role) => `- [${role}] Invalid open role.`).join("\n")
@@ -703,12 +704,12 @@ describe("Cogitatum language contracts", () => {
     );
 
     expect(valid.points).toEqual([
-      expect.objectContaining({ id: "claim", declaration: { form: "role", role: "C", status: "open" } }),
+      expect.objectContaining({ id: "claim", declaration: { form: "role", role: "C" } }),
       expect.objectContaining({ id: "gap", declaration: { form: "gap", status: "open" } })
     ]);
     expect(invalid.points).toEqual([]);
     expect(invalid.diagnostics.map((diagnostic) => diagnostic.code)).toEqual(
-      Array(5).fill("OPEN_STATUS_REQUIRES_CLAIM")
+      Array(5).fill("ROLE_OPENNESS_UNSUPPORTED")
     );
   });
 
@@ -852,7 +853,7 @@ describe("Cogitatum language contracts", () => {
       [undefined, "C", undefined, "Connection pool exhaustion caused the timeouts."],
       ["acq-fail", "G", undefined, "Between 02:00 and 03:00 the service logged repeated connection-acquisition failures."],
       [undefined, "Q", undefined, "What should change before the next release?"],
-      [undefined, "C", "open", "Doubling the pool size will prevent these timeouts."],
+      [undefined, "C", undefined, "Doubling the pool size will prevent these timeouts."],
       [undefined, "O", undefined, "The log export may use UTC, so those failures may not fall between 02:00 and 03:00 local time."],
       [undefined, "O", undefined, "Running out of connections does not show that a larger pool is enough; a leak would exhaust any size."],
       [undefined, "R", undefined, "A leak would keep connections checked out, but all were returned once traffic fell after 03:00."],
@@ -888,6 +889,79 @@ describe("Cogitatum language contracts", () => {
     const effects = (line: number) => explain.entries.find((entry) => entry.sourceSpan.startLine === line)?.effects;
     expect(effects(10)).toContainEqual({ kind: "focusPoint", operand: { id: "acq-fail" }, ref: { kind: "point", key: graph.points[1].key } });
     expect(effects(14)).toEqual([{ kind: "focusBearing", operand: { id: "report-step" }, ref: { kind: "bearing", key: graph.bearings[0].key } }]);
+  });
+
+  it("keeps the Phaedo reconstruction, our objections and the stronger-conclusion test on their own targets", () => {
+    const source = example("phaedo-cyclical-argument.cog.md");
+    const ast = parseDocument(source);
+    const { graph, explain } = compileGraphWithExplain(ast);
+    const relations = (compiled: GraphIR) => compiled.bearings.map((item) => [
+      item.kind,
+      item.handle,
+      item.sources.map((ref) => compiled.points.findIndex((point) => point.key === ref.key)),
+      item.target.kind,
+      (item.target.kind === "point" ? compiled.points : compiled.bearings).findIndex((entity) => entity.key === item.target.key)
+    ]);
+    const points = (compiled: GraphIR) => compiled.points.map((point) =>
+      [point.id, point.declaration.role, point.declaration.status, point.sourceSpan?.startLine, point.text]);
+
+    expect(graph.diagnostics).toEqual([]);
+    expect(points(graph).map(([id, role, status, line]) => [id, role, status, line])).toEqual([
+      ["return", "C", undefined, 5],
+      ["opposites", "G", undefined, 7],
+      ["life-death", "G", undefined, 9],
+      ["exhaustion", "G", undefined, 11],
+      ["survival", "C", undefined, 14],
+      ["continuity", "G", undefined, 17],
+      [undefined, "O", undefined, 20],
+      [undefined, "O", undefined, 22],
+      [undefined, "O", undefined, 23],
+      ["imperishable", "C", undefined, 25],
+      [undefined, "O", undefined, 27]
+    ]);
+    expect(relations(graph)).toEqual([
+      // Two routes to the same conclusion: one joint step and one independent step.
+      ["supports", "cycle", [1, 2], "point", 0],
+      ["supports", "exhaustion-step", [3], "point", 0],
+      // The reused conclusion is the same Point, an ordered source beside the stated link.
+      ["supports", "survival-step", [0, 5], "point", 4],
+      // Our objections: plain O on premise content, O/ on the reused route only.
+      ["challenges", undefined, [6], "point", 1],
+      ["undercuts", undefined, [7], "bearing", 1],
+      ["challenges", undefined, [8], "point", 5],
+      // The added step is ours; its objection targets that step, not the survival Point.
+      ["supports", "stronger-step", [4], "point", 9],
+      ["undercuts", undefined, [10], "bearing", 6]
+    ]);
+    expect(graph.bearings.map((item) => item.text)).toEqual(["The argument from opposites.", ...Array(7).fill(undefined)]);
+
+    // Source notes, locations and the comparison with Cebes stay prose: no Point, no extra support.
+    const lines = (blocks: AstBlock[]): AstBlock[] => blocks.flatMap((block) => [block, ...lines(block.children)]);
+    const body = lines(ast.blocks).filter((block) => block.annotation === undefined);
+    expect(body.map((block) => block.sourceSpan.startLine)).toEqual([1, 2, 3, 4, 8, 10, 12, 13, 18, 19, 24, 28, 29]);
+    expect(graph.points.some((point) => body.some((block) => block.text.includes(point.text)))).toBe(false);
+
+    // Each use focuses the declared Point or Bearing; canonical spans stay at the declarations.
+    const effects = (line: number) => explain.entries.find((entry) => entry.sourceSpan.startLine === line)?.effects;
+    expect(effects(16)).toContainEqual({ kind: "focusPoint", operand: { id: "return" }, ref: { kind: "point", key: graph.points[0].key } });
+    expect(effects(21)).toEqual([{ kind: "focusBearing", operand: { id: "exhaustion-step" }, ref: { kind: "bearing", key: graph.bearings[1].key } }]);
+    expect(effects(26)).toContainEqual({ kind: "focusPoint", operand: { id: "survival" }, ref: { kind: "point", key: graph.points[4].key } });
+
+    // Counterfactual: a plain O at the same position challenges the shared survival Point instead.
+    // Only that Bearing changes; layout, Points and every other relation are unchanged.
+    const objection = "        - [O/] Surviving one death";
+    expect(source.split(objection)).toHaveLength(2);
+    const plainAst = parseDocument(source.replace(objection, "        - [O] Surviving one death"));
+    const plain = compileGraph(plainAst);
+    const layout = (blocks: AstBlock[]) => lines(blocks).map((block) =>
+      [block.sourceSpan.startLine, block.sourceSpan.startColumn, block.children.length, block.text]);
+    expect(layout(plainAst.blocks)).toEqual(layout(ast.blocks));
+    expect(plain.diagnostics).toEqual([]);
+    expect(points(plain)).toEqual(points(graph));
+    expect(relations(plain)).toEqual([
+      ...relations(graph).slice(0, 7),
+      ["challenges", undefined, [10], "point", 4]
+    ]);
   });
 
   it("supports naming neither, the Point, the Bearing, or both", () => {
@@ -1356,7 +1430,7 @@ describe("Cogitatum language contracts", () => {
         ["collapsed:: true", undefined]
       ]);
     expect(graph.points.map(point => point.declaration.role)).toEqual(["Q", "C", "G"]);
-    expect(graph.points[1].declaration.status).toBe("open");
+    expect(graph.points[1].declaration.status).toBeUndefined();
     expect(graph.bearings.map(bearing => [bearing.kind, bearing.sources, bearing.target])).toEqual([
       ["answers", [{ kind: "point", key: graph.points[1].key }], { kind: "point", key: graph.points[0].key }],
       ["supports", [{ kind: "point", key: graph.points[2].key }], { kind: "point", key: graph.points[1].key }]
@@ -1526,13 +1600,13 @@ describe("Cogitatum language contracts", () => {
     const validateGraph = ajv.compile(
       JSON.parse(readFileSync(join(repoRoot, "spec", "graph-ir.schema.json"), "utf8"))
     );
-    const ast = jsonValue(parseDocument("- [C? @claim] Open claim.\n"));
-    const graph = jsonValue(compileGraph(parseDocument("- [C? @claim] Open claim.\n")));
+    const ast = jsonValue(parseDocument("- [C @claim] Open claim.\n"));
+    const graph = jsonValue(compileGraph(parseDocument("- [C @claim] Open claim.\n")));
 
     if (ast.blocks[0].annotation?.kind === "role") {
-      ast.blocks[0].annotation.role = "G";
+      (ast.blocks[0].annotation as Record<string, unknown>).status = "open";
     }
-    graph.points[0].declaration.role = "G";
+    (graph.points[0].declaration as Record<string, unknown>).status = "open";
 
     expect(validateAst(ast)).toBe(false);
     expect(validateGraph(graph)).toBe(false);

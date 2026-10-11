@@ -4,7 +4,7 @@ import type { BearingKind, GraphIR } from "./types.js";
 
 const compile = (source: string) => compileGraph(parseDocument(source));
 const codes = (graph: GraphIR) => graph.diagnostics.map(diagnostic => diagnostic.code);
-const declarations = "- [. @first] Material premise.\n- [Q @second] A clarification question.\n- [C? @target] Open claim.\n- [edge @target +> @first; @base] Base route.";
+const declarations = "- [. @first] Material premise.\n- [Q @second] A clarification question.\n- [C @target] Open claim.\n- [edge @target +> @first; @base] Base route.";
 const kinds: BearingKind[] = ["supports", "challenges", "undercuts", "about", "answers", "repliesTo", "clarifies"];
 
 describe("named canonical Bearing constructors", () => {
@@ -15,7 +15,7 @@ describe("named canonical Bearing constructors", () => {
     expect(codes(graph)).toEqual([]);
     expect(graph.points).toHaveLength(3);
     expect(graph.points.map(point => [point.id, point.declaration.form, point.declaration.role, point.declaration.status])).toEqual([
-      ["first", "material", undefined, undefined], ["second", "role", "Q", undefined], ["target", "role", "C", "open"]
+      ["first", "material", undefined, undefined], ["second", "role", "Q", undefined], ["target", "role", "C", undefined]
     ]);
     const bearing = graph.bearings.find(entry => entry.handle === "named")!;
     expect(bearing.kind).toBe(kind);
@@ -77,7 +77,7 @@ describe("named canonical Bearing constructors", () => {
 
   it("keeps forward reference effects under scoped declaration reordering and retains equal-endpoint instances", () => {
     const relations = "- [edge @first, @second answers @target; @one]\n- [edge @first, @second answers @target; @two]";
-    const points = ["- [. @first] Same text.", "- [Q @second] Same text.", "- [C? @target] Conclusion."];
+    const points = ["- [. @first] Same text.", "- [Q @second] Same text.", "- [C @target] Conclusion."];
     const summarize = (graph: GraphIR) => graph.bearings.map(bearing => ({
       handle: bearing.handle, kind: bearing.kind,
       sources: bearing.sources.map(ref => graph.points.find(point => point.key === ref.key)?.id),

@@ -2,7 +2,7 @@
 
 Check Cogitatum inquiry markup and inspect the reasoning connections marked in ordinary prose.
 
-Source candidate: **0.4.8**, format **0.4.0**, with local `linked` support and optional linked header descriptions.
+Source candidate: **0.4.9**, format **0.4.0**, with local `linked` support and optional linked header descriptions.
 Explicit `edge` clauses accept all canonical kind names, including `answers`, `repliesTo`, and `clarifies`.
 This candidate is not yet published; npm `alpha` currently provides **0.3.0-alpha.1** without linked. Requires Node.js 22.12 or newer.
 

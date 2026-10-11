@@ -6,18 +6,17 @@
 
 import type { PointDeclaration } from "@cogitatum/core";
 
-export type PointMarkLabel = "Q" | "C" | "C?" | "G" | "O" | "R" | "D" | "Gap" | "Material";
-export type MarkShape = "filled" | "open" | "gap" | "material";
+export type PointMarkLabel = "Q" | "C" | "G" | "O" | "R" | "D" | "Gap" | "Material";
+export type MarkShape = "filled" | "gap" | "material";
 export type MarkTone = "support" | "objection" | "neutral";
 
 export type PointMark = { label: PointMarkLabel; name: string; zh: string; letter: string; shape: MarkShape };
 export type BearingMark = { kind: string; name: string; zh: string; symbol: string; tone: MarkTone; dashed: boolean };
 
-/** Open belongs to the declared mark (Open claim, Gap); it never depends on selection. */
+/** Gap openness belongs to its declaration; it never depends on selection. */
 export const POINT_MARKS: Readonly<Record<PointMarkLabel, PointMark>> = {
   Q: { label: "Q", name: "Question", zh: "問題", letter: "Q", shape: "filled" },
   C: { label: "C", name: "Claim", zh: "主張", letter: "C", shape: "filled" },
-  "C?": { label: "C?", name: "Open claim", zh: "開放主張", letter: "C", shape: "open" },
   G: { label: "G", name: "Ground", zh: "依據", letter: "G", shape: "filled" },
   O: { label: "O", name: "Objection", zh: "駁議", letter: "O", shape: "filled" },
   R: { label: "R", name: "Reply", zh: "回應", letter: "R", shape: "filled" },
@@ -48,7 +47,7 @@ export function pointMark(label: string): PointMark {
 export function declarationMark(declaration: PointDeclaration): PointMark {
   if (declaration.form === "gap") return POINT_MARKS.Gap;
   if (declaration.form === "material") return POINT_MARKS.Material;
-  return pointMark(`${declaration.role}${declaration.status === "open" ? "?" : ""}`);
+  return pointMark(declaration.role);
 }
 
 export function bearingMark(kind: string): BearingMark {

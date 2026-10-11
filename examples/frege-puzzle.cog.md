@@ -1,6 +1,6 @@
 - Frege's Puzzle
   - [Q] Why can co-referential names differ in cognitive value?
-    - [C? @c1] Sense explains the difference in cognitive value.
+    - [C @c1] Sense explains the difference in cognitive value.
       - [G; @sense-case] Co-referential names may differ in sense.
       - [D] Distinguish sense from reference.
       - [? ~> @sense-case] Need to explain why difference in sense explains difference in cognitive value.

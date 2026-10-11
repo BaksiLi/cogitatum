@@ -12,7 +12,7 @@ const relations = (graph: GraphIR) => {
 describe("reference-only Point occurrences", () => {
   it.each(["C", "Q", "O", "R", "D", "G", ""])("preserves declaration %s while applying only the written G use mark", mark => {
     const declaration = mark ? mark + " @premise" : ". @premise";
-    const source = "- [" + declaration + "] Original premise.\n- [C? @claim] Open claim.\n  - [G use @premise; @step] Local occurrence prose.\n    - [O/ @objection; @attack] Assessment.";
+    const source = "- [" + declaration + "] Original premise.\n- [C @claim] Open claim.\n  - [G use @premise; @step] Local occurrence prose.\n    - [O/ @objection; @attack] Assessment.";
     const { graph, explain } = compile(source);
     expect(codes(graph)).toEqual([]);
     expect(graph.points).toHaveLength(3);
@@ -43,11 +43,11 @@ describe("reference-only Point occurrences", () => {
     expect(relations(graph).filter(bearing => bearing.kind === "repliesTo")).toEqual([{ kind: "repliesTo", handle: undefined, sources: ["marked-reply"], target: { kind: "point", name: "objection" } }]);
   });
 
-  it("uses local Q marks for answers and never imports remote status", () => {
-    const { graph } = compile("- [Q @question] Original Q.\n- [C? @claim] Original open claim.\n- [. use @question]\n  - [C @background] Not an answer.\n- [Q use @claim]\n  - [C @answer] Explicit local Q focus.");
+  it("uses local Q marks for answers without changing declarations", () => {
+    const { graph } = compile("- [Q @question] Original Q.\n- [C @claim] Original open claim.\n- [. use @question]\n  - [C @background] Not an answer.\n- [Q use @claim]\n  - [C @answer] Explicit local Q focus.");
     expect(codes(graph)).toEqual([]);
     expect(relations(graph)).toEqual([{ kind: "answers", handle: undefined, sources: ["answer"], target: { kind: "point", name: "claim" } }]);
-    expect(graph.points.find(point => point.id === "claim")?.declaration.status).toBe("open");
+    expect(graph.points.find(point => point.id === "claim")?.declaration.status).toBeUndefined();
   });
 
   it.each(["G use @premise", ". use @premise"])("allows a complete symbolic override for %s and exactly one attachment", mark => {
@@ -107,7 +107,7 @@ describe("reference-only Point occurrences", () => {
   });
 
   it("preserves reference effects under scoped standalone declaration reordering and remote-edge additions", () => {
-    const definitions = ["- [C? @premise] Original content.", "- [Q @topic] Topic."];
+    const definitions = ["- [C @premise] Original content.", "- [Q @topic] Topic."];
     const local = "- [C @claim] Claim.\n  - [G use @premise; @step]\n    - [O/ @objection; @attack] Objection.\n- [edge @premise about @topic; @remote] Remote.";
     const before = compile(definitions.join("\n") + "\n" + local).graph;
     const after = compile(local + "\n" + definitions.toReversed().join("\n")).graph;
@@ -157,7 +157,7 @@ describe("reference-only Point occurrences", () => {
   });
 
   it("keeps local and explicit projections equal while preserving separate prose, spans and derivation", () => {
-    const declarations = "- [C? @premise] Original open premise.\n- [C @claim] Conclusion.\n- [O @objection] Objection.\n- [R @reply] Reply.";
+    const declarations = "- [C @premise] Original open premise.\n- [C @claim] Conclusion.\n- [O @objection] Objection.\n- [R @reply] Reply.";
     const local = compile(declarations + "\n- Narrative in reader order.\n- [. use @claim] Later discussion.\n  - [G use @premise; @step] Occurrence prose.\n    - [O/ use @objection; @attack]\n      - [R use @reply; @response]");
     const explicit = compile(declarations + "\n- [edge @premise supports @claim; @step]\n- [edge @objection undercuts @step; @attack]\n- [edge @reply repliesTo @objection; @response]");
     expect(codes(local.graph)).toEqual([]);

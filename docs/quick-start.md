@@ -24,14 +24,14 @@ Nothing is marked, so no graph entities are created. Your context is still there
 ```md cog-check require=answers,supports,challenges points=4 bearings=3 diagnostics=0
 - The new deployment has produced intermittent timeouts.
   - [Q] What explains the failures?
-    - [C?] The connection pool may be exhausted.
+    - [C] The connection pool may be exhausted.
       - [G] Logs show connection acquisition failures.
       - [O] An upstream service may be slow.
   - Check the traces before making changes.
 ```
 
-`Q` marks a Question, `C?` an Open claim, `G` a Ground (a reason), and `O` an Objection.
-Open status leaves the claim open; it is not a confidence score.
+Q marks a Question, C a Claim or possible answer, G a Ground (a reason), and O an Objection.
+C does not certify that the answer is true, accepted, certain or complete.
 Indentation connects marked lines according to their roles.
 Move one and inspect which connection changes.
 Unmarked context stays body.
@@ -41,7 +41,7 @@ Unmarked context stays body.
 Add `@cause` to the claim, then connect an objection elsewhere using `->`:
 
 ```md cog-check require=supports,challenges points=3 bearings=2 diagnostics=0
-- [C? @cause] The connection pool may be exhausted.
+- [C @cause] The connection pool may be exhausted.
   - [G] Logs show connection acquisition failures.
 - A separate check of the timeline:
   - [O -> @cause] Some timeouts started before this deployment.
@@ -55,7 +55,7 @@ When you need to question a connection itself or combine several reasons, look u
 
 ## Writing and reconstruction
 
-When developing your own explanation, `C?` can keep a claim open and `~>` can record relevance without a supporting or opposing commitment.
+When developing your own explanation, keep tentative wording in the Claim's content; ~> can record relevance without a supporting or opposing commitment.
 When reconstructing another person's argument, use the marks to preserve what that person commits to, and distinguish your own questions in prose.
 Suppose a report explicitly attributes the timeouts to pool exhaustion and cites the acquisition failures as its reason:
 
@@ -69,11 +69,13 @@ Suppose a report explicitly attributes the timeouts to pool exhaustion and cites
 
 The Claim and Ground preserve the report's assertion and supporting relation, even if you disagree with it.
 Your Question is relevant to the Claim without inventing an objection that the report never made.
-If the source leaves a claim open, `C?` can preserve that too.
+If the source leaves a claim tentative, preserve that qualification in its wording.
 If its reasoning is unclear, retain the ambiguity in prose or a Question or [Gap](bearings.md#connections-from-indentation), and identify it as your reconstruction question.
+Keep your own objections, and any further step you test, in a separately labelled part of the note.
+For a Ground with its own support step, `O` beneath it questions what the Ground says, while [`O/`](bearings.md#assess-a-local-attachment) questions that step.
 
 These are writing and reconstruction recommendations, not extra compiler semantics.
-Revising a note need not turn every `C?` into `C` or every `~>` into `+>`.
+Revising a note need not remove tentative wording or turn every ~> into +>.
 Neither `C` nor `supports` certifies truth or valid inference.
 The [English / 繁體中文 glossary](glossary.md) offers a compact terminology aid.
 
@@ -88,7 +90,7 @@ npx --package @cogitatum/cli@alpha cog graph inquiry.cog.md
 
 The published packages are `@cogitatum/core` and `@cogitatum/cli` at **0.3.0-alpha.1**. Use the `alpha` tag, or pin this exact version for a reproducible integration. To work on the compiler itself, see the [public source](https://github.com/BaksiLi/cogitatum).
 
-This checkout is an unpublished **0.4.8** source candidate with neutral `[.]` Points, explicit Point reuse, `linked` and local attachment commentary.
+This checkout is an unpublished **0.4.9** source candidate with neutral `[.]` Points, explicit Point reuse, `linked` and local attachment commentary.
 Use the [source build instructions](https://github.com/BaksiLi/cogitatum#public-alpha) to try it; match the exact compiler/schema commit and review the [migration table](syntax.md#compatibility-and-migration) before upgrading saved source.
 
 Replace the path with your file. `check` reports syntax and reference problems; `graph` prints the marked connections as JSON. For a visual result, use the playground.

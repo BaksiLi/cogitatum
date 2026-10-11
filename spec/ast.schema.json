@@ -91,6 +91,16 @@
           "type": "object",
           "required": ["kind", "raw"],
           "properties": {
+            "kind": { "const": "note" },
+            "raw": { "type": "string" },
+            "syntaxErrors": { "type": "array", "items": { "const": "note" }, "minItems": 1, "uniqueItems": true }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["kind", "raw"],
+          "properties": {
             "kind": { "const": "bearingUse" },
             "raw": { "type": "string" },
             "ref": { "$ref": "#/$defs/ref" },
@@ -144,7 +154,6 @@
             "kind": { "const": "role" },
             "role": { "enum": ["Q", "C", "G", "O", "R", "D"] },
             "selector": { "const": "attachment" },
-            "status": { "const": "open" },
             "anchor": { "$ref": "#/$defs/authoredId" },
             "operatorClause": { "$ref": "#/$defs/selfOperatorClause" },
             "syntaxErrors": { "$ref": "#/$defs/annotationSyntaxErrors" },
@@ -152,10 +161,6 @@
             "raw": { "type": "string" }
           },
           "allOf": [
-            {
-              "if": { "required": ["status"] },
-              "then": { "properties": { "role": { "const": "C" } } }
-            },
             {
               "if": { "required": ["selector"] },
               "then": { "properties": { "role": { "enum": ["G", "O"] } }, "not": { "required": ["operatorClause"] } }
@@ -218,7 +223,17 @@
         "sourceSpan": { "$ref": "#/$defs/sourceSpan" },
         "annotation": { "$ref": "#/$defs/annotation" }
       },
+      "allOf": [{
+        "if": { "required": ["annotation"], "properties": { "annotation": { "type": "object", "properties": { "kind": { "const": "note" } }, "required": ["kind"] } } },
+        "then": { "properties": { "children": { "type": "array", "items": { "$ref": "#/$defs/literalBlock" } } } }
+      }],
       "additionalProperties": false
+    },
+    "literalBlock": {
+      "allOf": [
+        { "$ref": "#/$defs/block" },
+        { "type": "object", "not": { "required": ["annotation"] }, "properties": { "children": { "type": "array", "items": { "$ref": "#/$defs/literalBlock" } } } }
+      ]
     },
     "diagnostic": {
       "type": "object",

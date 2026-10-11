@@ -5,7 +5,7 @@
     "points": [
       { "line": 1, "form": "material", "id": "material" },
       { "line": 2, "form": "role", "role": "Q", "id": "question" },
-      { "line": 3, "form": "role", "role": "C", "status": "open", "id": "claim" }
+      { "line": 3, "form": "role", "role": "C", "id": "claim" }
     ],
     "bearings": [
       { "line": 5, "kind": "answers", "sources": [1], "target": { "kind": "point", "line": 2 }, "derivedBy": "operator", "handle": "answer" },

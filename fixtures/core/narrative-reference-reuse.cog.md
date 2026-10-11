@@ -1,5 +1,5 @@
 - A configuration hypothesis is being revisited in two local contexts.
-- [C? @observation] Two retries timed out.
+- [C @observation] Two retries timed out.
 - [C @claim] The shared configuration may explain the timeouts.
   - This later step uses the observation without repeating its declaration.
   - [G use @observation; @step] The observation matters here as a Ground.

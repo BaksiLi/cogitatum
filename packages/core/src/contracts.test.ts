@@ -24,6 +24,29 @@ const validateSource = ajv.compile(sourceSchema);
 const json = (value: unknown) => JSON.parse(JSON.stringify(value));
 
 describe("public compiler contract boundaries", () => {
+  it("validates literal notes, direct ownership and actual-selection advice across source envelopes", () => {
+    const source = "- [Q @q] Inquiry.\n  - Group\n    - [C] Answer.\n      - [note] Detail.\n        - [G @q] Literal.\n          - [note @bad]\n      - [linked]\n        - [note]\n        - [G] Reason.\n- [note @bad]\n  - [C?] Literal.";
+    const ast = parseDocument(source);
+    const { graph, explain } = compileGraphWithExplain(ast);
+    expect(validateAst(json(ast)), JSON.stringify(validateAst.errors)).toBe(true);
+    expect(validateGraph(json(graph))).toBe(true);
+    expect(validateExplain(json(explain)), JSON.stringify(validateExplain.errors)).toBe(true);
+    const fence = String.fromCharCode(96).repeat(3);
+    expect(validateSource(json(explainSource(fence + "cog\n" + source + "\n" + fence, "host")))).toBe(true);
+    const invalid = json(ast);
+    invalid.blocks[0].children[0].children[0].children[0].children[0].annotation = { kind: "role", role: "G", raw: "G" };
+    expect(validateAst(invalid)).toBe(false);
+    for (const field of ["anchor", "handle", "ref"]) {
+      const namedNote = json(ast);
+      namedNote.blocks[1].annotation[field] = field === "ref" ? { id: "q" } : "q";
+      expect(validateAst(namedNote), field).toBe(false);
+    }
+    const advice = json(explain).entries.flatMap((entry: any) => entry.effects).find((effect: any) => effect.kind === "implicitAttachment");
+    for (const invalidEffect of [{ ...advice, target: { id: "q" } }, { ...advice, crossedBodySpans: [] }]) {
+      expect(validateExplain({ ...json(explain), entries: [{ ...json(explain).entries[2], effects: [invalidEffect] }] })).toBe(false);
+    }
+  });
+
   it("validates typed Bearing focus and selection without admitting construction fields on use", () => {
     const declarations = "- [C @p] Premise.\n- [C @c] Claim.\n- [_ @p +> @c; @route] Route.";
     for (const suffix of ["\n- [_ use @route] Note.\n  - [G/] Warrant.\n  - [O/] Objection.", "\n- [_ use @p]\n  - [G/] Wrong focus.", "\n- [_ use @missing] Unknown.", "\n- [_ use @route; @alias] Invalid alias.", "\n- [_ use @route _> @c] Retired suffix.", "\n- [_ use @route"]) {
@@ -61,7 +84,7 @@ describe("public compiler contract boundaries", () => {
       "- [.] Anonymous neutral.\n- [. @named] Named neutral.\n- [_ @named supports @named] Explicit self-support.",
       "- [C @claim] Claim.\n  - [G_] Retired selector.\n- [@old] Retired declaration.\n- [use @claim] Retired use.",
       "- [. @source] Source.\n- [C @claim] Claim.\n- [_ @source +> @claim; @route]\n- [O _> @route] Retired operator.",
-      "- [C? @premise] Original.\n- [C @claim] Claim.\n  - [G use @premise; @step] Local prose.\n    - [O/ use @premise] Assessment.",
+      "- [C @premise] Original.\n- [C @claim] Claim.\n  - [G use @premise; @step] Local prose.\n    - [O/ use @premise] Assessment.",
       "- [. use @missing] Unknown.\n  - [G] Valid child.",
       "- [C? use @missing] Unsupported status.",
       "- [G use @missing",
@@ -108,7 +131,7 @@ describe("public compiler contract boundaries", () => {
   it("validates all named edge kinds without admitting those clauses on Point annotations", () => {
     for (const kind of ["supports", "challenges", "undercuts", "about", "answers", "repliesTo", "clarifies"]) {
       const target = kind === "undercuts" ? "route" : "claim";
-      const source = "- [C? @claim] Claim.\n- [. @material] Material.\n- [edge @material supports @claim; @route]\n- [edge @claim " + kind + " @" + target + "]";
+      const source = "- [C @claim] Claim.\n- [. @material] Material.\n- [edge @material supports @claim; @route]\n- [edge @claim " + kind + " @" + target + "]";
       const ast = parseDocument(source);
       const { graph, explain } = compileGraphWithExplain(ast);
       expect(graph.diagnostics, kind).toEqual([]);
@@ -323,12 +346,13 @@ describe("Point declaration metadata", () => {
   });
 
   it("rejects flat, mixed and invalid declaration shapes", () => {
-    const graph = json(compileGraph(parseDocument("- [C? @claim] Open claim.\n")));
+    const graph = json(compileGraph(parseDocument("- [C @claim] Open claim.\n")));
     const point = graph.points[0];
-    expect(point).toEqual({ key: point.key, id: "claim", text: "Open claim.", sourceSpan: point.sourceSpan, declaration: { form: "role", role: "C", status: "open" } });
+    expect(point).toEqual({ key: point.key, id: "claim", text: "Open claim.", sourceSpan: point.sourceSpan, declaration: { form: "role", role: "C" } });
     expect(validateGraph(graph)).toBe(true);
     const { declaration, ...shared } = point;
     const invalidPoints = [
+      { ...point, declaration: { form: "role", role: "C", status: "open" } },
       { ...shared, ...declaration },
       { ...point, role: "C" },
       { ...point, form: "role", role: "C", status: "open" },
@@ -346,7 +370,7 @@ describe("Point declaration metadata", () => {
   });
 
   it("keeps shared text and declaration metadata unchanged under reuse while local marks choose typed endpoints", () => {
-    const declarations = "- [C @p] Two retries timed out.\n- [C? @open] Retries may be related.\n- [? @gap] A calibration record is missing.\n- [. @wet] The road is wet.";
+    const declarations = "- [C @p] Two retries timed out.\n- [C @open] Retries may be related.\n- [? @gap] A calibration record is missing.\n- [. @wet] The road is wet.";
     const uses = [
       "- [C @a] The configuration is faulty.\n  - [G use @p; @to-a] Occurrence note.\n    - [O/ @transient; @attack] Only this route.\n  - [G use @open; @from-open]\n  - [G use @gap; @from-gap]",
       "- [C @b] The service needs monitoring.\n  - [G use @p; @to-b]\n    - [O @miscount] Only one retry timed out.",

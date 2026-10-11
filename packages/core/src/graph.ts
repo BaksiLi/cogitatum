@@ -25,10 +25,10 @@ import type {
 } from "./types.js";
 import { FORMAT_VERSION } from "./types.js";
 
-type Context =
+type Context = (
   | { kind: "point"; block: AstBlock; focus?: PointRef | Ref; mark?: Role; exposedBearing?: BearingRef }
   | { kind: "bearing"; block: AstBlock; exposedBearing?: BearingRef | Ref; linkedChildren?: ReadonlyMap<AstBlock, LinkedChildFunction> }
-  | undefined;
+) & { crossedBodySpans?: SourceSpan[] } | undefined;
 
 type CandidateBearing = {
   key: string;
@@ -85,6 +85,8 @@ type ExplainDraft = {
   selection?: { ownerSpan?: SourceSpan; contextSpan?: SourceSpan; target?: BearingRef | Ref };
   focus?: { kind: "point" | "bearing"; operand?: Ref; ref?: BearingTarget; reason?: "reference-error" | "annotation-syntax-error" };
   bearing?: BearingDraft;
+  parentSpan?: SourceSpan;
+  implicit?: { contextSpan: SourceSpan; crossedBodySpans: SourceSpan[] };
 };
 
 type BearingValidation = {
@@ -151,6 +153,7 @@ export function compileGraphWithExplain(ast: DocumentAst): GraphCompilation {
     }
   }
   addStructuralDiagnostics(ast.blocks, validation.bearings, symbols, diagnostics);
+  const entries = buildExplainEntries(explainDrafts, points, validation, diagnostics);
 
   const graph = {
     version: FORMAT_VERSION,
@@ -163,7 +166,7 @@ export function compileGraphWithExplain(ast: DocumentAst): GraphCompilation {
     graph,
     explain: {
       version: FORMAT_VERSION,
-      entries: buildExplainEntries(explainDrafts, points, validation, diagnostics),
+      entries,
       diagnostics: [...diagnostics]
     }
   };
@@ -176,7 +179,8 @@ function compileBlock(
   points: Point[],
   bearings: CandidateBearing[],
   explainDrafts: ExplainDraft[],
-  diagnostics: Diagnostic[]
+  diagnostics: Diagnostic[],
+  sourceParent?: AstBlock
 ): void {
   const linkedAncestor = context?.kind === "bearing" && context.block.annotation?.kind === "linked" ? context.block : undefined;
   const childFunction = context?.kind === "bearing" ? context.linkedChildren?.get(block) : undefined;
@@ -184,7 +188,7 @@ function compileBlock(
   if (!block.annotation) {
     explainDrafts.push({ block, recognition: { kind: "body" }, membership });
     for (const child of block.children) {
-      compileBlock(child, context, pointKeys, points, bearings, explainDrafts, diagnostics);
+      compileBlock(child, context ? { ...context, crossedBodySpans: [...(context.crossedBodySpans ?? []), block.sourceSpan] } : undefined, pointKeys, points, bearings, explainDrafts, diagnostics, block);
     }
     return;
   }
@@ -193,14 +197,17 @@ function compileBlock(
   const draft: ExplainDraft = {
     block,
     recognition: recognitionForBlock(block),
-    membership
+    membership,
+    parentSpan: sourceParent?.sourceSpan
   };
   explainDrafts.push(draft);
+
+  if (annotation.kind === "note") return;
 
   if (annotation.kind === "invalid") {
     draft.bearing = { outcome: "rejected", reason: "annotation-syntax-error" };
     for (const child of block.children) {
-      compileBlock(child, { kind: "point", block }, pointKeys, points, bearings, explainDrafts, diagnostics);
+      compileBlock(child, { kind: "point", block }, pointKeys, points, bearings, explainDrafts, diagnostics, block);
     }
     return;
   }
@@ -214,7 +221,7 @@ function compileBlock(
     const syntaxFailed = Boolean(annotation.syntaxErrors?.length);
     draft.focus = { kind: "bearing", operand: annotation.ref, ...(syntaxFailed ? { reason: "annotation-syntax-error" as const } : {}) };
     for (const child of block.children) {
-      compileBlock(child, { kind: "bearing", block, exposedBearing: syntaxFailed ? undefined : annotation.ref }, pointKeys, points, bearings, explainDrafts, diagnostics);
+      compileBlock(child, { kind: "bearing", block, exposedBearing: syntaxFailed ? undefined : annotation.ref }, pointKeys, points, bearings, explainDrafts, diagnostics, block);
     }
     return;
   }
@@ -305,18 +312,22 @@ function compileBlock(
     });
   }
 
+  if (producedBearing?.derivedBy === "structural" && context?.crossedBodySpans?.length) {
+    draft.implicit = { contextSpan: context.block.sourceSpan, crossedBodySpans: context.crossedBodySpans };
+  }
   const childContext: Context =
     annotation.kind === "edge"
       ? { kind: "bearing", block, exposedBearing: producedBearing ? { kind: "bearing", key: producedBearing.key } : undefined }
       : { kind: "point", block, focus: annotation.kind === "use" ? annotation.syntaxErrors?.includes("reference") ? undefined : annotation.ref : pointRef(pointKeyForBlock(block, pointKeys)), mark: pointRole(block), exposedBearing: producedBearing ? { kind: "bearing", key: producedBearing.key } : undefined };
   for (const child of block.children) {
-    compileBlock(child, childContext, pointKeys, points, bearings, explainDrafts, diagnostics);
+    compileBlock(child, childContext, pointKeys, points, bearings, explainDrafts, diagnostics, block);
   }
 }
 
 function classifyLinkedChild(block: AstBlock): LinkedChildFunction {
   const annotation = block.annotation;
   if (!annotation) return "unclassified";
+  if (annotation.kind === "note") return annotation.syntaxErrors?.length ? "unclassified" : "supplementary";
   if (annotation.kind === "bearingUse") return "independent";
   if ("selector" in annotation && annotation.selector) return "commentary";
   if (annotation.kind === "invalid" || annotation.kind === "linked") return "unclassified";
@@ -347,10 +358,10 @@ function compileLinked(
     "Linked cannot be nested beneath another linked without an intervening Point.");
   const linkedChildren = new Map(block.children.map(child => [child, classifyLinkedChild(child)]));
   const sources = block.children.filter(child => linkedChildren.get(child) === "source");
-  if (!sources.length && ![...linkedChildren.values()].includes("unclassified")) reject("EMPTY_LINKED", "Linked requires at least one direct Ground source, not only commentary.");
+  if (!sources.length && ![...linkedChildren.values()].includes("unclassified")) reject("EMPTY_LINKED", "Linked requires at least one direct Ground source, not only commentary or notes.");
   for (const child of block.children) {
     if (linkedChildren.get(child) === "unclassified") reject("INVALID_LINKED_MEMBER",
-      "Direct linked children must be bare Ground sources, local selector commentary, or complete independent clauses.", child);
+      "Direct linked children must be bare Ground sources, local selector commentary, complete independent clauses or valid notes.", child);
   }
   let attachment: CandidateBearing | undefined;
   if (valid && target) {
@@ -360,12 +371,13 @@ function compileLinked(
     bearing.key = `_b${bearings.length + 1}`;
     bearings.push(bearing);
     draft.bearing = { outcome: "candidate", candidate: bearing, reason: "linked-containment" };
+    if (context?.crossedBodySpans?.length) draft.implicit = { contextSpan: context.block.sourceSpan, crossedBodySpans: context.crossedBodySpans };
     attachment = bearing;
   } else {
     draft.bearing = { outcome: "rejected", reason: "invalid-linked" };
   }
   for (const child of block.children) {
-    compileBlock(child, { kind: "bearing", block, exposedBearing: attachment ? { kind: "bearing", key: attachment.key } : undefined, linkedChildren }, pointKeys, points, bearings, explainDrafts, diagnostics);
+    compileBlock(child, { kind: "bearing", block, exposedBearing: attachment ? { kind: "bearing", key: attachment.key } : undefined, linkedChildren }, pointKeys, points, bearings, explainDrafts, diagnostics, block);
   }
 }
 
@@ -375,11 +387,6 @@ function recognitionForBlock(block: AstBlock): ExplainRecognition {
     return { kind: "body" };
   }
   if (annotation.kind === "role") {
-    if (annotation.role === "C") {
-      return annotation.status
-        ? { kind: "role", role: "C", status: annotation.status }
-        : { kind: "role", role: "C" };
-    }
     return annotation.selector ? { kind: "role", role: annotation.role, selector: annotation.selector } : { kind: "role", role: annotation.role };
   }
   if (annotation.kind === "invalid") return annotation.selector ? { kind: "invalid", selector: annotation.selector } : { kind: "invalid" };
@@ -692,6 +699,8 @@ function buildExplainEntries(
   diagnostics: Diagnostic[]
 ): ExplainEntry[] {
   const pointKeys = new Set(points.map((point) => point.key));
+  const pointTargets = new Map(points.map(point => [point.key, point]));
+  const bearingTargets = new Map(validation.bearings.map(bearing => [bearing.key, bearing]));
   const bearingIndexes = new Map(
     validation.accepted.map((bearing, graphIndex) => [bearing, graphIndex] as const)
   );
@@ -701,6 +710,10 @@ function buildExplainEntries(
 
     if (draft.recognition.kind === "body") {
       effects.push({ kind: "preserveBody" });
+    }
+
+    if (draft.recognition.kind === "note") {
+      effects.push({ kind: "preserveNote", ...(draft.parentSpan ? { parentSpan: { ...draft.parentSpan } } : {}) });
     }
 
     if (draft.membership) {
@@ -739,6 +752,28 @@ function buildExplainEntries(
       } else {
         const { key, handle } = draft.bearing.candidate;
         const canonical = validation.bearings[graphIndex];
+        if (draft.implicit) {
+          const target = canonical.target;
+          const entity = target.kind === "point" ? pointTargets.get(target.key) : bearingTargets.get(target.key);
+          const targetSpan = entity?.sourceSpan;
+          const name = entity && ("declaration" in entity ? entity.id : entity.handle);
+          const spanLabel = (span: SourceSpan) => span.startLine + ":" + span.startColumn + "–" + span.endLine + ":" + span.endColumn;
+          const targetLabel = name ? "@" + name : target.kind + (targetSpan ? " at " + spanLabel(targetSpan) : "");
+          effects.push({
+            kind: "implicitAttachment",
+            target: { ...target },
+            ...(targetSpan ? { targetSpan: { ...targetSpan } } : {}),
+            contextSpan: { ...draft.implicit.contextSpan },
+            crossedBodySpans: draft.implicit.crossedBodySpans.map(span => ({ ...span }))
+          });
+          diagnostics.push({
+            severity: "suggestion",
+            code: "IMPLICIT_ATTACHMENT_THROUGH_BODY",
+            message: "Implicit " + canonical.kind + " selects " + targetLabel + " through ordinary body at " + draft.implicit.crossedBodySpans.map(spanLabel).join(", ") + ".",
+            explanation: "This grouping is transparent to attachment. Keep it deliberately, move the active content or state its target explicitly. Choosing note instead excludes the whole subtree from the graph.",
+            sourceSpan: draft.block.sourceSpan
+          });
+        }
         effects.push({
           kind: "emitBearing",
           ref: { key, kind: "bearing", graphIndex, ...(handle ? { handle } : {}) },
@@ -933,9 +968,6 @@ function pointDeclaration(block: AstBlock): PointDeclaration {
   }
   if (block.annotation?.kind === "role") {
     const annotation = block.annotation;
-    if (annotation.role === "C") {
-      return annotation.status === "open" ? { form: "role", role: "C", status: "open" } : { form: "role", role: "C" };
-    }
     return { form: "role", role: annotation.role };
   }
   return { form: "material" };
@@ -970,6 +1002,6 @@ function walkWithParent(
 ): void {
   for (const block of blocks) {
     visit(block, parent);
-    walkWithParent(block.children, block, visit);
+    if (block.annotation?.kind !== "note") walkWithParent(block.children, block, visit);
   }
 }

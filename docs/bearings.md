@@ -80,7 +80,7 @@ The comparison ignores local keys, source locations, narrative organization, Exp
 
 ```md cog-check compare=complete-explicit caption="Local defaults" require=answers,clarifies,challenges,repliesTo points=5 bearings=4 diagnostics=0
 - [Q @question] Why did the measurement change?
-  - [C? @answer] Calibration may have shifted.
+  - [C @answer] Calibration may have shifted.
     - [D @distinction] Drift and noise are different hypotheses.
     - [O @objection] That does not explain the timing.
       - [R @reply] Recalibration happened immediately before the change.
@@ -88,7 +88,7 @@ The comparison ignores local keys, source locations, narrative organization, Exp
 
 ```md cog-check compare=complete-explicit caption="Named constructors" require=answers,clarifies,challenges,repliesTo points=5 bearings=4 diagnostics=0
 - [Q @question] Why did the measurement change?
-- [C? @answer] Calibration may have shifted.
+- [C @answer] Calibration may have shifted.
 - [D @distinction] Drift and noise are different hypotheses.
 - [O @objection] That does not explain the timing.
 - [R @reply] Recalibration happened immediately before the change.
@@ -103,7 +103,7 @@ Identity reuse can follow the explanation's order without copying content or imp
 ```md cog-check require=supports,undercuts,repliesTo points=4 bearings=3 diagnostics=0
 - [. @measurement] Two independent retries timed out.
 - The sample is small; we discuss that limitation before using the observation.
-- [C? @cause] A persistent configuration fault may explain the timeouts.
+- [C @cause] A persistent configuration fault may explain the timeouts.
 - [edge @measurement supports @cause; @support] Reuse the earlier observation in this step.
 - [O @limitation] The two retries may share a transient fault.
 - [edge @limitation undercuts @support] Object to this attachment rather than copying the observation.
@@ -297,7 +297,7 @@ Outside a linked block, without an operator, the nearest enclosing Point and the
 
 | Child | Enclosing Point | Connection |
 | --- | --- | --- |
-| `C` or `C?` | `Q` | `answers` |
+| `C` | `Q` | `answers` |
 | `G` | Any Point | `supports` |
 | `O` | Any Point | `challenges` |
 | `R` | `O` | `repliesTo` |
@@ -313,7 +313,7 @@ For example, either Claim form beneath a Question produces an answer:
 ```md cog-check require=answers points=3 bearings=2 diagnostics=0
 - [Q] What caused the timeouts?
   - [C] Pool exhaustion caused the timeouts.
-  - [C?] A network fault caused the timeouts.
+  - [C] A network fault caused the timeouts.
 ```
 
 A Gap changes the nearest enclosing Point:
@@ -339,7 +339,7 @@ Explicit references can point forward or backward; generated source would remain
 Sometimes the weak part is how a reason bears on a claim. Name that connection with `; @route`, then use `/>` to question it:
 
 ```md cog-check require=supports,undercuts,about points=4 bearings=3 diagnostics=0
-- [C? @cause] The connection pool may be exhausted.
+- [C @cause] The connection pool may be exhausted.
   - [G; @log-route] Logs show connection acquisition failures.
 - [O /> @log-route] The same log message can result from a network failure.
 - [? ~> @log-route] We need a trace separating these two causes.

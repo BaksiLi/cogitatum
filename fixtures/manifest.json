@@ -123,7 +123,7 @@
     {
       "file": "core/light-authoring.cog.md",
       "input": "document",
-      "purpose": "A named open claim accepts anonymous reasons and objections while context remains body.",
+      "purpose": "A named claim accepts anonymous reasons and objections while context remains body.",
       "expected": "core/light-authoring.expected.json"
     },
     {

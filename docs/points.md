@@ -16,7 +16,6 @@ Points can be questions, gaps, or source material; they need not all be proposit
 | --- | --- | --- |
 | `[Q]` | Question | A question or issue to examine |
 | `[C]` | Claim | A claim, position, or possible answer |
-| `[C?]` | Open claim | A claim left explicitly open |
 | `[G]` | Ground | A reason bearing positively on a target |
 | `[O]` | Objection | An objection or alternative raised against a target |
 | `[R]` | Reply | A response to an objection |
@@ -27,30 +26,48 @@ A role describes what the material does here.
 The six roles are `Q`, `C`, `G`, `O`, `R`, and `D`.
 The mark on a Point's declaration is also kept as its declaration information: how it was introduced, not a type every later use must follow.
 `C` means Claim, not a permanent conclusion; the same Claim can later serve as a Ground.
-`C?` is a Claim with open status; Gap is a separate Point form, not an additional role.
-Only Claim admits open status among the roles; `Q?`, `G?`, `O?`, `R?`, and `D?` are invalid.
+Gap is a separate Point form, not an additional role, and remains open.
+Role-level openness is unsupported; the retired C? spelling receives a migration error.
 See the [English / 繁體中文 glossary](glossary.md) for suggested Chinese readings.
 
-## Leave a claim open deliberately
+## Preserve tentative content
 
-Use `C?` when the claim is explicitly left open in the inquiry.
-It does not assign a low confidence score, and `C` without open status does not mean accepted or true.
+Use C for a claim or possible answer, including tentative ones.
+C does not certify truth, acceptance, certainty or completion.
 Likewise, `R` does not certify a successful reply.
 
-Wording such as “possibly P” is part of the claim's content, and does not automatically require `C?`.
+Wording such as “possibly P” is part of the claim's content.
 When reconstructing, preserve whether the source asserts the claim or leaves it open.
-Distinguish the author's commitment, your uncertainty about the reading, and your evaluation in prose; `C?` has no speaker field.
+Distinguish the author's commitment, your uncertainty about the reading, and your evaluation in prose.
 See the [quick start](quick-start.md#writing-and-reconstruction) for an example.
 
 ## Leave context as body
 
-```md cog-check require=supports points=2 bearings=1 diagnostics=0
+```md cog-check require=supports points=2 bearings=1 diagnostics=1
 - [C @claim] The current explanation is incomplete.
   - This paragraph supplies context without another marked point.
     - [G] It does not account for the second observation.
 ```
 
 The reason connects to the enclosing claim through the body. Body itself creates no Point or connection. An intervening Point, however, becomes the nearest target candidate; the compiler does not skip it to find a more convenient ancestor.
+The nonblocking suggestion identifies this actual attachment through body; the author may retain that grouping deliberately.
+
+## Keep supplementary prose in a note
+
+```md cog-check require=supports points=2 bearings=1 diagnostics=0
+- [C @claim] These measurements can be compared under the same calibration conditions.
+  - [note] Source and editorial details.
+    - Laboratory record, section 2.
+      - [G @unfinished] This is quoted syntax, not an active Ground.
+  - [G] Both runs used the same calibration procedure.
+```
+
+Write note once; its whole indented subtree stays literal prose, including nested annotation-looking text.
+Dedenting restores interpretation, so the sibling Ground remains active.
+A note belongs to its direct source occurrence, including a use, rather than to shared Point content.
+Reusing the Claim does not copy this note.
+Keep qualifications that change the Claim's scope in its content or a clearly retained argument context.
+Moving an active argument into note is an author-selected semantic edit, not a formatting repair.
 
 ## Identity
 
@@ -74,16 +91,16 @@ Use `[. use @p]` to bring an existing Point into the current discussion without 
 Add a local mark when its role here should create a connection:
 
 ```md cog-check require=supports points=2 bearings=1 diagnostics=0
-- [C? @observation] Two retries timed out.
+- [C @observation] Two retries timed out.
 - [C @claim] The shared configuration may explain the timeouts.
   - [G use @observation] Consider that observation in this step.
 ```
 
-The observation remains one open Claim in the graph; this occurrence uses it as a Ground.
+The observation remains one Claim in the graph; this occurrence uses it as a Ground.
 Its trailing explanation stays local rather than replacing the observation's text.
 Beneath this occurrence, `[O]` challenges the shared observation itself, while [`[O/]`](bearings.md#assess-a-local-attachment) objects only to the support made here.
 Bare `[. use @observation]` writes the neutral mark: it selects no role and adds no default connection, and the original declaration's role is never imported as the local role.
-A local mark applies at its occurrence only; it does not change the Point's declaration, text or open status, and it does not fill a Gap.
+A local mark applies at its occurrence only; it does not change the Point's declaration, text or Gap openness, and it does not fill a Gap.
 Names can resolve forward within the same document or selected host unit.
 `[G @observation]` would instead declare again and receive `DUPLICATE_ID`.
 For local attachment selection, failure boundaries and unsupported occurrence status, see [reference-only occurrences](syntax.md#reference-only-occurrences).

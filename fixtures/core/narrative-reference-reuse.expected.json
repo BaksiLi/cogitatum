@@ -3,7 +3,7 @@
   "diagnostics": [],
   "graphs": [{
     "points": [
-      { "line": 2, "form": "role", "role": "C", "status": "open", "id": "observation" },
+      { "line": 2, "form": "role", "role": "C", "id": "observation" },
       { "line": 3, "form": "role", "role": "C", "id": "claim" },
       { "line": 6, "form": "role", "role": "O", "id": "objection" },
       { "line": 7, "form": "role", "role": "R", "id": "reply" },

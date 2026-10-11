@@ -30,7 +30,6 @@ See [argument structures](bearings.md#argument-structures) for examples.
 | --- | --- | --- | --- |
 | `[Q]` | Question | 問題 | 待考察的問題或議題。 |
 | `[C]` | Claim | 主張 | 此處呈現的主張、立場或可能答案。 |
-| `[C?]` | Open claim | 開放主張 | 明確保留開放狀態的主張；不是低信心分數。 |
 | `[G]` | Ground | 依據 | 用以支持所論的理由或材料。 |
 | `[O]` | Objection | 駁議 | 對所論提出的異議或反對解釋。 |
 | `[R]` | Reply | 回應 | 對異議所作的答覆。 |
@@ -41,7 +40,7 @@ See [argument structures](bearings.md#argument-structures) for examples.
 | — | Declaration | 宣告 | 引入一個新點，並寫明其初始標記。 |
 | `G/`, `O/` | Local selector | 局部選取 | 支持或質疑最近建構處所呈現的係。 |
 
-See [Points](points.md) for roles, open status, and names.
+See [Points](points.md) for roles, Gap openness, and names.
 
 ## Bearings / 係
 
@@ -51,7 +50,7 @@ See [Points](points.md) for roles, open status, and names.
 | `->` | challenges | 質疑 | 對目標 Point 提出反對。 |
 | `/>` | undercuts | 質疑關係 | 質疑已命名的 Bearing。 |
 | `~>` | about | 關涉 | 記錄相關性，不承諾正面或反面作用。 |
-| Claim beneath Question | answers | 回答 | 最近的外層 Point 是 Q 時，C 或 C? 回答它。 |
+| Claim beneath Question | answers | 回答 | 最近的外層 Point 是 Q 時，C 回答它。 |
 | Reply beneath Objection | repliesTo | 回應異議 | 最近的外層 Point 是 O 時，R 回應它。 |
 | Distinction beneath a Point | clarifies | 釐清 | D 用來釐清最近的外層 Point。 |
 

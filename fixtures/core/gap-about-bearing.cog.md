@@ -1,5 +1,5 @@
 - API Timeout Investigation
-  - [C? @db-pool] The timeout is caused by database connection pool exhaustion.
+  - [C @db-pool] The timeout is caused by database connection pool exhaustion.
     - [G] Error logs show repeated connection acquisition failures.
     - [O] Upstream latency may be the actual cause.
       - [R; @temporal-rebuttal] Connection failures begin before upstream latency.

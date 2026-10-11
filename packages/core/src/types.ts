@@ -5,8 +5,8 @@ export type BearingOp = "supports" | "challenges" | "undercuts" | "about";
 export type BearingKind = BearingOp | "repliesTo" | "clarifies" | "answers";
 export type BearingDerivedBy = "operator" | "structural";
 export type Severity = "error" | "warning" | "suggestion";
-export type AnnotationSyntaxError = "operator" | "handle" | "linked" | "selector" | "reference" | "retired";
-export type LinkedChildFunction = "source" | "commentary" | "independent" | "unclassified";
+export type AnnotationSyntaxError = "operator" | "handle" | "linked" | "selector" | "reference" | "retired" | "note";
+export type LinkedChildFunction = "source" | "commentary" | "independent" | "supplementary" | "unclassified";
 export type SourceParseMode = "document" | "host";
 export type SourceUnitKind = "document" | "fence";
 
@@ -44,9 +44,8 @@ type AnnotationBase<ErrorKind extends AnnotationSyntaxError = "operator" | "hand
 };
 
 type RoleMark =
-  | { role: "C"; status?: "open"; selector?: never }
   | { role: "G" | "O"; status?: never; selector: "attachment"; operatorClause?: never }
-  | { role: Exclude<Role, "C">; status?: never; selector?: never };
+  | { role: Role; status?: never; selector?: never };
 
 type PointAnnotationBase = AnnotationBase & {
   anchor?: string;
@@ -54,6 +53,7 @@ type PointAnnotationBase = AnnotationBase & {
 };
 
 export type Annotation =
+  | { kind: "note"; raw: string; syntaxErrors?: "note"[] }
   | { kind: "invalid"; raw: string; selector?: "attachment" }
   | { kind: "bearingUse"; ref?: Ref; raw: string; syntaxErrors?: "reference"[] }
   | (AnnotationBase<"reference" | "operator" | "selector" | "handle" | "retired"> & {
@@ -116,8 +116,7 @@ export type CompiledSource = ParsedSource & {
 
 // How the Point was introduced: its declaration mark, not a role every later use must take.
 export type PointDeclaration =
-  | { form: "role"; role: "C"; status?: "open" }
-  | { form: "role"; role: Exclude<Role, "C">; status?: never }
+  | { form: "role"; role: Role; status?: never }
   | { form: "gap"; role?: never; status: "open" }
   | { form: "material"; role?: never; status?: never };
 
@@ -165,6 +164,7 @@ export type GraphIR = {
 };
 
 export type ExplainRecognition =
+  | { kind: "note" }
   | { kind: "body" }
   | { kind: "invalid"; selector?: "attachment" }
   | ({ kind: "role" } & RoleMark)
@@ -197,6 +197,8 @@ export type ExplainBearingSummary = {
 export type ExplainEmittedBearingSummary = Omit<BearingBase, "text" | "sourceSpan"> & BearingRelation;
 
 export type ExplainEffect =
+  | { kind: "preserveNote"; parentSpan?: SourceSpan }
+  | { kind: "implicitAttachment"; target: BearingTarget; targetSpan?: SourceSpan; contextSpan: SourceSpan; crossedBodySpans: SourceSpan[] }
   | { kind: "linkedMember"; linkedSpan: SourceSpan; eligible: boolean; function: LinkedChildFunction }
   | { kind: "focusPoint"; ref: PointRef; operand: Ref }
   | { kind: "focusBearing"; ref: BearingRef; operand: Ref }

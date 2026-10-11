@@ -35,6 +35,19 @@ export type AnnotationParseResult = {
 };
 
 export function parseAnnotation(raw: string, sourceSpan?: SourceSpan): AnnotationParseResult {
+  if (/^\s*note(?=$|[\s;@])/i.test(raw)) {
+    const valid = raw.trim() === "note";
+    return {
+      annotation: { kind: "note", raw, ...(!valid ? { syntaxErrors: ["note" as const] } : {}) },
+      diagnostics: valid ? [] : [{ severity: "error", code: "MALFORMED_NOTE", message: "Notes use [note] followed by optional prose, without parameters.", sourceSpan }]
+    };
+  }
+  if (/^\s*C\?(?=$|[\s@;+_/~>-])/i.test(raw)) {
+    return {
+      annotation: { kind: "invalid", raw },
+      diagnostics: [{ severity: "error", code: "RETIRED_CLAIM_OPENNESS", message: "C? is retired. Deliberately migrate to C to remove Claim open metadata, retaining tentative wording and the original source/version. C does not assert truth, certainty, acceptance or completion; Gap remains separate.", sourceSpan }]
+    };
+  }
   const retired = /^\s*(?:@[a-z]|use(?=$|;|\s+@)|[GO]_)/i.test(raw) || /(?:^|\s)_>(?=$|\s)/.test(raw);
   if (retired) {
     const normalized = raw.replace(/^(\s*)@/, "$1. @").replace(/^(\s*)use(?=$|[\s;])/i, "$1. use").replace(/^(\s*)([GO])_/i, "$1$2/").replace(/_>/g, "/>");
@@ -43,7 +56,7 @@ export function parseAnnotation(raw: string, sourceSpan?: SourceSpan): Annotatio
     if (annotation?.kind === "bearingUse") {
       annotation.raw = raw;
       annotation.syntaxErrors = ["reference"];
-    } else if (annotation && annotation.kind !== "invalid" && annotation.kind !== "linked") {
+    } else if (annotation && annotation.kind !== "invalid" && annotation.kind !== "linked" && annotation.kind !== "note") {
       annotation.raw = raw;
       annotation.syntaxErrors = [...(annotation.syntaxErrors ?? []), "retired"];
       if (annotation.kind === "use" && /^\s*use(?=$|;|\s+@)/i.test(raw)) annotation.syntaxErrors.push("reference");
@@ -268,7 +281,7 @@ function parseCurrentAnnotation(raw: string, sourceSpan?: SourceSpan): Annotatio
       diagnostics.push({
         severity: "error",
         code: "MALFORMED_ROLE_ANNOTATION",
-        message: "Role annotations must look like [C], [C?], or [C @id].",
+        message: "Role annotations must look like [C], [G], or [C @id].",
         sourceSpan
       });
       return { diagnostics };
@@ -534,13 +547,7 @@ function parseSingleRef(token: string): string | undefined {
   return match?.[1];
 }
 
-function parseRoleToken(token: string):
-  | { role: "C"; status?: "open" }
-  | { role: Exclude<Role, "C">; status?: never }
-  | undefined {
-  if (token === "C?") {
-    return { role: "C", status: "open" };
-  }
+function parseRoleToken(token: string): { role: Role } | undefined {
   const match = ROLE_RE.exec(token);
   return match ? { role: match[1] as Role } : undefined;
 }
@@ -548,8 +555,8 @@ function parseRoleToken(token: string):
 function openStatusDiagnostic(sourceSpan: SourceSpan | undefined): Diagnostic {
   return {
     severity: "error",
-    code: "OPEN_STATUS_REQUIRES_CLAIM",
-    message: "Only C may carry role-level open status. Use C? for an open Claim or ? for an open Gap.",
+    code: "ROLE_OPENNESS_UNSUPPORTED",
+    message: "Role-level open status is unsupported. Use ? only for a Gap; keep tentative Claim wording in its content.",
     sourceSpan
   };
 }

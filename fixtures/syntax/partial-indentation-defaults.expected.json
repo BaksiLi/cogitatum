@@ -1,6 +1,6 @@
 {
   "mode": "document",
-  "diagnostics": [],
+  "diagnostics": [{ "line": 7, "code": "IMPLICIT_ATTACHMENT_THROUGH_BODY", "severity": "suggestion" }],
   "graphs": [
     {
       "points": [

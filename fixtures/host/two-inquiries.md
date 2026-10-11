@@ -17,5 +17,5 @@ The second inquiry may reuse local ids because each fence compiles independently
 ~~~cogitatum
 - Second inquiry
   - [Q @q] What should be checked next?
-    - [C? @answer] The calibration record may settle the issue.
+    - [C @answer] The calibration record may settle the issue.
 ~~~
