@@ -390,8 +390,8 @@ Explain emission references use graph keys; Bearing emissions also have a graph 
 This edition is an unpublished source candidate, package 0.4.8 / format 0.4.0.
 Match the exact producing commit with its compiler, schemas and consumers; the retained format identifier alone does not distinguish earlier unpublished candidates.
 Reparse the retained original document with explicit document or host context.
-Relabeling older AST/Explain/source JSON cannot establish corrected selection, use mappings or new constructor shapes.
-Historical 0.3 research records remain evidence of that version's behavior.
+Relabelling older AST/Explain/source JSON cannot establish corrected selection, use mappings or new constructor shapes.
+Historical 0.3 research records remain evidence of that version's behaviour.
 
 | Earlier source | Current source | Meaning and recovery |
 | --- | --- | --- |
