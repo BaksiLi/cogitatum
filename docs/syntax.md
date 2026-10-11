@@ -72,7 +72,7 @@ To keep such text as ordinary prose, omit the annotation-shaped brackets or plac
 
 Roles are `Q` Question, `C` Claim, `G` Ground, `O` Objection, `R` Reply, and `D` Distinction.
 `C?` is a Claim with open status; `[?]` is a Gap, a separate Point form that is always open.
-A dot marks neutral content, optionally named, without a role (`form: "material"`), a separate Point form.
+A dot marks neutral content, optionally named, without a role (`declaration.form: "material"`), a separate Point form.
 Other roles cannot take `?`.
 Open status is not a confidence score, and its absence does not certify acceptance or truth.
 
@@ -96,7 +96,9 @@ Outside a linked block, without an operator, use the nearest enclosing Point:
 
 Other combinations produce no structural Bearing.
 Body is transparent, but a Point declaration or Point use owns a new Point frame.
-Defaults read only its locally written mark; a neutral use has no mark.
+Every Point occurrence, including a declaration, has a locally written mark; `.` is the neutral mark and selects no role.
+Defaults read only local marks: the child occurrence's own mark and, for `answers` and `repliesTo`, the enclosing occurrence's Q or O mark.
+A referenced Point's declaration never supplies either.
 An edge or Bearing use supplies a Bearing context: its first unsuffixed Point, possibly through body, needs an explicit operator and target.
 G/ and O/ may instead select the constructed or referenced Bearing.
 Once a Point frame is reached, its children use the ordinary indentation rules again.
@@ -189,6 +191,16 @@ Its children focus p but have no imported Q/O mark for answer/reply defaults.
 `[Q use @p]` presents the same content as a local inquiry, allowing C children to answer it.
 It does not generate whether/why question text, transform the Point, reopen it or change shared status.
 The author chooses the content/mark fit; declare a separate Question when different question content is intended.
+
+```md cog-check require=answers points=3 bearings=1 diagnostics=0
+- [. @wet] The road is wet.
+- [. use @wet] A neutral reminder.
+  - [C @aside] Not an answer.
+- [Q use @wet] Presented here as the local inquiry.
+  - [C @yes] Yes.
+```
+
+Only `yes` answers `wet`; the Point keeps `declaration.form: "material"` and its text.
 A complete symbolic override, such as `[. use @p +> @claim; @step]`, constructs exactly one local attachment.
 `O/` or `G/` beneath that occurrence selects step; beneath a bare use or linked member they fail.
 A handle without a locally constructed attachment is diagnosed.
@@ -351,6 +363,12 @@ Bearing uses emit neither entity.
 The header emits with `linked-containment` or rejects with `invalid-linked`; later name/reference rejection uses `validation-error`.
 Membership eligibility does not certify that the whole linked survived validation. It explains compilation decisions, not the truth of the prose, the strength of a reason, or a history of the author's thinking. The trace is an optional Alpha interface; ordinary integrations can use AST and Graph IR alone.
 
+A Graph IR Point holds `key`, optional `id`, shared `text`, its canonical declaration `sourceSpan`, and `declaration`.
+`declaration` records how the Point was introduced: `form` (`role`, `gap` or `material`), `role` only for the role form, and `status: "open"` for `C?` and every Gap.
+These remain distinct fields; open status belongs to that declaration, and no use changes it.
+Marks written at uses, including neutral and selector marks, live only in the AST annotation and Explain recognition; derive them from there, never from `declaration`.
+An attachment created at an occurrence is an ordinary Bearing.
+
 An AST block holds its text, raw source, children, span, and optional `annotation`. Role, anchor, status, operator, handle, and annotation errors live only inside `annotation`; there are no mirrored block-level semantic fields. A Point name appears as `annotation.anchor` in the AST and `id` in Graph IR. Ordinary body has no annotation. An `operatorClause` contains `op`, `sources`, and one authored `target: { id }`. Point annotations use `sources: "self"`; an `edge` uses a nonempty array of authored source references.
 The distinct use annotation holds ref: {id}, never a declaration anchor.
 The separate bearingUse annotation also holds ref: {id}, with no role, handle, anchor or operatorClause.
@@ -384,8 +402,9 @@ Historical 0.3 research records remain evidence of that version's behavior.
 | [join; @b] (unpublished candidate) | [linked; @b] | Same ordered joint sources after source migration; no accepted join alias |
 | [edge @p KIND @c; @b] | Unchanged, or [_ @p KIND @c; @b] | Two spellings of ONE explicit constructor, with all seven kinds |
 | source API auto | Explicit document or host | Host never falls back to parsing unselected prose as an outline |
+| Graph IR Point `form` / `role` / `status` (0.3 and earlier 0.4 candidates) | Point `declaration: { form, role?, status? }` | Same values and constraints; `key`, `id`, `text` and `sourceSpan` stay on the Point |
 
-Perform these changes on annotations, not arbitrary prose, and compile before comparing the intended graph.
+Perform source spelling changes on annotations, not arbitrary prose, and compile before comparing the intended graph.
 For example, replacing a candidate [join] with [linked] preserves one joint support; removing the wrapper instead creates independent supports.
 Published format 0.3.0 treated [join; @b] as ordinary body, so migration from published 0.3 requires reviewing intended grouping rather than blindly renaming a word.
 Old anchor AST kind becomes material with optional anchor; use retains a distinct ref operand.
@@ -394,6 +413,7 @@ Previous join variants/reasons and anchor-annotation emit reasons are not curren
 Retired source receives migration errors and retains its failed boundary; valid unrelated content remains available in the partial graph.
 An old anchor-only declaration emits no Point, a retired selector stays commentary, and a retired operator rejects only its attachment when the Point/use operand itself is valid.
 Canonical GraphIR stays {version, points, bearings, diagnostics}; typed refs stay {key, kind}.
+The nested Point `declaration` is an incompatible JSON-shape change within this unpublished candidate: compiler, schemas and consumers must match, and stored graphs must be reparsed from source rather than relabelled.
 The complete negative-kind mapping is challenges → challenges (Point target), undercuts → undercuts (Bearing target).
 The authored -> and /> checks remain distinct; no kind unification or C/R removal occurs.
 

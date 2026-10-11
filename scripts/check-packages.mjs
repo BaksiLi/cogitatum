@@ -76,7 +76,8 @@ const reuse = compileGraphWithExplain(parseDocument('- [C? @premise] Original.\\
 assert.deepEqual(reuse.graph.diagnostics, []);
 assert.equal(reuse.graph.points.length, 2);
 assert.equal(reuse.graph.points[0].text, 'Original.');
-assert.equal(reuse.graph.points[0].status, 'open');
+assert.deepEqual(reuse.graph.points[0].declaration, {form: 'role', role: 'C', status: 'open'});
+assert.equal('status' in reuse.graph.points[0], false);
 assert.equal(reuse.graph.bearings.length, 2);
 assert.deepEqual(reuse.graph.bearings[0].sources, [{key: reuse.graph.points[0].key, kind: 'point'}]);
 assert.ok(reuse.explain.entries[2].effects.some(effect => effect.kind === 'focusPoint' && effect.ref.key === reuse.graph.points[0].key));
@@ -118,8 +119,8 @@ const reused = JSON.parse(run(executable, ["explain", join(root, "fixtures/core/
 assert.deepEqual(reused.diagnostics, []);
 assert.equal(reused.entries.filter(entry => entry.effects.some(effect => effect.kind === "focusPoint")).length, 6);
 
-writeFileSync(join(temporary, "consumer.mts"), `import {type Point, type Bearing, type Annotation, type OperatorClause, type ExplainEmittedBearingSummary, compileGraph, parseDocument} from '@cogitatum/core';
-import { createGraphView } from '@cogitatum/view';
+writeFileSync(join(temporary, "consumer.mts"), `import {type Point, type PointDeclaration, type Bearing, type Annotation, type OperatorClause, type ExplainEmittedBearingSummary, compileGraph, parseDocument} from '@cogitatum/core';
+import { createGraphView, declarationMark } from '@cogitatum/view';
 const mount = (container: HTMLElement) => {
   const view = createGraphView(container, { onSelect: node => { const text: string = node.text; } });
   view.update(graph, 'host:source-unit');
@@ -131,6 +132,16 @@ const graph = compileGraph(parseDocument('- [C] Claim.'));
 const points: Point[] = graph.points;
 const bearings: Bearing[] = graph.bearings;
 const identity: string | undefined = points[0]?.id;
+const declared: PointDeclaration | undefined = points[0]?.declaration;
+const declaredName: string | undefined = points[0] && declarationMark(points[0].declaration).name;
+// @ts-expect-error Declaration metadata is nested; Points have no flat role.
+const flatRole = points[0]?.role;
+// @ts-expect-error Points cannot mix flat and nested declaration metadata.
+const mixedPoint: Point = {key: 'p', text: 'Claim.', form: 'role', role: 'C', declaration: {form: 'role', role: 'C'}};
+// @ts-expect-error Only a declared Claim admits open status.
+const openGround: PointDeclaration = {form: 'role', role: 'G', status: 'open'};
+// @ts-expect-error A Gap declaration is always open.
+const closedGap: PointDeclaration = {form: 'gap'};
 const keys: string[] = bearings.flatMap(bearing => bearing.sources.map(source => source.key));
 const pointTarget = {key: 'point-key', kind: 'point' as const};
 const routeTarget = {key: 'route-key', kind: 'bearing' as const};

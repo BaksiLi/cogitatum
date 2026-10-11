@@ -114,18 +114,22 @@ export type CompiledSource = ParsedSource & {
   graphs: GraphIR[];
 };
 
-type PointBase = {
+// How the Point was introduced: its declaration mark, not a role every later use must take.
+export type PointDeclaration =
+  | { form: "role"; role: "C"; status?: "open" }
+  | { form: "role"; role: Exclude<Role, "C">; status?: never }
+  | { form: "gap"; role?: never; status: "open" }
+  | { form: "material"; role?: never; status?: never };
+
+export type Point = {
   key: string;
   id?: string;
+  // Shared content shown at every occurrence.
   text: string;
+  // Canonical declaration location; use occurrences are located through Explain.
   sourceSpan?: SourceSpan;
+  declaration: PointDeclaration;
 };
-
-export type Point =
-  | (PointBase & { form: "role"; role: "C"; status?: "open" })
-  | (PointBase & { form: "role"; role: Exclude<Role, "C">; status?: never })
-  | (PointBase & { form: "gap"; role?: never; status: "open" })
-  | (PointBase & { form: "material"; role?: never; status?: never });
 
 export type BearingTarget = PointRef | BearingRef;
 

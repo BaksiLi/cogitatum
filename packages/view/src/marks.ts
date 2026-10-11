@@ -4,6 +4,8 @@
  * Names follow docs/glossary.md; Chinese readings are auxiliary.
  */
 
+import type { PointDeclaration } from "@cogitatum/core";
+
 export type PointMarkLabel = "Q" | "C" | "C?" | "G" | "O" | "R" | "D" | "Gap" | "Material";
 export type MarkShape = "filled" | "open" | "gap" | "material";
 export type MarkTone = "support" | "objection" | "neutral";
@@ -11,7 +13,7 @@ export type MarkTone = "support" | "objection" | "neutral";
 export type PointMark = { label: PointMarkLabel; name: string; zh: string; letter: string; shape: MarkShape };
 export type BearingMark = { kind: string; name: string; zh: string; symbol: string; tone: MarkTone; dashed: boolean };
 
-/** Open is a persistent property of the mark (Open claim, Gap); it never depends on selection. */
+/** Open belongs to the declared mark (Open claim, Gap); it never depends on selection. */
 export const POINT_MARKS: Readonly<Record<PointMarkLabel, PointMark>> = {
   Q: { label: "Q", name: "Question", zh: "問題", letter: "Q", shape: "filled" },
   C: { label: "C", name: "Claim", zh: "主張", letter: "C", shape: "filled" },
@@ -42,11 +44,11 @@ export function pointMark(label: string): PointMark {
   return (POINT_MARKS as Record<string, PointMark>)[label] ?? { label: label as PointMarkLabel, name: label, zh: label, letter: label.slice(0, 1), shape: "filled" };
 }
 
-/** The mark for a compiled Point, from its form, role and status only. */
-export function pointMarkOf(point: { form: string; role?: string; status?: string }): PointMark {
-  if (point.form === "gap") return POINT_MARKS.Gap;
-  if (point.form === "material") return POINT_MARKS.Material;
-  return pointMark(`${point.role ?? ""}${point.status === "open" ? "?" : ""}`);
+/** The mark a Point was declared with. Marks written at later uses are in the AST and Explain, not here. */
+export function declarationMark(declaration: PointDeclaration): PointMark {
+  if (declaration.form === "gap") return POINT_MARKS.Gap;
+  if (declaration.form === "material") return POINT_MARKS.Material;
+  return pointMark(`${declaration.role}${declaration.status === "open" ? "?" : ""}`);
 }
 
 export function bearingMark(kind: string): BearingMark {

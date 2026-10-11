@@ -1,4 +1,5 @@
 import type { BearingTarget, GraphIR, SourceSpan } from "@cogitatum/core";
+import { declarationMark } from "./marks.js";
 
 export type GraphNode = {
   id: string;
@@ -17,7 +18,7 @@ export const referenceKey = (ref: BearingTarget): string => `${ref.kind}:${ref.k
 export function projectGraph(graph: GraphIR): GraphProjection {
   const nodes: GraphNode[] = [
     ...graph.points.map(p => ({ id: referenceKey({ kind: "point", key: p.key }), ref: { kind: "point" as const, key: p.key },
-      name: p.id, label: p.form === "gap" ? "Gap" : p.form === "material" ? "Material" : `${p.role}${p.status === "open" ? "?" : ""}`,
+      name: p.id, label: declarationMark(p.declaration).label,
       text: p.text, sourceSpan: p.sourceSpan })),
     ...graph.bearings.map(b => ({ id: referenceKey({ kind: "bearing", key: b.key }), ref: { kind: "bearing" as const, key: b.key },
       name: b.handle, label: b.kind, text: b.text ?? b.kind, sourceSpan: b.sourceSpan }))
