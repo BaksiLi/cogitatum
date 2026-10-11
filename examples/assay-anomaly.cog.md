@@ -1,7 +1,11 @@
-- Assay anomaly
+- Assay anomaly (hypothetical run)
   - [Q] Why did the treated samples produce a weaker signal?
-    - [C? @degradation] The detection reagent degraded before the run.
-      - [G] Positive controls using the same reagent were also weaker than their historical range.
-      - [O @position] The low readings may instead be a plate-position effect.
+    - [C?] The detection reagent degraded before the run.
+      - [linked] Weak controls implicate the reagent only if they shared its lot.
+        - [G] Positive controls were also weaker than their historical range.
+        - [G] The controls used the same reagent lot as the treated samples.
+          - [?] Confirm the lot numbers on the run sheet.
+      - [G] The reagent was left at room temperature overnight.
+      - [O] The low readings may instead be a plate-position effect.
         - [G] Most low readings occurred along the outer wells.
     - [?] Repeat with a fresh reagent and randomized well positions.

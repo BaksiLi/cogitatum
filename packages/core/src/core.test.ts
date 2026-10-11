@@ -399,7 +399,7 @@ describe("Cogitatum language contracts", () => {
     expect(compiled.mode).toBe("document");
     expect(compiled.units).toEqual([expect.objectContaining({ kind: "document", startLine: 1 })]);
     expect(compiled.graphs).toHaveLength(1);
-    expect(compiled.graphs[0].points.some((point) => point.id === "db-pool")).toBe(true);
+    expect(compiled.graphs[0].points.some((point) => point.id === "acq-fail")).toBe(true);
     expect(compiled.diagnostics).toEqual([]);
   });
 
@@ -839,27 +839,55 @@ describe("Cogitatum language contracts", () => {
     );
   });
 
-  it("keeps the API timeout answer connected to its organizing question", () => {
-    const graph = compileGraph(parseDocument(example("api-timeout.cog.md")));
-    const question = graph.points.find((point) => point.form === "role" && point.role === "Q");
+  it("keeps the API timeout review's source, reconstruction, reuse and objection targets distinct", () => {
+    const ast = parseDocument(example("api-timeout.cog.md"));
+    const { graph, explain } = compileGraphWithExplain(ast);
+    const point = (index: number) => ({ kind: "point", index });
+    const bearing = (index: number) => ({ kind: "bearing", index });
+    const indexOf = (ref: { key: string; kind: string }) =>
+      (ref.kind === "point" ? graph.points : graph.bearings).findIndex((entity) => entity.key === ref.key);
 
-    expect(question).toBeDefined();
-
-    expect(graph.bearings).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          kind: "answers",
-          sources: [pointRef(graph, "db-pool")],
-          target: { key: question?.key, kind: "point" }
-        }),
-        expect.objectContaining({
-          kind: "supports",
-          sources: [pointRef(graph, "acq-fail")],
-          target: pointRef(graph, "db-pool")
-        })
-      ])
-    );
     expect(graph.diagnostics).toEqual([]);
+    expect(graph.points.map((point) => [point.id, point.role, point.status, point.text])).toEqual([
+      [undefined, "C", undefined, "Connection pool exhaustion caused the timeouts."],
+      ["acq-fail", "G", undefined, "Between 02:00 and 03:00 the service logged repeated connection-acquisition failures."],
+      [undefined, "Q", undefined, "What should change before the next release?"],
+      [undefined, "C", "open", "Doubling the pool size will prevent these timeouts."],
+      [undefined, "O", undefined, "The log export may use UTC, so those failures may not fall between 02:00 and 03:00 local time."],
+      [undefined, "O", undefined, "Running out of connections does not show that a larger pool is enough; a leak would exhaust any size."],
+      [undefined, "R", undefined, "A leak would keep connections checked out, but all were returned once traffic fell after 03:00."],
+      [undefined, "O", undefined, "Slow upstream calls would also hold connections open and produce these failures."]
+    ]);
+    expect(graph.bearings.map((item) => ({
+      kind: item.kind,
+      handle: item.handle,
+      sources: item.sources.map(indexOf),
+      target: { kind: item.target.kind, index: indexOf(item.target) }
+    }))).toEqual([
+      // The reconstructed step and the later reuse are two Bearings from one shared Point.
+      { kind: "supports", handle: "report-step", sources: [1], target: point(0) },
+      { kind: "answers", handle: undefined, sources: [3], target: point(2) },
+      { kind: "supports", handle: undefined, sources: [1], target: point(3) },
+      // An O beneath the use challenges the shared observation; O/ assesses only the new step.
+      { kind: "challenges", handle: undefined, sources: [4], target: point(1) },
+      { kind: "undercuts", handle: undefined, sources: [5], target: bearing(2) },
+      { kind: "repliesTo", handle: undefined, sources: [6], target: point(5) },
+      // A Bearing use selects the report's own step without constructing another relation.
+      { kind: "undercuts", handle: undefined, sources: [7], target: bearing(0) }
+    ]);
+
+    const review = ast.blocks[0].children;
+    expect(review[0].annotation).toBeUndefined();
+    expect(review[0].text).toMatch(/^The on-call report, quoted as filed: "Pool exhaustion caused last night's timeouts\./);
+    const reuse = review[2].children[0].children[0].children[1];
+    expect(reuse).toMatchObject({ text: "The logs show the pool is too small.", annotation: { kind: "use", ref: { id: "acq-fail" } } });
+    expect(graph.points.some((point) => point.text === reuse.text || review[0].text.includes(point.text))).toBe(false);
+    expect(review[2].children[1]).toMatchObject({ text: "The report's own step needs the same scrutiny.", annotation: { kind: "bearingUse", ref: { id: "report-step" } } });
+    expect(graph.bearings[0].text).toBeUndefined();
+
+    const effects = (line: number) => explain.entries.find((entry) => entry.sourceSpan.startLine === line)?.effects;
+    expect(effects(10)).toContainEqual({ kind: "focusPoint", operand: { id: "acq-fail" }, ref: { kind: "point", key: graph.points[1].key } });
+    expect(effects(14)).toEqual([{ kind: "focusBearing", operand: { id: "report-step" }, ref: { kind: "bearing", key: graph.bearings[0].key } }]);
   });
 
   it("supports naming neither, the Point, the Bearing, or both", () => {
@@ -995,6 +1023,67 @@ describe("Cogitatum language contracts", () => {
       })
     ]);
     expect(graph.diagnostics).toEqual([]);
+  });
+
+  it("keeps the assay's joint control step distinct from its independent reason", () => {
+    const source = example("assay-anomaly.cog.md");
+    const relations = (graph: GraphIR) => graph.bearings.map((bearing) => [
+      bearing.kind,
+      bearing.sources.map((ref) => graph.points.findIndex((point) => point.key === ref.key)),
+      bearing.target.kind,
+      graph.points.findIndex((point) => point.key === bearing.target.key),
+      bearing.text
+    ]);
+    const points = (graph: GraphIR) => graph.points.map((point) => [point.form, point.role, point.status, point.text]);
+    const linked = compileGraph(parseDocument(source));
+
+    expect(linked.diagnostics).toEqual([]);
+    expect(linked.points.map((point) => [point.form, point.role, point.text])).toEqual([
+      ["role", "Q", "Why did the treated samples produce a weaker signal?"],
+      ["role", "C", "The detection reagent degraded before the run."],
+      ["role", "G", "Positive controls were also weaker than their historical range."],
+      ["role", "G", "The controls used the same reagent lot as the treated samples."],
+      ["gap", undefined, "Confirm the lot numbers on the run sheet."],
+      ["role", "G", "The reagent was left at room temperature overnight."],
+      ["role", "O", "The low readings may instead be a plate-position effect."],
+      ["role", "G", "Most low readings occurred along the outer wells."],
+      ["gap", undefined, "Repeat with a fresh reagent and randomized well positions."]
+    ]);
+    expect(relations(linked)).toEqual([
+      ["answers", [1], "point", 0, undefined],
+      ["supports", [2, 3], "point", 1, "Weak controls implicate the reagent only if they shared its lot."],
+      ["about", [4], "point", 3, undefined],
+      ["supports", [5], "point", 1, undefined],
+      ["challenges", [6], "point", 1, undefined],
+      ["supports", [7], "point", 6, undefined],
+      ["about", [8], "point", 0, undefined]
+    ]);
+
+    // Without the linked header, each control observation would become its own reason.
+    // Remove only the header and dedent only its own subtree.
+    const lines = source.split("\n");
+    const header = lines.findIndex((line) => line.includes("[linked]"));
+    const indent = (line: string) => line.length - line.trimStart().length;
+    let end = header + 1;
+    while (end < lines.length && lines[end].trim() && indent(lines[end]) > indent(lines[header])) end += 1;
+    expect(end - header - 1).toBe(3);
+    const unlinked = compileGraph(parseDocument([
+      ...lines.slice(0, header),
+      ...lines.slice(header + 1, end).map((line) => line.slice(2)),
+      ...lines.slice(end)
+    ].join("\n")));
+    expect(unlinked.diagnostics).toEqual([]);
+    expect(points(unlinked)).toEqual(points(linked));
+    expect(relations(unlinked)).toEqual([
+      ["answers", [1], "point", 0, undefined],
+      ["supports", [2], "point", 1, undefined],
+      ["supports", [3], "point", 1, undefined],
+      ["about", [4], "point", 3, undefined],
+      ["supports", [5], "point", 1, undefined],
+      ["challenges", [6], "point", 1, undefined],
+      ["supports", [7], "point", 6, undefined],
+      ["about", [8], "point", 0, undefined]
+    ]);
   });
 
   it("keeps independent Grounds distinct from one explicit joint support route", () => {
