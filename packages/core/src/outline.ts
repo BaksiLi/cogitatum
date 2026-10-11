@@ -12,7 +12,7 @@ type RawNode = {
 };
 
 const RESERVED_ANNOTATION_START_RE =
-  /^(?:[QCGORD](?:\?)?(?=$|[\s@;+_~>-])|\?(?=$|[\s@;+_~>-])|edge(?=$|\s)|join(?=$|[\s;])|scope(?=$|\s)|@)/i;
+  /^(?:[QCGORD](?:\?)?(?=$|[\s@;+_~>-])|\?(?=$|[\s@;+_~>-])|edge(?=$|[\s;])|join(?=$|[\s;])|scope(?=$|\s)|@)/i;
 
 export function parseDocument(source: string, options: ParseOptions = {}): DocumentAst {
   const diagnostics: Diagnostic[] = [];
@@ -186,11 +186,16 @@ function toAstBlock(node: RawNode, diagnostics: Diagnostic[]): AstBlock {
   if (parsed) {
     diagnostics.push(...parsed.diagnostics);
   }
+  // Failed constructors retain their context boundary even without a closing bracket.
+  const unclosedConstructor = node.indentationValid && !node.annotationRaw && !node.text.includes("]")
+    ? /^\[\s*(join|edge)(?=$|[\s;])/i.exec(node.text)?.[1].toLowerCase()
+    : undefined;
   const annotation = parsed?.annotation ?? (
-    // An unclosed reserved join still blocks fallback relationships during recovery.
-    node.indentationValid && /^\[\s*join(?=$|[\s;])/i.test(node.text) && !node.text.includes("]")
+    unclosedConstructor === "join"
       ? { kind: "join" as const, raw: node.text.slice(1), syntaxErrors: ["join" as const] }
-      : undefined
+      : unclosedConstructor === "edge"
+        ? { kind: "edge" as const, raw: node.text.slice(1), syntaxErrors: ["operator" as const] }
+        : undefined
   );
   return {
     kind: "block",
