@@ -14,7 +14,7 @@ describe("named canonical Bearing constructors", () => {
     const { graph, explain } = compileGraphWithExplain(parseDocument(source));
     expect(codes(graph)).toEqual([]);
     expect(graph.points).toHaveLength(3);
-    expect(graph.points.map(point => [point.id, point.form, point.role, point.status])).toEqual([
+    expect(graph.points.map(point => [point.id, point.declaration.form, point.declaration.role, point.declaration.status])).toEqual([
       ["first", "material", undefined, undefined], ["second", "role", "Q", undefined], ["target", "role", "C", "open"]
     ]);
     const bearing = graph.bearings.find(entry => entry.handle === "named")!;
@@ -71,7 +71,7 @@ describe("named canonical Bearing constructors", () => {
   it("preserves a Question reply and a concession without converting either into a challenge", () => {
     const graph = compile("- [O @objection] The account lacks a time scale.\n- [Q @question] Which time scale do you mean?\n- [C @concession] The timing is uncertain.\n- [edge @question repliesTo @objection; @clarification]\n- [edge @concession repliesTo @objection; @conceding]");
     expect(codes(graph)).toEqual([]);
-    expect(graph.points.map(point => point.role)).toEqual(["O", "Q", "C"]);
+    expect(graph.points.map(point => point.declaration.role)).toEqual(["O", "Q", "C"]);
     expect(graph.bearings.map(bearing => bearing.kind)).toEqual(["repliesTo", "repliesTo"]);
   });
 

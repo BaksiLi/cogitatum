@@ -43,10 +43,10 @@ describe("cog CLI", () => {
     const version = runCli("--version");
 
     expect(help.status).toBe(0);
-    expect(help.stdout).toContain("Cogitatum 0.4.0 (format 0.4.0)");
+    expect(help.stdout).toContain("Cogitatum 0.4.8 (format 0.4.0)");
     expect(help.stdout).toContain("cog <command>");
     expect(version.status).toBe(0);
-    expect(version.stdout).toContain("cog 0.4.0 (format 0.4.0)");
+    expect(version.stdout).toContain("cog 0.4.8 (format 0.4.0)");
   });
 
   it("checks valid source and preserves compiler diagnostics", () => {

@@ -25,6 +25,8 @@ Points can be questions, gaps, or source material; they need not all be proposit
 
 A role describes what the material does here.
 The six roles are `Q`, `C`, `G`, `O`, `R`, and `D`.
+The mark on a Point's declaration is also kept as its declaration information: how it was introduced, not a type every later use must follow.
+`C` means Claim, not a permanent conclusion; the same Claim can later serve as a Ground.
 `C?` is a Claim with open status; Gap is a separate Point form, not an additional role.
 Only Claim admits open status among the roles; `Q?`, `G?`, `O?`, `R?`, and `D?` are invalid.
 See the [English / 繁體中文 glossary](glossary.md) for suggested Chinese readings.
@@ -63,7 +65,7 @@ The claim has the authored name `claim`. The reason and objection are anonymous:
 Names match `[a-z][a-z0-9_-]*` and share a namespace with named [connections](bearings.md). Prose can use any language. Keep a name across edits when the same authored item should remain identifiable; renaming requires updating references.
 
 Content can also be named without assigning a role: `[. @passage]`.
-This is a Point form, not another role; the machine contract retains `form: "material"`.
+This is a Point form, not another role; the machine contract records it as `declaration.form: "material"`.
 See the [complete syntax](syntax.md#annotation-grammar) for this and all other naming forms.
 
 ## Reuse without redeclaring
@@ -80,7 +82,8 @@ Add a local mark when its role here should create a connection:
 The observation remains one open Claim in the graph; this occurrence uses it as a Ground.
 Its trailing explanation stays local rather than replacing the observation's text.
 Beneath this occurrence, `[O]` challenges the shared observation itself, while [`[O/]`](bearings.md#assess-a-local-attachment) objects only to the support made here.
-Bare `[. use @observation]` adds no default connection, and the original declaration's role is never imported as the local role.
+Bare `[. use @observation]` writes the neutral mark: it selects no role and adds no default connection, and the original declaration's role is never imported as the local role.
+A local mark applies at its occurrence only; it does not change the Point's declaration, text or open status, and it does not fill a Gap.
 Names can resolve forward within the same document or selected host unit.
 `[G @observation]` would instead declare again and receive `DUPLICATE_ID`.
 For local attachment selection, failure boundaries and unsupported occurrence status, see [reference-only occurrences](syntax.md#reference-only-occurrences).

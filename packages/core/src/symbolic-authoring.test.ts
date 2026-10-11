@@ -10,7 +10,7 @@ describe("consolidated symbolic authoring", () => {
     const { graph } = compile("- [Q @question] Question.\n  - [.] Neutral background.\n    - [G @reason] Supports the neutral Point.\n- [O @objection] Objection.\n  - [. @background] Neutral context.");
     expect(graph.diagnostics.map(diagnostic => diagnostic.code)).toEqual(["DISCONNECTED_ANCHORED_MATERIAL"]);
     expect(graph.points).toHaveLength(5);
-    expect(graph.points[1]).toMatchObject({ form: "material", text: "Neutral background." });
+    expect(graph.points[1]).toMatchObject({ declaration: { form: "material" }, text: "Neutral background." });
     expect(graph.points[1].id).toBeUndefined();
     expect(graph.bearings).toHaveLength(1);
     expect(graph.bearings[0].target).toEqual({ kind: "point", key: graph.points[1].key });
@@ -56,7 +56,7 @@ describe("consolidated symbolic authoring", () => {
     const source = "- [Q @question] When should sampling begin?\n- [C? @assertion] The road is wet.\n- [. use @question]\n  - [C @background] Background.\n- [Q use @question]\n  - [C @answer] Candidate answer.\n- [Q use @assertion]\n  - [C @discussion] A locally authored response.\n- [C? use @assertion] Unsupported occurrence openness.";
     const { graph } = compile(source);
     expect(graph.points).toHaveLength(5);
-    expect(graph.points[1]).toMatchObject({ text: "The road is wet.", status: "open", role: "C" });
+    expect(graph.points[1]).toMatchObject({ text: "The road is wet.", declaration: { form: "role", role: "C", status: "open" } });
     expect(graph.bearings.map(bearing => [bearing.kind, graph.points.find(point => point.key === bearing.target.key)?.id])).toEqual([["answers", "question"], ["answers", "assertion"]]);
     expect(graph.diagnostics.map(diagnostic => diagnostic.code)).toEqual(["MALFORMED_POINT_USE"]);
   });
@@ -64,7 +64,7 @@ describe("consolidated symbolic authoring", () => {
   it("uses Gap content as a Ground without filling, resolving or removing it", () => {
     const { graph } = compile("- [? @record] A calibration record is missing.\n- [C @claim] Accuracy cannot yet be established.\n  - [G use @record]");
     expect(graph.diagnostics).toEqual([]);
-    expect(graph.points[0]).toMatchObject({ form: "gap", status: "open", text: "A calibration record is missing." });
+    expect(graph.points[0]).toMatchObject({ declaration: { form: "gap", status: "open" }, text: "A calibration record is missing." });
     expect(graph.bearings[0].kind).toBe("supports");
   });
 

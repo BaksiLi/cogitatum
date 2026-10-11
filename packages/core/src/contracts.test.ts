@@ -133,7 +133,7 @@ describe("public compiler contract boundaries", () => {
     reason.annotation.role = "O";
     reason.annotation.anchor = "objection";
     const { graph, explain } = compileGraphWithExplain(ast);
-    expect(graph.points[1]).toMatchObject({ id: "objection", role: "O" });
+    expect(graph.points[1]).toMatchObject({ id: "objection", declaration: { form: "role", role: "O" } });
     expect(graph.bearings[0].kind).toBe("challenges");
     expect(explain.entries[1].recognition).toEqual({ kind: "role", role: "O" });
     expect(reason.raw).toBe(raw);
@@ -304,5 +304,69 @@ describe("public compiler contract boundaries", () => {
     const invalid = json(compiled);
     invalid.units[0].kind = "editor-node";
     expect(validateSource(invalid)).toBe(false);
+  });
+});
+
+describe("Point declaration metadata", () => {
+  const manifest: { fixtures: Array<{ file: string; input: "document" | "host" }> } = JSON.parse(readFileSync(new URL("../../../fixtures/manifest.json", import.meta.url), "utf8"));
+
+  it("validates every compiled fixture graph with nested declaration metadata", () => {
+    let points = 0;
+    for (const { file, input } of manifest.fixtures) {
+      for (const graph of compileSource(readFileSync(new URL(`../../../fixtures/${file}`, import.meta.url), "utf8"), input).graphs) {
+        expect(validateGraph(json(graph)), file + JSON.stringify(validateGraph.errors)).toBe(true);
+        for (const point of graph.points) expect(Object.keys(point).filter(key => ["form", "role", "status"].includes(key)), file).toEqual([]);
+        points += graph.points.length;
+      }
+    }
+    expect(points).toBeGreaterThan(100);
+  });
+
+  it("rejects flat, mixed and invalid declaration shapes", () => {
+    const graph = json(compileGraph(parseDocument("- [C? @claim] Open claim.\n")));
+    const point = graph.points[0];
+    expect(point).toEqual({ key: point.key, id: "claim", text: "Open claim.", sourceSpan: point.sourceSpan, declaration: { form: "role", role: "C", status: "open" } });
+    expect(validateGraph(graph)).toBe(true);
+    const { declaration, ...shared } = point;
+    const invalidPoints = [
+      { ...shared, ...declaration },
+      { ...point, role: "C" },
+      { ...point, form: "role", role: "C", status: "open" },
+      { ...point, declaration: { ...declaration, sourceSpan: point.sourceSpan } },
+      { ...point, declaration: { ...declaration, selector: "attachment" } },
+      { ...point, declaration: { form: "role", role: "G", status: "open" } },
+      { ...point, declaration: { form: "role" } },
+      { ...point, declaration: { form: "gap" } },
+      { ...point, declaration: { form: "gap", role: "C", status: "open" } },
+      { ...point, declaration: { form: "material", role: "C" } },
+      { ...point, declaration: { form: "material", status: "open" } },
+      shared
+    ];
+    for (const invalid of invalidPoints) expect(validateGraph({ ...graph, points: [invalid] }), JSON.stringify(invalid)).toBe(false);
+  });
+
+  it("keeps shared text and declaration metadata unchanged under reuse while local marks choose typed endpoints", () => {
+    const declarations = "- [C @p] Two retries timed out.\n- [C? @open] Retries may be related.\n- [? @gap] A calibration record is missing.\n- [. @wet] The road is wet.";
+    const uses = [
+      "- [C @a] The configuration is faulty.\n  - [G use @p; @to-a] Occurrence note.\n    - [O/ @transient; @attack] Only this route.\n  - [G use @open; @from-open]\n  - [G use @gap; @from-gap]",
+      "- [C @b] The service needs monitoring.\n  - [G use @p; @to-b]\n    - [O @miscount] Only one retry timed out.",
+      "- [. use @wet] Reminder.\n  - [C @aside] Not an answer.",
+      "- [Q use @wet] Presented as a local inquiry.\n  - [C @yes] Yes."
+    ].join("\n");
+    const alone = compileGraph(parseDocument(declarations));
+    const reused = compileGraph(parseDocument(declarations + "\n" + uses));
+    expect(reused.diagnostics).toEqual([]);
+    expect(reused.points.slice(0, 4)).toEqual(alone.points);
+    const name = new Map([...reused.points.map(point => [point.key, "@" + point.id] as const), ...reused.bearings.map(bearing => [bearing.key, ";" + bearing.handle] as const)]);
+    expect(reused.bearings.map(bearing => [bearing.sources.map(ref => name.get(ref.key)).join(), bearing.kind, bearing.target.kind, name.get(bearing.target.key)])).toEqual([
+      ["@p", "supports", "point", "@a"],
+      ["@transient", "undercuts", "bearing", ";to-a"],
+      ["@open", "supports", "point", "@a"],
+      ["@gap", "supports", "point", "@a"],
+      ["@p", "supports", "point", "@b"],
+      ["@miscount", "challenges", "point", "@p"],
+      ["@yes", "answers", "point", "@wet"]
+    ]);
+    expect(reused.bearings.filter(bearing => bearing.target.kind === "bearing").map(bearing => name.get(bearing.target.key))).toEqual([";to-a"]);
   });
 });

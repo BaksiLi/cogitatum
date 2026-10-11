@@ -37,6 +37,9 @@ See [argument structures](bearings.md#argument-structures) for examples.
 | `[D]` | Distinction | 辨別 | 指出有助釐清所論的區別。 |
 | `[?]` | Gap | 闕漏 | 明示尚待補足之處。 |
 | `[.]`, `[. @passage]` | Neutral Point | 中性點 | 沒有指定角色的內容，可選擇命名。 |
+| `[. use @p]`, `[G use @p]` | Point use | 點的引用 | 再次使用同一個點；此處所寫的標記只作用於此處。 |
+| — | Declaration | 宣告 | 引入一個新點，並寫明其初始標記。 |
+| `G/`, `O/` | Local selector | 局部選取 | 支持或質疑最近建構處所呈現的係。 |
 
 See [Points](points.md) for roles, open status, and names.
 

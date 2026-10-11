@@ -60,7 +60,7 @@ Use the exact spellings below, including the capital T in `repliesTo`:
 | `challenges`, `answers`, `repliesTo`, `clarifies` | Point |
 | `undercuts` | Named Bearing |
 
-Each source is an existing Point; its role, form, status, content, and identity remain unchanged.
+Each source is an existing Point; its declaration information (form, role and status), content, and identity remain unchanged.
 Sources are ordered and duplicate-free, and there is exactly one target.
 The indentation defaults do not impose global source or target roles on explicitly authored relations.
 A Question can reply to an objection, and a concession can reply without challenging it:
@@ -211,6 +211,22 @@ G/ and O/ select only that nearest constructor's exposed Bearing.
 Bearing reuse adds no attachment or entity; its prose stays occurrence-local.
 See [Bearing occurrences and reading](syntax.md#bearing-occurrences-and-reading) for recursive objections and the separation of shared content from notes.
 An explicit clause overrides the ordinary default, and combining one with a selector is diagnosed.
+
+One Point can support two conclusions through two uses, each creating its own named attachment:
+
+```md cog-check require=supports,undercuts,challenges points=5 bearings=4 diagnostics=0
+- [C @retries] Two retries timed out.
+- [C @config] The configuration is faulty.
+  - [G use @retries; @to-config]
+    - [O/ @transient] A transient fault explains the retries equally well.
+- [C @monitoring] The service needs monitoring.
+  - [G use @retries; @to-monitoring]
+    - [O @miscount] Only one retry actually timed out.
+```
+
+`O/` undercuts only `to-config`, the route constructed by the enclosing `G use`; `to-monitoring` is not addressed.
+The plain `O` challenges the shared Point `retries`, not either route.
+Neither relation records that a route or Point has failed, and nothing propagates from one Bearing to another.
 
 The following pair preserves selected graph structure, declaration metadata, individual instances, ordered sources and typed targets.
 Spans, derivedBy, Explain and original source remain separate from that comparison.

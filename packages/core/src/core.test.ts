@@ -137,8 +137,8 @@ describe("Cogitatum language contracts", () => {
 
   it("treats indentation defaults as partial without skipping an ineligible Point", () => {
     const graph = compileGraph(parseDocument(fixture("syntax/partial-indentation-defaults.cog.md")));
-    const ground = graph.points.find((point) => point.form === "role" && point.role === "G");
-    const objection = graph.points.find((point) => point.form === "role" && point.role === "O");
+    const ground = graph.points.find((point) => point.declaration.form === "role" && point.declaration.role === "G");
+    const objection = graph.points.find((point) => point.declaration.form === "role" && point.declaration.role === "O");
 
     expect(ground).toBeDefined();
     expect(objection).toBeDefined();
@@ -633,8 +633,8 @@ describe("Cogitatum language contracts", () => {
     const graph = compileGraph(ast);
 
     expect(graph.points).toEqual([
-      expect.objectContaining({ id: "claim", role: "C" }),
-      expect.objectContaining({ role: "G", text: "Ground." })
+      expect.objectContaining({ id: "claim", declaration: { form: "role", role: "C" } }),
+      expect.objectContaining({ declaration: { form: "role", role: "G" }, text: "Ground." })
     ]);
     expect(graph.bearings).toEqual([]);
     expect(graph.diagnostics).toEqual([
@@ -671,7 +671,7 @@ describe("Cogitatum language contracts", () => {
       parseDocument("- [C] Claim.\n  - [G @ground @route] Ambiguous identities.\n")
     );
 
-    expect(graph.points).toEqual([expect.objectContaining({ role: "C" })]);
+    expect(graph.points).toEqual([expect.objectContaining({ declaration: { form: "role", role: "C" } })]);
     expect(graph.bearings).toEqual([]);
     expect(graph.diagnostics).toEqual([
       expect.objectContaining({ code: "MALFORMED_ROLE_ANNOTATION" })
@@ -703,8 +703,8 @@ describe("Cogitatum language contracts", () => {
     );
 
     expect(valid.points).toEqual([
-      expect.objectContaining({ id: "claim", role: "C", status: "open", form: "role" }),
-      expect.objectContaining({ id: "gap", status: "open", form: "gap" })
+      expect.objectContaining({ id: "claim", declaration: { form: "role", role: "C", status: "open" } }),
+      expect.objectContaining({ id: "gap", declaration: { form: "gap", status: "open" } })
     ]);
     expect(invalid.points).toEqual([]);
     expect(invalid.diagnostics.map((diagnostic) => diagnostic.code)).toEqual(
@@ -770,8 +770,8 @@ describe("Cogitatum language contracts", () => {
 
   it("compiles an operator-introduced challenge and its structural reply", () => {
     const graph = compileGraph(parseDocument(fixture("core/explicit-challenge.cog.md")));
-    const objection = graph.points.find((point) => point.form === "role" && point.role === "O");
-    const reply = graph.points.find((point) => point.form === "role" && point.role === "R");
+    const objection = graph.points.find((point) => point.declaration.form === "role" && point.declaration.role === "O");
+    const reply = graph.points.find((point) => point.declaration.form === "role" && point.declaration.role === "R");
 
     expect(objection).toBeDefined();
     expect(reply).toBeDefined();
@@ -813,7 +813,7 @@ describe("Cogitatum language contracts", () => {
       )
     );
 
-    expect(graph.points.find((point) => point.id === "p1")).toMatchObject({ form: "material" });
+    expect(graph.points.find((point) => point.id === "p1")).toMatchObject({ declaration: { form: "material" } });
     expect(graph.bearings).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -848,7 +848,7 @@ describe("Cogitatum language contracts", () => {
       (ref.kind === "point" ? graph.points : graph.bearings).findIndex((entity) => entity.key === ref.key);
 
     expect(graph.diagnostics).toEqual([]);
-    expect(graph.points.map((point) => [point.id, point.role, point.status, point.text])).toEqual([
+    expect(graph.points.map((point) => [point.id, point.declaration.role, point.declaration.status, point.text])).toEqual([
       [undefined, "C", undefined, "Connection pool exhaustion caused the timeouts."],
       ["acq-fail", "G", undefined, "Between 02:00 and 03:00 the service logged repeated connection-acquisition failures."],
       [undefined, "Q", undefined, "What should change before the next release?"],
@@ -931,7 +931,7 @@ describe("Cogitatum language contracts", () => {
   it("uses unannotated grouping without synthesizing another Bearing", () => {
     const ast = parseDocument(fixture("core/grouped-route-pressure.cog.md"));
     const graph = compileGraph(ast);
-    const objection = graph.points.find((point) => point.form === "role" && point.role === "O");
+    const objection = graph.points.find((point) => point.declaration.form === "role" && point.declaration.role === "O");
 
     expect(ast.blocks[0].annotation).toBeUndefined();
     expect(objection).toBeDefined();
@@ -954,13 +954,13 @@ describe("Cogitatum language contracts", () => {
 
   it("compiles a gap about a Bearing handle without exposing compiler rule names", () => {
     const graph = compileGraph(parseDocument(fixture("core/gap-about-bearing.cog.md")));
-    const gap = graph.points.find((point) => point.form === "gap");
+    const gap = graph.points.find((point) => point.declaration.form === "gap");
     const bearing = graph.bearings.find((candidate) =>
       candidate.sources.some((source) => source.key === gap?.key)
     );
 
-    expect(gap?.form).toBe("gap");
-    expect(gap?.status).toBe("open");
+    expect(gap?.declaration.form).toBe("gap");
+    expect(gap?.declaration.status).toBe("open");
     expect(bearing).toMatchObject({
       kind: "about",
       target: bearingRef(graph, "temporal-rebuttal"),
@@ -975,7 +975,7 @@ describe("Cogitatum language contracts", () => {
     const hostGraph = compileSource(`# Host\n\n\`\`\`cog\n${source}\`\`\`\n`, "host").graphs[0];
 
     for (const graph of [documentGraph, hostGraph]) {
-      const anonymousPoints = graph.points.filter((point) => point.form === "role" && point.role === "O");
+      const anonymousPoints = graph.points.filter((point) => point.declaration.form === "role" && point.declaration.role === "O");
 
       expect(anonymousPoints.every((point) => !Object.hasOwn(point, "id"))).toBe(true);
       expect(anonymousPoints.map((point) => point.key)).toEqual(["_p2", "_p4"]);
@@ -1007,7 +1007,7 @@ describe("Cogitatum language contracts", () => {
     const graph = compileGraph(parseDocument(example("syllogism.cog.md")));
     const supports = graph.bearings.filter((bearing) => bearing.kind === "supports");
 
-    expect(graph.points.map(point => [point.role, point.text])).toEqual([
+    expect(graph.points.map(point => [point.declaration.role, point.text])).toEqual([
       ["Q", "Is Socrates mortal?"], ["C", "Socrates is mortal."],
       ["G", "All humans are mortal."], ["G", "Socrates is human."]
     ]);
@@ -1034,11 +1034,11 @@ describe("Cogitatum language contracts", () => {
       graph.points.findIndex((point) => point.key === bearing.target.key),
       bearing.text
     ]);
-    const points = (graph: GraphIR) => graph.points.map((point) => [point.form, point.role, point.status, point.text]);
+    const points = (graph: GraphIR) => graph.points.map((point) => [point.declaration.form, point.declaration.role, point.declaration.status, point.text]);
     const linked = compileGraph(parseDocument(source));
 
     expect(linked.diagnostics).toEqual([]);
-    expect(linked.points.map((point) => [point.form, point.role, point.text])).toEqual([
+    expect(linked.points.map((point) => [point.declaration.form, point.declaration.role, point.text])).toEqual([
       ["role", "Q", "Why did the treated samples produce a weaker signal?"],
       ["role", "C", "The detection reagent degraded before the run."],
       ["role", "G", "Positive controls were also weaker than their historical range."],
@@ -1090,7 +1090,7 @@ describe("Cogitatum language contracts", () => {
     const graph = compileGraph(parseDocument(fixture("core/independent-and-joint-support.cog.md")));
     const supports = graph.bearings.filter((bearing) => bearing.kind === "supports");
 
-    expect(graph.points.map(point => [point.id, point.role])).toEqual([
+    expect(graph.points.map(point => [point.id, point.declaration.role])).toEqual([
       ["claim", "C"], [undefined, "G"], [undefined, "G"], ["capacity", "G"], ["forecast", "G"]
     ]);
 
@@ -1355,8 +1355,8 @@ describe("Cogitatum language contracts", () => {
         ["tags:: [[phenomenology]], [[method]]", undefined],
         ["collapsed:: true", undefined]
       ]);
-    expect(graph.points.map(point => point.role)).toEqual(["Q", "C", "G"]);
-    expect(graph.points[1].status).toBe("open");
+    expect(graph.points.map(point => point.declaration.role)).toEqual(["Q", "C", "G"]);
+    expect(graph.points[1].declaration.status).toBe("open");
     expect(graph.bearings.map(bearing => [bearing.kind, bearing.sources, bearing.target])).toEqual([
       ["answers", [{ kind: "point", key: graph.points[1].key }], { kind: "point", key: graph.points[0].key }],
       ["supports", [{ kind: "point", key: graph.points[2].key }], { kind: "point", key: graph.points[1].key }]
@@ -1532,13 +1532,13 @@ describe("Cogitatum language contracts", () => {
     if (ast.blocks[0].annotation?.kind === "role") {
       ast.blocks[0].annotation.role = "G";
     }
-    graph.points[0].role = "G";
+    graph.points[0].declaration.role = "G";
 
     expect(validateAst(ast)).toBe(false);
     expect(validateGraph(graph)).toBe(false);
 
     const malformedMaterial = jsonValue(compileGraph(parseDocument("- [. @material] Material.\n")));
-    malformedMaterial.points[0].role = "G";
+    malformedMaterial.points[0].declaration.role = "G";
     expect(validateGraph(malformedMaterial)).toBe(false);
   });
 

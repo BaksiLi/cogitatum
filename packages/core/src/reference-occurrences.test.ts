@@ -16,8 +16,8 @@ describe("reference-only Point occurrences", () => {
     const { graph, explain } = compile(source);
     expect(codes(graph)).toEqual([]);
     expect(graph.points).toHaveLength(3);
-    expect(graph.points[0]).toMatchObject({ id: "premise", text: "Original premise.", form: mark ? "role" : "material" });
-    expect(graph.points[0].role).toBe(mark || undefined);
+    expect(graph.points[0]).toMatchObject({ id: "premise", text: "Original premise.", declaration: { form: mark ? "role" : "material" } });
+    expect(graph.points[0].declaration.role).toBe(mark || undefined);
     expect(relations(graph)).toEqual([
       { kind: "supports", handle: "step", sources: ["premise"], target: { kind: "point", name: "claim" } },
       { kind: "undercuts", handle: "attack", sources: ["objection"], target: { kind: "bearing", name: "step" } }
@@ -47,7 +47,7 @@ describe("reference-only Point occurrences", () => {
     const { graph } = compile("- [Q @question] Original Q.\n- [C? @claim] Original open claim.\n- [. use @question]\n  - [C @background] Not an answer.\n- [Q use @claim]\n  - [C @answer] Explicit local Q focus.");
     expect(codes(graph)).toEqual([]);
     expect(relations(graph)).toEqual([{ kind: "answers", handle: undefined, sources: ["answer"], target: { kind: "point", name: "claim" } }]);
-    expect(graph.points.find(point => point.id === "claim")?.status).toBe("open");
+    expect(graph.points.find(point => point.id === "claim")?.declaration.status).toBe("open");
   });
 
   it.each(["G use @premise", ". use @premise"])("allows a complete symbolic override for %s and exactly one attachment", mark => {

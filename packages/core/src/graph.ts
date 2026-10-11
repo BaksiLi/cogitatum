@@ -17,6 +17,7 @@ import type {
   LinkedChildFunction,
   OperatorClause,
   Point,
+  PointDeclaration,
   PointRef,
   Ref,
   Role,
@@ -917,25 +918,27 @@ function referenceLabel(ref: BearingTarget | Ref, symbols: SymbolTable): string 
 }
 
 function pointFromBlock(block: AstBlock, pointKeys: WeakMap<AstBlock, string>): Point {
-  const base = {
+  return {
     key: pointKeyForBlock(block, pointKeys),
     ...(pointAnchor(block) ? { id: pointAnchor(block) } : {}),
     text: block.text,
-    sourceSpan: block.sourceSpan
+    sourceSpan: block.sourceSpan,
+    declaration: pointDeclaration(block)
   };
+}
+
+function pointDeclaration(block: AstBlock): PointDeclaration {
   if (block.annotation?.kind === "gap") {
-    return { ...base, form: "gap", status: "open" };
+    return { form: "gap", status: "open" };
   }
   if (block.annotation?.kind === "role") {
     const annotation = block.annotation;
     if (annotation.role === "C") {
-      return annotation.status === "open"
-        ? { ...base, form: "role", role: "C", status: "open" }
-        : { ...base, form: "role", role: "C" };
+      return annotation.status === "open" ? { form: "role", role: "C", status: "open" } : { form: "role", role: "C" };
     }
-    return { ...base, form: "role", role: annotation.role };
+    return { form: "role", role: annotation.role };
   }
-  return { ...base, form: "material" };
+  return { form: "material" };
 }
 
 function pointKeyForBlock(block: AstBlock, pointKeys: WeakMap<AstBlock, string>): string {

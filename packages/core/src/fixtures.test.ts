@@ -43,7 +43,8 @@ function projectGraph(graph: GraphIR) {
     return entity.sourceSpan.startLine;
   }
   return {
-    points: graph.points.map(({ key, form, role, status, id }) => ({
+    // Portable expectations flatten declaration metadata; they are not raw Graph IR.
+    points: graph.points.map(({ key, declaration: { form, role, status }, id }) => ({
       line: refLine("point", key), form, role, status, id
     })),
     bearings: graph.bearings.map(({ key, kind, sources, target, derivedBy, handle }) => ({

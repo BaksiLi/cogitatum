@@ -71,7 +71,7 @@ describe("local joint support", () => {
     const ast = parseDocument(source);
     const { graph, explain } = compileGraphWithExplain(ast);
     expect(codes(graph)).toEqual([]);
-    expect(graph.points.map(p => [p.id, p.role, p.text])).toEqual([
+    expect(graph.points.map(p => [p.id, p.declaration.role, p.text])).toEqual([
       ["c", "C", "Conclusion."], ["a", "G", "Same prose."], ["b", "G", "Same prose."]
     ]);
     expect(routes(graph)).toEqual([{ kind: "supports", handle: "route", sources: ["a", "b"], target: { kind: "point", name: "c" } }]);
@@ -137,7 +137,7 @@ describe("local joint support", () => {
       text: "Certificate checked at the bench.", children: []
     });
     expect(ast.blocks[0].children[0].children[0].children[0].annotation).toBeUndefined();
-    expect(graph.points.map(p => [p.id, p.form, p.role, p.text])).toEqual([
+    expect(graph.points.map(p => [p.id, p.declaration.form, p.declaration.role, p.text])).toEqual([
       ["c", "role", "C", "The run can proceed."],
       ["calibration", "role", "G", "The calibration passed."],
       [undefined, "gap", undefined, "The certificate's validity period has not been checked."],
@@ -191,7 +191,7 @@ describe("local joint support", () => {
   it("rejects malformed member operators without losing child reasoning or accepting the header note", () => {
     const member = compile("- [C] Target.\n  - [linked] Route description.\n    - [G +> @] Bad operator.\n      - [O] Premise objection.\n    - [G] Second.");
     expect(codes(member)).toEqual(["MALFORMED_BEARING_TARGETS", "INVALID_LINKED_MEMBER"]);
-    expect(member.points.map(p => p.role)).toEqual(["C", "G", "O", "G"]);
+    expect(member.points.map(p => p.declaration.role)).toEqual(["C", "G", "O", "G"]);
     expect(member.bearings.map(b => b.kind)).toEqual(["challenges"]);
   });
 
@@ -215,7 +215,7 @@ describe("local joint support", () => {
 
   it("rejects a direct Gap atomically without losing it or restoring unary support", () => {
     const graph = compile("- [C] Conclusion.\n  - [linked]\n    - [G] Good premise.\n    - [?] Invalid member.");
-    expect(graph.points.map(p => [p.form, p.role, p.status, p.text])).toEqual([
+    expect(graph.points.map(p => [p.declaration.form, p.declaration.role, p.declaration.status, p.text])).toEqual([
       ["role", "C", undefined, "Conclusion."],
       ["role", "G", undefined, "Good premise."],
       ["gap", undefined, "open", "Invalid member."]
@@ -257,7 +257,7 @@ describe("local joint support", () => {
       - [G] Premise.
         - [O] Premise objection.`));
     expect(codes(graph)).toEqual(["INVALID_LINKED_MEMBER"]);
-    expect(graph.points.map(p => p.role)).toEqual(["C", "G", "O"]);
+    expect(graph.points.map(p => p.declaration.role)).toEqual(["C", "G", "O"]);
     expect(graph.bearings.map(b => b.kind)).toEqual(["challenges"]);
     expect(explain.entries[3].effects).toContainEqual(expect.objectContaining({ kind: "linkedMember", eligible: false }));
   });
@@ -289,7 +289,7 @@ describe("local joint support", () => {
     - [G @same] First.
     - [G @same] Second.
 - [O /> @route] Objection.`);
-    expect(graph.points.map(p => p.role)).toEqual(["C", "O"]);
+    expect(graph.points.map(p => p.declaration.role)).toEqual(["C", "O"]);
     expect(graph.bearings).toEqual([]);
     expect(codes(graph)).toEqual(["DUPLICATE_ID", "UNRESOLVED_BEARING_TARGET"]);
   });

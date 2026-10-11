@@ -67,15 +67,27 @@
     },
     "point": {
       "type": "object",
-      "required": ["key", "form", "text"],
+      "required": ["key", "text", "declaration"],
       "properties": {
         "key": { "$ref": "#/$defs/pointKey" },
         "id": { "$ref": "#/$defs/authoredId" },
+        "text": { "type": "string" },
+        "sourceSpan": {
+          "description": "Canonical declaration location. Use occurrences are located through Explain.",
+          "$ref": "#/$defs/sourceSpan"
+        },
+        "declaration": { "$ref": "#/$defs/pointDeclaration" }
+      },
+      "additionalProperties": false
+    },
+    "pointDeclaration": {
+      "description": "How the Point was introduced: its declaration mark. It is not a role that every later use must take; marks written at uses remain in the AST and Explain.",
+      "type": "object",
+      "required": ["form"],
+      "properties": {
         "form": { "enum": ["role", "material", "gap"] },
         "role": { "enum": ["Q", "C", "G", "O", "R", "D"] },
-        "status": { "const": "open" },
-        "text": { "type": "string" },
-        "sourceSpan": { "$ref": "#/$defs/sourceSpan" }
+        "status": { "const": "open" }
       },
       "allOf": [
         {
