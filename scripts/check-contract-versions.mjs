@@ -12,7 +12,11 @@ const typesSource = await readFile("packages/core/src/types.ts", "utf8");
 const formatVersion = /FORMAT_VERSION\s*=\s*"([^"]+)"/.exec(typesSource)?.[1];
 
 const expectedPackage = rootPackage.version;
-const expectedFormat = expectedPackage.split("-")[0];
+// PATCH releases keep the format contract; the format must share the package's MAJOR.MINOR.
+const expectedFormat = "0.4.0";
+if (expectedPackage.split("-")[0].split(".").slice(0, 2).join(".") !== expectedFormat.split(".").slice(0, 2).join(".")) {
+  throw new Error(`Package ${expectedPackage} must share MAJOR.MINOR with format ${expectedFormat}.`);
+}
 const packages = new Map([
   ["root package", rootPackage.version],
   ["lockfile", lockfile.version],
