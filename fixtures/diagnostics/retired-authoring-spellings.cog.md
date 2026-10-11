@@ -1,0 +1,11 @@
+- [. @premise] Original premise.
+- [C @claim] Claim.
+- [_ @premise +> @claim; @route]
+- [C @outer] Outer context.
+  - [@retired] A retired declaration must not become a new Point.
+    - [G @child] Valid child without an outward attachment.
+      - [O @own] The child's own subtree remains valid.
+  - [use @premise] Retired neutral use.
+    - [G @dependent] Valid child without an outward attachment.
+  - [G_] Retired selector commentary.
+  - [G @independent +> @claim] Independently targeted relation.

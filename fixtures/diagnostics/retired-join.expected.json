@@ -1,0 +1,18 @@
+{
+  "mode": "document",
+  "diagnostics": [
+    { "line": 2, "code": "RETIRED_JOIN_ANNOTATION", "severity": "error" }
+  ],
+  "graphs": [{
+    "points": [
+      { "line": 1, "form": "role", "role": "C", "id": "conclusion" },
+      { "line": 3, "form": "role", "role": "G", "id": "premise" },
+      { "line": 4, "form": "role", "role": "O", "id": "objection" },
+      { "line": 5, "form": "role", "role": "G", "id": "independent" }
+    ],
+    "bearings": [
+      { "line": 4, "kind": "challenges", "sources": [4], "target": { "kind": "point", "line": 3 }, "derivedBy": "structural" },
+      { "line": 5, "kind": "supports", "sources": [5], "target": { "kind": "point", "line": 1 }, "derivedBy": "operator", "handle": "explicit" }
+    ]
+  }]
+}

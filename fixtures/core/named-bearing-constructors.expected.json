@@ -1,0 +1,20 @@
+{
+  "mode": "document",
+  "diagnostics": [],
+  "graphs": [{
+    "points": [
+      { "line": 1, "form": "material", "id": "material" },
+      { "line": 2, "form": "role", "role": "Q", "id": "question" },
+      { "line": 3, "form": "role", "role": "C", "status": "open", "id": "claim" }
+    ],
+    "bearings": [
+      { "line": 5, "kind": "answers", "sources": [1], "target": { "kind": "point", "line": 2 }, "derivedBy": "operator", "handle": "answer" },
+      { "line": 6, "kind": "repliesTo", "sources": [2], "target": { "kind": "point", "line": 3 }, "derivedBy": "operator", "handle": "reply" },
+      { "line": 7, "kind": "clarifies", "sources": [1], "target": { "kind": "point", "line": 3 }, "derivedBy": "operator", "handle": "clarification" },
+      { "line": 8, "kind": "supports", "sources": [3], "target": { "kind": "point", "line": 1 }, "derivedBy": "operator", "handle": "support" },
+      { "line": 9, "kind": "challenges", "sources": [1], "target": { "kind": "point", "line": 3 }, "derivedBy": "operator", "handle": "challenge" },
+      { "line": 10, "kind": "undercuts", "sources": [2], "target": { "kind": "bearing", "line": 8 }, "derivedBy": "operator", "handle": "pressure" },
+      { "line": 11, "kind": "about", "sources": [2], "target": { "kind": "bearing", "line": 10 }, "derivedBy": "operator", "handle": "relevance" }
+    ]
+  }]
+}

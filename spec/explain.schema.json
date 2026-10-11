@@ -83,7 +83,7 @@
             { "$ref": "#/$defs/authoredRef" }
           ]
         },
-        "derivedBy": { "enum": ["operator", "structural"] }
+        "derivedBy": { "enum": ["operator", "structural", "retired"] }
       },
       "additionalProperties": false
     },
@@ -114,7 +114,26 @@
         {
           "type": "object",
           "required": ["kind"],
+          "properties": { "kind": { "const": "bearingUse" }, "ref": { "$ref": "#/$defs/authoredRef" } },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["kind"],
+          "properties": { "kind": { "const": "use" }, "ref": { "$ref": "#/$defs/authoredRef" }, "role": { "enum": ["Q", "C", "G", "O", "R", "D"] }, "selector": { "const": "attachment" } },
+          "allOf": [{ "if": { "required": ["selector"] }, "then": { "required": ["role"], "properties": { "role": { "enum": ["G", "O"] } } } }],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["kind"],
           "properties": { "kind": { "const": "body" } },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["kind"],
+          "properties": { "kind": { "const": "invalid" }, "selector": { "const": "attachment" } },
           "additionalProperties": false
         },
         {
@@ -123,12 +142,17 @@
           "properties": {
             "kind": { "const": "role" },
             "role": { "enum": ["Q", "C", "G", "O", "R", "D"] },
+            "selector": { "const": "attachment" },
             "status": { "const": "open" }
           },
           "allOf": [
             {
               "if": { "required": ["status"] },
               "then": { "properties": { "role": { "const": "C" } } }
+            },
+            {
+              "if": { "required": ["selector"] },
+              "then": { "properties": { "role": { "enum": ["G", "O"] } } }
             }
           ],
           "additionalProperties": false
@@ -148,7 +172,7 @@
         {
           "type": "object",
           "required": ["kind"],
-          "properties": { "kind": { "enum": ["edge", "join"] } },
+          "properties": { "kind": { "enum": ["edge", "linked"] } },
           "additionalProperties": false
         }
       ]
@@ -157,11 +181,42 @@
       "oneOf": [
         {
           "type": "object",
-          "required": ["kind", "joinSpan", "eligible"],
+          "required": ["kind", "ref", "operand"],
+          "properties": { "kind": { "const": "focusBearing" }, "ref": { "$ref": "#/$defs/bearingRef" }, "operand": { "$ref": "#/$defs/authoredRef" } },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["kind", "contextSpan"],
+          "properties": { "kind": { "const": "selectBearing" }, "contextSpan": { "$ref": "#/$defs/sourceSpan" }, "target": { "$ref": "#/$defs/bearingRef" } },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["kind", "ref", "operand"],
+          "properties": { "kind": { "const": "focusPoint" }, "ref": { "$ref": "#/$defs/pointRef" }, "operand": { "$ref": "#/$defs/authoredRef" } },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["kind", "reason"],
+          "properties": { "kind": { "const": "rejectFocus" }, "operand": { "$ref": "#/$defs/authoredRef" }, "reason": { "enum": ["reference-error", "annotation-syntax-error"] } },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["kind"],
+          "properties": { "kind": { "const": "selectAttachment" }, "ownerSpan": { "$ref": "#/$defs/sourceSpan" }, "target": { "$ref": "#/$defs/bearingRef" } },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["kind", "linkedSpan", "eligible", "function"],
           "properties": {
-            "kind": { "const": "joinMember" },
-            "joinSpan": { "$ref": "#/$defs/sourceSpan" },
-            "eligible": { "type": "boolean" }
+            "kind": { "const": "linkedMember" },
+            "linkedSpan": { "$ref": "#/$defs/sourceSpan" },
+            "eligible": { "type": "boolean" },
+            "function": { "enum": ["source", "commentary", "independent", "unclassified"] }
           },
           "additionalProperties": false
         },
@@ -178,7 +233,7 @@
             "kind": { "const": "emitPoint" },
             "ref": { "$ref": "#/$defs/pointRef" },
             "id": { "$ref": "#/$defs/authoredId" },
-            "reason": { "enum": ["role-annotation", "gap-annotation", "anchor-annotation"] }
+            "reason": { "enum": ["role-annotation", "gap-annotation", "material-annotation"] }
           },
           "additionalProperties": false
         },
@@ -200,7 +255,7 @@
             "kind": { "const": "emitBearing" },
             "ref": { "$ref": "#/$defs/emittedBearingRef" },
             "bearing": { "$ref": "#/$defs/emittedBearingSummary" },
-            "reason": { "enum": ["operator-clause", "annotated-containment", "join-containment"] }
+            "reason": { "enum": ["operator-clause", "annotated-containment", "linked-containment", "local-attachment"] }
           },
           "additionalProperties": false
         },
@@ -211,7 +266,7 @@
             "kind": { "const": "rejectBearing" },
             "bearing": { "$ref": "#/$defs/bearingSummary" },
             "reason": {
-              "enum": ["annotation-syntax-error", "edge-descendant-requires-explicit-target", "validation-error", "invalid-join"]
+              "enum": ["annotation-syntax-error", "edge-descendant-requires-explicit-target", "bearing-use-requires-explicit-target", "failed-context-requires-explicit-target", "validation-error", "invalid-linked", "no-local-attachment"]
             }
           },
           "additionalProperties": false
@@ -221,7 +276,7 @@
           "required": ["kind", "reason"],
           "properties": {
             "kind": { "const": "skipBearing" },
-            "reason": { "enum": ["no-eligible-ancestor", "no-structural-rule", "join-membership"] }
+            "reason": { "enum": ["no-eligible-ancestor", "no-structural-rule", "linked-membership"] }
           },
           "additionalProperties": false
         }

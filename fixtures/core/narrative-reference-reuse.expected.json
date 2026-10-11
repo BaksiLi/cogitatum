@@ -1,0 +1,23 @@
+{
+  "mode": "document",
+  "diagnostics": [],
+  "graphs": [{
+    "points": [
+      { "line": 2, "form": "role", "role": "C", "status": "open", "id": "observation" },
+      { "line": 3, "form": "role", "role": "C", "id": "claim" },
+      { "line": 6, "form": "role", "role": "O", "id": "objection" },
+      { "line": 7, "form": "role", "role": "R", "id": "reply" },
+      { "line": 8, "form": "role", "role": "C", "id": "second" },
+      { "line": 14, "form": "role", "role": "C", "id": "third" }
+    ],
+    "bearings": [
+      { "line": 5, "kind": "supports", "sources": [2], "target": { "kind": "point", "line": 3 }, "derivedBy": "structural", "handle": "step" },
+      { "line": 6, "kind": "undercuts", "sources": [6], "target": { "kind": "bearing", "line": 5 }, "derivedBy": "structural" },
+      { "line": 7, "kind": "repliesTo", "sources": [7], "target": { "kind": "point", "line": 6 }, "derivedBy": "structural" },
+      { "line": 9, "kind": "supports", "sources": [2, 7], "target": { "kind": "point", "line": 8 }, "derivedBy": "structural", "handle": "joint" },
+      { "line": 12, "kind": "undercuts", "sources": [6], "target": { "kind": "bearing", "line": 9 }, "derivedBy": "structural", "handle": "review" },
+      { "line": 13, "kind": "repliesTo", "sources": [7], "target": { "kind": "point", "line": 6 }, "derivedBy": "structural" },
+      { "line": 15, "kind": "supports", "sources": [3], "target": { "kind": "point", "line": 14 }, "derivedBy": "structural", "handle": "serial" }
+    ]
+  }]
+}

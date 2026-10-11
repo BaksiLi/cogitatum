@@ -62,8 +62,26 @@ The claim has the authored name `claim`. The reason and objection are anonymous:
 
 Names match `[a-z][a-z0-9_-]*` and share a namespace with named [connections](bearings.md). Prose can use any language. Keep a name across edits when the same authored item should remain identifiable; renaming requires updating references.
 
-Content can also be named without assigning a role: `[@passage]`.
+Content can also be named without assigning a role: `[. @passage]`.
 This is a Point form, not another role; the machine contract retains `form: "material"`.
 See the [complete syntax](syntax.md#annotation-grammar) for this and all other naming forms.
+
+## Reuse without redeclaring
+
+Use `[. use @p]` to bring an existing Point into the current discussion without copying its content or subtree.
+Add a local mark when its role here should create a connection:
+
+```md cog-check require=supports points=2 bearings=1 diagnostics=0
+- [C? @observation] Two retries timed out.
+- [C @claim] The shared configuration may explain the timeouts.
+  - [G use @observation] Consider that observation in this step.
+```
+
+The observation remains one open Claim in the graph; this occurrence uses it as a Ground.
+Its trailing explanation stays local rather than replacing the observation's text.
+Bare `[. use @observation]` adds no default connection, and the original declaration's role is never imported as the local role.
+Names can resolve forward within the same document or selected host unit.
+`[G @observation]` would instead declare again and receive `DUPLICATE_ID`.
+For local attachment selection, failure boundaries and unsupported occurrence status, see [reference-only occurrences](syntax.md#reference-only-occurrences).
 
 For integrations, every compiled Point has a `key`; `id` is present only when the author supplied a name. Graph references use `{ key, kind: "point" }`. Keys are local to one compilation and one graph, including one host fence. They are not stable cross-revision identifiers, source names, or global IDs. Source spans are locations, not identity.

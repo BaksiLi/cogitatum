@@ -1,5 +1,5 @@
 - [C @conclusion] Conclusion.
-  - [join; @failed-route]
+  - [linked; @failed-route]
     - [G @first] First premise.
     - [O @objection] Invalid member.
       - [R @reply] A surviving reply.
@@ -7,4 +7,4 @@
       - [G @wrapped] Invalid wrapped premise.
         - [G @child] A surviving reason for the wrapped premise.
     - [G @explicit +> @conclusion; @explicit-route] An independent explicit reason.
-- [O @undercut _> @failed-route] Failed route reference.
+- [O @undercut /> @failed-route] Failed route reference.

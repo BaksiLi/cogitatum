@@ -45,7 +45,7 @@
       "type": "object",
       "required": ["op", "sources", "target"],
       "properties": {
-        "op": { "enum": ["supports", "challenges", "undercuts", "about"] },
+        "op": { "enum": ["supports", "challenges", "undercuts", "about", "answers", "repliesTo", "clarifies"] },
         "sources": {
           "oneOf": [
             { "const": "self" },
@@ -64,7 +64,7 @@
     "selfOperatorClause": {
       "allOf": [
         { "$ref": "#/$defs/operatorClause" },
-        { "type": "object", "properties": { "sources": { "const": "self" } } }
+        { "type": "object", "properties": { "sources": { "const": "self" }, "op": { "enum": ["supports", "challenges", "undercuts", "about"] } } }
       ]
     },
     "edgeOperatorClause": {
@@ -75,13 +75,13 @@
     },
     "annotationSyntaxErrors": {
       "type": "array",
-      "items": { "enum": ["operator", "handle"] },
+      "items": { "enum": ["operator", "handle", "selector", "retired"] },
       "minItems": 1,
       "uniqueItems": true
     },
-    "joinSyntaxErrors": {
+    "linkedSyntaxErrors": {
       "type": "array",
-      "items": { "enum": ["join", "handle"] },
+      "items": { "enum": ["linked", "handle"] },
       "minItems": 1,
       "uniqueItems": true
     },
@@ -91,8 +91,47 @@
           "type": "object",
           "required": ["kind", "raw"],
           "properties": {
-            "kind": { "const": "join" },
-            "syntaxErrors": { "$ref": "#/$defs/joinSyntaxErrors" },
+            "kind": { "const": "bearingUse" },
+            "raw": { "type": "string" },
+            "ref": { "$ref": "#/$defs/ref" },
+            "syntaxErrors": { "type": "array", "items": { "const": "reference" }, "minItems": 1, "uniqueItems": true }
+          },
+          "allOf": [
+            { "if": { "not": { "required": ["syntaxErrors"] } }, "then": { "required": ["ref"] } }
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["kind", "raw"],
+          "properties": {
+            "kind": { "const": "use" },
+            "raw": { "type": "string" },
+            "ref": { "$ref": "#/$defs/ref" },
+            "role": { "enum": ["Q", "C", "G", "O", "R", "D"] },
+            "selector": { "const": "attachment" },
+            "operatorClause": { "$ref": "#/$defs/selfOperatorClause" },
+            "handle": { "$ref": "#/$defs/authoredId" },
+            "syntaxErrors": { "type": "array", "items": { "enum": ["reference", "operator", "selector", "handle", "retired"] }, "minItems": 1, "uniqueItems": true }
+          },
+          "allOf": [
+            { "if": { "not": { "required": ["syntaxErrors"] } }, "then": { "required": ["ref"] } },
+            { "if": { "required": ["selector"] }, "then": { "required": ["role"], "properties": { "role": { "enum": ["G", "O"] } }, "not": { "required": ["operatorClause"] } } }
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["kind", "raw"],
+          "properties": { "kind": { "const": "invalid" }, "raw": { "type": "string" }, "selector": { "const": "attachment" } },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["kind", "raw"],
+          "properties": {
+            "kind": { "const": "linked" },
+            "syntaxErrors": { "$ref": "#/$defs/linkedSyntaxErrors" },
             "handle": { "$ref": "#/$defs/authoredId" },
             "raw": { "type": "string" }
           },
@@ -104,6 +143,7 @@
           "properties": {
             "kind": { "const": "role" },
             "role": { "enum": ["Q", "C", "G", "O", "R", "D"] },
+            "selector": { "const": "attachment" },
             "status": { "const": "open" },
             "anchor": { "$ref": "#/$defs/authoredId" },
             "operatorClause": { "$ref": "#/$defs/selfOperatorClause" },
@@ -115,6 +155,10 @@
             {
               "if": { "required": ["status"] },
               "then": { "properties": { "role": { "const": "C" } } }
+            },
+            {
+              "if": { "required": ["selector"] },
+              "then": { "properties": { "role": { "enum": ["G", "O"] } }, "not": { "required": ["operatorClause"] } }
             }
           ],
           "additionalProperties": false
@@ -147,9 +191,9 @@
         },
         {
           "type": "object",
-          "required": ["kind", "anchor", "raw"],
+          "required": ["kind", "raw"],
           "properties": {
-            "kind": { "const": "anchor" },
+            "kind": { "const": "material" },
             "anchor": { "$ref": "#/$defs/authoredId" },
             "operatorClause": { "$ref": "#/$defs/selfOperatorClause" },
             "syntaxErrors": { "$ref": "#/$defs/annotationSyntaxErrors" },

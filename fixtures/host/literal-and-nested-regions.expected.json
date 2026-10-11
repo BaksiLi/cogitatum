@@ -1,0 +1,10 @@
+{
+  "mode": "host",
+  "diagnostics": [
+    { "line": 15, "code": "UNSUPPORTED_NESTED_COGITATUM_FENCE", "severity": "error" }
+  ],
+  "graphs": [{
+    "points": [{ "line": 20, "form": "role", "role": "C", "id": "visible" }],
+    "bearings": []
+  }]
+}

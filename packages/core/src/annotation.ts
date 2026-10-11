@@ -1,6 +1,6 @@
 import type {
   Annotation,
-  AnnotationSyntaxError,
+  BearingKind,
   BearingOp,
   Diagnostic,
   OperatorClause,
@@ -15,8 +15,18 @@ const ANCHOR_RE = /^@([a-z][a-z0-9_-]*)$/;
 const OP_TO_BEARING = new Map<string, BearingOp>([
   ["+>", "supports"],
   ["->", "challenges"],
-  ["_>", "undercuts"],
+  ["/>", "undercuts"],
   ["~>", "about"]
+]);
+const EDGE_TO_BEARING = new Map<string, BearingKind>([
+  ...OP_TO_BEARING,
+  ["supports", "supports"],
+  ["challenges", "challenges"],
+  ["undercuts", "undercuts"],
+  ["about", "about"],
+  ["answers", "answers"],
+  ["repliesTo", "repliesTo"],
+  ["clarifies", "clarifies"]
 ]);
 
 export type AnnotationParseResult = {
@@ -25,30 +35,126 @@ export type AnnotationParseResult = {
 };
 
 export function parseAnnotation(raw: string, sourceSpan?: SourceSpan): AnnotationParseResult {
+  const retired = /^\s*(?:@[a-z]|use(?=$|;|\s+@)|[GO]_)/i.test(raw) || /(?:^|\s)_>(?=$|\s)/.test(raw);
+  if (retired) {
+    const normalized = raw.replace(/^(\s*)@/, "$1. @").replace(/^(\s*)use(?=$|[\s;])/i, "$1. use").replace(/^(\s*)([GO])_/i, "$1$2/").replace(/_>/g, "/>");
+    const parsed = parseCurrentAnnotation(normalized, sourceSpan);
+    const annotation = parsed.annotation;
+    if (annotation?.kind === "bearingUse") {
+      annotation.raw = raw;
+      annotation.syntaxErrors = ["reference"];
+    } else if (annotation && annotation.kind !== "invalid" && annotation.kind !== "linked") {
+      annotation.raw = raw;
+      annotation.syntaxErrors = [...(annotation.syntaxErrors ?? []), "retired"];
+      if (annotation.kind === "use" && /^\s*use(?=$|;|\s+@)/i.test(raw)) annotation.syntaxErrors.push("reference");
+    }
+    return { annotation: /^\s*@/.test(raw) ? { kind: "invalid", raw } : annotation ?? { kind: "invalid", raw }, diagnostics: [{ severity: "error", code: "RETIRED_AUTHORING_SYNTAX", message: "Retired authoring spelling; migrate this annotation to [" + normalized + "] and reparse the original source.", sourceSpan }, ...parsed.diagnostics] };
+  }
+  return parseCurrentAnnotation(raw, sourceSpan);
+}
+
+function parseCurrentAnnotation(raw: string, sourceSpan?: SourceSpan): AnnotationParseResult {
   const diagnostics: Diagnostic[] = [];
   const trimmed = raw.trim();
   const semicolonParts = trimmed.split(";").map((part) => part.trim());
-  const edgeIntent = /^edge(?=$|[\s;])/i.test(trimmed);
+  const edgeIntent = /^(?:edge|_)(?=$|[\s;])/i.test(trimmed);
 
-  // Retain malformed join intent so its children never fall back to unary support.
+  if (/^_\s+use(?=$|[\s;])/i.test(trimmed)) {
+    const tokens = splitTokens(semicolonParts[0]);
+    const operand = tokens[2] ? parseSingleRef(tokens[2]) : undefined;
+    const valid = tokens[0] === "_" && tokens[1] === "use" && Boolean(operand) && tokens.length === 3 && semicolonParts.length === 1;
+    return {
+      annotation: { kind: "bearingUse", raw, ...(operand ? { ref: { id: operand } } : {}), ...(!valid ? { syntaxErrors: ["reference"] } : {}) },
+      diagnostics: valid ? [] : [{ severity: "error", code: "MALFORMED_BEARING_USE", message: "Bearing uses must look like [_ use @id]; they cannot declare an alias or construct an attachment.", sourceSpan }]
+    };
+  }
+
   if (/^join(?=$|[\s;])/i.test(trimmed)) {
+    return {
+      annotation: { kind: "linked", raw, syntaxErrors: ["linked"] },
+      diagnostics: [{ severity: "error", code: "RETIRED_JOIN_ANNOTATION",
+        message: "The join keyword is retired. Replace a grouping header with [linked] or [linked; @route], then recompile the original source.", sourceSpan }]
+    };
+  }
+  const useIntent = /^(?:([QCGORD](?:\?|\/)?|\?|\.)\s+)use(?=$|[\s;])/i.exec(trimmed);
+  if (useIntent) {
+    const tokens = splitTokens(semicolonParts[0]);
+    const useIndex = useIntent[1] ? 1 : 0;
+    const mark = useIntent[1];
+    const role = mark && /^[QCGORD]$/.test(mark) ? mark as Role : mark === "G/" || mark === "O/" ? mark[0] as "G" | "O" : undefined;
+    const selector = mark === "G/" || mark === "O/" ? "attachment" as const : undefined;
+    const operand = tokens[useIndex + 1] ? parseSingleRef(tokens[useIndex + 1]) : undefined;
+    const handle = semicolonParts.length === 2 ? parseSingleRef(semicolonParts[1]) : undefined;
+    const errors: ("reference" | "operator" | "selector" | "handle")[] = [];
+    if (tokens[useIndex] !== "use" || (mark !== "." && !role) || !operand || semicolonParts.length > 2) {
+      errors.push("reference");
+      diagnostics.push({ severity: "error", code: "MALFORMED_POINT_USE", message: "Point uses must look like [. use @id] or [G use @id]; occurrence status is unsupported.", sourceSpan });
+    }
+    const suffix = tokens.slice(useIndex + 2);
+    let operatorClause: (OperatorClause & { op: BearingOp; sources: "self" }) | undefined;
+    if (suffix.length) {
+      if (selector) {
+        errors.push("selector");
+        diagnostics.push({ severity: "error", code: "LOCAL_SELECTOR_WITH_EXPLICIT_CLAUSE", message: "A local selector and an explicit operator clause are mutually exclusive.", sourceSpan });
+      } else if (OP_TO_BEARING.has(suffix[0])) {
+        const clause = parseOperatorClause(suffix[0], "self", suffix.slice(1), sourceSpan, diagnostics);
+        if (clause) operatorClause = { ...clause, op: OP_TO_BEARING.get(suffix[0])!, sources: "self" };
+        else errors.push("operator");
+      } else {
+        errors.push("reference");
+        diagnostics.push({ severity: "error", code: "MALFORMED_POINT_USE", message: "After a Point use operand, only a complete symbolic operator clause is permitted.", sourceSpan });
+      }
+    }
+    if (semicolonParts.length === 2 && !handle) {
+      errors.push("handle");
+      diagnostics.push({ severity: "error", code: "MALFORMED_BEARING_HANDLE", message: "Bearing handle separator ';' must be followed by exactly one valid @id.", sourceSpan });
+    }
+    const base = { kind: "use" as const, ref: operand ? { id: operand } : undefined, handle, raw, syntaxErrors: errors.length ? errors : undefined };
+    return { annotation: selector ? { ...base, role: mark === "G/" ? "G" : "O", selector } : { ...base, role, operatorClause }, diagnostics };
+  }
+  if (/^linked(?=$|[\s;])/i.test(trimmed)) {
     const main = semicolonParts[0];
     const handle = semicolonParts.length === 2 ? parseSingleRef(semicolonParts[1]) : undefined;
-    const invalidSyntax = main !== "join" || semicolonParts.length > 2;
+    const invalidSyntax = main !== "linked" || semicolonParts.length > 2;
     const invalidHandle = semicolonParts.length === 2 && !handle;
     if (invalidSyntax) {
-      diagnostics.push({ severity: "error", code: "MALFORMED_JOIN_ANNOTATION",
-        message: "Join annotations must look like [join] or [join; @route].", sourceSpan });
+      diagnostics.push({ severity: "error", code: "MALFORMED_LINKED_ANNOTATION",
+        message: "Linked annotations must look like [linked] or [linked; @route].", sourceSpan });
     }
     if (invalidHandle) {
       diagnostics.push({ severity: "error", code: "MALFORMED_BEARING_HANDLE",
         message: "Bearing handle separator ';' must be followed by exactly one valid @id.", sourceSpan });
     }
-    const errors: ("join" | "handle")[] = [];
-    if (invalidSyntax) errors.push("join");
+    const errors: ("linked" | "handle")[] = [];
+    if (invalidSyntax) errors.push("linked");
     if (invalidHandle) errors.push("handle");
-    return { annotation: { kind: "join", raw, handle,
+    return { annotation: { kind: "linked", raw, handle,
       syntaxErrors: errors.length ? errors : undefined }, diagnostics };
+  }
+
+  const selectorIntent = /^([QCGORD?])\//i.exec(trimmed);
+  if (selectorIntent) {
+    const role = selectorIntent[1].toUpperCase();
+    if (role !== "G" && role !== "O") {
+      diagnostics.push({ severity: "error", code: "UNSUPPORTED_LOCAL_BEARING_SELECTOR", message: "Only G/ and O/ select a local Bearing attachment.", sourceSpan });
+      return { annotation: { kind: "invalid", raw }, diagnostics };
+    }
+    const tokens = splitTokens(semicolonParts[0]);
+    const anchor = tokens.length === 2 ? parseSingleRef(tokens[1]) : undefined;
+    const handle = semicolonParts.length === 2 ? parseSingleRef(semicolonParts[1]) : undefined;
+    const combined = tokens.some(token => OP_TO_BEARING.has(token));
+    const invalidSelector = tokens[0] !== role + "/" || tokens.length > 2 || (tokens.length === 2 && !anchor) || semicolonParts.length > 2;
+    const invalidHandle = semicolonParts.length === 2 && !handle;
+    const errors: ("selector" | "handle")[] = [];
+    if (invalidSelector) {
+      errors.push("selector");
+      diagnostics.push({ severity: "error", code: combined ? "LOCAL_SELECTOR_WITH_EXPLICIT_CLAUSE" : "MALFORMED_LOCAL_BEARING_SELECTOR", message: combined ? "A local selector and an explicit operator clause are mutually exclusive; use G +> @route or O /> @route instead." : "Local selectors must look like [G/], [O/ @id], or [O/ @id; @attack].", sourceSpan });
+    }
+    if (invalidHandle) {
+      errors.push("handle");
+      diagnostics.push({ severity: "error", code: "MALFORMED_BEARING_HANDLE", message: "Bearing handle separator ';' must be followed by exactly one valid @id.", sourceSpan });
+    }
+    return { annotation: { kind: "role", role, selector: "attachment", anchor, handle, raw, syntaxErrors: errors.length ? errors : undefined }, diagnostics };
   }
 
   if (semicolonParts.length > 2) {
@@ -89,17 +195,17 @@ export function parseAnnotation(raw: string, sourceSpan?: SourceSpan): Annotatio
     return { diagnostics };
   }
 
-  const opIndex = tokens.findIndex((token) => OP_TO_BEARING.has(token));
+  const opIndex = tokens.findIndex((token) => (edgeIntent ? EDGE_TO_BEARING : OP_TO_BEARING).has(token));
   if (opIndex >= 0) {
     const prefix = tokens.slice(0, opIndex);
     const targets = tokens.slice(opIndex + 1);
     const op = tokens[opIndex];
 
     if (edgeIntent) {
-      const operatorClause = prefix[0] === "edge"
+      const operatorClause = (prefix[0] === "edge" || prefix[0] === "_")
         ? parseOperatorClause(op, prefix.slice(1), targets, sourceSpan, diagnostics)
         : undefined;
-      if (prefix[0] !== "edge") {
+      if (prefix[0] !== "edge" && prefix[0] !== "_") {
         diagnostics.push({
           severity: "error",
           code: "MALFORMED_EXPLICIT_BEARING",
@@ -128,7 +234,7 @@ export function parseAnnotation(raw: string, sourceSpan?: SourceSpan): Annotatio
     return {
       annotation: {
         ...host,
-        operatorClause: operatorClause ? { ...operatorClause, sources: "self" } : undefined,
+        operatorClause: operatorClause ? { ...operatorClause, op: OP_TO_BEARING.get(op)!, sources: "self" } : undefined,
         syntaxErrors: syntaxErrors(!operatorClause, invalidHandle),
         handle
       },
@@ -141,7 +247,7 @@ export function parseAnnotation(raw: string, sourceSpan?: SourceSpan): Annotatio
     diagnostics.push({
       severity: "error",
       code: "MALFORMED_EDGE_ANNOTATION",
-      message: "Edge annotations require sources, an operator, and one target.",
+      message: "Edge annotations require sources, a symbolic operator or canonical kind, and one target.",
       sourceSpan
     });
     return {
@@ -209,20 +315,20 @@ export function parseAnnotation(raw: string, sourceSpan?: SourceSpan): Annotatio
     };
   }
 
-  const anchor = parseSingleRef(first);
-  if (anchor) {
-    if (tokens.length > 1) {
+  const anchor = tokens[1] ? parseSingleRef(tokens[1]) : undefined;
+  if (first === ".") {
+    if (tokens.length > 2 || (tokens[1] && !anchor)) {
       diagnostics.push({
         severity: "error",
         code: "MALFORMED_ANCHOR_ANNOTATION",
-        message: "Anchor-only annotations must look like [@id].",
+        message: "Neutral Point declarations must look like [.], [. @id], or [. @id +> @target].",
         sourceSpan
       });
       return { diagnostics };
     }
     return {
       annotation: {
-        kind: "anchor",
+        kind: "material",
         anchor,
         syntaxErrors: invalidHandle ? ["handle"] : undefined,
         handle,
@@ -248,7 +354,7 @@ function parseOperatorClause(
   sourceSpan: SourceSpan | undefined,
   diagnostics: Diagnostic[]
 ): OperatorClause | undefined {
-  const op = OP_TO_BEARING.get(opToken);
+  const op = EDGE_TO_BEARING.get(opToken);
   if (!op || (sourceTokens !== "self" && sourceTokens.length === 0) || targetTokens.length === 0) {
     diagnostics.push({
       severity: "error",
@@ -321,8 +427,8 @@ function duplicateRefIds(refs: Ref[]): string[] {
   return [...duplicates];
 }
 
-function syntaxErrors(invalidOperator: boolean, invalidHandle: boolean): Exclude<AnnotationSyntaxError, "join">[] | undefined {
-  const errors: Exclude<AnnotationSyntaxError, "join">[] = [];
+function syntaxErrors(invalidOperator: boolean, invalidHandle: boolean): ("operator" | "handle")[] | undefined {
+  const errors: ("operator" | "handle")[] = [];
   if (invalidOperator) {
     errors.push("operator");
   }
@@ -367,7 +473,7 @@ function parseBearingHost(
   raw: string,
   sourceSpan: SourceSpan | undefined,
   diagnostics: Diagnostic[]
-): Extract<Annotation, { kind: "role" | "gap" | "anchor" }> | undefined {
+): (Extract<Annotation, { kind: "role" | "gap" | "material" }> & { selector?: never }) | undefined {
   const first = prefix[0];
   const parsedRole = first ? parseRoleToken(first) : undefined;
 
@@ -377,7 +483,7 @@ function parseBearingHost(
       diagnostics.push({
         severity: "error",
         code: "MALFORMED_ROLE_BEARING",
-        message: "Role Bearing annotations must look like [O _> @target] or [O @id _> @target].",
+        message: "Role Bearing annotations must look like [O /> @target] or [O @id /> @target].",
         sourceSpan
       });
       return undefined;
@@ -409,15 +515,15 @@ function parseBearingHost(
     return { kind: "gap", status: "open", anchor, raw };
   }
 
-  const anchor = prefix.length === 1 ? parseSingleRef(prefix[0]) : undefined;
-  if (anchor) {
-    return { kind: "anchor", anchor, raw };
+  const anchor = prefix[1] ? parseSingleRef(prefix[1]) : undefined;
+  if (first === "." && prefix.length <= 2 && (!prefix[1] || anchor)) {
+    return { kind: "material", anchor, raw };
   }
 
   diagnostics.push({
     severity: "error",
     code: "MALFORMED_EXPLICIT_BEARING",
-    message: "Operator clauses must begin with a role, ?, @id, or the edge keyword.",
+    message: "Operator clauses must begin with a role, ?, ., edge or _.",
     sourceSpan
   });
   return undefined;

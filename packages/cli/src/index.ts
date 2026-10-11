@@ -130,7 +130,7 @@ function parseArgs(argv: string[]): CliArgs {
         diagnostics.push({
           severity: "error",
           code: "INVALID_INPUT_MODE",
-          message: "--input must be document, host, or auto."
+          message: "--input must be document or host. Auto selection is retired; choose host explicitly for Markdown."
         });
         break;
       }
@@ -153,7 +153,7 @@ function parseArgs(argv: string[]): CliArgs {
 }
 
 function isInputMode(value: string | undefined): value is SourceParseMode {
-  return value === "document" || value === "host" || value === "auto";
+  return value === "document" || value === "host";
 }
 
 function hasErrors(diagnostics: Diagnostic[]): boolean {
@@ -166,14 +166,14 @@ function printJson(value: unknown): void {
 
 function printUsage(stream: NodeJS.WritableStream = process.stderr): void {
   stream.write(`Cogitatum ${PACKAGE_VERSION} (Alpha; format ${FORMAT_VERSION})\n\n`);
-  stream.write("Usage: cog <command> [--input document|host|auto] <file>\n\n");
+  stream.write("Usage: cog <command> [--input document|host] <file>\n\n");
   stream.write("Commands:\n");
   stream.write("  check    Report deterministic syntax and reference diagnostics\n");
   stream.write("  ast      Print the ordered source AST as JSON\n");
   stream.write("  graph    Print compiled Point-Bearing Graph IR as JSON\n");
   stream.write("  explain  Print an Alpha compiler trace as JSON (optional debugging)\n\n");
   stream.write("Options:\n");
-  stream.write("  --input <mode>  document (default), host, or auto\n");
+  stream.write("  --input <mode>  document (default) or host\n");
   stream.write("  -h, --help      Show this help\n");
   stream.write("  -v, --version   Show CLI and format version\n\n");
   stream.write("Examples:\n");

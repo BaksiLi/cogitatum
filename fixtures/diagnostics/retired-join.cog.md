@@ -1,0 +1,5 @@
+- [C @conclusion] Conclusion.
+  - [join; @retired]
+    - [G @premise] Premise.
+      - [O @objection] Objection to the premise.
+    - [G @independent +> @conclusion; @explicit] Independent relation.

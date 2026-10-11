@@ -1,4 +1,4 @@
-- [O _> @route] The measurement may not represent peak traffic.
+- [O /> @route] The measurement may not represent peak traffic.
 - [edge @ground +> @claim; @route] The measurement bears on the claim.
 - [C @claim] The current allocation is sufficient.
 - [G @ground] The observed load is below capacity.

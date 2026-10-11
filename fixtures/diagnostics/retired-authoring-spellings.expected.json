@@ -1,0 +1,27 @@
+{
+  "mode": "document",
+  "diagnostics": [
+    { "line": 5, "code": "RETIRED_AUTHORING_SYNTAX", "severity": "error" },
+    { "line": 8, "code": "RETIRED_AUTHORING_SYNTAX", "severity": "error" },
+    { "line": 10, "code": "RETIRED_AUTHORING_SYNTAX", "severity": "error" },
+    { "line": 6, "code": "FAILED_CONTEXT_REQUIRES_EXPLICIT_TARGET", "severity": "error" },
+    { "line": 9, "code": "FAILED_CONTEXT_REQUIRES_EXPLICIT_TARGET", "severity": "error" }
+  ],
+  "graphs": [{
+    "points": [
+      { "line": 1, "form": "material", "id": "premise" },
+      { "line": 2, "form": "role", "role": "C", "id": "claim" },
+      { "line": 4, "form": "role", "role": "C", "id": "outer" },
+      { "line": 6, "form": "role", "role": "G", "id": "child" },
+      { "line": 7, "form": "role", "role": "O", "id": "own" },
+      { "line": 9, "form": "role", "role": "G", "id": "dependent" },
+      { "line": 10, "form": "role", "role": "G" },
+      { "line": 11, "form": "role", "role": "G", "id": "independent" }
+    ],
+    "bearings": [
+      { "line": 3, "kind": "supports", "sources": [1], "target": { "kind": "point", "line": 2 }, "derivedBy": "operator", "handle": "route" },
+      { "line": 7, "kind": "challenges", "sources": [7], "target": { "kind": "point", "line": 6 }, "derivedBy": "structural" },
+      { "line": 11, "kind": "supports", "sources": [11], "target": { "kind": "point", "line": 2 }, "derivedBy": "operator" }
+    ]
+  }]
+}
