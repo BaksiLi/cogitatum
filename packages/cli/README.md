@@ -18,8 +18,8 @@ Or, from a source checkout:
 ```sh
 npm ci
 npm run build:public
-npm exec -- cog check examples/getting-started.cog.md
-npm exec -- cog graph examples/getting-started.cog.md
+npm run cog:dist -- check examples/getting-started.cog.md
+npm run cog:dist -- graph examples/getting-started.cog.md
 ```
 
 `check` reports syntax and reference diagnostics; `ast` and `graph` print JSON projections. Use `--input host` for mixed Markdown with `cog` fences. Exit status is 0 for success, 1 for source or I/O errors, and 2 for invalid arguments. Diagnostics check the markup, not whether the reasoning succeeds.
