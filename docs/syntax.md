@@ -508,9 +508,11 @@ The source distribution's `spec/` directory contains JSON Schemas using draft 20
 import graphSchema from '@cogitatum/core/schemas/graph-ir' with { type: 'json' };
 ```
 
-Schema `$id` values now use `/schemas/0.4.0/` and must change with the format contract.
-Use the package copies for offline validation; this source candidate does not publish those URLs or update the hosted compiler.
-The hosted website and published npm Alpha remain separate release surfaces.
+Schema `$id` values use `/schemas/0.4.0/`.
+After the first official package or schema publication of this format, the released schema set and its versioned URLs are fixed; later incompatible contracts require a new format identifier and schema URLs.
+Until then, the [unpublished-candidate policy](#compatibility-and-migration) applies: the shared preview may replace its schema mirrors together with the matching compiler, while earlier deployment snapshots remain archived.
+For reproducible or offline validation, use all four schema copies from the exact package or source commit; neither the format identifier nor an unchanged source-envelope schema identifies the complete contract.
+This source change does not publish the official schema URLs or update the production compiler; the website and npm remain separate release surfaces.
 
 The AST, Graph IR, and Explain schemas validate individual projections.
 The source-envelope schema validates the shape of the multi-unit `parseSource` / `compileSource` / `explainSource` envelopes, including each projection through its sibling schema.
