@@ -2,7 +2,7 @@
 
 Cogitatum is a lightweight markup language for making selected reasoning structure explicit inside ordinary prose. This package provides its deterministic parser and compiler for Node.js and browsers.
 
-Source candidate: **0.4.0-alpha.7**, format **0.4.0**, with local `linked` support and optional linked header descriptions.
+Source candidate: **0.4.0**, format **0.4.0**, with local `linked` support and optional linked header descriptions.
 Explicit `edge` clauses can use any canonical kind name; Point-attached clauses retain the four symbolic operators.
 Reference-only `[. use @p]` or locally marked `[G use @p]` occurrences resolve an existing Point without copying its subtree or changing declaration metadata.
 Neutral Point use focuses without a default attachment.

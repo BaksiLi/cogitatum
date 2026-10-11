@@ -33,7 +33,7 @@ async function main(): Promise<void> {
   }
 
   if (argv.length === 1 && (argv[0] === "--version" || argv[0] === "-v")) {
-    process.stdout.write(`cog ${PACKAGE_VERSION} (Alpha; format ${FORMAT_VERSION})\n`);
+    process.stdout.write(`cog ${PACKAGE_VERSION} (format ${FORMAT_VERSION})\n`);
     return;
   }
 
@@ -165,7 +165,7 @@ function printJson(value: unknown): void {
 }
 
 function printUsage(stream: NodeJS.WritableStream = process.stderr): void {
-  stream.write(`Cogitatum ${PACKAGE_VERSION} (Alpha; format ${FORMAT_VERSION})\n\n`);
+  stream.write(`Cogitatum ${PACKAGE_VERSION} (format ${FORMAT_VERSION})\n\n`);
   stream.write("Usage: cog <command> [--input document|host] <file>\n\n");
   stream.write("Commands:\n");
   stream.write("  check    Report deterministic syntax and reference diagnostics\n");

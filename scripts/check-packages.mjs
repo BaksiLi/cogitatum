@@ -15,9 +15,9 @@ for (const name of ["core", "cli", "view"]) {
   const directory = join(root, "packages", name);
   const pkg = JSON.parse(readFileSync(join(directory, "package.json"), "utf8"));
   assert.equal(pkg.version, rootPackage.version);
-  assert.match(pkg.version, /^\d+\.\d+\.\d+-alpha\.\d+$/);
+  assert.match(pkg.version, /^\d+\.\d+\.\d+$/);
   if (["core", "cli"].includes(name)) {
-    assert.deepEqual(pkg.publishConfig, { access: "public", tag: "alpha" });
+    assert.deepEqual(pkg.publishConfig, { access: "public" });
     assert.notEqual(pkg.private, true);
   } else {
     assert.equal(pkg.private, true, `${pkg.name} is an experimental checkout package, not a release package.`);

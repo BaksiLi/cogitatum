@@ -1,6 +1,6 @@
 {
   "name": "@cogitatum/core",
-  "version": "0.4.0-alpha.7",
+  "version": "0.4.0",
   "description": "Parse and compile inquiry markup that makes selected reasoning structure explicit inside ordinary prose.",
   "keywords": [
     "inquiry",
@@ -23,8 +23,7 @@
     "!dist/*.test.*"
   ],
   "publishConfig": {
-    "access": "public",
-    "tag": "alpha"
+    "access": "public"
   },
   "type": "module",
   "main": "dist/index.js",

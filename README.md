@@ -23,7 +23,7 @@ Four marked points, three explicit connections. The ordinary body remains in the
 
 Published Alpha: **@cogitatum/core 0.3.0-alpha.1** and **@cogitatum/cli 0.3.0-alpha.1**, with **format 0.3.0**. Install with the `alpha` tag: `npm install @cogitatum/core@alpha`, or run the CLI with `npx --package @cogitatum/cli@alpha cog check inquiry.cog.md`. Syntax and machine contracts may change before a stable release.
 
-This checkout is the unpublished **0.4.0-alpha.7** source candidate, with **format 0.4.0**. It adds:
+This checkout is the unpublished **0.4.0** source candidate, with **format 0.4.0**. It adds:
 
 - neutral Points, `[.]` or `[. @p]`, and reuse of one identity with `[. use @p]`, `[G use @p]` or `[_ use @route]`;
 - [`linked` joint support](docs/bearings.md#local-joint-reasons), and `G/` / `O/` for the Bearing exposed by the nearest constructor;

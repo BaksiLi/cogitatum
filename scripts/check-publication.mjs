@@ -18,8 +18,8 @@ for (const name of ["core", "cli"]) {
   if (!pkg.repository?.url || pkg.repository.directory !== `packages/${name}`) {
     problems.push(`${pkg.name}: set the public Git repository URL and packages/${name} directory.`);
   }
-  if (!/^\d+\.\d+\.\d+-alpha\.\d+$/.test(pkg.version) || pkg.publishConfig?.tag !== "alpha" || pkg.publishConfig?.access !== "public") {
-    problems.push(`${pkg.name}: expected an Alpha version with public access and the alpha tag.`);
+  if (!/^\d+\.\d+\.\d+$/.test(pkg.version) || pkg.publishConfig?.tag !== undefined || pkg.publishConfig?.access !== "public") {
+    problems.push(`${pkg.name}: expected a release version (no prerelease suffix) with public access and the default tag.`);
   }
 }
 for (const name of ["view"]) {
