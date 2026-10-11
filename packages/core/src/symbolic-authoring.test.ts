@@ -30,7 +30,7 @@ describe("consolidated symbolic authoring", () => {
     expect(compact.graph.bearings[1].text).toBe("Route description.");
   });
 
-  it.each(["[_]", "[_ use @route]", "[_ @source +>]", "[_; @bad]", "[_ @source"])("retains %s as a failed Bearing boundary", header => {
+  it.each(["[_]", "[_ @source +>]", "[_; @bad]", "[_ @source"])("retains %s as a failed Bearing boundary", header => {
     const { graph, explain } = compile("- [. @source] Source.\n- [C @outer] Outer.\n  - " + header + "\n    - [G @child] Survives.\n      - [O] Its own subtree.\n    - [G @explicit +> @outer] Independent.");
     expect(explain.entries[2].recognition).toEqual({ kind: "edge" });
     expect(graph.bearings.map(bearing => bearing.kind)).toEqual(["challenges", "supports"]);

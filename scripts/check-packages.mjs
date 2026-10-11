@@ -81,6 +81,15 @@ assert.equal(reuse.graph.bearings.length, 2);
 assert.deepEqual(reuse.graph.bearings[0].sources, [{key: reuse.graph.points[0].key, kind: 'point'}]);
 assert.ok(reuse.explain.entries[2].effects.some(effect => effect.kind === 'focusPoint' && effect.ref.key === reuse.graph.points[0].key));
 assert.equal(reuse.explain.entries[3].recognition.kind, 'use');
+const bearingUse = compileGraphWithExplain(parseDocument('- [_ use @route] Local note.\\n  - [O/ @bias; @attack] Shared offset.\\n    - [O] Independent instruments.\\n    - [O/] The offset cancels.\\n- [C @p] Premise.\\n- [C @c] Claim.\\n- [_ @p supports @c; @route] Original description.'));
+assert.deepEqual(bearingUse.graph.diagnostics, []);
+assert.equal(bearingUse.graph.points.length, 5);
+assert.equal(bearingUse.graph.bearings.length, 4);
+const originalRoute = bearingUse.graph.bearings.find(bearing => bearing.handle === 'route');
+assert.equal(originalRoute.text, 'Original description.');
+assert.equal(originalRoute.sourceSpan.startLine, 7);
+assert.deepEqual(bearingUse.explain.entries[0].effects, [{kind: 'focusBearing', operand: {id: 'route'}, ref: {kind: 'bearing', key: originalRoute.key}}]);
+assert.ok(bearingUse.explain.entries[1].effects.some(effect => effect.kind === 'selectBearing' && effect.target.key === originalRoute.key));
 assert.deepEqual(local.graph.bearings[1].target, {key: local.graph.bearings[0].key, kind: 'bearing'});
 assert.ok(local.explain.entries[2].effects.some(effect => effect.kind === 'selectAttachment'));
 `;
@@ -136,6 +145,11 @@ const localSelector: Annotation = {kind: 'role', role: 'O', selector: 'attachmen
 const pointUse: Annotation = {kind: 'use', ref: {id: 'p'}, role: 'G', raw: 'G use @p'};
 const neutralPoint: Annotation = {kind: 'material', raw: '.'};
 const neutralUse: Annotation = {kind: 'use', ref: {id: 'p'}, raw: '. use @p'};
+const bearingUse: Annotation = {kind: 'bearingUse', ref: {id: 'route'}, raw: '_ use @route'};
+// @ts-expect-error A Bearing use cannot construct or alias an attachment.
+const aliasedBearingUse: Annotation = {kind: 'bearingUse', ref: {id: 'route'}, handle: 'alias', raw: ''};
+// @ts-expect-error A Bearing use cannot serve as a self-sourced Point.
+const attachedBearingUse: Annotation = {kind: 'bearingUse', ref: {id: 'route'}, operatorClause: {op: 'supports', sources: 'self', target: {id: 'c'}}, raw: ''};
 // @ts-expect-error Neutral material is a Point variant, not a local role.
 const neutralRole: Annotation = {kind: 'material', role: 'G', raw: '.'};
 const selectorUse: Annotation = {kind: 'use', ref: {id: 'p'}, role: 'O', selector: 'attachment', raw: 'O/ use @p'};

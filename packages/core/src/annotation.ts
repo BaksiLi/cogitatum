@@ -40,7 +40,10 @@ export function parseAnnotation(raw: string, sourceSpan?: SourceSpan): Annotatio
     const normalized = raw.replace(/^(\s*)@/, "$1. @").replace(/^(\s*)use(?=$|[\s;])/i, "$1. use").replace(/^(\s*)([GO])_/i, "$1$2/").replace(/_>/g, "/>");
     const parsed = parseCurrentAnnotation(normalized, sourceSpan);
     const annotation = parsed.annotation;
-    if (annotation && annotation.kind !== "invalid" && annotation.kind !== "linked") {
+    if (annotation?.kind === "bearingUse") {
+      annotation.raw = raw;
+      annotation.syntaxErrors = ["reference"];
+    } else if (annotation && annotation.kind !== "invalid" && annotation.kind !== "linked") {
       annotation.raw = raw;
       annotation.syntaxErrors = [...(annotation.syntaxErrors ?? []), "retired"];
       if (annotation.kind === "use" && /^\s*use(?=$|;|\s+@)/i.test(raw)) annotation.syntaxErrors.push("reference");
@@ -55,6 +58,16 @@ function parseCurrentAnnotation(raw: string, sourceSpan?: SourceSpan): Annotatio
   const trimmed = raw.trim();
   const semicolonParts = trimmed.split(";").map((part) => part.trim());
   const edgeIntent = /^(?:edge|_)(?=$|[\s;])/i.test(trimmed);
+
+  if (/^_\s+use(?=$|[\s;])/i.test(trimmed)) {
+    const tokens = splitTokens(semicolonParts[0]);
+    const operand = tokens[2] ? parseSingleRef(tokens[2]) : undefined;
+    const valid = tokens[0] === "_" && tokens[1] === "use" && Boolean(operand) && tokens.length === 3 && semicolonParts.length === 1;
+    return {
+      annotation: { kind: "bearingUse", raw, ...(operand ? { ref: { id: operand } } : {}), ...(!valid ? { syntaxErrors: ["reference"] } : {}) },
+      diagnostics: valid ? [] : [{ severity: "error", code: "MALFORMED_BEARING_USE", message: "Bearing uses must look like [_ use @id]; they cannot declare an alias or construct an attachment.", sourceSpan }]
+    };
+  }
 
   if (/^join(?=$|[\s;])/i.test(trimmed)) {
     return {

@@ -114,6 +114,12 @@
         {
           "type": "object",
           "required": ["kind"],
+          "properties": { "kind": { "const": "bearingUse" }, "ref": { "$ref": "#/$defs/authoredRef" } },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["kind"],
           "properties": { "kind": { "const": "use" }, "ref": { "$ref": "#/$defs/authoredRef" }, "role": { "enum": ["Q", "C", "G", "O", "R", "D"] }, "selector": { "const": "attachment" } },
           "allOf": [{ "if": { "required": ["selector"] }, "then": { "required": ["role"], "properties": { "role": { "enum": ["G", "O"] } } } }],
           "additionalProperties": false
@@ -173,6 +179,18 @@
     },
     "effect": {
       "oneOf": [
+        {
+          "type": "object",
+          "required": ["kind", "ref", "operand"],
+          "properties": { "kind": { "const": "focusBearing" }, "ref": { "$ref": "#/$defs/bearingRef" }, "operand": { "$ref": "#/$defs/authoredRef" } },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["kind", "contextSpan"],
+          "properties": { "kind": { "const": "selectBearing" }, "contextSpan": { "$ref": "#/$defs/sourceSpan" }, "target": { "$ref": "#/$defs/bearingRef" } },
+          "additionalProperties": false
+        },
         {
           "type": "object",
           "required": ["kind", "ref", "operand"],
@@ -248,7 +266,7 @@
             "kind": { "const": "rejectBearing" },
             "bearing": { "$ref": "#/$defs/bearingSummary" },
             "reason": {
-              "enum": ["annotation-syntax-error", "edge-descendant-requires-explicit-target", "failed-context-requires-explicit-target", "validation-error", "invalid-linked", "no-local-attachment"]
+              "enum": ["annotation-syntax-error", "edge-descendant-requires-explicit-target", "bearing-use-requires-explicit-target", "failed-context-requires-explicit-target", "validation-error", "invalid-linked", "no-local-attachment"]
             }
           },
           "additionalProperties": false

@@ -188,9 +188,10 @@ For complete restrictions and partial-output behavior, see [local linked blocks]
 
 ## Assess a local attachment
 
-Use G/ to support and O/ to object to the Bearing owned by the nearest ancestor constructor.
+Use G/ to support and O/ to object to the Bearing exposed by the nearest ancestor constructor.
+That is a Point occurrence's local attachment, an edge or linked block's constructed Bearing, or the existing Bearing explicitly referenced by `[_ use @route]`.
 These are ordinary G and O Points with a retained local selector, not new roles.
-Body is transparent; another Point, linked, or edge is a boundary even when its attachment is missing or rejected.
+Body is transparent; another Point, linked, edge or Bearing use is a boundary even when its attachment or focus is missing or rejected.
 Selection never scans a Point's other outgoing Bearings, crosses an unattached Point, or selects the commentary relation being created by the same annotation.
 
 ```md cog-check require=supports,undercuts,repliesTo points=6 bearings=4 diagnostics=0
@@ -206,7 +207,9 @@ Selection never scans a Point's other outgoing Bearings, crosses an unattached P
 In a Point context the ordinary table remains G supports, O challenges, D clarifies, Gap about, C answers only a locally Q-marked parent, and R repliesTo only a locally O-marked parent.
 Q and Material have no default.
 Unsuffixed roles have no default in a Bearing context; direct linked G instead contributes one source without an individual unary attachment.
-G/ and O/ select the nearest constructor's attachment in either context.
+G/ and O/ select only that nearest constructor's exposed Bearing.
+Bearing reuse adds no attachment or entity; its prose stays occurrence-local.
+See [Bearing occurrences and reading](syntax.md#bearing-occurrences-and-reading) for recursive objections and the separation of shared content from notes.
 An explicit clause overrides the ordinary default, and combining one with a selector is diagnosed.
 
 The following pair preserves selected graph structure, declaration metadata, individual instances, ordered sources and typed targets.

@@ -1,0 +1,15 @@
+- Quoted Monday record — original source context.
+  - [. @measurement] In this room-temperature trial, drift was below 0.1% after ten minutes.
+- Proposed reconstruction — separate authored content.
+  - [C @claim] This trial supports waiting ten minutes before sampling.
+    - [G use @measurement; @route] Limited to this trial, not all temperatures.
+- Later discussion — note does not replace the shared result.
+  - [. use @measurement] Ten minutes eliminates drift.
+  - [_ use @route] Discuss the earlier step here.
+    - [O/ @bias; @attack] Both samples may share an offset.
+      - [O @independent] The instruments used independent references.
+      - [O/ @cancellation] A shared offset cancels in the comparison.
+      - [R @reply] A control run checks the offset.
+- Reused discussion — same route, new local assessment.
+  - [_ use @route] The original description and source context remain accessible.
+    - [G/ @warrant] The control run used the same protocol.

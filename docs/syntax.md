@@ -25,7 +25,7 @@ Every nonblank source line must be a bullet block beginning with `- ` after inde
 ## Annotation grammar
 
 ```text
-annotation := "[" (role | gap | material | edge | linked | selector | use) "]"
+annotation := "[" (role | gap | material | edge | linked | selector | use | bearingUse) "]"
 role       := ("Q" | "C" | "C?" | "G" | "O" | "R" | "D") [REF] [OP REF] [";" REF]
 gap        := "?" [REF] [OP REF] [";" REF]
 material   := "." [REF] [OP REF] [";" REF]
@@ -37,6 +37,7 @@ ID         := [a-z][a-z0-9_-]*
 OP         := "+>" | "->" | "/>" | "~>"
 selector   := ("G/" | "O/") [REF] [";" REF]
 use        := MARK "use" REF [OP REF] [";" REF]
+bearingUse := "_" "use" REF
 MARK       := "." | "Q" | "C" | "G" | "O" | "R" | "D" | "G/" | "O/"
 KIND       := "supports" | "challenges" | "undercuts" | "about"
             | "answers" | "repliesTo" | "clarifies"
@@ -55,6 +56,7 @@ Token order and case matter; `edge`, `linked` and `use` are lowercase. Whitespac
 | `[linked; @route]` with direct Grounds | One structural joint support to the nearest enclosing Point; no new Point |
 | `[. use @p]` | Focus an existing Point without a default attachment |
 | `[G use @p; @route]` | Reuse an existing Point as a local Ground, with an attachment if the context permits |
+| `[_ use @route]` | Focus an existing validated Bearing without constructing a relation or changing its endpoints |
 | Unmarked body or grouping | No Point or Bearing of its own |
 
 Empty brackets, unfinished reserved prefixes, malformed operators, invalid names, repeated sources, and a bare `;` are errors.
@@ -92,7 +94,13 @@ Outside a linked block, without an operator, use the nearest enclosing Point:
 | `D` | Any Point | `clarifies` |
 | `?` | Any Point | `about` |
 
-Other combinations produce no structural Bearing. Body is transparent, but a declaration or use owns a new Point frame. Defaults read only its locally written mark; a bare use has no mark. An edge supplies a Bearing context: its first unsuffixed Point, possibly through body, needs an explicit operator and target. G/ and O/ may instead select its owned attachment. Once a Point frame is reached, its children use the ordinary indentation rules again. An operator overrides the structural default; it does not create a second connection.
+Other combinations produce no structural Bearing.
+Body is transparent, but a Point declaration or Point use owns a new Point frame.
+Defaults read only its locally written mark; a neutral use has no mark.
+An edge or Bearing use supplies a Bearing context: its first unsuffixed Point, possibly through body, needs an explicit operator and target.
+G/ and O/ may instead select the constructed or referenced Bearing.
+Once a Point frame is reached, its children use the ordinary indentation rules again.
+An operator overrides the structural default; it does not create a second connection.
 
 Recognized malformed `edge` headers retain this boundary in the AST, including incorrect case, an unclosed bracket, and invalid `;` separators. Their descendants cannot acquire a default connection to an outer Point because the edge failed. Valid descendant Points, their ordinary subtrees, and relations with independent explicit targets remain available in the partial result. The exact keyword is reserved: `[edgeless]` remains ordinary body.
 
@@ -131,6 +139,8 @@ Any invalid member rejects the whole joint, never a reduced source set.
 First Points below the group, including through invalid body wrappers, receive no structural connection to the outer target even after rejection.
 Valid Points and their own ordinary subtrees remain available.
 A complete explicit Point clause or direct edge remains independently authored and does not invalidate otherwise valid sources.
+A direct Bearing use is an independent occurrence, never a source, even when its reference fails.
+Its selectors discuss its explicitly referenced Bearing, not the surrounding joint.
 For example, G +> @missing rejects its own relation; incomplete G +> is unclassified and rejects the whole joint.
 Clearly retained malformed selector intent remains commentary, receives its own diagnostic, and cannot become a G source.
 A member's handle without an operator produces no default Bearing and receives `BEARING_HANDLE_WITHOUT_BEARING`.
@@ -197,6 +207,49 @@ Valid descendant declarations, their own subtrees and complete independent relat
 When only a use's attachment syntax fails, its otherwise valid Point operand retains focus but owns no attachment.
 `[. use case]` remains ordinary bracket prose; bare use intent is reserved only before @, a separator or end.
 Incorrect case, malformed reserved uses and unclosed use prefixes are diagnosed boundaries.
+
+### Bearing occurrences and reading
+
+`[_ use @route]` focuses an existing validated Bearing, including a forward reference in the same source unit.
+It emits no Point or Bearing, adds no alias, changes no endpoints, and copies neither sources nor subtrees.
+Prose after its bracket is an occurrence note; an existing or absent `Bearing.text` remains unchanged.
+`[_ use @route; @alias]` and any attachment clause on a Bearing use are errors.
+Point operands, unknown or ambiguous names and failed Bearings produce a rejected focus.
+Their frames remain boundaries: descendants cannot fall back to an outer Point or Bearing.
+Valid declarations and independently explicit relations still survive.
+
+The nearest constructor exposes one Bearing for `G/` or `O/`:
+
+| Nearest constructor | Exposed Bearing |
+| --- | --- |
+| Point declaration or Point use | Only the attachment constructed at this occurrence |
+| Explicit edge or linked block | The Bearing constructed there |
+| Bearing use | The existing validated Bearing explicitly referenced there |
+
+A referenced Bearing is a focus, not a newly owned attachment.
+Point frames shadow outer Bearing contexts; neutral Point uses and linked members expose no unary attachment.
+An ordinary O always challenges a Point, so it needs an explicit Point target directly beneath a Bearing use.
+An O beneath O/ challenges that new O Point, while a sibling O/ selects its local attack Bearing.
+R beneath O/ replies to that O Point.
+Existing explicit graph cycles remain possible; references never recursively expand source.
+
+```md cog-check require=supports,undercuts,challenges points=5 bearings=4 diagnostics=0
+- [C @premise] Measurements agree.
+- [C @claim] The comparison is reliable.
+- [_ @premise supports @claim; @route] The original inference description.
+- [_ use @route] Discuss the earlier inference here.
+  - [O/ @bias; @attack] Both measurements may share an offset.
+    - [O @independent] The instruments used independent references.
+    - [O/] A shared offset cancels in the comparison.
+```
+
+Reading must keep shared entity content, the occurrence note, original source or quoted context, and a proposed reconstruction distinguishable.
+A note such as “Ten minutes eliminates drift” does not replace a referenced result limited to one room-temperature trial, add a premise, or certify paraphrase equivalence.
+Repeated uses are not additional independent observations or speakers' agreement.
+Reuse does not rebind “I” or “yesterday” to the new section; retain access to the declaration and its original context.
+Declare a different Point when different content is intended, and keep proposed edits separate until explicitly applied.
+These distinctions are maintained through original source, ordered AST blocks and typed Explain mappings; the compiler does not infer attribution or classify quoted versus reconstructed prose.
+A graph projection cannot recover the narrative or safely rewrite an unchanged document.
 
 ## Input modes
 
@@ -286,15 +339,20 @@ For debugging, `compileGraphWithExplain` and `explainSource` add a compiler trac
 Linked recognition and linkedMember effects identify the group span, syntactic eligibility and function: source, commentary, independent or unclassified.
 Eligibility alone never certifies that the whole joint survived validation.
 selectAttachment records the nearest ownerSpan and optional candidate Bearing target; a failed candidate is not a canonical graph entity.
+For selection through a Bearing use, selectBearing instead records contextSpan and an optional validated Bearing target; it claims no new attachment ownership.
 local-attachment explains selector emissions, while no-local-attachment explains missing ownership; failed targets follow validation-error and dependency diagnostics.
 Use recognition carries the authored operand, optional local role and selector.
 focusPoint pairs an authored operand {id} with a typed resolved Point ref {key,kind}; rejectFocus records syntax or reference failure.
-Uses emit no Point; a constructed attachment still emits its own Bearing.
+Bearing-use recognition is bearingUse with an authored operand; focusBearing resolves it to a validated typed Bearing ref.
+rejectFocus also records failed Bearing uses; inspect recognition to distinguish the expected entity kind.
+Point uses emit no Point; a constructed attachment still emits its own Bearing.
+Bearing uses emit neither entity.
 The header emits with `linked-containment` or rejects with `invalid-linked`; later name/reference rejection uses `validation-error`.
 Membership eligibility does not certify that the whole linked survived validation. It explains compilation decisions, not the truth of the prose, the strength of a reason, or a history of the author's thinking. The trace is an optional Alpha interface; ordinary integrations can use AST and Graph IR alone.
 
 An AST block holds its text, raw source, children, span, and optional `annotation`. Role, anchor, status, operator, handle, and annotation errors live only inside `annotation`; there are no mirrored block-level semantic fields. A Point name appears as `annotation.anchor` in the AST and `id` in Graph IR. Ordinary body has no annotation. An `operatorClause` contains `op`, `sources`, and one authored `target: { id }`. Point annotations use `sources: "self"`; an `edge` uses a nonempty array of authored source references.
 The distinct use annotation holds ref: {id}, never a declaration anchor.
+The separate bearingUse annotation also holds ref: {id}, with no role, handle, anchor or operatorClause.
 Its operand can be absent only on a diagnosed malformed use; original raw text and occurrence prose remain inspectable.
 
 `compileGraph` and `compileGraphWithExplain` consume parser-produced ASTs of the current format and reject other format versions. They interpret `annotation`, not `raw`; changing an annotation does not rewrite the retained source text. To edit a note, change the source and parse it again. Importing arbitrary AST JSON requires validation first; compilation is not a general JSON validator.
@@ -344,16 +402,20 @@ Each document or fence unit has its own authored namespace; the same name in ano
 AST block order preserves reader order; its `sourceSpan` and Explain entry spans locate the original occurrence using one-based UTF-16 line/column positions.
 A linked header's span can identify its Bearing, and a Point annotation can identify both its Point and its attached Bearing.
 One span therefore need not select only one entity; inspect the typed emission references rather than choosing the first match.
-Use occurrence spans map through focusPoint to the original Point key; that Point's canonical span remains its declaration span.
-Several occurrence spans can map to the same Point, and an occurrence can both focus a Point and emit an attached Bearing.
-Do not invent missing spans or occurrence entities from graph keys.
+Point and Bearing occurrence spans map through focusPoint or focusBearing to the original entity key; canonical spans stay at declarations/constructions.
+Valid use block text holds the local note separately from shared entity text.
+Address an occurrence by source-unit index and Explain entry index; address its entity by source-unit index and (kind,key), scoped to that compilation.
+Several occurrences may match one entity; return their distinct locations instead of silently choosing a single span.
+Optional missing canonical spans do not justify inventing source positions or extracting narrative from Graph IR.
+An occurrence can both focus a Point and emit an attached Bearing; neither operation creates a GraphIR occurrence entity.
 Document integrations select (ref.kind, ref.key) within their document scope; host integrations additionally need the selected-unit index and separate namespace.
 Keys are local to each compilation and do not promise cross-revision identity.
 These mappings preserve reader order and original UTF-16 positions without reconstructing narrative from the graph.
-Missing GraphIR spans cannot be reconstructed from a key or handle; source selection is unavailable for such an entity.
+Missing GraphIR spans cannot be reconstructed from a key or handle; declaration navigation requires a real declaration span even when mapped occurrence spans remain available.
 GraphIR contains no additional occurrence entity and cannot reproduce the authored document from its topology.
 Executable consumer cases live in the source checkout's `fixtures/`: `core/local-linked.cog.md`, the host local-linked case, and `diagnostics/retired-join.cog.md`.
 `core/narrative-reference-reuse.cog.md` checks serial reuse, linked ordered sources, owned objections and replies, with no subtree copying.
+`core/bearing-reference-reading.cog.md` preserves quoted context, a separate reconstruction, stronger occurrence prose and repeated route discussion without changing shared content.
 `diagnostics/retired-authoring-spellings.cog.md` checks rejected migration spellings, failure boundaries and the retained independent partial graph.
 
 Format 0.3.0 replaced generated Point IDs, optional Bearing IDs, ID-based graph references, mirrored AST block fields, and the AST operator's single-element `targets` array (now `target`). Consumers must migrate together; reparse older source rather than relabelling old JSON with the new version.

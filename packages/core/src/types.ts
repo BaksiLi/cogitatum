@@ -55,6 +55,7 @@ type PointAnnotationBase = AnnotationBase & {
 
 export type Annotation =
   | { kind: "invalid"; raw: string; selector?: "attachment" }
+  | { kind: "bearingUse"; ref?: Ref; raw: string; syntaxErrors?: "reference"[] }
   | (AnnotationBase<"reference" | "operator" | "selector" | "handle" | "retired"> & {
       kind: "use";
       ref?: Ref;
@@ -167,6 +168,7 @@ export type ExplainRecognition =
   | { kind: "material" }
   | { kind: "edge" }
   | { kind: "linked" }
+  | { kind: "bearingUse"; ref?: Ref }
   | { kind: "use"; ref?: Ref; role?: Role; selector?: "attachment" };
 
 export type ExplainBearingRef = {
@@ -193,8 +195,10 @@ export type ExplainEmittedBearingSummary = Omit<BearingBase, "text" | "sourceSpa
 export type ExplainEffect =
   | { kind: "linkedMember"; linkedSpan: SourceSpan; eligible: boolean; function: LinkedChildFunction }
   | { kind: "focusPoint"; ref: PointRef; operand: Ref }
+  | { kind: "focusBearing"; ref: BearingRef; operand: Ref }
   | { kind: "rejectFocus"; operand?: Ref; reason: "reference-error" | "annotation-syntax-error" }
   | { kind: "selectAttachment"; ownerSpan?: SourceSpan; target?: BearingRef }
+  | { kind: "selectBearing"; contextSpan: SourceSpan; target?: BearingRef }
   | { kind: "preserveBody" }
   | {
       kind: "emitPoint";
@@ -215,6 +219,7 @@ export type ExplainEffect =
       reason:
         | "annotation-syntax-error"
         | "edge-descendant-requires-explicit-target"
+        | "bearing-use-requires-explicit-target"
         | "failed-context-requires-explicit-target"
         | "no-local-attachment"
         | "validation-error"

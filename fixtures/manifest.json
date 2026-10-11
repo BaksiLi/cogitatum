@@ -1,6 +1,12 @@
 {
   "fixtures": [
     {
+      "file": "core/bearing-reference-reading.cog.md",
+      "input": "document",
+      "purpose": "Point and Bearing reuse preserve shared content, source context, separate occurrence notes and recursive route discussion without replay or duplicate entities.",
+      "expected": "core/bearing-reference-reading.expected.json"
+    },
+    {
       "file": "diagnostics/retired-authoring-spellings.cog.md",
       "input": "document",
       "purpose": "Retired declaration/use/selector spelling receives migration errors while failure boundaries preserve valid descendants and independently targeted relations.",

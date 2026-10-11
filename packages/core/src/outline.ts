@@ -189,6 +189,7 @@ function toAstBlock(node: RawNode, diagnostics: Diagnostic[]): AstBlock {
   const annotationRaw = node.annotationRaw ?? (unclosedConstructor === "join" ? node.text.slice(1) : undefined);
   const unclosedSelector = node.indentationValid && !node.annotationRaw && !node.text.includes("]") && /^\[\s*[GO][_/]/i.test(node.text);
   const unclosedUse = node.indentationValid && !node.annotationRaw && !node.text.includes("]") && /^\[\s*(?:(?:[QCGORD](?:\?|[_/])?|\.)\s+)?use(?=$|;|\s+@)/i.test(node.text);
+  const unclosedBearingUse = unclosedConstructor === "_" && /^\[\s*_\s+use(?=$|[\s;])/i.test(node.text);
   const parsed = annotationRaw ? parseAnnotation(annotationRaw, node.sourceSpan) : undefined;
   if (parsed) {
     diagnostics.push(...parsed.diagnostics);
@@ -196,7 +197,7 @@ function toAstBlock(node: RawNode, diagnostics: Diagnostic[]): AstBlock {
   if (!node.annotationRaw && node.indentationValid && node.text.startsWith("[") && !node.text.includes("]") && isAnnotationCandidate(node.text.slice(1))) {
     diagnostics.push(...parseAnnotation(node.text.slice(1), node.sourceSpan).diagnostics.filter(diagnostic => diagnostic.code === "RETIRED_AUTHORING_SYNTAX"));
   }
-  const annotation = unclosedUse ? { kind: "use" as const, raw: node.text.slice(1), syntaxErrors: ["reference" as const] } : unclosedSelector ? { kind: "invalid" as const, raw: node.text.slice(1), selector: "attachment" as const } : parsed?.annotation ?? (
+  const annotation = unclosedBearingUse ? { kind: "bearingUse" as const, raw: node.text.slice(1), syntaxErrors: ["reference" as const] } : unclosedUse ? { kind: "use" as const, raw: node.text.slice(1), syntaxErrors: ["reference" as const] } : unclosedSelector ? { kind: "invalid" as const, raw: node.text.slice(1), selector: "attachment" as const } : parsed?.annotation ?? (
     unclosedConstructor === "linked"
       ? { kind: "linked" as const, raw: node.text.slice(1), syntaxErrors: ["linked" as const] }
       : (unclosedConstructor === "edge" || unclosedConstructor === "_")

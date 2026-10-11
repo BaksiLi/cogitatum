@@ -5,9 +5,13 @@ Cogitatum is a lightweight markup language for making selected reasoning structu
 Source candidate: **0.4.0-alpha.6**, format **0.4.0**, with local `linked` support and optional linked header descriptions.
 Explicit `edge` clauses can use any canonical kind name; Point-attached clauses retain the four symbolic operators.
 Reference-only `[. use @p]` or locally marked `[G use @p]` occurrences resolve an existing Point without copying its subtree or changing declaration metadata.
-Bare use focuses without a default attachment; G/ and O/ select only the nearest constructor's owned attachment.
+Neutral Point use focuses without a default attachment.
+Bearing-only `[_ use @route]` resolves a validated existing Bearing without constructing or aliasing one; its note never changes `Bearing.text`.
+G/ and O/ select only the nearest constructor's exposed Bearing: its local attachment, constructed Bearing, or explicitly referenced Bearing.
 Occurrence prose, local marks and original UTF-16 spans remain in AST/Explain; focusPoint maps each use to a typed Point ref, and rejectFocus explains lookup failure.
-Canonical Point spans remain declaration spans; several uses may map to the same Point.
+focusBearing similarly maps Bearing occurrences; selectBearing identifies a referenced context without claiming attachment ownership.
+Canonical spans remain declaration/construction spans; several uses may map to the same entity.
+Keep shared content, occurrence notes, quoted source context and proposed reconstructions separate; retained original source plus AST/Explain is required for reading, not Graph IR alone.
 This candidate is not yet published; npm `alpha` currently provides **0.3.0-alpha.1** without linked.
 
 ```sh

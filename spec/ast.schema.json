@@ -91,6 +91,17 @@
           "type": "object",
           "required": ["kind", "raw"],
           "properties": {
+            "kind": { "const": "bearingUse" },
+            "raw": { "type": "string" },
+            "ref": { "$ref": "#/$defs/ref" },
+            "syntaxErrors": { "type": "array", "items": { "const": "reference" }, "minItems": 1, "uniqueItems": true }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["kind", "raw"],
+          "properties": {
             "kind": { "const": "use" },
             "raw": { "type": "string" },
             "ref": { "$ref": "#/$defs/ref" },

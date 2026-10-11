@@ -24,6 +24,26 @@ const validateSource = ajv.compile(sourceSchema);
 const json = (value: unknown) => JSON.parse(JSON.stringify(value));
 
 describe("public compiler contract boundaries", () => {
+  it("validates typed Bearing focus and selection without admitting construction fields on use", () => {
+    const declarations = "- [C @p] Premise.\n- [C @c] Claim.\n- [_ @p +> @c; @route] Route.";
+    for (const suffix of ["\n- [_ use @route] Note.\n  - [G/] Warrant.\n  - [O/] Objection.", "\n- [_ use @p]\n  - [G/] Wrong focus.", "\n- [_ use @missing] Unknown.", "\n- [_ use @route; @alias] Invalid alias.", "\n- [_ use @route _> @c] Retired suffix.", "\n- [_ use @route"]) {
+      const ast = parseDocument(declarations + suffix);
+      const { graph, explain } = compileGraphWithExplain(ast);
+      expect(validateAst(json(ast)), JSON.stringify(validateAst.errors)).toBe(true);
+      expect(validateGraph(json(graph)), JSON.stringify(validateGraph.errors)).toBe(true);
+      expect(validateExplain(json(explain)), JSON.stringify(validateExplain.errors)).toBe(true);
+    }
+    const original = json(parseDocument(declarations + "\n- [_ use @route] Note."));
+    for (const field of ["anchor", "handle", "role", "operatorClause"]) {
+      const invalid = structuredClone(original);
+      invalid.blocks[3].annotation[field] = field === "operatorClause" ? { op: "supports", sources: "self", target: { id: "c" } } : "alias";
+      expect(validateAst(invalid), field).toBe(false);
+    }
+    const invalidExplain = json(compileGraphWithExplain(original).explain);
+    invalidExplain.entries[3].effects[0].ref.kind = "point";
+    expect(validateExplain(invalidExplain)).toBe(false);
+  });
+
   it("validates distinct use operands, local focus effects, and rejected uses", () => {
     for (const source of [
       "- [.] Anonymous neutral.\n- [. @named] Named neutral.\n- [_ @named supports @named] Explicit self-support.",

@@ -25,7 +25,8 @@ Published Alpha: **@cogitatum/core 0.3.0-alpha.1** and **@cogitatum/cli 0.3.0-al
 
 This checkout is the **0.4.0-alpha.6** source candidate, with **format 0.4.0**, local `linked` support, and optional linked header descriptions.
 Neutral `[.]` / `[. @p]` declares a Point; `[. use @p]` and locally marked uses reuse one identity.
-Explicit Bearings accept both `[_ ...]` and readable `[edge ...]` through the same constructor; `G/` / `O/` select the nearest owned attachment.
+Explicit Bearings accept both `[_ ...]` and readable `[edge ...]` through the same constructor; `[_ use @route]` presents an existing Bearing.
+`G/` / `O/` select the nearest constructor's local attachment, constructed Bearing, or explicitly referenced Bearing.
 The unpublished format identifier alone does not distinguish candidates: match the exact source/schema commit and [migrate retained source](docs/syntax.md#compatibility-and-migration).
 Explicit `edge` constructors accept all canonical kind names, including `answers`, `repliesTo`, and `clarifies`.
 Source APIs default to the owned `document` context; select Markdown explicitly with `host`.
