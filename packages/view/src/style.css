@@ -1,11 +1,55 @@
-.cog-graph { width: 100%; height: 100%; min-height: 320px; touch-action: none; font-family: inherit; color: inherit; }
-.cog-graph .cog-node { cursor: pointer; }
-.cog-graph .cog-node rect { fill: var(--cog-surface, #fafaf8); stroke: var(--cog-ink, #41413c); stroke-width: 1; }
-.cog-graph .cog-node.bearing rect { fill: var(--cog-bearing-surface, #f0ede5); }
+/* One visual vocabulary for every surface. Hosts theme it with the --cog-* properties only. */
+.cog-graph, .cog-chip {
+  --cog-ink-resolved: var(--cog-ink, #18242a);
+  --cog-surface-resolved: var(--cog-surface, #fbfcf8);
+  --cog-canvas-resolved: var(--cog-canvas, #f1f2ee);
+  --cog-muted-resolved: var(--cog-muted, #5a666b);
+  --cog-line-resolved: var(--cog-line, #8f9894);
+  --cog-positive: var(--cog-support, #357873);
+  --cog-negative: var(--cog-objection, #a8553d);
+  --cog-focus-resolved: var(--cog-focus, var(--cog-ink, #18242a));
+}
+.cog-graph { display: block; width: 100%; height: 100%; min-height: 320px; touch-action: none; font-family: inherit; color: var(--cog-ink-resolved); user-select: none; -webkit-user-select: none; cursor: grab; }
+.cog-graph[data-dragging] { cursor: grabbing; }
+
+/* Point glyphs: shape carries meaning; filled is a marked Point, open ring is Open claim, dashed ring is Gap, square is Material. */
+.cog-glyph-shape { stroke: var(--cog-ink-resolved); stroke-width: 1.3; fill: var(--cog-ink-resolved); }
+.cog-glyph-letter { font: 500 10.5px/1 ui-monospace, "IBM Plex Mono", Menlo, monospace; fill: var(--cog-surface-resolved); pointer-events: none; }
+.cog-shape-open .cog-glyph-shape, .cog-shape-gap .cog-glyph-shape, .cog-shape-material .cog-glyph-shape { fill: var(--cog-surface-resolved); }
+.cog-shape-open .cog-glyph-letter, .cog-shape-gap .cog-glyph-letter { fill: var(--cog-ink-resolved); }
+.cog-shape-gap .cog-glyph-shape { stroke-dasharray: 2.4 2.2; }
+
+/* Bearing glyphs: a circle marks one Bearing on its line; a diamond is a junction (joint or addressed Bearing). */
+.cog-bearing-glyph-shape { fill: var(--cog-surface-resolved); stroke: currentColor; stroke-width: 1.1; }
+.cog-bearing-glyph-symbol { font: 500 11px/1 ui-monospace, "IBM Plex Mono", Menlo, monospace; fill: currentColor; pointer-events: none; }
+.cog-junction .cog-bearing-glyph-shape { stroke-width: 1.3; }
+.cog-tone-support { color: var(--cog-positive); stroke: var(--cog-positive); }
+.cog-tone-objection { color: var(--cog-negative); stroke: var(--cog-negative); }
+.cog-tone-neutral { color: var(--cog-muted-resolved); stroke: var(--cog-line-resolved); }
+
+/* Fixed, readable type: the camera never scales text. */
+.cog-graph text { pointer-events: none; }
+.cog-graph .cog-text { font-size: 14px; fill: var(--cog-ink-resolved); paint-order: stroke; stroke: var(--cog-canvas-resolved); stroke-width: 4px; stroke-linejoin: round; }
+.cog-graph .cog-label { font: 12px ui-monospace, "IBM Plex Mono", Menlo, monospace; fill: var(--cog-muted-resolved); paint-order: stroke; stroke: var(--cog-canvas-resolved); stroke-width: 4px; }
+
+.cog-graph .cog-link { fill: none; stroke-width: 1.25; transition: opacity 160ms ease; }
+.cog-graph .cog-link.input { stroke-width: 1.1; }
+.cog-graph .cog-dashed { stroke-dasharray: 4 4; }
+.cog-graph .cog-arrow { fill: currentColor; stroke: none; }
+.cog-graph .cog-link-hit { fill: none; stroke: transparent; stroke-width: 16; pointer-events: stroke; cursor: pointer; }
+
+.cog-graph .cog-node { cursor: pointer; transition: opacity 160ms ease; }
+.cog-graph .cog-node.point, .cog-graph .cog-junction-node { cursor: grab; }
 .cog-graph .cog-node:focus { outline: none; }
-.cog-graph .cog-node:focus rect, .cog-graph .cog-node[aria-pressed="true"] rect { stroke: var(--cog-accent, #995032); stroke-width: 3; }
-.cog-graph text { fill: var(--cog-ink, #41413c); }
-.cog-graph .cog-label { font: 12px ui-monospace, monospace; }
-.cog-graph .cog-text { font-size: 13px; }
-.cog-graph .cog-link { fill: none; stroke: var(--cog-line, #88877e); stroke-width: 1.5; }
-.cog-graph marker path { fill: var(--cog-line, #88877e); }
+.cog-graph .cog-hit { fill: transparent; }
+.cog-graph .cog-focus-ring { fill: none; stroke: var(--cog-focus-resolved); stroke-width: 1.5; opacity: 0; }
+.cog-graph .cog-node:focus-visible .cog-focus-ring { opacity: 1; stroke-dasharray: 3 2; }
+.cog-graph .cog-node[aria-pressed="true"] .cog-focus-ring { opacity: 1; stroke-dasharray: none; }
+.cog-graph .cog-node[aria-pressed="true"] .cog-text { font-weight: 500; }
+
+/* Guidance is temporary dimming only; open/closed shapes stay legible underneath it. */
+.cog-graph[data-guided="true"] .cog-node[data-related="false"] { opacity: .28; }
+.cog-graph[data-guided="true"] .cog-link[data-active="false"], .cog-graph[data-guided="true"] .cog-arrow[data-active="false"] { opacity: .14; }
+
+@media (prefers-reduced-motion: reduce) { .cog-graph * { transition: none !important; } }
+.cog-chip { display: inline-block; vertical-align: -0.18em; overflow: visible; }

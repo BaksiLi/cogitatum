@@ -79,6 +79,7 @@ Add a local mark when its role here should create a connection:
 
 The observation remains one open Claim in the graph; this occurrence uses it as a Ground.
 Its trailing explanation stays local rather than replacing the observation's text.
+Beneath this occurrence, `[O]` challenges the shared observation itself, while [`[O/]`](bearings.md#assess-a-local-attachment) objects only to the support made here.
 Bare `[. use @observation]` adds no default connection, and the original declaration's role is never imported as the local role.
 Names can resolve forward within the same document or selected host unit.
 `[G @observation]` would instead declare again and receive `DUPLICATE_ID`.

@@ -23,24 +23,23 @@ Four marked points, three explicit connections. The ordinary body remains in the
 
 Published Alpha: **@cogitatum/core 0.3.0-alpha.1** and **@cogitatum/cli 0.3.0-alpha.1**, with **format 0.3.0**. Install with the `alpha` tag: `npm install @cogitatum/core@alpha`, or run the CLI with `npx --package @cogitatum/cli@alpha cog check inquiry.cog.md`. Syntax and machine contracts may change before a stable release.
 
-This checkout is the **0.4.0-alpha.6** source candidate, with **format 0.4.0**, local `linked` support, and optional linked header descriptions.
-Neutral `[.]` / `[. @p]` declares a Point; `[. use @p]` and locally marked uses reuse one identity.
-Explicit Bearings accept both `[_ ...]` and readable `[edge ...]` through the same constructor; `[_ use @route]` presents an existing Bearing.
-`G/` / `O/` select the nearest constructor's local attachment, constructed Bearing, or explicitly referenced Bearing.
-The unpublished format identifier alone does not distinguish candidates: match the exact source/schema commit and [migrate retained source](docs/syntax.md#compatibility-and-migration).
-Explicit `edge` constructors accept all canonical kind names, including `answers`, `repliesTo`, and `clarifies`.
-Source APIs default to the owned `document` context; select Markdown explicitly with `host`.
-Host selection follows Markdown blocks and preserves original source locations; content-dependent `auto` is retired.
-It has not been published; the npm `alpha` tag and hosted playground do not gain linked support from this source change.
-See [local joint reasons](docs/bearings.md#local-joint-reasons) and the [compatibility boundary](docs/syntax.md#machine-contract-and-cli).
+This checkout is the unpublished **0.4.0-alpha.7** source candidate, with **format 0.4.0**. It adds:
+
+- neutral Points, `[.]` or `[. @p]`, and reuse of one identity with `[. use @p]`, `[G use @p]` or `[_ use @route]`;
+- [`linked` joint support](docs/bearings.md#local-joint-reasons), and `G/` / `O/` for the Bearing exposed by the nearest constructor;
+- explicit Bearings written `[_ ...]` or `[edge ...]`, with every canonical kind name;
+- explicit source context: `document` by default, `host` for Markdown fences; content-dependent `auto` is retired.
+
+The npm `alpha` tag and the production [playground](https://cogitatum.baksili.codes/playground) still provide 0.3. A shared preview of this candidate is not a release.
+The format identifier alone does not distinguish unpublished candidates: match the exact source/schema commit and [migrate retained source](docs/syntax.md#compatibility-and-migration).
 
 With Node.js 22.12 or newer, from a source checkout:
 
 ```sh
 npm ci
 npm run build:public
-npm exec -- cog check examples/getting-started.cog.md
-npm exec -- cog graph examples/getting-started.cog.md
+npm run cog:dist -- check examples/getting-started.cog.md
+npm run cog:dist -- graph examples/getting-started.cog.md
 ```
 
 The core provides a deterministic parser and compiler for Node.js and browser integrations. The CLI checks syntax and references and prints AST or graph JSON. An optional `explain` command shows compiler decisions for debugging a note. The hosted playground lets you try the language without installation.

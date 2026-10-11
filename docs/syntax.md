@@ -7,7 +7,7 @@ order: 4
 
 # Complete syntax
 
-Public reference for **format 0.4.0**, delivered by the **0.4.0-alpha.6** source candidate packages (not yet published). Match the exact source/schema ref: this unpublished identifier covers successive authoring changes. Examples, schemas, and conformance fixtures are checked against the implementation.
+Public reference for **format 0.4.0**, delivered by the **0.4.0-alpha.7** source candidate packages (not yet published). Match the exact source/schema ref: this unpublished identifier covers successive authoring changes. Examples, schemas, and conformance fixtures are checked against the implementation.
 
 ## Outline and body
 
@@ -369,7 +369,7 @@ Explain emission references use graph keys; Bearing emissions also have a graph 
 
 ## Compatibility and migration
 
-This edition is an unpublished source candidate, package 0.4.0-alpha.6 / format 0.4.0.
+This edition is an unpublished source candidate, package 0.4.0-alpha.7 / format 0.4.0.
 Match the exact producing commit with its compiler, schemas and consumers; the retained format identifier alone does not distinguish earlier unpublished candidates.
 Reparse the retained original document with explicit document or host context.
 Relabeling older AST/Explain/source JSON cannot establish corrected selection, use mappings or new constructor shapes.

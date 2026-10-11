@@ -2,12 +2,12 @@
   "examples": [
     {
       "file": "api-timeout.cog.md",
-      "purpose": "An end-to-end technical inquiry with body, aboutness, challenge, reply, distinction, and an open route.",
+      "purpose": "A hypothetical incident review that keeps a quoted report, its reconstruction, and a later reuse of the same evidence apart; an objection to that evidence differs from objections to the new step and to the report's own step.",
       "expectedDiagnosticCodes": []
     },
     {
       "file": "assay-anomaly.cog.md",
-      "purpose": "A scientific anomaly with competing explanations and an open discriminating test.",
+      "purpose": "A hypothetical lab anomaly where two observations support the explanation only jointly, beside an independent reason, a competing explanation, and open checks.",
       "expectedDiagnosticCodes": []
     },
     {
