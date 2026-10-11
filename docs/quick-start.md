@@ -88,7 +88,7 @@ npx --package @cogitatum/cli@alpha cog graph inquiry.cog.md
 
 The published packages are `@cogitatum/core` and `@cogitatum/cli` at **0.3.0-alpha.1**. Use the `alpha` tag, or pin this exact version for a reproducible integration. To work on the compiler itself, see the [public source](https://github.com/BaksiLi/cogitatum).
 
-This checkout is an unpublished **0.4.0-alpha.6** source candidate with neutral `[.]` Points, explicit Point reuse, `linked` and local attachment commentary.
+This checkout is an unpublished **0.4.0-alpha.7** source candidate with neutral `[.]` Points, explicit Point reuse, `linked` and local attachment commentary.
 Use the [source build instructions](https://github.com/BaksiLi/cogitatum#public-alpha) to try it; match the exact compiler/schema commit and review the [migration table](syntax.md#compatibility-and-migration) before upgrading saved source.
 
 Replace the path with your file. `check` reports syntax and reference problems; `graph` prints the marked connections as JSON. For a visual result, use the playground.
