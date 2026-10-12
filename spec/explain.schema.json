@@ -73,8 +73,7 @@
         "sources": {
           "type": "array",
           "items": { "oneOf": [{ "$ref": "#/$defs/pointRef" }, { "$ref": "#/$defs/authoredRef" }] },
-          "minItems": 1,
-          "uniqueItems": true
+          "minItems": 1
         },
         "target": {
           "oneOf": [
@@ -83,7 +82,7 @@
             { "$ref": "#/$defs/authoredRef" }
           ]
         },
-        "derivedBy": { "enum": ["operator", "structural", "retired"] }
+        "derivedBy": { "enum": ["operator", "structural"] }
       },
       "additionalProperties": false
     },
@@ -93,7 +92,7 @@
         {
           "type": "object",
           "properties": {
-            "sources": { "type": "array", "items": { "$ref": "#/$defs/pointRef" } },
+            "sources": { "type": "array", "items": { "$ref": "#/$defs/pointRef" }, "uniqueItems": true },
             "target": { "oneOf": [{ "$ref": "#/$defs/pointRef" }, { "$ref": "#/$defs/bearingRef" }] }
           },
           "allOf": [

@@ -24,6 +24,55 @@ const validateSource = ajv.compile(sourceSchema);
 const json = (value: unknown) => JSON.parse(JSON.stringify(value));
 
 describe("public compiler contract boundaries", () => {
+  it.each(["use", "use;", "use; @route", "use @a,@b +> @c", ". use @a,@b +> @c", "G use invalid suffix"])(
+    "keeps error categories unique for the malformed use [%s]",
+    header => {
+      const source = `- [C @outer] Outer.\n  - [${header}] Local prose.\n    - [G @inner] Independent Point.\n      - [G @detail] Its reason.\n- [C @a] Original.`;
+      const result = explainSource(source);
+      const annotation = result.documents[0].blocks[0].children[0].annotation!;
+      expect(annotation).toMatchObject({ kind: "use", syntaxErrors: expect.arrayContaining(["reference"]) });
+      expect(annotation.syntaxErrors).toEqual([...new Set(annotation.syntaxErrors)]);
+      expect(validateSource(json(result)), JSON.stringify(validateSource.errors)).toBe(true);
+      expect(result.graphs[0].points.map(point => point.id)).toEqual(["outer", "inner", "detail", "a"]);
+      expect(result.graphs[0].bearings).toEqual([expect.objectContaining({
+        sources: [{ kind: "point", key: result.graphs[0].points[2].key }],
+        target: { kind: "point", key: result.graphs[0].points[1].key }
+      })]);
+      expect(result.explanations[0].entries[1].effects).toContainEqual(expect.objectContaining({ kind: "rejectFocus" }));
+      expect(result.diagnostics.map(diagnostic => diagnostic.code)).toContain("FAILED_CONTEXT_REQUIRES_EXPLICIT_TARGET");
+    }
+  );
+
+  it("permits only actual derivation kinds in emitted and rejected Bearing summaries", () => {
+    for (const source of ["- [C @c] Claim.\n  - [G] Reason.", "- [G +> @missing] Failed reason."]) {
+      const explain = json(compileGraphWithExplain(parseDocument(source)).explain);
+      const effect = explain.entries.flatMap((entry: any) => entry.effects).find((effect: any) => effect.bearing);
+      expect(effect).toBeDefined();
+      for (const derivedBy of ["operator", "structural"]) {
+        effect.bearing.derivedBy = derivedBy;
+        expect(validateExplain(explain), JSON.stringify(validateExplain.errors)).toBe(true);
+      }
+      effect.bearing.derivedBy = "retired";
+      expect(validateExplain(explain)).toBe(false);
+    }
+  });
+
+  it("preserves repeated sources in rejected joint summaries but rejects them in emitted summaries", () => {
+    const result = json(explainSource("- [C @c] Claim.\n  - [linked]\n    - [G @g] Source.\n    - [G use @g] Same source.\n      - [G @detail] Independent support for g."));
+    const rejected = result.explanations[0].entries[1].effects[0];
+    expect(rejected).toMatchObject({ kind: "rejectBearing", reason: "validation-error" });
+    expect(rejected.bearing.sources).toEqual([{ kind: "point", key: "_p2" }, { kind: "point", key: "_p2" }]);
+    expect(result.graphs[0].bearings).toHaveLength(1);
+    expect(result.graphs[0].bearings[0]).toMatchObject({ sources: [{ kind: "point", key: "_p3" }], target: { kind: "point", key: "_p2" } });
+    expect(result.diagnostics.map((diagnostic: any) => diagnostic.code)).toEqual(["DUPLICATE_BEARING_SOURCES"]);
+    expect(validateSource(result), JSON.stringify(validateSource.errors)).toBe(true);
+    const emitted = result.explanations[0].entries.flatMap((entry: any) => entry.effects).find((effect: any) => effect.kind === "emitBearing");
+    emitted.bearing.sources.push(structuredClone(emitted.bearing.sources[0]));
+    expect(validateExplain(result.explanations[0])).toBe(false);
+    result.graphs[0].bearings[0].sources.push(structuredClone(result.graphs[0].bearings[0].sources[0]));
+    expect(validateGraph(result.graphs[0])).toBe(false);
+  });
+
   it("validates literal notes, direct ownership and actual-selection advice across source envelopes", () => {
     const source = "- [Q @q] Inquiry.\n  - Group\n    - [C] Answer.\n      - [note] Detail.\n        - [G @q] Literal.\n          - [note @bad]\n      - [linked]\n        - [note]\n        - [G] Reason.\n- [note @bad]\n  - [C?] Literal.";
     const ast = parseDocument(source);

@@ -239,7 +239,7 @@ describe("Cogitatum language contracts", () => {
         "UNMATCHED_DEDENT"
       ]);
       expect(compiled.documents[0].blocks[0].children[1]).toMatchObject({
-        annotation: undefined,
+        annotation: { kind: "invalid", raw: "O @misaligned" },
         text: "[O @misaligned] This dedent does not match an ancestor level."
       });
     }
@@ -248,13 +248,13 @@ describe("Cogitatum language contracts", () => {
     expect(tabbed.graphs[0].points.map((point) => point.id)).toEqual(["root"]);
     expect(tabbed.diagnostics).toEqual([expect.objectContaining({ code: "TAB_INDENTATION_UNSUPPORTED" })]);
     expect(tabbed.documents[0].blocks[0].children[0]).toMatchObject({
-      annotation: undefined,
+      annotation: { kind: "invalid", raw: "G @tabbed" },
       text: "[G @tabbed] Tabbed ground."
     });
 
     const indentedRoot = compileSource("  - [C @indented] Indented root.\n", "document");
     expect(indentedRoot.graphs[0].points).toEqual([]);
-    expect(indentedRoot.documents[0].blocks[0].annotation).toBeUndefined();
+    expect(indentedRoot.documents[0].blocks[0].annotation).toEqual({ kind: "invalid", raw: "C @indented" });
     expect(indentedRoot.diagnostics).toEqual([
       expect.objectContaining({ code: "INDENTED_ROOT_UNSUPPORTED" })
     ]);

@@ -44,6 +44,47 @@ const malformedEdges = [
 ] as const;
 
 describe("parser failure boundaries", () => {
+  it.each([["\t", "document"], [" ", "document"], ["\t", "host"], [" ", "host"]] as const)("retains a failed annotation boundary at invalid indentation %j in %s", (indentation, mode) => {
+    const result = explainUnit(
+      `- [C @outer] Outer.\n` +
+      `    - [C @sibling] Establish the active indentation.\n` +
+      `${indentation}- [C @failed] Misindented Point.\n` +
+      `      - [G @inner] Must not support outer.\n` +
+      `        - [G @detail] Supports inner.\n` +
+      `      - [G @independent +> @outer] Explicit relation survives.\n` +
+      `- [G @after +> @outer] Recovered.`,
+      mode
+    );
+    expect(result.ast.blocks[0].children[1]).toMatchObject({
+      annotation: { kind: "invalid", raw: "C @failed" },
+      text: "[C @failed] Misindented Point."
+    });
+    expect(result.graph.points.map(point => point.id)).toEqual(["outer", "sibling", "inner", "detail", "independent", "after"]);
+    expect(result.graph.bearings).toEqual([
+      expect.objectContaining({ sources: [pointRef(result.graph, "detail")], target: pointRef(result.graph, "inner") }),
+      expect.objectContaining({ sources: [pointRef(result.graph, "independent")], target: pointRef(result.graph, "outer") }),
+      expect.objectContaining({ sources: [pointRef(result.graph, "after")], target: pointRef(result.graph, "outer") })
+    ]);
+    expect(result.graph.diagnostics.map(diagnostic => diagnostic.code)).toEqual([
+      indentation === "\t" ? "TAB_INDENTATION_UNSUPPORTED" : "UNMATCHED_DEDENT",
+      "FAILED_CONTEXT_REQUIRES_EXPLICIT_TARGET"
+    ]);
+    expectValidContracts(result);
+  });
+
+  it("keeps misindented ordinary prose transparent and misindented notes literal", () => {
+    const prose = explainUnit("- [C @outer] Outer.\n\t- [O-ring] Ordinary prose.\n    - [G @inner] Ground.", "document");
+    expect(prose.ast.blocks[0].children[0].annotation).toBeUndefined();
+    expect(prose.graph.bearings).toEqual([expect.objectContaining({ target: pointRef(prose.graph, "outer") })]);
+    const note = explainUnit("- [C @outer] Outer.\n\t- [note] Literal.\n    - [G @outer] No duplicate.\n    - [use] No inner error.\n- [G @after +> @outer] Active again.", "document");
+    expect(note.ast.blocks[0].children[0].annotation).toMatchObject({ kind: "note", syntaxErrors: ["note"] });
+    expect(note.graph.points.map(point => point.id)).toEqual(["outer", "after"]);
+    expect(note.graph.bearings).toHaveLength(1);
+    expect(note.graph.diagnostics.map(diagnostic => diagnostic.code)).toEqual(["TAB_INDENTATION_UNSUPPORTED", "MALFORMED_NOTE"]);
+    expectValidContracts(prose);
+    expectValidContracts(note);
+  });
+
   for (const mode of ["document", "host"] as const) {
     describe(`${mode} input`, () => {
       it.each(["constructor", "__proto__", "toString", "hasOwnProperty"])(

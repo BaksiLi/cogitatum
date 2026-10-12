@@ -1,6 +1,6 @@
 import { isAnnotationStart, isRetiredClaimStart, parseAnnotation } from "./annotation.js";
 import { FORMAT_VERSION } from "./types.js";
-import type { AstBlock, Diagnostic, DocumentAst, ParsedLine, ParseOptions, SourceSpan } from "./types.js";
+import type { Annotation, AstBlock, Diagnostic, DocumentAst, ParsedLine, ParseOptions, SourceSpan } from "./types.js";
 
 type RawNode = {
   line: ParsedLine;
@@ -41,7 +41,7 @@ function parseRawOutline(
     }
 
     const columnOffset = columnOffsets[index] ?? 0;
-    const match = /^([ \t]*)-\s+(.*)$/.exec(rawLine);
+    const match = /^([ \t]*)-(\s+)(.*)$/.exec(rawLine);
     if (!match) {
       diagnostics.push({
         severity: "error",
@@ -54,8 +54,8 @@ function parseRawOutline(
 
     const indentText = match[1];
     const indent = indentText.length;
-    const content = match[2];
-    const contentColumn = indent + 3 + columnOffset;
+    const content = match[3];
+    const contentColumn = indent + 2 + match[2].length + columnOffset;
     let indentationValid = true;
     let indentationDiagnostic: Diagnostic | undefined;
 
@@ -215,15 +215,31 @@ function toAstBlock(node: RawNode, diagnostics: Diagnostic[]): AstBlock {
   if (!parsed && !node.annotationRaw && node.indentationValid && node.text.startsWith("[") && !node.text.includes("]") && isAnnotationStart(node.text.slice(1))) {
     diagnostics.push(...parseAnnotation(node.text.slice(1), node.sourceSpan).diagnostics.filter(diagnostic => diagnostic.code === "RETIRED_AUTHORING_SYNTAX" || diagnostic.code === "RETIRED_CLAIM_OPENNESS"));
   }
-  const annotation = parsed?.annotation?.kind === "invalid" ? parsed.annotation : unclosedBearingUse ? { kind: "bearingUse" as const, raw: node.text.slice(1), syntaxErrors: ["reference" as const] } : unclosedUse ? { kind: "use" as const, raw: node.text.slice(1), syntaxErrors: ["reference" as const] } : unclosedSelector ? { kind: "invalid" as const, raw: node.text.slice(1), selector: "attachment" as const } : parsed?.annotation ?? (
-    unclosedConstructor === "linked"
-      ? { kind: "linked" as const, raw: node.text.slice(1), syntaxErrors: ["linked" as const] }
-      : (unclosedConstructor === "edge" || unclosedConstructor === "_")
-        ? { kind: "edge" as const, raw: node.text.slice(1), syntaxErrors: ["operator" as const] }
-        : parsed?.diagnostics.length || (node.indentationValid && !node.annotationRaw && classifyMalformedAnnotationPrefix(node.text))
-          ? { kind: "invalid" as const, raw: node.annotationRaw ?? node.text.slice(1) }
-          : undefined
-  );
+  // A layout error rejects the annotation, not its boundary. Treating it as
+  // body would let descendants invent attachments to a more distant Point.
+  const misindentedRaw = !node.indentationValid && node.text.startsWith("[") ? node.text.slice(1).split("]")[0] : undefined;
+  const misindentedAnnotation = misindentedRaw !== undefined && isAnnotationStart(misindentedRaw)
+    ? { kind: "invalid" as const, raw: misindentedRaw } : undefined;
+  let annotation: Annotation | undefined;
+  if (parsed?.annotation?.kind === "invalid") {
+    annotation = parsed.annotation;
+  } else if (misindentedAnnotation) {
+    annotation = misindentedAnnotation;
+  } else if (unclosedBearingUse) {
+    annotation = { kind: "bearingUse", raw: node.text.slice(1), syntaxErrors: ["reference"] };
+  } else if (unclosedUse) {
+    annotation = { kind: "use", raw: node.text.slice(1), syntaxErrors: ["reference"] };
+  } else if (unclosedSelector) {
+    annotation = { kind: "invalid", raw: node.text.slice(1), selector: "attachment" };
+  } else if (parsed?.annotation) {
+    annotation = parsed.annotation;
+  } else if (unclosedConstructor === "linked") {
+    annotation = { kind: "linked", raw: node.text.slice(1), syntaxErrors: ["linked"] };
+  } else if (unclosedConstructor === "edge" || unclosedConstructor === "_") {
+    annotation = { kind: "edge", raw: node.text.slice(1), syntaxErrors: ["operator"] };
+  } else if (parsed?.diagnostics.length || (node.indentationValid && !node.annotationRaw && classifyMalformedAnnotationPrefix(node.text))) {
+    annotation = { kind: "invalid", raw: node.annotationRaw ?? node.text.slice(1) };
+  }
   return {
     kind: "block",
     text: node.text,

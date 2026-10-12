@@ -25,6 +25,18 @@ afterAll(() => {
 });
 
 describe("cog CLI", () => {
+  it("prints valid partial output and exits with failure after a misindented annotation", () => {
+    writeFileSync(join(workingDirectory, "misindented.cog.md"), "-    [C @outer] Outer.\n\t- [C @failed] Failed.\n    - [G @inner] Inner.\n      - [G @detail] Detail.");
+    const result = runCli("graph", "misindented.cog.md");
+    expect(result.status).toBe(1);
+    expect(result.stderr).toBe("");
+    const graph = JSON.parse(result.stdout);
+    expect(graph.points.map((point: { id: string }) => point.id)).toEqual(["outer", "inner", "detail"]);
+    expect(graph.points[0].sourceSpan.startColumn).toBe(6);
+    expect(graph.bearings).toEqual([expect.objectContaining({ sources: [{ key: graph.points[2].key, kind: "point" }], target: { key: graph.points[1].key, kind: "point" } })]);
+    expect(graph.diagnostics.map((diagnostic: { code: string }) => diagnostic.code)).toEqual(["TAB_INDENTATION_UNSUPPORTED", "FAILED_CONTEXT_REQUIRES_EXPLICIT_TARGET"]);
+  });
+
   it("keeps note literals inert and advice nonblocking while retired claims fail", () => {
     writeFileSync(join(workingDirectory, "notes.cog.md"), "- [C @c] Claim.\n  - [note]\n    - [C? @c]\n    - [G +> @missing]\n  - Group\n    - [G] Reason.");
     const notes = runCli("explain", "notes.cog.md");
@@ -56,10 +68,10 @@ describe("cog CLI", () => {
     const version = runCli("--version");
 
     expect(help.status).toBe(0);
-    expect(help.stdout).toContain("Cogitatum 0.4.10 (format 0.4.0)");
+    expect(help.stdout).toContain("Cogitatum 0.4.11 (format 0.4.0)");
     expect(help.stdout).toContain("cog <command>");
     expect(version.status).toBe(0);
-    expect(version.stdout).toContain("cog 0.4.10 (format 0.4.0)");
+    expect(version.stdout).toContain("cog 0.4.11 (format 0.4.0)");
   });
 
   it("checks valid source and preserves compiler diagnostics", () => {

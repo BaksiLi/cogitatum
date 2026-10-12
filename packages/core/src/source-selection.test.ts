@@ -6,6 +6,29 @@ const fence = String.fromCharCode(96).repeat(3);
 const active = [fence + "cog", "- [C @visible] Visible.", fence].join("\n");
 
 describe("explicit Markdown source selection", () => {
+  it.each(["document", "host"] as const)("maps variable bullet spacing to exact content columns in %s", mode => {
+    const lines = ["-    [C @claim] 😀 Claim.", "  - \t [G] Reason.", "  -   [note] Literal.", "    -    [C @claim] Literal child.", "  -    [G +>] Failed clause."];
+    const source = mode === "host" ? ["  " + fence + "cog", ...lines.map(line => "  " + line), fence].join("\r\n") : lines.join("\r\n");
+    const result = explainSource(source, mode);
+    const offset = mode === "host" ? 2 : 0;
+    const lineOffset = mode === "host" ? 1 : 0;
+    const root = result.documents[0].blocks[0];
+    const blocks = [root, root.children[0], root.children[1], root.children[1].children[0], root.children[2]];
+    for (const [index, block] of blocks.entries()) {
+      expect(block.sourceSpan).toEqual({
+        startLine: index + 1 + lineOffset, startColumn: lines[index].indexOf("[") + 1 + offset,
+        endLine: index + 1 + lineOffset, endColumn: lines[index].length + 1 + offset
+      });
+      expect(block.raw).toBe(lines[index]);
+    }
+    expect(result.graphs[0].points).toHaveLength(3);
+    expect(result.graphs[0].bearings).toHaveLength(1);
+    expect(result.graphs[0].points[0].sourceSpan).toEqual(root.sourceSpan);
+    expect(result.graphs[0].bearings[0].sourceSpan).toEqual(root.children[0].sourceSpan);
+    expect(result.explanations[0].entries[2].sourceSpan).toEqual(root.children[1].sourceSpan);
+    expect(result.diagnostics).toEqual([expect.objectContaining({ code: "MALFORMED_EXPLICIT_BEARING", sourceSpan: root.children[2].sourceSpan })]);
+  });
+
   it.each(["", "  "])("selects a closed initial-BOM fence with indentation %j and original mappings", indentation => {
     const line = indentation + "- [C @bom] 😀 Initial unit.";
     const source = "\uFEFF" + indentation + fence + "cog\r\n" + line + "\r\n" + fence + "\r\n\r\n" + active;

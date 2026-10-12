@@ -340,7 +340,7 @@ describe("local joint support", () => {
     expect(codes(graph)).toEqual(["IMPLICIT_ATTACHMENT_THROUGH_BODY", "IMPLICIT_ATTACHMENT_THROUGH_BODY"]);
     expect(graph.bearings.map(b => b.sources.length)).toEqual([1, 1]);
     const ast = parseDocument("  - [linked");
-    expect(ast.blocks[0].annotation).toBeUndefined();
+    expect(ast.blocks[0].annotation).toEqual({ kind: "invalid", raw: "linked" });
     expect(ast.diagnostics.map(d => d.code)).toEqual(["INDENTED_ROOT_UNSUPPORTED"]);
   });
 });

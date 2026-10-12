@@ -7,11 +7,12 @@ order: 4
 
 # Complete syntax
 
-Public reference for **format 0.4.0**, delivered by the **0.4.10** source candidate packages (not yet published). Match the exact source/schema ref: this unpublished identifier covers successive authoring changes. Examples, schemas, and conformance fixtures are checked against the implementation.
+Public reference for **format 0.4.0**, delivered by the **0.4.11** source candidate packages (not yet published). Match the exact source/schema ref: this unpublished identifier covers successive authoring changes. Examples, schemas, and conformance fixtures are checked against the implementation.
 
 ## Outline and body
 
 Write a Markdown-style outline. Root blocks start at column one. Indent with spaces; a child can use any greater width, but a dedent must match an active ancestor level. Tabs, indented roots, and unmatched dedents are diagnosed and their apparent annotations are not compiled.
+Recognised annotations on those lines remain failed boundaries: implicit descendants cannot attach past them to an outer Point, while independent explicit relations and valid inner subtrees survive.
 
 Every nonblank source line must be a bullet block beginning with `- ` after indentation. An annotation starts the block's content after that marker. Unmarked content remains body. Other line forms produce `UNSUPPORTED_LINE` and are not represented as blocks. Blank lines do not produce blocks. The AST preserves supported block order, raw block lines, body, and source spans; byte-for-byte whitespace round trips are not promised. This is a restricted outline parser, not a complete Markdown parser.
 
@@ -456,12 +457,14 @@ An `operatorClause` may be absent from an `edge` only when `syntaxErrors` record
 
 Graph references use `{ key, kind }`; AST references remain `{ id }`. Keys are opaque, nonempty strings, deterministic for one compilation and local to one graph, with no cross-revision promise. The current compiler emits keys such as `_p1` and `_b1`; consumers must not parse their prefixes or numbers, infer array indexes from them, or use them as authored references. Use `kind` to distinguish Point and Bearing references. A Bearing has `kind`, Point `sources`, one `target`, and `derivedBy: "operator" | "structural"`; optional text describes a route.
 
-Explain emission references use graph keys; Bearing emissions also have a graph index and optional handle. The index addresses this compilation's Bearing array only. Emitted summaries obey the same kind/target restrictions as canonical Bearings. Rejected candidates can retain unresolved authored `{ id }` references or a resolved target of the wrong kind: that mismatch can explain the rejection. They are not graph entities. An entry's `diagnosticCodes` lists, once each, the codes of diagnostics whose span shares a line with the entry's span.
-A block span covers only its own line, so a child's diagnostics appear on the child's entry, not on its parent's; diagnostics without a span, or on a line that forms no block, appear only in the top-level list, which retains their actual spans.
+Explain emission references use graph keys; Bearing emissions also have a graph index and optional handle. The index addresses this compilation's Bearing array only. Emitted summaries obey the same kind/target restrictions as canonical Bearings. Rejected candidates can retain unresolved authored `{ id }` references or a resolved target of the wrong kind: that mismatch can explain the rejection. They can also retain repeated sources when explaining a rejected joint; emitted summaries and Graph IR still require unique sources.
+They are not graph entities. An entry's `diagnosticCodes` lists, once each, the codes of diagnostics whose span shares a line with the entry's span.
+A block span starts at the content after the bullet and its separating whitespace, using the actual separator width.
+It covers only its own line, so a child's diagnostics appear on the child's entry, not on its parent's; diagnostics without a span, or on a line that forms no block, appear only in the top-level list, which retains their actual spans.
 
 ## Compatibility and migration
 
-This edition is an unpublished source candidate, package 0.4.10 / format 0.4.0.
+This edition is an unpublished source candidate, package 0.4.11 / format 0.4.0.
 Match the exact producing commit with its compiler, schemas and consumers; the retained format identifier alone does not distinguish earlier unpublished candidates.
 Reparse the retained original document with explicit document or host context.
 Relabelling older AST/Explain/source JSON cannot establish corrected selection, use mappings or new constructor shapes.
@@ -472,6 +475,10 @@ C certifies neither truth, acceptance, certainty nor completion; Q and the alway
 A retired C? is a failed constructor, never an alias or ordinary body; independent explicit clauses retain normal recovery.
 Earlier 0.4.0 JSON is not silently interchangeable with this unpublished schema revision.
 Historical 0.3 research records remain evidence of that version's behaviour.
+
+Package 0.4.11 retains failed boundaries at invalid indentation, corrects content columns after wider bullet separators, and keeps malformed-use error categories unique.
+Its Explain schema permits repeated sources only in rejected summaries and rejects the unsupported `derivedBy: "retired"` value.
+Reparse affected source and validate against this complete schema bundle; a matching format label alone does not identify these corrections.
 
 Package 0.4.10 changes recognition and some partial graphs, so reparse retained source rather than reusing stored AST, Graph IR or Explain.
 Bracketed words that merely begin with a mark letter, such as `[O-ring]`, `[C++]` or `[G/O ratio]`, are now body.
