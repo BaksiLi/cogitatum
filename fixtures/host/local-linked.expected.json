@@ -3,7 +3,7 @@
   "diagnostics": [],
   "graphs": [{
     "points": [
-      { "line": 3, "form": "role", "role": "C", "status": "open", "id": "conclusion" },
+      { "line": 3, "form": "role", "role": "C", "id": "conclusion" },
       { "line": 5, "form": "role", "role": "G", "id": "premise" },
       { "line": 6, "form": "role", "role": "O" }
     ],

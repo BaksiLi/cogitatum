@@ -25,6 +25,19 @@ afterAll(() => {
 });
 
 describe("cog CLI", () => {
+  it("keeps note literals inert and advice nonblocking while retired claims fail", () => {
+    writeFileSync(join(workingDirectory, "notes.cog.md"), "- [C @c] Claim.\n  - [note]\n    - [C? @c]\n    - [G +> @missing]\n  - Group\n    - [G] Reason.");
+    const notes = runCli("explain", "notes.cog.md");
+    expect(notes.status).toBe(0);
+    const explanation = JSON.parse(notes.stdout);
+    expect(explanation.diagnostics).toEqual([expect.objectContaining({ code: "IMPLICIT_ATTACHMENT_THROUGH_BODY", severity: "suggestion" })]);
+    expect(explanation.entries[1].recognition).toEqual({ kind: "note" });
+    writeFileSync(join(workingDirectory, "retired.cog.md"), "- [C?] Old claim.\n  - [G] Cannot fall back.");
+    const retired = runCli("check", "retired.cog.md");
+    expect(retired.status).toBe(1);
+    expect(JSON.parse(retired.stdout).diagnostics.map((diagnostic: { code: string }) => diagnostic.code)).toContain("RETIRED_CLAIM_OPENNESS");
+  });
+
   it("requires an explicit context instead of accepting auto", () => {
     const result = runCli("check", "--input", "auto", "valid.cog.md");
     expect(result.status).toBe(2);
@@ -43,10 +56,10 @@ describe("cog CLI", () => {
     const version = runCli("--version");
 
     expect(help.status).toBe(0);
-    expect(help.stdout).toContain("Cogitatum 0.4.8 (format 0.4.0)");
+    expect(help.stdout).toContain("Cogitatum 0.4.9 (format 0.4.0)");
     expect(help.stdout).toContain("cog <command>");
     expect(version.status).toBe(0);
-    expect(version.stdout).toContain("cog 0.4.8 (format 0.4.0)");
+    expect(version.stdout).toContain("cog 0.4.9 (format 0.4.0)");
   });
 
   it("checks valid source and preserves compiler diagnostics", () => {

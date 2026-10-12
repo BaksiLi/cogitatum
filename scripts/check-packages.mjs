@@ -54,7 +54,7 @@ for (const name of ["ast", "graph-ir", "explain", "source"]) {
 }
 const probe = `
 import assert from 'node:assert/strict';
-import { compileGraphWithExplain, compileSource, parseDocument } from '@cogitatum/core';
+import { compileGraph, compileGraphWithExplain, compileSource, parseDocument } from '@cogitatum/core';
 const { graph, explain } = compileGraphWithExplain(parseDocument('- Ordinary context.\\n  - [C @claim] A claim.\\n    - [G; @route] A reason.\\n- [O /> @route] A route objection.\\n'));
 assert.equal(graph.points.length, 3);
 assert.equal(graph.points[1].id, undefined);
@@ -72,11 +72,11 @@ assert.deepEqual(host.diagnostics, []);
 const local = compileGraphWithExplain(parseDocument('- [C @claim] Claim.\\n  - [G; @step] Ground.\\n    - [O/] Assessment.'));
 assert.deepEqual(local.graph.diagnostics, []);
 assert.equal(local.graph.bearings[1].kind, 'undercuts');
-const reuse = compileGraphWithExplain(parseDocument('- [C? @premise] Original.\\n- [C @claim] Claim.\\n  - [G use @premise; @step] Local prose.\\n    - [O/ use @premise] Reuse as objection.'));
+const reuse = compileGraphWithExplain(parseDocument('- [C @premise] Original.\\n- [C @claim] Claim.\\n  - [G use @premise; @step] Local prose.\\n    - [O/ use @premise] Reuse as objection.'));
 assert.deepEqual(reuse.graph.diagnostics, []);
 assert.equal(reuse.graph.points.length, 2);
 assert.equal(reuse.graph.points[0].text, 'Original.');
-assert.deepEqual(reuse.graph.points[0].declaration, {form: 'role', role: 'C', status: 'open'});
+assert.deepEqual(reuse.graph.points[0].declaration, {form: 'role', role: 'C'});
 assert.equal('status' in reuse.graph.points[0], false);
 assert.equal(reuse.graph.bearings.length, 2);
 assert.deepEqual(reuse.graph.bearings[0].sources, [{key: reuse.graph.points[0].key, kind: 'point'}]);
@@ -93,6 +93,15 @@ assert.deepEqual(bearingUse.explain.entries[0].effects, [{kind: 'focusBearing', 
 assert.ok(bearingUse.explain.entries[1].effects.some(effect => effect.kind === 'selectBearing' && effect.target.key === originalRoute.key));
 assert.deepEqual(local.graph.bearings[1].target, {key: local.graph.bearings[0].key, kind: 'bearing'});
 assert.ok(local.explain.entries[2].effects.some(effect => effect.kind === 'selectAttachment'));
+const notes = compileGraphWithExplain(parseDocument('- [C @c] Claim.\\n  - [note] Detail.\\n    - [C? @c] Quoted retired syntax.\\n    - [G +> @missing] Literal.\\n  - Group\\n    - [G] Reason.'));
+assert.equal(notes.graph.points.length, 2);
+assert.equal(notes.graph.bearings.length, 1);
+assert.deepEqual(notes.graph.diagnostics.map(diagnostic => [diagnostic.code, diagnostic.severity]), [['IMPLICIT_ATTACHMENT_THROUGH_BODY', 'suggestion']]);
+assert.deepEqual(notes.explain.entries[1].effects, [{kind: 'preserveNote', parentSpan: notes.graph.points[0].sourceSpan}]);
+assert.ok(notes.explain.entries[3].effects.some(effect => effect.kind === 'implicitAttachment' && effect.target.key === notes.graph.points[0].key && effect.crossedBodySpans[0].startLine === 5));
+const retired = compileGraph(parseDocument('- [C? @old] Retired.'));
+assert.deepEqual(retired.points, []);
+assert.equal(retired.diagnostics[0].code, 'RETIRED_CLAIM_OPENNESS');
 `;
 run(process.execPath, ["--input-type=module", "-e", probe], temporary);
 // Consumers may set the development condition; the package must remain usable.
@@ -138,8 +147,10 @@ const declaredName: string | undefined = points[0] && declarationMark(points[0].
 const flatRole = points[0]?.role;
 // @ts-expect-error Points cannot mix flat and nested declaration metadata.
 const mixedPoint: Point = {key: 'p', text: 'Claim.', form: 'role', role: 'C', declaration: {form: 'role', role: 'C'}};
-// @ts-expect-error Only a declared Claim admits open status.
+// @ts-expect-error Only Gap admits open status.
 const openGround: PointDeclaration = {form: 'role', role: 'G', status: 'open'};
+// @ts-expect-error Claim openness is retired.
+const openClaim: PointDeclaration = {form: 'role', role: 'C', status: 'open'};
 // @ts-expect-error A Gap declaration is always open.
 const closedGap: PointDeclaration = {form: 'gap'};
 const keys: string[] = bearings.flatMap(bearing => bearing.sources.map(source => source.key));
@@ -149,12 +160,15 @@ const summary = {key: 'another-route', sources: [pointTarget], derivedBy: 'opera
 const undercut: ExplainEmittedBearingSummary = {...summary, kind: 'undercuts', target: routeTarget};
 // @ts-expect-error An emitted undercut cannot target a Point.
 const invalidUndercut: ExplainEmittedBearingSummary = {...summary, kind: 'undercuts', target: pointTarget};
-// @ts-expect-error Only C admits open role status.
+// @ts-expect-error Role-level openness is unsupported.
 const invalidRole: Annotation = {kind: 'role', role: 'G', status: 'open', raw: 'G?'};
 const namedKind: Annotation = {kind: 'edge', raw: 'edge @a answers @b', operatorClause: {op: 'answers', sources: [{id: 'a'}], target: {id: 'b'}}};
 const localSelector: Annotation = {kind: 'role', role: 'O', selector: 'attachment', raw: 'O/'};
 const pointUse: Annotation = {kind: 'use', ref: {id: 'p'}, role: 'G', raw: 'G use @p'};
 const neutralPoint: Annotation = {kind: 'material', raw: '.'};
+const literalNote: Annotation = {kind: 'note', raw: 'note'};
+// @ts-expect-error Notes cannot declare identities.
+const namedNote: Annotation = {kind: 'note', raw: 'note', anchor: 'note'};
 const neutralUse: Annotation = {kind: 'use', ref: {id: 'p'}, raw: '. use @p'};
 const bearingUse: Annotation = {kind: 'bearingUse', ref: {id: 'route'}, raw: '_ use @route'};
 // @ts-expect-error A Bearing use cannot construct or alias an attachment.

@@ -14,11 +14,11 @@ const projection = (graph: GraphIR) => {
 
 describe("local Bearing attachment selectors", () => {
   it("matches complete targets without losing declaration metadata, instances or ordered endpoints", () => {
-    const prefix = "- [C? @claim] Claim.\n  - [G @premise; @step] Premise.\n    - Narrative.\n";
+    const prefix = "- [C @claim] Claim.\n  - [G @premise; @step] Premise.\n    - Narrative.\n";
     const suffix = "\n        - [R @reply] Reply.";
     const local = compile(prefix + "      - [G/ @warrant; @backing] Warrant.\n      - [O/ @objection; @attack] Objection." + suffix);
     const explicit = compile(prefix + "      - [G @warrant +> @step; @backing] Warrant.\n      - [O @objection /> @step; @attack] Objection." + suffix);
-    expect(codes(local.graph)).toEqual([]);
+    expect(codes(local.graph)).toEqual(["IMPLICIT_ATTACHMENT_THROUGH_BODY", "IMPLICIT_ATTACHMENT_THROUGH_BODY"]);
     expect(codes(explicit.graph)).toEqual([]);
     expect(projection(local.graph)).toEqual(projection(explicit.graph));
     expect(local.graph.bearings.map(bearing => bearing.kind)).toEqual(["supports", "supports", "undercuts", "repliesTo"]);
@@ -82,7 +82,7 @@ describe("local Bearing attachment selectors", () => {
 
   it("supports edge/body selection and recursive commentary but keeps unsuffixed edge defaults explicit", () => {
     const { graph } = compile("- [C @claim] Claim.\n- [G @reason] Reason.\n- [edge @reason +> @claim; @step]\n  - Body.\n    - [O/ @objection; @attack] Assessment.\n      - [G/] Ground for the attack.\n      - [R] Reply.\n  - [O] Still requires a target.");
-    expect(codes(graph)).toEqual(["EDGE_DESCENDANT_REQUIRES_EXPLICIT_TARGET"]);
+    expect(codes(graph)).toEqual(["EDGE_DESCENDANT_REQUIRES_EXPLICIT_TARGET", "IMPLICIT_ATTACHMENT_THROUGH_BODY"]);
     expect(graph.bearings.map(bearing => bearing.kind)).toEqual(["supports", "undercuts", "supports", "repliesTo"]);
     expect(graph.bearings[2].target.key).toBe(graph.bearings[1].key);
   });

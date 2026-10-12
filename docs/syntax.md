@@ -7,7 +7,7 @@ order: 4
 
 # Complete syntax
 
-Public reference for **format 0.4.0**, delivered by the **0.4.8** source candidate packages (not yet published). Match the exact source/schema ref: this unpublished identifier covers successive authoring changes. Examples, schemas, and conformance fixtures are checked against the implementation.
+Public reference for **format 0.4.0**, delivered by the **0.4.9** source candidate packages (not yet published). Match the exact source/schema ref: this unpublished identifier covers successive authoring changes. Examples, schemas, and conformance fixtures are checked against the implementation.
 
 ## Outline and body
 
@@ -15,7 +15,7 @@ Write a Markdown-style outline. Root blocks start at column one. Indent with spa
 
 Every nonblank source line must be a bullet block beginning with `- ` after indentation. An annotation starts the block's content after that marker. Unmarked content remains body. Other line forms produce `UNSUPPORTED_LINE` and are not represented as blocks. Blank lines do not produce blocks. The AST preserves supported block order, raw block lines, body, and source spans; byte-for-byte whitespace round trips are not promised. This is a restricted outline parser, not a complete Markdown parser.
 
-```md cog-check require=supports points=2 bearings=1 diagnostics=0
+```md cog-check require=supports points=2 bearings=1 diagnostics=1
 - Ordinary context.
   - [C @claim] A claim.
     - An unmarked explanation.
@@ -25,12 +25,13 @@ Every nonblank source line must be a bullet block beginning with `- ` after inde
 ## Annotation grammar
 
 ```text
-annotation := "[" (role | gap | material | edge | linked | selector | use | bearingUse) "]"
-role       := ("Q" | "C" | "C?" | "G" | "O" | "R" | "D") [REF] [OP REF] [";" REF]
+annotation := "[" (role | gap | material | edge | linked | selector | use | bearingUse | note) "]"
+role       := ("Q" | "C" | "G" | "O" | "R" | "D") [REF] [OP REF] [";" REF]
 gap        := "?" [REF] [OP REF] [";" REF]
 material   := "." [REF] [OP REF] [";" REF]
 edge       := ("edge" | "_") REF_LIST (OP | KIND) REF [";" REF]
 linked     := "linked" [";" REF]
+note       := "note"
 REF_LIST   := REF ("," REF)*
 REF        := "@" ID
 ID         := [a-z][a-z0-9_-]*
@@ -43,11 +44,11 @@ KIND       := "supports" | "challenges" | "undercuts" | "about"
             | "answers" | "repliesTo" | "clarifies"
 ```
 
-Token order and case matter; `edge`, `linked` and `use` are lowercase. Whitespace separates words and reference lists use commas. Each operator has exactly one target; an `edge` has one or more unique sources. A selector mark and an operator are mutually exclusive, including on a use. Optional prose follows the closing bracket.
+Token order and case matter; `edge`, `linked`, `note` and `use` are lowercase. Whitespace separates words and reference lists use commas. Each operator has exactly one target; an `edge` has one or more unique sources. A selector mark and an operator are mutually exclusive, including on a use. Optional prose follows the closing bracket.
 
 | Form | Effect |
 | --- | --- |
-| `[C]`, `[C? @claim]`, `[G]` | A role-bearing Point |
+| `[C]`, `[C @claim]`, `[G]` | A role-bearing Point |
 | `[?]`, `[? @gap]` | Open-gap Point |
 | `[.]`, `[. @passage]` | Neutral Point, optionally named |
 | `[O -> @claim]` | Anonymous Point and explicit challenge |
@@ -57,6 +58,7 @@ Token order and case matter; `edge`, `linked` and `use` are lowercase. Whitespac
 | `[. use @p]` | Focus an existing Point without a default attachment |
 | `[G use @p; @route]` | Reuse an existing Point as a local Ground, with an attachment if the context permits |
 | `[_ use @route]` | Focus an existing validated Bearing without constructing a relation or changing its endpoints |
+| `[note]` and its subtree | Literal supplementary prose, owned by its direct source parent |
 | Unmarked body or grouping | No Point or Bearing of its own |
 
 Empty brackets, unfinished reserved prefixes, malformed operators, invalid names, repeated sources, and a bare `;` are errors.
@@ -68,13 +70,43 @@ Words such as `Context`, `joined`, and `linked-data` do not select annotation pa
 Annotation-shaped `[linked evidence]` is now reserved and diagnosed instead of remaining transparent body; `[join the debate]` likewise receives the retirement diagnostic.
 To keep such text as ordinary prose, omit the annotation-shaped brackets or place prose before them.
 
+## Literal notes
+
+The optional `[note]` header preserves its following prose and whole indented subtree outside graph construction.
+Inside it, every Cog-looking spelling, including a nested `[note]`, malformed header, anchor or unresolved use, is literal text.
+No inner name registers, conflicts with a declaration or satisfies an outside reference.
+Dedenting out of that subtree restores normal interpretation.
+Outline layout errors still apply; a note does not enable arbitrary Markdown.
+
+The keyword must be lower-case note; surrounding header whitespace is allowed.
+An empty `[note]` is a valid placeholder, with no warning.
+A leading bracket followed by note (case-insensitive) and end, whitespace, semicolon, @ or closing bracket reserves the header.
+Parameters, wrong case or a missing closing bracket produce `MALFORMED_NOTE` and retain the literal boundary.
+`[note @alias]` therefore never activates its children after failing.
+`[notebook]`, `[note-like]`, quoted `"[note]"` and escaped `\[note]` remain ordinary body; the escape backslash remains in authored text.
+Native Markdown activation and shortcut-link precedence remain deferred.
+
+A note belongs to its direct source parent or the document root.
+Point declarations, Point uses, linked and explicit Bearing constructions, Bearing uses and ordinary body all use this same rule.
+A Ground can emit both a Point and a Bearing; its note still belongs to that source occurrence without selecting an entity owner.
+Multiple sibling notes preserve their order; reuse does not import notes from the declaration.
+Existing inline Point/Bearing-use prose remains separate.
+
+Direct valid notes are supplementary `linked` members, excluded from the ordered active sources.
+Notes-only `linked` still fails `EMPTY_LINKED`; a malformed direct note invalidates membership atomically.
+Ordinary body under linked remains invalid and does not flatten nested Grounds.
+
+Keep a qualification that changes a Claim's scope in its content or a clearly retained argument context.
+Moving live argument into note, or promoting note prose to Points, is an explicit authoring change rather than a formatter repair.
+
 ## Roles and connections
 
 Roles are `Q` Question, `C` Claim, `G` Ground, `O` Objection, `R` Reply, and `D` Distinction.
-`C?` is a Claim with open status; `[?]` is a Gap, a separate Point form that is always open.
+`[?]` is a Gap, a separate Point form that is always open.
+C? is retired; use C for a Claim or possible answer, preserving tentative wording.
 A dot marks neutral content, optionally named, without a role (`declaration.form: "material"`), a separate Point form.
-Other roles cannot take `?`.
-Open status is not a confidence score, and its absence does not certify acceptance or truth.
+Roles cannot take `?`.
+C certifies neither truth, certainty, acceptance nor completion; Gap openness is not a confidence score.
 
 | Operator | Kind | Permitted target |
 | --- | --- | --- |
@@ -87,7 +119,7 @@ Outside a linked block, without an operator, use the nearest enclosing Point:
 
 | Child | Parent | Derived kind |
 | --- | --- | --- |
-| `C`, `C?` | `Q` | `answers` |
+| `C` | `Q` | `answers` |
 | `G` | Any Point | `supports` |
 | `O` | Any Point | `challenges` |
 | `R` | `O` | `repliesTo` |
@@ -103,6 +135,14 @@ An edge or Bearing use supplies a Bearing context: its first unsuffixed Point, p
 G/ and O/ may instead select the constructed or referenced Bearing.
 Once a Point frame is reached, its children use the ordinary indentation rules again.
 An operator overrides the structural default; it does not create a second connection.
+
+Successful implicit selection across ordinary body adds `IMPLICIT_ATTACHMENT_THROUGH_BODY` at `suggestion` severity.
+It names the actual selected target (or its source span if anonymous), the responsible occurrence and the crossed body regions, grouped once per selection.
+This includes a C's own answers attachment before it supplies context to its children, linked lookup and `G/` and `O/` selectors.
+It changes diagnostics only: Points, Bearings, identities, validation and fallback stay unchanged.
+Failed selections, complete explicit endpoints, root groups, leaf prose, nearer active contexts and literal notes receive no such success advice.
+Keep deliberate grouping, reposition active content or write the intended target explicitly.
+There is no automatic note-wrapping fix: that would remove the active subtree from the graph.
 
 Recognized malformed `edge` headers retain this boundary in the AST, including incorrect case, an unclosed bracket, and invalid `;` separators. Their descendants cannot acquire a default connection to an outer Point because the edge failed. Valid descendant Points, their ordinary subtrees, and relations with independent explicit targets remain available in the partial result. The exact keyword is reserved: `[edgeless]` remains ordinary body.
 
@@ -206,7 +246,7 @@ A complete symbolic override, such as `[. use @p +> @claim; @step]`, constructs 
 A handle without a locally constructed attachment is diagnosed.
 
 ```md cog-check require=supports,undercuts,repliesTo points=4 bearings=3 diagnostics=0
-- [C? @observation] Two retries timed out.
+- [C @observation] Two retries timed out.
 - [C @claim] The shared configuration may explain the timeouts.
   - [G use @observation; @step] This observation matters in the current step.
     - [O/ @objection] The environment could explain both retries.
@@ -364,7 +404,7 @@ The header emits with `linked-containment` or rejects with `invalid-linked`; lat
 Membership eligibility does not certify that the whole linked survived validation. It explains compilation decisions, not the truth of the prose, the strength of a reason, or a history of the author's thinking. The trace is an optional Alpha interface; ordinary integrations can use AST and Graph IR alone.
 
 A Graph IR Point holds `key`, optional `id`, shared `text`, its canonical declaration `sourceSpan`, and `declaration`.
-`declaration` records how the Point was introduced: `form` (`role`, `gap` or `material`), `role` only for the role form, and `status: "open"` for `C?` and every Gap.
+`declaration` records how the Point was introduced: `form` (`role`, `gap` or `material`), `role` only for the role form, and `status: "open"` only for Gap.
 These remain distinct fields; open status belongs to that declaration, and no use changes it.
 Marks written at uses, including neutral and selector marks, live only in the AST annotation and Explain recognition; derive them from there, never from `declaration`.
 An attachment created at an occurrence is an ordinary Bearing.
@@ -373,6 +413,19 @@ An AST block holds its text, raw source, children, span, and optional `annotatio
 The distinct use annotation holds ref: {id}, never a declaration anchor.
 The separate bearingUse annotation also holds ref: {id}, with no role, handle, anchor or operatorClause.
 Its operand can be absent only on a diagnosed malformed use; original raw text and occurrence prose remain inspectable.
+
+A note has `annotation: { kind: "note", raw, syntaxErrors?: ["note"] }`.
+Its children retain complete literal text, raw lines, order, nesting and source spans, with no annotations at any depth.
+Explain emits one `note` recognition and `preserveNote` effect for the header; `parentSpan` locates its direct source parent and is absent at document root.
+Read the whole subtree from AST: literal children do not receive separate Explain entries.
+This also applies to a malformed reserved note, which retains its error and literal boundary.
+Direct notes in linked have `linkedMember` function `supplementary` and `eligible: false`.
+
+The `implicitAttachment` Explain effect records the successful typed `target`, its canonical `targetSpan` when available, the LOCAL selected `contextSpan` and ordered `crossedBodySpans`.
+The entry span identifies the responsible source occurrence.
+For a reused target, its remote declaration span and local context span may differ; neither substitutes for the other.
+Unavailable target spans are omitted, never manufactured.
+Rejected Bearings receive no successful-attachment effect or suggestion.
 
 `compileGraph` and `compileGraphWithExplain` consume parser-produced ASTs of the current format and reject other format versions. They interpret `annotation`, not `raw`; changing an annotation does not rewrite the retained source text. To edit a note, change the source and parse it again. Importing arbitrary AST JSON requires validation first; compilation is not a general JSON validator.
 
@@ -387,10 +440,16 @@ Explain emission references use graph keys; Bearing emissions also have a graph 
 
 ## Compatibility and migration
 
-This edition is an unpublished source candidate, package 0.4.8 / format 0.4.0.
+This edition is an unpublished source candidate, package 0.4.9 / format 0.4.0.
 Match the exact producing commit with its compiler, schemas and consumers; the retained format identifier alone does not distinguish earlier unpublished candidates.
 Reparse the retained original document with explicit document or host context.
 Relabelling older AST/Explain/source JSON cannot establish corrected selection, use mappings or new constructor shapes.
+This candidate reserves previously transparent `[note]` and retires `C?` with `RETIRED_CLAIM_OPENNESS`.
+Keep the original source and producing version, review every affected region, then explicitly migrate and reparse.
+C? to C preserves the written content and may preserve topology, but intentionally removes Claim open metadata.
+C certifies neither truth, acceptance, certainty nor completion; Q and the always-open Gap remain distinct.
+A retired C? is a failed constructor, never an alias or ordinary body; independent explicit clauses retain normal recovery.
+Earlier 0.4.0 JSON is not silently interchangeable with this unpublished schema revision.
 Historical 0.3 research records remain evidence of that version's behaviour.
 
 | Earlier source | Current source | Meaning and recovery |
@@ -402,13 +461,13 @@ Historical 0.3 research records remain evidence of that version's behaviour.
 | [join; @b] (unpublished candidate) | [linked; @b] | Same ordered joint sources after source migration; no accepted join alias |
 | [edge @p KIND @c; @b] | Unchanged, or [_ @p KIND @c; @b] | Two spellings of ONE explicit constructor, with all seven kinds |
 | source API auto | Explicit document or host | Host never falls back to parsing unselected prose as an outline |
-| Graph IR Point `form` / `role` / `status` (0.3 and earlier 0.4 candidates) | Point `declaration: { form, role?, status? }` | Same values and constraints; `key`, `id`, `text` and `sourceSpan` stay on the Point |
+| Graph IR Point `form` / `role` / `status` (0.3 and earlier 0.4 candidates) | Point `declaration: { form, role?, status? }` | Retain Gap openness; deliberately remove retired Claim openness when migrating source. `key`, `id`, `text` and `sourceSpan` stay on the Point |
 
 Perform source spelling changes on annotations, not arbitrary prose, and compile before comparing the intended graph.
 For example, replacing a candidate [join] with [linked] preserves one joint support; removing the wrapper instead creates independent supports.
 Published format 0.3.0 treated [join; @b] as ordinary body, so migration from published 0.3 requires reviewing intended grouping rather than blindly renaming a word.
 Old anchor AST kind becomes material with optional anchor; use retains a distinct ref operand.
-Explain uses linked recognition, linkedMember with source/commentary/independent/unclassified function, attachment selection and focusPoint/rejectFocus.
+Explain uses linked recognition, linkedMember with source/commentary/independent/supplementary/unclassified function, attachment selection and focusPoint/rejectFocus.
 Previous join variants/reasons and anchor-annotation emit reasons are not current machine contracts; material-annotation now explains neutral Point emissions.
 Retired source receives migration errors and retains its failed boundary; valid unrelated content remains available in the partial graph.
 An old anchor-only declaration emits no Point, a retired selector stays commentary, and a retired operator rejects only its attachment when the Point/use operand itself is valid.
@@ -449,9 +508,11 @@ The source distribution's `spec/` directory contains JSON Schemas using draft 20
 import graphSchema from '@cogitatum/core/schemas/graph-ir' with { type: 'json' };
 ```
 
-Schema `$id` values now use `/schemas/0.4.0/` and must change with the format contract.
-Use the package copies for offline validation; this source candidate does not publish those URLs or update the hosted compiler.
-The hosted website and published npm Alpha remain separate release surfaces.
+Schema `$id` values use `/schemas/0.4.0/`.
+After the first official package or schema publication of this format, the released schema set and its versioned URLs are fixed; later incompatible contracts require a new format identifier and schema URLs.
+Until then, the [unpublished-candidate policy](#compatibility-and-migration) applies: the shared preview may replace its schema mirrors together with the matching compiler, while earlier deployment snapshots remain archived.
+For reproducible or offline validation, use all four schema copies from the exact package or source commit; neither the format identifier nor an unchanged source-envelope schema identifies the complete contract.
+This source change does not publish the official schema URLs or update the production compiler; the website and npm remain separate release surfaces.
 
 The AST, Graph IR, and Explain schemas validate individual projections.
 The source-envelope schema validates the shape of the multi-unit `parseSource` / `compileSource` / `explainSource` envelopes, including each projection through its sibling schema.

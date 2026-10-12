@@ -53,12 +53,12 @@ describe("consolidated symbolic authoring", () => {
   });
 
   it("distinguishes local inquiry presentation from conversion, mutation or inherited answer context", () => {
-    const source = "- [Q @question] When should sampling begin?\n- [C? @assertion] The road is wet.\n- [. use @question]\n  - [C @background] Background.\n- [Q use @question]\n  - [C @answer] Candidate answer.\n- [Q use @assertion]\n  - [C @discussion] A locally authored response.\n- [C? use @assertion] Unsupported occurrence openness.";
+    const source = "- [Q @question] When should sampling begin?\n- [C @assertion] The road is wet.\n- [. use @question]\n  - [C @background] Background.\n- [Q use @question]\n  - [C @answer] Candidate answer.\n- [Q use @assertion]\n  - [C @discussion] A locally authored response.\n- [C? use @assertion] Unsupported occurrence openness.";
     const { graph } = compile(source);
     expect(graph.points).toHaveLength(5);
-    expect(graph.points[1]).toMatchObject({ text: "The road is wet.", declaration: { form: "role", role: "C", status: "open" } });
+    expect(graph.points[1]).toMatchObject({ text: "The road is wet.", declaration: { form: "role", role: "C" } });
     expect(graph.bearings.map(bearing => [bearing.kind, graph.points.find(point => point.key === bearing.target.key)?.id])).toEqual([["answers", "question"], ["answers", "assertion"]]);
-    expect(graph.diagnostics.map(diagnostic => diagnostic.code)).toEqual(["MALFORMED_POINT_USE"]);
+    expect(graph.diagnostics.map(diagnostic => diagnostic.code)).toEqual(["RETIRED_CLAIM_OPENNESS"]);
   });
 
   it("uses Gap content as a Ground without filling, resolving or removing it", () => {

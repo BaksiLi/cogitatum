@@ -2,12 +2,12 @@
 
 Cogitatum is a lightweight markup language for making selected reasoning structure explicit inside ordinary prose.
 
-Use it in reading notes, investigations, or the reasons for a decision. Keep the context in words; mark a question, reason, objection, or missing piece when making it explicit helps.
+Use it while reading, developing or revising an argument: in reading notes, investigations, or the reasons for a decision. Keep the context in words; mark a question, reason, objection, or missing piece when making it explicit helps.
 
 ```md cog-check require=answers,supports,challenges points=4 bearings=3 diagnostics=0
 - We noticed slower requests after deployment and are collecting possible causes.
   - [Q] Why are requests timing out?
-    - [C?] The database connection pool may be exhausted.
+    - [C] The database connection pool may be exhausted.
       - [G] Logs show connection acquisition failures.
       - [O] Upstream latency could also explain the timeouts.
   - Compare the traces tomorrow before changing the configuration.
@@ -23,7 +23,9 @@ Four marked points, three explicit connections. The ordinary body remains in the
 
 Published Alpha: **@cogitatum/core 0.3.0-alpha.1** and **@cogitatum/cli 0.3.0-alpha.1**, with **format 0.3.0**. Install with the `alpha` tag: `npm install @cogitatum/core@alpha`, or run the CLI with `npx --package @cogitatum/cli@alpha cog check inquiry.cog.md`. Syntax and machine contracts may change before a stable release.
 
-This checkout is the unpublished **0.4.8** source candidate, with **format 0.4.0**. It adds:
+This checkout is the unpublished **0.4.9** source candidate, with **format 0.4.0**. It adds:
+
+- literal `[note]` subtrees attached to source occurrences, nonblocking advice for actual implicit attachments through body, and explicit C? retirement;
 
 - neutral Points, `[.]` or `[. @p]`, and reuse of one identity with `[. use @p]`, `[G use @p]` or `[_ use @route]`;
 - [`linked` joint support](docs/bearings.md#local-joint-reasons), and `G/` / `O/` for the Bearing exposed by the nearest constructor;
@@ -88,6 +90,8 @@ Keep proposals concrete: include the source, the behavior you expected, and the 
 ## Project Cogitatum
 
 Project Cogitatum explores inquiry artefacts: writing that keeps questions, reasons, and unresolved work available for further thought. Inquiry markup is its first public part. Its marks are semi-formal: structure has precise rules while prose remains open to interpretation.
+
+Project Cogitatum investigates how people and AI agents can learn this form of expression and work on the same inspectable, revisable artefacts. The language supplies explicit structure and reusable identities; whether it improves reasoning remains a research question.
 
 Further work under the name **Cogitatio** concerns ongoing inquiry, revision, review, and continuity. Cogitatio and its runtime are not part of this release.
 

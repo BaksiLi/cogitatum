@@ -144,7 +144,7 @@ describe("parser failure boundaries", () => {
       expect(result.graph.bearings).toEqual([
         expect.objectContaining({ kind: "challenges", sources: [pointRef(result.graph, "o")], target: pointRef(result.graph, "c") })
       ]);
-      expect(result.graph.diagnostics).toEqual([]);
+      expect(result.graph.diagnostics).toEqual([expect.objectContaining({ code: "IMPLICIT_ATTACHMENT_THROUGH_BODY", severity: "suggestion" })]);
       expectValidContracts(result);
     }
   );

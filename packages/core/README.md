@@ -2,11 +2,11 @@
 
 Cogitatum is a lightweight markup language for making selected reasoning structure explicit inside ordinary prose. This package provides its deterministic parser and compiler for Node.js and browsers.
 
-Source candidate: **0.4.8**, format **0.4.0**, with local `linked` support and optional linked header descriptions.
+Source candidate: **0.4.9**, format **0.4.0**, with literal note subtrees, implicit-attachment suggestions and explicit C? retirement.
 Explicit `edge` clauses can use any canonical kind name; Point-attached clauses retain the four symbolic operators.
 Reference-only `[. use @p]` or locally marked `[G use @p]` occurrences resolve an existing Point without copying its subtree or changing declaration metadata.
 Neutral Point use focuses without a default attachment.
-Graph IR `Point.declaration` holds `form`, `role` and `status`; `key`, `id`, `text` and the canonical `sourceSpan` remain top-level, and use marks stay in AST/Explain.
+Graph IR `Point.declaration` holds `form`, optional `role` and Gap-only `status`; `key`, `id`, `text` and the canonical `sourceSpan` remain top-level, and use marks stay in AST/Explain.
 Bearing-only `[_ use @route]` resolves a validated existing Bearing without constructing or aliasing one; its note never changes `Bearing.text`.
 G/ and O/ select only the nearest constructor's exposed Bearing: its local attachment, constructed Bearing, or explicitly referenced Bearing.
 Occurrence prose, local marks and original UTF-16 spans remain in AST/Explain; focusPoint maps each use to a typed Point ref, and rejectFocus explains lookup failure.

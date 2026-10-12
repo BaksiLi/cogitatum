@@ -1,6 +1,6 @@
 - [. @material] Same text.
 - [Q @question] Same text.
-- [C? @claim] An open claim.
+- [C @claim] An open claim.
 - The narrative stays in reader order; references reuse identity without replaying a subtree.
 - [_ @material answers @question; @answer]
 - [edge @question repliesTo @claim; @reply]

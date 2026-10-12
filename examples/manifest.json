@@ -26,6 +26,11 @@
       "expectedDiagnosticCodes": []
     },
     {
+      "file": "phaedo-cyclical-argument.cog.md",
+      "purpose": "A paraphrased reconstruction of Plato's cyclical argument (Phaedo 70c–72d) with a joint and an independent route, one reused conclusion, our objections to premise content versus a step, and a separately labelled test of a stronger conclusion.",
+      "expectedDiagnosticCodes": []
+    },
+    {
       "file": "public-records.cog.md",
       "purpose": "A legal-policy inquiry with a provisional conclusion, privacy objection, reply, and missing governing rule.",
       "expectedDiagnosticCodes": []

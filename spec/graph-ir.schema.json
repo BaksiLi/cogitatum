@@ -92,15 +92,7 @@
       "allOf": [
         {
           "if": { "required": ["status"] },
-          "then": {
-            "anyOf": [
-              {
-                "required": ["role"],
-                "properties": { "form": { "const": "role" }, "role": { "const": "C" } }
-              },
-              { "properties": { "form": { "const": "gap" } } }
-            ]
-          }
+          "then": { "properties": { "form": { "const": "gap" } } }
         },
         {
           "if": { "properties": { "form": { "const": "gap" } }, "required": ["form"] },

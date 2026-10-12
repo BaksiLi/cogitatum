@@ -53,7 +53,7 @@ assert.equal(reuse.entries.filter(entry => entry.effects.some(effect => effect.k
 const reusedGraph = run(["graph", "fixtures/core/narrative-reference-reuse.cog.md"], 0);
 assert.equal(reusedGraph.points.length, 6);
 assert.equal(reusedGraph.bearings.length, 7);
-assert.deepEqual(reusedGraph.points.find(point => point.id === "observation").declaration, { form: "role", role: "C", status: "open" });
+assert.deepEqual(reusedGraph.points.find(point => point.id === "observation").declaration, { form: "role", role: "C" });
 
 process.stdout.write("CLI Explain, linked and reference-use contracts passed.\n");
 

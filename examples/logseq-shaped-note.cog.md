@@ -4,5 +4,5 @@
   - [Q] What does this passage establish?
     - collapsed:: true
     - Compare the two questions at the next reading group.
-    - [C?] It establishes a distinction between explanation and justification.
+    - [C] It establishes a distinction between explanation and justification.
       - [G] The passage traces a belief to habit but separately asks whether the evidence supports it.

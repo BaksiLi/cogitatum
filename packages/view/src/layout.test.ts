@@ -80,9 +80,9 @@ describe("reading layout", () => {
 });
 
 describe("shared mark vocabulary", () => {
-  it("uses canonical names and keeps open as a property of Open claim and Gap only", () => {
-    expect(Object.values(POINT_MARKS).map(m => m.name)).toEqual(["Question", "Claim", "Open claim", "Ground", "Objection", "Reply", "Distinction", "Gap", "Material"]);
-    expect(Object.values(POINT_MARKS).filter(m => m.shape === "open" || m.shape === "gap").map(m => m.label)).toEqual(["C?", "Gap"]);
+  it("uses canonical names and keeps openness only on Gap", () => {
+    expect(Object.values(POINT_MARKS).map(m => m.name)).toEqual(["Question", "Claim", "Ground", "Objection", "Reply", "Distinction", "Gap", "Material"]);
+    expect(Object.values(POINT_MARKS).filter(m => m.shape === "gap").map(m => m.label)).toEqual(["Gap"]);
     expect(pointMark("Material").shape).toBe("material");
     expect(pointMark("O").zh).toBe("駁議");
     expect(bearingMark("undercuts").zh).toBe("質疑關係");

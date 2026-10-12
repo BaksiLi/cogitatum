@@ -117,7 +117,7 @@ describe("local joint support", () => {
             - [G @a] First premise.
             - [G @b] Second premise.
       - [G @other] Other premise.`);
-    expect(codes(graph)).toEqual([]);
+    expect(codes(graph)).toEqual(["IMPLICIT_ATTACHMENT_THROUGH_BODY", "IMPLICIT_ATTACHMENT_THROUGH_BODY"]);
     expect(routes(graph)).toEqual([
       { kind: "supports", handle: "inner", sources: ["a", "b"], target: { kind: "point", name: "mid" } },
       { kind: "supports", handle: "outer", sources: ["mid", "other"], target: { kind: "point", name: "c" } }
@@ -149,7 +149,7 @@ describe("local joint support", () => {
     ]);
   });
 
-  it.each(["Q", "C?", "G", "O", "R", "D", "?", ". @target"])("targets the nearest %s Point", mark => {
+  it.each(["Q", "C", "G", "O", "R", "D", "?", ". @target"])("targets the nearest %s Point", mark => {
     const graph = compile(`- [${mark}] Target.\n  - [linked; @route] Singleton route.\n    - [G] Premise.`);
     expect(codes(graph)).toEqual([]);
     expect(graph.bearings).toHaveLength(1);
@@ -223,7 +223,7 @@ describe("local joint support", () => {
     expect(graph.bearings).toEqual([]);
     expect(graph.diagnostics).toEqual([{
       severity: "error", code: "INVALID_LINKED_MEMBER",
-      message: "Direct linked children must be bare Ground sources, local selector commentary, or complete independent clauses.",
+      message: "Direct linked children must be bare Ground sources, local selector commentary, complete independent clauses or valid notes.",
       sourceSpan: { startLine: 4, startColumn: 7, endLine: 4, endColumn: 26 }
     }]);
   });
@@ -327,8 +327,8 @@ describe("local joint support", () => {
   });
 
   it("matches normalized edge topology while retaining Point role, form, status, content, and names", () => {
-    const linked = compile("- [C? @c] Conclusion.\n  - [linked; @route] 說明這一步。\n    - [G @a] First.\n      - [O @o] Objection.\n        - [R @r] Reply.\n    - [G @b] Second.\n- [O @u /> @route] Undercut.");
-    const edge = compile("- [C? @c] Conclusion.\n- [G @a] First.\n  - [O @o] Objection.\n    - [R @r] Reply.\n- [G @b] Second.\n- [edge @a, @b +> @c; @route] 說明這一步。\n- [O @u /> @route] Undercut.");
+    const linked = compile("- [C @c] Conclusion.\n  - [linked; @route] 說明這一步。\n    - [G @a] First.\n      - [O @o] Objection.\n        - [R @r] Reply.\n    - [G @b] Second.\n- [O @u /> @route] Undercut.");
+    const edge = compile("- [C @c] Conclusion.\n- [G @a] First.\n  - [O @o] Objection.\n    - [R @r] Reply.\n- [G @b] Second.\n- [edge @a, @b +> @c; @route] 說明這一步。\n- [O @u /> @route] Undercut.");
     expect(codes(linked)).toEqual([]);
     expect(codes(edge)).toEqual([]);
     expect(linked.bearings.find(b => b.handle === "route")?.text).toBe("說明這一步。");
@@ -337,7 +337,7 @@ describe("local joint support", () => {
 
   it.each(["[joining the discussion]", "[joined]", "[linking]", "[linked-data]"])("keeps ordinary G siblings unary through %s body", header => {
     const graph = compile("- [C] Conclusion.\n  - " + header + " Context.\n    - [G] First.\n    - [G] Second.");
-    expect(codes(graph)).toEqual([]);
+    expect(codes(graph)).toEqual(["IMPLICIT_ATTACHMENT_THROUGH_BODY", "IMPLICIT_ATTACHMENT_THROUGH_BODY"]);
     expect(graph.bearings.map(b => b.sources.length)).toEqual([1, 1]);
     const ast = parseDocument("  - [linked");
     expect(ast.blocks[0].annotation).toBeUndefined();

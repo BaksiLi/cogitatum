@@ -114,6 +114,12 @@
         {
           "type": "object",
           "required": ["kind"],
+          "properties": { "kind": { "const": "note" } },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["kind"],
           "properties": { "kind": { "const": "bearingUse" }, "ref": { "$ref": "#/$defs/authoredRef" } },
           "additionalProperties": false
         },
@@ -142,14 +148,9 @@
           "properties": {
             "kind": { "const": "role" },
             "role": { "enum": ["Q", "C", "G", "O", "R", "D"] },
-            "selector": { "const": "attachment" },
-            "status": { "const": "open" }
+            "selector": { "const": "attachment" }
           },
           "allOf": [
-            {
-              "if": { "required": ["status"] },
-              "then": { "properties": { "role": { "const": "C" } } }
-            },
             {
               "if": { "required": ["selector"] },
               "then": { "properties": { "role": { "enum": ["G", "O"] } } }
@@ -179,6 +180,24 @@
     },
     "effect": {
       "oneOf": [
+        {
+          "type": "object",
+          "required": ["kind"],
+          "properties": { "kind": { "const": "preserveNote" }, "parentSpan": { "$ref": "#/$defs/sourceSpan" } },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["kind", "target", "contextSpan", "crossedBodySpans"],
+          "properties": {
+            "kind": { "const": "implicitAttachment" },
+            "target": { "oneOf": [{ "$ref": "#/$defs/pointRef" }, { "$ref": "#/$defs/bearingRef" }] },
+            "targetSpan": { "$ref": "#/$defs/sourceSpan" },
+            "contextSpan": { "$ref": "#/$defs/sourceSpan" },
+            "crossedBodySpans": { "type": "array", "items": { "$ref": "#/$defs/sourceSpan" }, "minItems": 1 }
+          },
+          "additionalProperties": false
+        },
         {
           "type": "object",
           "required": ["kind", "ref", "operand"],
@@ -216,7 +235,7 @@
             "kind": { "const": "linkedMember" },
             "linkedSpan": { "$ref": "#/$defs/sourceSpan" },
             "eligible": { "type": "boolean" },
-            "function": { "enum": ["source", "commentary", "independent", "unclassified"] }
+            "function": { "enum": ["source", "commentary", "independent", "supplementary", "unclassified"] }
           },
           "additionalProperties": false
         },
