@@ -48,6 +48,7 @@ The core provides a deterministic parser and compiler for Node.js and browser in
 
 ## Reference
 
+- [Changelog](CHANGELOG.md): published releases and unpublished source milestones.
 - [Points](docs/points.md): marked material and optional names.
 - [Bearings](docs/bearings.md): positive bearing, objections, explicit targets, and joint reasons.
 - [English / 繁體中文 glossary](docs/glossary.md): terminology for reading and argument reconstruction.
