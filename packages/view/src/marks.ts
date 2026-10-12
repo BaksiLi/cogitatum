@@ -1,7 +1,9 @@
 /**
  * The shared mark vocabulary: one source for names, glyph shapes, relation symbols and type sizes.
  * Hosts reuse it for source chips, structure lists and legends so every surface reads the same way.
- * Names follow docs/glossary.md; Chinese readings are auxiliary.
+ * Display names and Chinese readings follow docs/glossary.md; Chinese readings are auxiliary.
+ * Keys, label unions and shapes are stable identifiers: the dot form keeps the machine key
+ * "Material" (Graph IR `declaration.form: "material"`) while displaying as Neutral Point.
  */
 
 import type { PointDeclaration } from "@cogitatum/core";
@@ -20,9 +22,9 @@ export const POINT_MARKS: Readonly<Record<PointMarkLabel, PointMark>> = {
   G: { label: "G", name: "Ground", zh: "依據", letter: "G", shape: "filled" },
   O: { label: "O", name: "Objection", zh: "駁議", letter: "O", shape: "filled" },
   R: { label: "R", name: "Reply", zh: "回應", letter: "R", shape: "filled" },
-  D: { label: "D", name: "Distinction", zh: "區分", letter: "D", shape: "filled" },
-  Gap: { label: "Gap", name: "Gap", zh: "缺口", letter: "?", shape: "gap" },
-  Material: { label: "Material", name: "Material", zh: "材料", letter: "", shape: "material" }
+  D: { label: "D", name: "Distinction", zh: "辨別", letter: "D", shape: "filled" },
+  Gap: { label: "Gap", name: "Gap", zh: "闕漏", letter: "?", shape: "gap" },
+  Material: { label: "Material", name: "Neutral Point", zh: "中性點", letter: "", shape: "material" }
 };
 
 /** Symbols and line styles only; colour distinguishes the authored direction, not correctness. */

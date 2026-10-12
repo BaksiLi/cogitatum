@@ -9,6 +9,19 @@ import type {
   SourceSpan
 } from "./types.js";
 
+// A mark ends at the end of the annotation, whitespace, a handle separator, an
+// @reference, or an operator written without its separating space (diagnosed
+// below). Hyphens, plus signs and slashes inside ordinary words such as O-ring,
+// C++ or G/O ratio therefore do not end a mark, and that prose stays body.
+const MARK_END = String.raw`(?=$|[\s;@]|[+\-~/_]>)`;
+const RESERVED_START_RE = new RegExp(
+  String.raw`^(?:(?:[QCGORD](?:\?|\/|_)?|\?[/_]?)` + MARK_END +
+  String.raw`|\.(?=$|[\s;])|_(?=$|[\s;])|use(?=$|;|\s+@)|edge(?=$|[\s;])|linked(?=$|[\s;])|join(?=$|[\s;])|@)`,
+  "i"
+);
+const RETIRED_CLAIM_RE = new RegExp(String.raw`^\s*C\?` + MARK_END, "i");
+const RETIRED_SELECTOR_RE = /^\s*[GO]_(?=$|[\s;@])/i;
+const GLUED_OPERATOR_RE = /[^\s,;](?:\+>|->|\/>|~>|_>)|(?:\+>|->|\/>|~>|_>)[^\s,;]/;
 const ROLE_RE = /^(Q|C|G|O|R|D)$/;
 const INVALID_OPEN_ROLE_RE = /^(Q|G|O|R|D)\?$/;
 const ANCHOR_RE = /^@([a-z][a-z0-9_-]*)$/;
@@ -39,16 +52,19 @@ export function parseAnnotation(raw: string, sourceSpan?: SourceSpan): Annotatio
     const valid = raw.trim() === "note";
     return {
       annotation: { kind: "note", raw, ...(!valid ? { syntaxErrors: ["note" as const] } : {}) },
-      diagnostics: valid ? [] : [{ severity: "error", code: "MALFORMED_NOTE", message: "Notes use [note] followed by optional prose, without parameters.", sourceSpan }]
+      diagnostics: valid ? [] : [{ severity: "error", code: "MALFORMED_NOTE", message: "Notes use [note] followed by optional prose, without parameters." + proseHint(splitTokens(raw)), sourceSpan }]
     };
   }
-  if (/^\s*C\?(?=$|[\s@;+_/~>-])/i.test(raw)) {
+  if (RETIRED_CLAIM_RE.test(raw)) {
     return {
       annotation: { kind: "invalid", raw },
       diagnostics: [{ severity: "error", code: "RETIRED_CLAIM_OPENNESS", message: "C? is retired. Deliberately migrate to C to remove Claim open metadata, retaining tentative wording and the original source/version. C does not assert truth, certainty, acceptance or completion; Gap remains separate.", sourceSpan }]
     };
   }
-  const retired = /^\s*(?:@[a-z]|use(?=$|;|\s+@)|[GO]_)/i.test(raw) || /(?:^|\s)_>(?=$|\s)/.test(raw);
+  if (GLUED_OPERATOR_RE.test(raw)) {
+    return parseGluedOperator(raw, sourceSpan);
+  }
+  const retired = /^\s*(?:@[a-z]|use(?=$|;|\s+@))/i.test(raw) || RETIRED_SELECTOR_RE.test(raw) || /(?:^|\s)_>(?=$|\s)/.test(raw);
   if (retired) {
     const normalized = raw.replace(/^(\s*)@/, "$1. @").replace(/^(\s*)use(?=$|[\s;])/i, "$1. use").replace(/^(\s*)([GO])_/i, "$1$2/").replace(/_>/g, "/>");
     const parsed = parseCurrentAnnotation(normalized, sourceSpan);
@@ -64,6 +80,37 @@ export function parseAnnotation(raw: string, sourceSpan?: SourceSpan): Annotatio
     return { annotation: /^\s*@/.test(raw) ? { kind: "invalid", raw } : annotation ?? { kind: "invalid", raw }, diagnostics: [{ severity: "error", code: "RETIRED_AUTHORING_SYNTAX", message: "Retired authoring spelling; migrate this annotation to [" + normalized + "] and reparse the original source.", sourceSpan }, ...parsed.diagnostics] };
   }
   return parseCurrentAnnotation(raw, sourceSpan);
+}
+
+/** Whether bracketed text at the start of a block selects annotation parsing rather than body. */
+export function isAnnotationStart(raw: string): boolean {
+  return raw.trim() === "" || RESERVED_START_RE.test(raw.trimStart());
+}
+
+/** Whether bracketed text begins with the retired C? mark. */
+export function isRetiredClaimStart(raw: string): boolean {
+  return RETIRED_CLAIM_RE.test(raw);
+}
+
+// An operator written against its neighbours, as in [O->@x], states clear
+// intent. It is parsed with the missing spaces restored so that the mark, name
+// and handle keep their usual recovery, but the clause itself is rejected.
+function parseGluedOperator(raw: string, sourceSpan?: SourceSpan): AnnotationParseResult {
+  const spaced = raw.trim().replace(/\s*(\+>|->|\/>|~>|_>)\s*/g, " $1 ").replace(/\s+;/g, ";").trim();
+  const parsed = parseAnnotation(spaced, sourceSpan);
+  const annotation = parsed.annotation;
+  const spacing: Diagnostic = {
+    severity: "error",
+    code: "MALFORMED_EXPLICIT_BEARING",
+    message: `Separate an operator from its neighbours with spaces, as in [${spaced.replace(/(^|\s)_>(?=\s)/g, "$1/>")}].`,
+    sourceSpan
+  };
+  if (!annotation || annotation.kind === "invalid" || annotation.kind === "note" || annotation.kind === "linked" || annotation.kind === "bearingUse") {
+    return { annotation: annotation ? { ...annotation, raw } : { kind: "invalid", raw }, diagnostics: [spacing, ...parsed.diagnostics] };
+  }
+  const { operatorClause: _clause, ...rest } = annotation;
+  const syntaxErrors = [...new Set([...(annotation.syntaxErrors ?? []), "operator" as const])];
+  return { annotation: { ...rest, raw, syntaxErrors } as Annotation, diagnostics: [spacing, ...parsed.diagnostics] };
 }
 
 function parseCurrentAnnotation(raw: string, sourceSpan?: SourceSpan): AnnotationParseResult {
@@ -101,7 +148,7 @@ function parseCurrentAnnotation(raw: string, sourceSpan?: SourceSpan): Annotatio
     const errors: ("reference" | "operator" | "selector" | "handle")[] = [];
     if (tokens[useIndex] !== "use" || (mark !== "." && !role) || !operand || semicolonParts.length > 2) {
       errors.push("reference");
-      diagnostics.push({ severity: "error", code: "MALFORMED_POINT_USE", message: "Point uses must look like [. use @id] or [G use @id]; occurrence status is unsupported.", sourceSpan });
+      diagnostics.push({ severity: "error", code: "MALFORMED_POINT_USE", message: "Point uses must look like [. use @id] or [G use @id]; occurrence status is unsupported." + markCaseHint(mark), sourceSpan });
     }
     const suffix = tokens.slice(useIndex + 2);
     let operatorClause: (OperatorClause & { op: BearingOp; sources: "self" }) | undefined;
@@ -115,7 +162,7 @@ function parseCurrentAnnotation(raw: string, sourceSpan?: SourceSpan): Annotatio
         else errors.push("operator");
       } else {
         errors.push("reference");
-        diagnostics.push({ severity: "error", code: "MALFORMED_POINT_USE", message: "After a Point use operand, only a complete symbolic operator clause is permitted.", sourceSpan });
+        diagnostics.push({ severity: "error", code: "MALFORMED_POINT_USE", message: "After a Point use operand, only a complete symbolic operator clause is permitted." + namedKindHint(suffix, tokens.slice(0, useIndex + 2).join(" "), tokens[useIndex + 1], true), sourceSpan });
       }
     }
     if (semicolonParts.length === 2 && !handle) {
@@ -132,7 +179,7 @@ function parseCurrentAnnotation(raw: string, sourceSpan?: SourceSpan): Annotatio
     const invalidHandle = semicolonParts.length === 2 && !handle;
     if (invalidSyntax) {
       diagnostics.push({ severity: "error", code: "MALFORMED_LINKED_ANNOTATION",
-        message: "Linked annotations must look like [linked] or [linked; @route].", sourceSpan });
+        message: "Linked annotations must look like [linked] or [linked; @route]." + proseHint(splitTokens(main)), sourceSpan });
     }
     if (invalidHandle) {
       diagnostics.push({ severity: "error", code: "MALFORMED_BEARING_HANDLE",
@@ -161,7 +208,7 @@ function parseCurrentAnnotation(raw: string, sourceSpan?: SourceSpan): Annotatio
     const errors: ("selector" | "handle")[] = [];
     if (invalidSelector) {
       errors.push("selector");
-      diagnostics.push({ severity: "error", code: combined ? "LOCAL_SELECTOR_WITH_EXPLICIT_CLAUSE" : "MALFORMED_LOCAL_BEARING_SELECTOR", message: combined ? "A local selector and an explicit operator clause are mutually exclusive; use G +> @route or O /> @route instead." : "Local selectors must look like [G/], [O/ @id], or [O/ @id; @attack].", sourceSpan });
+      diagnostics.push({ severity: "error", code: combined ? "LOCAL_SELECTOR_WITH_EXPLICIT_CLAUSE" : "MALFORMED_LOCAL_BEARING_SELECTOR", message: combined ? "A local selector and an explicit operator clause are mutually exclusive; use G +> @route or O /> @route instead." : "Local selectors must look like [G/], [O/ @id], or [O/ @id; @attack]." + markCaseHint(tokens[0]), sourceSpan });
     }
     if (invalidHandle) {
       errors.push("handle");
@@ -238,7 +285,7 @@ function parseCurrentAnnotation(raw: string, sourceSpan?: SourceSpan): Annotatio
       };
     }
 
-    const host = parseBearingHost(prefix, raw, sourceSpan, diagnostics);
+    const host = parseBearingHost(prefix, tokens.slice(opIndex).join(" "), raw, sourceSpan, diagnostics);
     if (!host) {
       return { diagnostics };
     }
@@ -260,7 +307,7 @@ function parseCurrentAnnotation(raw: string, sourceSpan?: SourceSpan): Annotatio
     diagnostics.push({
       severity: "error",
       code: "MALFORMED_EDGE_ANNOTATION",
-      message: "Edge annotations require sources, a symbolic operator or canonical kind, and one target.",
+      message: "Edge annotations require sources, a symbolic operator or canonical kind, and one target." + edgeKindHint(tokens) + proseHint(tokens),
       sourceSpan
     });
     return {
@@ -281,7 +328,7 @@ function parseCurrentAnnotation(raw: string, sourceSpan?: SourceSpan): Annotatio
       diagnostics.push({
         severity: "error",
         code: "MALFORMED_ROLE_ANNOTATION",
-        message: "Role annotations must look like [C], [G], or [C @id].",
+        message: "Role annotations must look like [C], [G], or [C @id]." + (namedKindHint(tokens.slice(anchor ? 2 : 1), tokens.slice(0, anchor ? 2 : 1).join(" "), anchor ? tokens[1] : undefined) || proseHint(tokens)),
         sourceSpan
       });
       return { diagnostics };
@@ -310,7 +357,7 @@ function parseCurrentAnnotation(raw: string, sourceSpan?: SourceSpan): Annotatio
       diagnostics.push({
         severity: "error",
         code: "MALFORMED_GAP_ANNOTATION",
-        message: "Gap annotations must look like [?] or [? @id].",
+        message: "Gap annotations must look like [?] or [? @id]." + namedKindHint(tokens.slice(anchor ? 2 : 1), tokens.slice(0, anchor ? 2 : 1).join(" "), anchor ? tokens[1] : undefined),
         sourceSpan
       });
       return { diagnostics };
@@ -334,7 +381,7 @@ function parseCurrentAnnotation(raw: string, sourceSpan?: SourceSpan): Annotatio
       diagnostics.push({
         severity: "error",
         code: "MALFORMED_ANCHOR_ANNOTATION",
-        message: "Neutral Point declarations must look like [.], [. @id], or [. @id +> @target].",
+        message: "Neutral Point declarations must look like [.], [. @id], or [. @id +> @target]." + namedKindHint(tokens.slice(anchor ? 2 : 1), tokens.slice(0, anchor ? 2 : 1).join(" "), anchor ? tokens[1] : undefined),
         sourceSpan
       });
       return { diagnostics };
@@ -354,7 +401,7 @@ function parseCurrentAnnotation(raw: string, sourceSpan?: SourceSpan): Annotatio
   diagnostics.push({
     severity: "error",
     code: "MALFORMED_ANNOTATION",
-    message: `Could not parse Cogitatum annotation [${raw}].`,
+    message: `Could not parse Cogitatum annotation [${raw}].` + markCaseHint(first),
     sourceSpan
   });
   return { diagnostics };
@@ -483,6 +530,7 @@ function invalidRefsMessage(kind: "sources" | "targets", invalid: string[]): str
 
 function parseBearingHost(
   prefix: string[],
+  clause: string,
   raw: string,
   sourceSpan: SourceSpan | undefined,
   diagnostics: Diagnostic[]
@@ -496,7 +544,7 @@ function parseBearingHost(
       diagnostics.push({
         severity: "error",
         code: "MALFORMED_ROLE_BEARING",
-        message: "Role Bearing annotations must look like [O /> @target] or [O @id /> @target].",
+        message: "Role Bearing annotations must look like [O /> @target] or [O @id /> @target]." + jointSourceHint(prefix, clause),
         sourceSpan
       });
       return undefined;
@@ -520,7 +568,7 @@ function parseBearingHost(
       diagnostics.push({
         severity: "error",
         code: "MALFORMED_GAP_BEARING",
-        message: "Gap Bearing annotations must look like [? ~> @target] or [? @id ~> @target].",
+        message: "Gap Bearing annotations must look like [? ~> @target] or [? @id ~> @target]." + jointSourceHint(prefix, clause),
         sourceSpan
       });
       return undefined;
@@ -536,10 +584,56 @@ function parseBearingHost(
   diagnostics.push({
     severity: "error",
     code: "MALFORMED_EXPLICIT_BEARING",
-    message: "Operator clauses must begin with a role, ?, ., edge or _.",
+    message: "Operator clauses must begin with a role, ?, ., edge or _." + (first === "." ? jointSourceHint(prefix, clause) : markCaseHint(first)),
     sourceSpan
   });
   return undefined;
+}
+
+const KIND_NAMES = [...EDGE_TO_BEARING.keys()].filter(key => /^[a-z]/i.test(key));
+const KIND_SYMBOLS = new Map<string, string>([...OP_TO_BEARING].map(([symbol, kind]) => [kind, symbol]));
+
+/** The symbolic operator for a kind that a Point annotation can state, if any. */
+export function operatorSymbol(kind: BearingKind): string | undefined {
+  return KIND_SYMBOLS.get(kind);
+}
+
+// Hints extend existing messages; codes and severities stay unchanged.
+function markCaseHint(token: string | undefined): string {
+  const upper = token?.toUpperCase();
+  return token && upper !== token && /^[QCGORD](?:\?|\/|_)?$/.test(upper!)
+    ? ` Marks are uppercase: write ${upper}, not ${token}.` : "";
+}
+
+function proseHint(tokens: string[]): string {
+  return tokens[1] && !tokens[1].startsWith("@") && !EDGE_TO_BEARING.has(tokens[1])
+    ? " To keep bracketed prose at the start of a block, remove the brackets or place other text before them." : "";
+}
+
+function namedKindHint(rest: string[], mark: string, source: string | undefined, use = false): string {
+  const kind = rest.find(token => KIND_NAMES.includes(token));
+  if (!kind) return "";
+  const target = rest[rest.indexOf(kind) + 1] ?? "@target";
+  const symbol = KIND_SYMBOLS.get(kind);
+  if (symbol) return ` Named kinds are written only in an edge; on a Point write the operator: [${mark} ${symbol} ${target}].`;
+  const named = source ?? "@name";
+  const declare = use ? "Connect the existing Point" : `Declare [${source ? mark : mark + " " + named}] and connect it`;
+  return ` ${kind} has no Point-attached form. ${declare} with [_ ${named} ${kind} ${target}], placed where no indentation default adds a second relation.`;
+}
+
+function jointSourceHint(prefix: string[], clause: string): string {
+  const sources = prefix.slice(1).join(" ").split(",").map(part => part.trim()).filter(Boolean);
+  return sources.length > 1 && sources.every(source => parseSingleRef(source))
+    ? ` A Point clause has only the Point itself as its source; write joint sources in an edge: [_ ${sources.join(", ")} ${clause}].` : "";
+}
+
+function edgeKindHint(tokens: string[]): string {
+  const word = tokens.slice(1).find(token => !token.startsWith("@") && token !== ",");
+  if (!word || !tokens[1]?.startsWith("@")) return "";
+  const exact = KIND_NAMES.find(kind => kind.toLowerCase() === word.toLowerCase());
+  return exact
+    ? ` Kind names are case-sensitive: write ${exact}, not ${word}.`
+    : ` ${word} is not a canonical kind; use +>, ->, />, ~> or one of ${KIND_NAMES.join(", ")}.`;
 }
 
 function parseSingleRef(token: string): string | undefined {

@@ -1,4 +1,4 @@
-import { parseAnnotation } from "./annotation.js";
+import { isAnnotationStart, isRetiredClaimStart, parseAnnotation } from "./annotation.js";
 import { FORMAT_VERSION } from "./types.js";
 import type { AstBlock, Diagnostic, DocumentAst, ParsedLine, ParseOptions, SourceSpan } from "./types.js";
 
@@ -12,9 +12,6 @@ type RawNode = {
   children: RawNode[];
   sourceSpan: SourceSpan;
 };
-
-const RESERVED_ANNOTATION_START_RE =
-  /^(?:[QCGORD](?:\?)?(?=$|[\s@;+_/~>-])|\?(?=$|[\s@;+_/~>-])|\.(?=$|[\s;])|_(?=$|[\s;])|use(?=$|;|\s+@)|edge(?=$|[\s;])|linked(?=$|[\s;])|join(?=$|[\s;])|scope(?=$|\s)|@)/i;
 
 export function parseDocument(source: string, options: ParseOptions = {}): DocumentAst {
   const diagnostics: Diagnostic[] = [];
@@ -114,12 +111,12 @@ function parseRawOutline(
 
     const literal = Boolean(parent?.literal || parent?.noteBoundary);
     const noteBoundary = !literal && /^\[\s*note(?=$|[\s;@\]])/i.test(content);
-    const retiredClaim = !literal && /^\[\s*C\?(?=$|[\s@;+_/~>\]-])/i.test(content);
+    const retiredClaim = !literal && content.startsWith("[") && isRetiredClaimStart(content.slice(1).split("]")[0]);
     const bracketMatch = !literal && (indentationValid || noteBoundary || retiredClaim) ? /^\[([^\]]+)\]\s*(.*)$/.exec(content) : undefined;
     // Closing a prose bracket must not turn ordinary text into an annotation.
-    // Recognize misspelled case and the retired scope prefix for diagnostics;
+    // Recognize misspelled case and retired spellings for diagnostics;
     // parseAnnotation still enforces the actual, case-sensitive grammar.
-    const annotationMatch = bracketMatch && (noteBoundary || isAnnotationCandidate(bracketMatch[1])) ? bracketMatch : undefined;
+    const annotationMatch = bracketMatch && (noteBoundary || isAnnotationStart(bracketMatch[1])) ? bracketMatch : undefined;
     const malformedPrefix = !literal && !noteBoundary && !annotationMatch && classifyMalformedAnnotationPrefix(content);
     if (indentationValid && malformedPrefix) {
       diagnostics.push({
@@ -181,11 +178,7 @@ function classifyMalformedAnnotationPrefix(content: string): "empty" | "unclosed
     return undefined;
   }
 
-  return isAnnotationCandidate(content.slice(1)) ? "unclosed" : undefined;
-}
-
-function isAnnotationCandidate(raw: string): boolean {
-  return raw.trim() === "" || RESERVED_ANNOTATION_START_RE.test(raw.trimStart());
+  return isAnnotationStart(content.slice(1)) ? "unclosed" : undefined;
 }
 
 function toAstBlock(node: RawNode, diagnostics: Diagnostic[]): AstBlock {
@@ -210,16 +203,16 @@ function toAstBlock(node: RawNode, diagnostics: Diagnostic[]): AstBlock {
   const unclosedConstructor = node.indentationValid && !node.annotationRaw && !node.text.includes("]")
     ? /^\[\s*(linked|join|edge|_)(?=$|[\s;])/i.exec(node.text)?.[1].toLowerCase()
     : undefined;
-  const retiredClaimRaw = !node.annotationRaw && /^\[\s*C\?(?=$|[\s@;+_/~>-])/i.test(node.text) ? node.text.slice(1) : undefined;
+  const retiredClaimRaw = !node.annotationRaw && node.text.startsWith("[") && isRetiredClaimStart(node.text.slice(1)) ? node.text.slice(1) : undefined;
   const annotationRaw = node.annotationRaw ?? retiredClaimRaw ?? (unclosedConstructor === "join" ? node.text.slice(1) : undefined);
-  const unclosedSelector = node.indentationValid && !node.annotationRaw && !node.text.includes("]") && /^\[\s*[GO][_/]/i.test(node.text);
+  const unclosedSelector = node.indentationValid && !node.annotationRaw && !node.text.includes("]") && /^\[\s*[GO][_/](?=$|[\s;@])/i.test(node.text);
   const unclosedUse = node.indentationValid && !node.annotationRaw && !node.text.includes("]") && /^\[\s*(?:(?:[QCGORD](?:\?|[_/])?|\.)\s+)?use(?=$|;|\s+@)/i.test(node.text);
   const unclosedBearingUse = unclosedConstructor === "_" && /^\[\s*_\s+use(?=$|[\s;])/i.test(node.text);
   const parsed = annotationRaw ? parseAnnotation(annotationRaw, node.sourceSpan) : undefined;
   if (parsed) {
     diagnostics.push(...parsed.diagnostics);
   }
-  if (!parsed && !node.annotationRaw && node.indentationValid && node.text.startsWith("[") && !node.text.includes("]") && isAnnotationCandidate(node.text.slice(1))) {
+  if (!parsed && !node.annotationRaw && node.indentationValid && node.text.startsWith("[") && !node.text.includes("]") && isAnnotationStart(node.text.slice(1))) {
     diagnostics.push(...parseAnnotation(node.text.slice(1), node.sourceSpan).diagnostics.filter(diagnostic => diagnostic.code === "RETIRED_AUTHORING_SYNTAX" || diagnostic.code === "RETIRED_CLAIM_OPENNESS"));
   }
   const annotation = parsed?.annotation?.kind === "invalid" ? parsed.annotation : unclosedBearingUse ? { kind: "bearingUse" as const, raw: node.text.slice(1), syntaxErrors: ["reference" as const] } : unclosedUse ? { kind: "use" as const, raw: node.text.slice(1), syntaxErrors: ["reference" as const] } : unclosedSelector ? { kind: "invalid" as const, raw: node.text.slice(1), selector: "attachment" as const } : parsed?.annotation ?? (
@@ -227,7 +220,7 @@ function toAstBlock(node: RawNode, diagnostics: Diagnostic[]): AstBlock {
       ? { kind: "linked" as const, raw: node.text.slice(1), syntaxErrors: ["linked" as const] }
       : (unclosedConstructor === "edge" || unclosedConstructor === "_")
         ? { kind: "edge" as const, raw: node.text.slice(1), syntaxErrors: ["operator" as const] }
-        : (parsed?.diagnostics.length || (node.indentationValid && !node.annotationRaw && classifyMalformedAnnotationPrefix(node.text))) && !/^scope(?=$|\s)/i.test((node.annotationRaw ?? node.text.slice(1)).trimStart())
+        : parsed?.diagnostics.length || (node.indentationValid && !node.annotationRaw && classifyMalformedAnnotationPrefix(node.text))
           ? { kind: "invalid" as const, raw: node.annotationRaw ?? node.text.slice(1) }
           : undefined
   );

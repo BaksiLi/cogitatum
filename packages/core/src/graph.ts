@@ -24,6 +24,7 @@ import type {
   SourceSpan
 } from "./types.js";
 import { FORMAT_VERSION } from "./types.js";
+import { operatorSymbol } from "./annotation.js";
 
 type Context = (
   | { kind: "point"; block: AstBlock; focus?: PointRef | Ref; mark?: Role; exposedBearing?: BearingRef }
@@ -286,7 +287,12 @@ function compileBlock(
     } else {
       draft.bearing = { outcome: "rejected", reason: "annotation-syntax-error" };
     }
-  } else if (linkedAncestor && annotation.kind !== "edge") {
+  } else if (annotation.kind === "edge") {
+    // The parser records an operator error on every edge without a clause. An
+    // edge is never a Point, so it must not reach the indentation defaults.
+    const at = block.sourceSpan.startLine + ":" + block.sourceSpan.startColumn;
+    throw new Error(`Invalid AST: the edge annotation at ${at} has no operatorClause and records no syntax error; validate imported AST JSON against the AST schema before compiling.`);
+  } else if (linkedAncestor) {
     draft.bearing = { outcome: "skipped", reason: "linked-membership" };
   } else {
     const bearing = deriveStructuralBearing(block, context?.kind === "point" ? context : undefined, pointKeys);
@@ -518,6 +524,9 @@ function collectSymbols(blocks: AstBlock[], diagnostics: Diagnostic[]): SymbolTa
         severity: "error",
         code: "DUPLICATE_ID",
         message: `Duplicate anchor @${anchor}.`,
+        explanation: `No Point declared as @${anchor} is emitted, and Bearings that depend on @${anchor} are rejected. ` +
+          `If this line means the existing Point, reuse it with ${reuseSpelling(block, anchor)}; a use writes its local mark without declaring again${block.annotation?.kind === "gap" ? ", and has no Gap mark" : ""}. ` +
+          "If it is different content, give it another name.",
         sourceSpan: block.sourceSpan
       });
     }
@@ -548,6 +557,8 @@ function collectBearingSymbols(
         severity: "error",
         code: "DUPLICATE_BEARING_HANDLE",
         message: `Duplicate Bearing handle @${bearing.handle}.`,
+        explanation: `Every Bearing with handle @${bearing.handle} is rejected. ` +
+          `If this line should discuss that existing Bearing rather than construct another, write [_ use @${bearing.handle}]; otherwise choose a different handle.`,
         sourceSpan: bearing.sourceSpan
       });
     }
@@ -770,7 +781,7 @@ function buildExplainEntries(
             severity: "suggestion",
             code: "IMPLICIT_ATTACHMENT_THROUGH_BODY",
             message: "Implicit " + canonical.kind + " selects " + targetLabel + " through ordinary body at " + draft.implicit.crossedBodySpans.map(spanLabel).join(", ") + ".",
-            explanation: "This grouping is transparent to attachment. Keep it deliberately, move the active content or state its target explicitly. Choosing note instead excludes the whole subtree from the graph.",
+            explanation: implicitAttachmentAdvice(draft.block, canonical.kind, draft.bearing.reason, name),
             sourceSpan: draft.block.sourceSpan
           });
         }
@@ -794,6 +805,50 @@ function buildExplainEntries(
       diagnosticCodes: diagnosticCodesForSpan(draft.block.sourceSpan, diagnostics)
     };
   });
+}
+
+// Advice names an existing spelling that states the same relation explicitly.
+// It never proposes adding an edge beside a default that would still apply.
+function implicitAttachmentAdvice(block: AstBlock, kind: BearingKind, reason: Extract<BearingDraft, { outcome: "candidate" }>["reason"], targetName: string | undefined): string {
+  const keep = "This grouping is transparent to attachment. Keep it deliberately or move the active content beside its target.";
+  const target = targetName ? "@" + targetName : "@target";
+  const naming = targetName ? "" : " after naming the target";
+  const note = " Choosing note instead excludes the whole subtree from the graph.";
+  const annotation = block.annotation;
+  const handle = annotation && "handle" in annotation && annotation.handle ? "; @" + annotation.handle : "";
+  if (reason === "linked-containment") {
+    const members = block.children.flatMap(child => {
+      const member = child.annotation;
+      if (member?.kind === "use" && member.role === "G" && !member.selector) return member.ref ? ["@" + member.ref.id] : [];
+      return member?.kind === "role" && member.role === "G" && !member.selector && !member.operatorClause ? [member.anchor ? "@" + member.anchor : "@name"] : [];
+    });
+    const unnamed = !targetName || members.includes("@name");
+    return keep + ` To state it explicitly, move the Grounds out of default positions and replace the linked block with [_ ${members.join(", ")} +> ${target}${handle}]` +
+      `${unnamed ? ", naming each Point" : ""}.` + note;
+  }
+  if (!annotation || (annotation.kind !== "role" && annotation.kind !== "use" && annotation.kind !== "gap")) return keep + note;
+  if (reason === "local-attachment" && "selector" in annotation && annotation.selector) {
+    const mark = annotation.kind === "use" ? `${annotation.role} use @${annotation.ref?.id}` : annotation.role + (annotation.anchor ? " @" + annotation.anchor : "");
+    return keep + ` To state it explicitly, write [${mark} ${annotation.role === "G" ? "+>" : "/>"} ${target}${handle}]${targetName ? "" : " after naming the selected Bearing"}; the operator replaces the selector rather than adding a second Bearing.` + note;
+  }
+  const mark = annotation.kind === "gap" ? "?" : annotation.role ?? ".";
+  const source = annotation.kind === "use" ? `${mark} use @${annotation.ref?.id}` : mark + (annotation.anchor ? " @" + annotation.anchor : "");
+  const symbol = operatorSymbol(kind);
+  if (symbol) {
+    return keep + ` To state it explicitly, write [${source} ${symbol} ${target}${handle}]${naming}; the operator replaces the default rather than adding a second Bearing.` + note;
+  }
+  const sourceName = annotation.kind === "use" ? "@" + annotation.ref?.id : annotation.anchor ? "@" + annotation.anchor : "@name";
+  return keep + ` ${kind} has no Point-attached operator. To state it explicitly, move this occurrence where no default applies and write [_ ${sourceName} ${kind} ${target}${handle}]` +
+    `${sourceName === "@name" || !targetName ? ", naming both Points" : ""}; adding that edge while the occurrence stays here would create a second ${kind} Bearing.` + note;
+}
+
+function reuseSpelling(block: AstBlock, anchor: string): string {
+  const annotation = block.annotation;
+  const mark = annotation?.kind === "role" ? annotation.role : ".";
+  const clause = annotation && "operatorClause" in annotation && annotation.operatorClause
+    ? ` ${operatorSymbol(annotation.operatorClause.op)} @${annotation.operatorClause.target.id}` : "";
+  const handle = annotation && "handle" in annotation && annotation.handle ? "; @" + annotation.handle : "";
+  return `[${mark} use @${anchor}${clause}${handle}]`;
 }
 
 function summarizeEmittedBearing(bearing: Bearing): ExplainEmittedBearingSummary {
@@ -897,7 +952,7 @@ function addStructuralDiagnostics(
       diagnostics.push({
         severity: "suggestion",
         code: "DISCONNECTED_ANCHORED_MATERIAL",
-        message: `Roleless anchored material @${anchor} is not connected to the graph.`,
+        message: `Named Neutral Point @${anchor} is not connected to the graph.`,
         sourceSpan: block.sourceSpan
       });
     }

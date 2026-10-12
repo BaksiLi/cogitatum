@@ -81,12 +81,29 @@ describe("reading layout", () => {
 
 describe("shared mark vocabulary", () => {
   it("uses canonical names and keeps openness only on Gap", () => {
-    expect(Object.values(POINT_MARKS).map(m => m.name)).toEqual(["Question", "Claim", "Ground", "Objection", "Reply", "Distinction", "Gap", "Material"]);
+    expect(Object.values(POINT_MARKS).map(m => m.name)).toEqual(["Question", "Claim", "Ground", "Objection", "Reply", "Distinction", "Gap", "Neutral Point"]);
+    expect(Object.keys(POINT_MARKS)).toEqual(["Q", "C", "G", "O", "R", "D", "Gap", "Material"]);
+    expect(Object.values(POINT_MARKS).map(m => m.zh)).toEqual(["問題", "主張", "依據", "駁議", "回應", "辨別", "闕漏", "中性點"]);
     expect(Object.values(POINT_MARKS).filter(m => m.shape === "gap").map(m => m.label)).toEqual(["Gap"]);
     expect(pointMark("Material").shape).toBe("material");
     expect(pointMark("O").zh).toBe("駁議");
     expect(bearingMark("undercuts").zh).toBe("質疑關係");
     expect(bearingMark("about").tone).toBe("neutral");
     expect(Object.keys(BEARING_MARKS).sort()).toEqual(["about", "answers", "challenges", "clarifies", "repliesTo", "supports", "undercuts"]);
+  });
+
+  it("matches the glossary's canonical names and suggested readings", () => {
+    const glossary = readFileSync(new URL("../../../docs/glossary.md", import.meta.url), "utf8");
+    const rows = new Map(glossary.split("\n").filter(line => line.startsWith("| `")).map(line => {
+      const [mark, english, zh] = line.split("|").slice(1, 4).map(cell => cell.trim());
+      return [mark.split(",")[0].replaceAll("`", ""), { english, zh }] as const;
+    }));
+    const marks = { "[Q]": "Q", "[C]": "C", "[G]": "G", "[O]": "O", "[R]": "R", "[D]": "D", "[?]": "Gap", "[.]": "Material" } as const;
+    for (const [mark, key] of Object.entries(marks)) {
+      expect({ name: POINT_MARKS[key].name, zh: POINT_MARKS[key].zh }, mark).toEqual({ name: rows.get(mark)?.english, zh: rows.get(mark)?.zh });
+    }
+    for (const [symbol, kind] of [["+>", "supports"], ["->", "challenges"], ["/>", "undercuts"], ["~>", "about"]]) {
+      expect(bearingMark(kind).zh, symbol).toBe(rows.get(symbol)?.zh);
+    }
   });
 });

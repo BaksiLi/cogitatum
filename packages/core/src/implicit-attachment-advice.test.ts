@@ -94,4 +94,32 @@ describe("advice from actual implicit selection", () => {
     expect(advice(result)).toEqual([]);
     expect(selections(result)).toEqual([]);
   });
+
+  // Each suggested spelling already exists; following it must keep the same
+  // topology without advice and without a second relation.
+  const topology = (result: GraphCompilation) => {
+    const names = new Map([...result.graph.points.map(point => [point.key, "@" + (point.id ?? point.text)] as const), ...result.graph.bearings.map(bearing => [bearing.key, "@" + (bearing.handle ?? bearing.key)] as const)]);
+    return result.graph.bearings.map(bearing => [bearing.sources.map(source => names.get(source.key)), bearing.kind, names.get(bearing.target.key), bearing.handle]);
+  };
+  it.each([
+    ["- [C @c] Claim.\n  - Body\n    - [G @g; @step] Reason.", "[G @g +> @c; @step]", "- [C @c] Claim.\n  - Body\n    - [G @g +> @c; @step] Reason."],
+    ["- [C @c] Claim.\n  - Body\n    - [?] Gap.", "[? ~> @c]", "- [C @c] Claim.\n  - Body\n    - [? ~> @c] Gap."],
+    ["- [C @c] Claim.\n  - [G @g; @step] Reason.\n    - Body\n      - [O/ @o] Concern.", "[O @o /> @step]", "- [C @c] Claim.\n  - [G @g; @step] Reason.\n    - Body\n      - [O @o /> @step] Concern."],
+    ["- [Q @q] Question.\n  - Body\n    - [C @a] Answer.", "move this occurrence where no default applies and write [_ @a answers @q]; adding that edge while the occurrence stays here would create a second answers Bearing", "- [Q @q] Question.\n- Body\n  - [C @a] Answer.\n- [_ @a answers @q]"],
+    ["- [O @o] Objection.\n  - Body\n    - [R @r] Reply.", "[_ @r repliesTo @o]", "- [O @o] Objection.\n- Body\n  - [R @r] Reply.\n- [_ @r repliesTo @o]"],
+    ["- [C @c] Claim.\n  - Body\n    - [linked; @route]\n      - [G @a] A.\n      - [G @b] B.", "replace the linked block with [_ @a, @b +> @c; @route]", "- [C @c] Claim.\n- Body\n  - [G @a] A.\n  - [G @b] B.\n- [_ @a, @b +> @c; @route]"]
+  ])("teaches an existing explicit spelling for %s", (source, suggestion, followed) => {
+    const result = compile(source);
+    expect(advice(result)).toHaveLength(1);
+    expect(advice(result)[0].explanation).toContain(suggestion);
+    expect(advice(result)[0].explanation).toContain("Choosing note instead excludes the whole subtree from the graph.");
+    const explicit = compile(followed);
+    expect(explicit.graph.diagnostics).toEqual([]);
+    expect(topology(explicit)).toEqual(topology(result));
+  });
+
+  it("names the missing names instead of inventing them for anonymous Points", () => {
+    expect(advice(compile("- [Q] Question.\n  - Body\n    - [C] Answer."))[0].explanation).toContain("[_ @name answers @target], naming both Points");
+    expect(advice(compile("- [C] Claim.\n  - Body\n    - [O] Concern."))[0].explanation).toContain("[O -> @target] after naming the target");
+  });
 });

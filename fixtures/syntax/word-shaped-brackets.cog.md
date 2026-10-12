@@ -1,0 +1,6 @@
+- [C @seal] The seal design contributed to the failure.
+  - [O-ring] erosion was recorded on earlier flights.
+    - [G @erosion] Inspectors found soot past the primary seal.
+  - [C++] and [G/O ratio] are ordinary bracketed words.
+  - [O->@seal] Cold weather alone could explain the failure.
+    - [R] Warm-weather flights also showed erosion.

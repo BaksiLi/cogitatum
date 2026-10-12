@@ -27,4 +27,6 @@ Paste the note into the [playground](https://cogitatum.baksili.codes/playground)
 
 That is enough to begin. The [quick start](quick-start.md) adds naming and explicit connections when needed. The [examples](https://cogitatum.baksili.codes/examples) offer notes you can adapt.
 
-Cogitatum is semi-formal: the marks have precise structural effects; the prose remains open to interpretation. The 0.3 Public Alpha covers the inquiry markup language, compiler, and CLI.
+Cogitatum is semi-formal: the marks have precise structural effects; the prose remains open to interpretation.
+The published 0.3 Alpha packages and this unpublished 0.4 source candidate have different language and compiler contracts.
+Use documentation and the complete schema set matching your installed compiler.
