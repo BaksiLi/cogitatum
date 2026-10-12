@@ -192,6 +192,9 @@
             "handle": { "$ref": "#/$defs/authoredId" },
             "raw": { "type": "string" }
           },
+          "allOf": [
+            { "if": { "not": { "required": ["syntaxErrors"] } }, "then": { "required": ["operatorClause"] } }
+          ],
           "additionalProperties": false
         },
         {

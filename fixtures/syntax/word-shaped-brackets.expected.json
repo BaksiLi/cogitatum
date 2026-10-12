@@ -1,0 +1,59 @@
+{
+  "mode": "document",
+  "diagnostics": [
+    {
+      "line": 5,
+      "code": "MALFORMED_EXPLICIT_BEARING",
+      "severity": "error"
+    },
+    {
+      "line": 3,
+      "code": "IMPLICIT_ATTACHMENT_THROUGH_BODY",
+      "severity": "suggestion"
+    }
+  ],
+  "graphs": [
+    {
+      "points": [
+        {
+          "line": 1,
+          "form": "role",
+          "role": "C",
+          "id": "seal"
+        },
+        {
+          "line": 3,
+          "form": "role",
+          "role": "G",
+          "id": "erosion"
+        },
+        {
+          "line": 5,
+          "form": "role",
+          "role": "O"
+        },
+        {
+          "line": 6,
+          "form": "role",
+          "role": "R"
+        }
+      ],
+      "bearings": [
+        {
+          "line": 3,
+          "kind": "supports",
+          "sources": [3],
+          "target": { "kind": "point", "line": 1 },
+          "derivedBy": "structural"
+        },
+        {
+          "line": 6,
+          "kind": "repliesTo",
+          "sources": [6],
+          "target": { "kind": "point", "line": 5 },
+          "derivedBy": "structural"
+        }
+      ]
+    }
+  ]
+}

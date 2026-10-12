@@ -21,10 +21,12 @@ Use it while reading, developing or revising an argument: in a reading note, an 
   - We will compare the traces tomorrow before changing the configuration.
 ```
 
-The two ordinary sentences remain body. Four marked points and three explicit connections become inspectable: a possible answer, a reason bearing positively on that answer, and an objection. The markup does not establish which explanation is right.
+The two ordinary sentences remain body. Four marked points and three connections derived from the marks and indentation become inspectable: a possible answer, a reason bearing positively on that answer, and an objection. The markup does not establish which explanation is right.
 
 Paste the note into the [playground](https://cogitatum.baksili.codes/playground), edit a sentence, and inspect the map. Compilation happens in your browser; no account is needed.
 
 That is enough to begin. The [quick start](quick-start.md) adds naming and explicit connections when needed. The [examples](https://cogitatum.baksili.codes/examples) offer notes you can adapt.
 
-Cogitatum is semi-formal: the marks have precise structural effects; the prose remains open to interpretation. The 0.3 Public Alpha covers the inquiry markup language, compiler, and CLI.
+Cogitatum is semi-formal: the marks have precise structural effects; the prose remains open to interpretation.
+The published 0.3 Alpha packages and this unpublished 0.4 source candidate have different language and compiler contracts.
+Use documentation and the complete schema set matching your installed compiler.

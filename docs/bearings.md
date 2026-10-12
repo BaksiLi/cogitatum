@@ -7,7 +7,9 @@ order: 2
 
 # Bearings
 
-A Bearing is an explicit connection from one or more marked points to another point or a named connection. It records how selected material bears on its target in this inquiry.
+A Bearing is a connection from one or more marked Points to a Point or to another Bearing.
+It records how selected material bears on its target in this inquiry.
+It can be written explicitly, with an operator or `edge`, or derived from indentation; a local selector can target a Bearing that has no name.
 
 ## Positive bearing
 
@@ -205,7 +207,7 @@ Selection never scans a Point's other outgoing Bearings, crosses an unattached P
 ```
 
 In a Point context the ordinary table remains G supports, O challenges, D clarifies, Gap about, C answers only a locally Q-marked parent, and R repliesTo only a locally O-marked parent.
-Q and Material have no default.
+Q and Neutral Points have no default.
 Unsuffixed roles have no default in a Bearing context; direct linked G instead contributes one source without an individual unary attachment.
 G/ and O/ select only that nearest constructor's exposed Bearing.
 Bearing reuse adds no attachment or entity; its prose stays occurrence-local.
@@ -346,5 +348,18 @@ Sometimes the weak part is how a reason bears on a claim. Name that connection w
 ```
 
 `[G @reason; @route]` names the Point `reason` and its connection `route`. `[G; @route]` leaves the Point anonymous. A handle is valid only if the annotation produces a Bearing.
+
+A Gap can be about what a Ground says or about the step it supports.
+Beneath the Ground, `[?]` uses the indentation default and targets the Ground's Point; `[? ~> @step]` names the step instead:
+
+```md cog-check require=supports,about points=4 bearings=3 diagnostics=0
+- [C @cause] The connection pool may be exhausted.
+  - [G @logs; @step] Logs show connection acquisition failures.
+    - [?] Which service wrote these log lines?
+    - [? ~> @step] Do these failures distinguish exhaustion from a network fault?
+```
+
+The first Gap questions the content of `logs`; the second questions whether that content bears on `cause`.
+Both remain open Gaps; neither changes the Ground, the step or the Claim.
 
 Every Bearing has a compilation-local `key`; only authored route names populate `handle`. Graph references use `{ key, kind: "bearing" }`. Persisted references need the authored handle and document context. Keys have no stability guarantee across edits or different graphs. See [syntax](syntax.md) for all forms and error boundaries.

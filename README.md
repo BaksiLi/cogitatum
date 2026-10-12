@@ -13,7 +13,7 @@ Use it while reading, developing or revising an argument: in reading notes, inve
   - Compare the traces tomorrow before changing the configuration.
 ```
 
-Four marked points, three explicit connections. The ordinary body remains in the source. The compiler exposes selected structure without judging whether the explanation is correct.
+Four marked points, three connections derived from the marks and indentation. The ordinary body remains in the source. The compiler exposes selected structure without judging whether the explanation is correct.
 
 [Try the playground](https://cogitatum.baksili.codes/playground) · [One-minute introduction](docs/introduction.md) · [Ten-minute quick start](docs/quick-start.md) · [Examples](https://cogitatum.baksili.codes/examples)
 
@@ -21,13 +21,13 @@ Four marked points, three explicit connections. The ordinary body remains in the
 
 **Cogitatum 0.3 Public Alpha releases an inquiry markup language and a working compiler.**
 
-Published Alpha: **@cogitatum/core 0.3.0-alpha.1** and **@cogitatum/cli 0.3.0-alpha.1**, with **format 0.3.0**. Install with the `alpha` tag: `npm install @cogitatum/core@alpha`, or run the CLI with `npx --package @cogitatum/cli@alpha cog check inquiry.cog.md`. Syntax and machine contracts may change before a stable release.
+Published Alpha: **@cogitatum/core 0.3.0-alpha.1** and **@cogitatum/cli 0.3.0-alpha.1**, with **format 0.3.0**. Install with the `alpha` tag: `npm install @cogitatum/core@alpha`, or run the CLI with `npx --package @cogitatum/cli@alpha cog check inquiry.cog.md`. These published packages and schemas stay fixed; later versions, including the 0.4 candidate below, may change syntax and machine contracts before a stable release.
 
-This checkout is the unpublished **0.4.9** source candidate, with **format 0.4.0**. It adds:
+This checkout is the unpublished **0.4.10** source candidate, with **format 0.4.0**. It adds:
 
 - literal `[note]` subtrees attached to source occurrences, nonblocking advice for actual implicit attachments through body, and explicit C? retirement;
 
-- neutral Points, `[.]` or `[. @p]`, and reuse of one identity with `[. use @p]`, `[G use @p]` or `[_ use @route]`;
+- Neutral Points, `[.]` or `[. @p]`, and reuse of one identity with `[. use @p]`, `[G use @p]` or `[_ use @route]`;
 - [`linked` joint support](docs/bearings.md#local-joint-reasons), and `G/` / `O/` for the Bearing exposed by the nearest constructor;
 - explicit Bearings written `[_ ...]` or `[edge ...]`, with every canonical kind name;
 - explicit source context: `document` by default, `host` for Markdown fences; content-dependent `auto` is retired.

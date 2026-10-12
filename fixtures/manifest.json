@@ -307,6 +307,12 @@
       "expected": "syntax/malformed-annotation-prefix.expected.json"
     },
     {
+      "file": "syntax/word-shaped-brackets.cog.md",
+      "input": "document",
+      "purpose": "Words that begin with a mark letter, such as O-ring, C++ and G/O, remain transparent body; a mark whose operator lacks its spaces keeps its Point but rejects the clause without a default fallback.",
+      "expected": "syntax/word-shaped-brackets.expected.json"
+    },
+    {
       "file": "syntax/no-transitive-connections.cog.md",
       "input": "document",
       "purpose": "Support chains produce no transitive edge; clarifications and replies keep their own kinds.",
