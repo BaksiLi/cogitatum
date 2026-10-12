@@ -151,6 +151,7 @@ Failed selections, complete explicit endpoints, root groups, leaf prose, nearer 
 Its explanation offers existing spellings: keep the grouping deliberately, move the active content beside its target, or state the relation explicitly.
 For `supports`, `challenges` and `about`, and for `G/` and `O/`, an operator written on the occurrence replaces the default, so it adds no second Bearing.
 `answers`, `repliesTo` and `clarifies` have no Point-attached operator: move the occurrence where no default applies and write an `edge`, because an edge added beside an unchanged default creates a second relation.
+A handle and `G/` or `O/` commentary belong to the attachment rather than the Point, so they move to that edge.
 A linked group likewise becomes an `edge` only after its Grounds leave their default positions.
 There is no automatic note-wrapping fix: that would remove the active subtree from the graph.
 
@@ -470,7 +471,7 @@ Published 0.3 kept most of them as body with a `MALFORMED_ANNOTATION` error, and
 `[G/O ratio]`, body in 0.3, no longer emits the diagnosed Ground of earlier 0.4 candidates.
 An operator without its spaces, such as `[O->@claim]`, previously failed as a whole annotation; it now keeps its Point and rejects only the clause, so the partial graph gains that Point and its children's ordinary attachments.
 The pre-0.3 `scope` prefix is body without a diagnostic, matching its existing graph effect; other retired spellings keep their errors and failure boundaries.
-Diagnostic codes and severities are unchanged, while several messages and explanations are more specific.
+Existing diagnostic codes keep their names and severities, but these source cases can now produce a different set of diagnostics; several messages and explanations are also more specific.
 The AST schema now requires `operatorClause` on an `edge` without `syntaxErrors`; parser output already satisfied this.
 
 | Earlier source | Current source | Meaning and recovery |

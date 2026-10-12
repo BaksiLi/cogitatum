@@ -77,6 +77,13 @@ describe("annotation recognition boundaries", () => {
     expect(graph.bearings.every(bearing => bearing.kind !== "challenges" && bearing.kind !== "undercuts")).toBe(true);
   });
 
+  it("ends a name at a glued operator, since > cannot occur in a name", () => {
+    const { graph } = compileGraphWithExplain(parseDocument("- [C @target] Target.\n- [C @source->target] Missing @ on the target."));
+    expect(ids(graph)).toEqual(["target", "source"]);
+    expect(codes(graph)).toEqual(["MALFORMED_EXPLICIT_BEARING", "MALFORMED_BEARING_TARGETS"]);
+    expect(graph.bearings).toEqual([]);
+  });
+
   it("keeps a spacing error in an edge as a failed edge boundary", () => {
     const { graph } = compileGraphWithExplain(parseDocument("- [C @a] A.\n- [C @b] B.\n- [C @c] C.\n- [_ @a,@b+>@c] Joint.\n  - [G] Child."));
     expect(codes(graph)).toEqual(["MALFORMED_EXPLICIT_BEARING", "EDGE_DESCENDANT_REQUIRES_EXPLICIT_TARGET"]);
@@ -160,5 +167,17 @@ describe("actionable parser messages", () => {
       expect(ids(graph), line).toEqual(["c", "role"]);
       expect(graph.bearings, line).toEqual([]);
     }
+  });
+
+  it.each([["O", "undercuts"], ["G", "supports"]])("keeps the %s/ selector in the suggested reuse and its typed endpoint", (role, kind) => {
+    const prefix = "- [C @p] Shared.\n- [C @c] Claim.\n  - [G @g; @step] Ground.\n";
+    const duplicate = compileGraph(parseDocument(prefix + `    - [${role}/ @p] Assess the step.`));
+    const reuse = `[${role}/ use @p]`;
+    expect(duplicate.diagnostics.find(diagnostic => diagnostic.code === "DUPLICATE_ID")?.explanation).toContain(`reuse it with ${reuse};`);
+    const followed = compileGraph(parseDocument(prefix + `    - ${reuse} Assess the step.`));
+    expect(followed.diagnostics).toEqual([]);
+    const step = followed.bearings.find(bearing => bearing.handle === "step")!;
+    const p = followed.points.find(point => point.id === "p")!;
+    expect(followed.bearings.filter(bearing => bearing !== step)).toEqual([expect.objectContaining({ kind, sources: [{ key: p.key, kind: "point" }], target: { key: step.key, kind: "bearing" } })]);
   });
 });

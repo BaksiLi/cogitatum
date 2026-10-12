@@ -21,7 +21,7 @@ Four marked points, three explicit connections. The ordinary body remains in the
 
 **Cogitatum 0.3 Public Alpha releases an inquiry markup language and a working compiler.**
 
-Published Alpha: **@cogitatum/core 0.3.0-alpha.1** and **@cogitatum/cli 0.3.0-alpha.1**, with **format 0.3.0**. Install with the `alpha` tag: `npm install @cogitatum/core@alpha`, or run the CLI with `npx --package @cogitatum/cli@alpha cog check inquiry.cog.md`. Syntax and machine contracts may change before a stable release.
+Published Alpha: **@cogitatum/core 0.3.0-alpha.1** and **@cogitatum/cli 0.3.0-alpha.1**, with **format 0.3.0**. Install with the `alpha` tag: `npm install @cogitatum/core@alpha`, or run the CLI with `npx --package @cogitatum/cli@alpha cog check inquiry.cog.md`. These published packages and schemas stay fixed; later versions, including the 0.4 candidate below, may change syntax and machine contracts before a stable release.
 
 This checkout is the unpublished **0.4.10** source candidate, with **format 0.4.0**. It adds:
 

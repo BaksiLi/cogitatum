@@ -781,7 +781,7 @@ function buildExplainEntries(
             severity: "suggestion",
             code: "IMPLICIT_ATTACHMENT_THROUGH_BODY",
             message: "Implicit " + canonical.kind + " selects " + targetLabel + " through ordinary body at " + draft.implicit.crossedBodySpans.map(spanLabel).join(", ") + ".",
-            explanation: implicitAttachmentAdvice(draft.block, canonical.kind, draft.bearing.reason, name),
+            explanation: implicitAttachmentAdvice(draft.block, canonical.kind, draft.bearing.reason, name || undefined, canonical.sources.map(source => pointTargets.get(source.key)?.id)),
             sourceSpan: draft.block.sourceSpan
           });
         }
@@ -809,7 +809,15 @@ function buildExplainEntries(
 
 // Advice names an existing spelling that states the same relation explicitly.
 // It never proposes adding an edge beside a default that would still apply.
-function implicitAttachmentAdvice(block: AstBlock, kind: BearingKind, reason: Extract<BearingDraft, { outcome: "candidate" }>["reason"], targetName: string | undefined): string {
+// Sources come from the surviving canonical Bearing, never from a second
+// reading of the block's children, so independent relations stay out of it.
+function implicitAttachmentAdvice(
+  block: AstBlock,
+  kind: BearingKind,
+  reason: Extract<BearingDraft, { outcome: "candidate" }>["reason"],
+  targetName: string | undefined,
+  sourceNames: (string | undefined)[]
+): string {
   const keep = "This grouping is transparent to attachment. Keep it deliberately or move the active content beside its target.";
   const target = targetName ? "@" + targetName : "@target";
   const naming = targetName ? "" : " after naming the target";
@@ -817,14 +825,11 @@ function implicitAttachmentAdvice(block: AstBlock, kind: BearingKind, reason: Ex
   const annotation = block.annotation;
   const handle = annotation && "handle" in annotation && annotation.handle ? "; @" + annotation.handle : "";
   if (reason === "linked-containment") {
-    const members = block.children.flatMap(child => {
-      const member = child.annotation;
-      if (member?.kind === "use" && member.role === "G" && !member.selector) return member.ref ? ["@" + member.ref.id] : [];
-      return member?.kind === "role" && member.role === "G" && !member.selector && !member.operatorClause ? [member.anchor ? "@" + member.anchor : "@name"] : [];
-    });
-    const unnamed = !targetName || members.includes("@name");
-    return keep + ` To state it explicitly, move the Grounds out of default positions and replace the linked block with [_ ${members.join(", ")} +> ${target}${handle}]` +
-      `${unnamed ? ", naming each Point" : ""}.` + note;
+    // Distinct placeholders: one repeated name would be a duplicate source, not a rewrite.
+    const sources = sourceNames.map((id, index) => id ? "@" + id : "@source" + (index + 1));
+    const unnamed = !targetName || sourceNames.some(id => !id);
+    return keep + ` To state it explicitly, write [_ ${sources.join(", ")} +> ${target}${handle}] in place of the linked header` +
+      `${unnamed ? " after naming each placeholder Point" : ""}, move its source Grounds where no default applies, and keep its other children, such as independent relations, notes and G/ or O/ commentary, beneath the edge.` + note;
   }
   if (!annotation || (annotation.kind !== "role" && annotation.kind !== "use" && annotation.kind !== "gap")) return keep + note;
   if (reason === "local-attachment" && "selector" in annotation && annotation.selector) {
@@ -837,14 +842,16 @@ function implicitAttachmentAdvice(block: AstBlock, kind: BearingKind, reason: Ex
   if (symbol) {
     return keep + ` To state it explicitly, write [${source} ${symbol} ${target}${handle}]${naming}; the operator replaces the default rather than adding a second Bearing.` + note;
   }
-  const sourceName = annotation.kind === "use" ? "@" + annotation.ref?.id : annotation.anchor ? "@" + annotation.anchor : "@name";
+  const sourceName = sourceNames[0] ? "@" + sourceNames[0] : "@source";
   return keep + ` ${kind} has no Point-attached operator. To state it explicitly, move this occurrence where no default applies and write [_ ${sourceName} ${kind} ${target}${handle}]` +
-    `${sourceName === "@name" || !targetName ? ", naming both Points" : ""}; adding that edge while the occurrence stays here would create a second ${kind} Bearing.` + note;
+    `${!sourceNames[0] || !targetName ? " after naming its placeholder Points" : ""}; adding that edge while the occurrence stays here would create a second ${kind} Bearing.` +
+    " Any handle and G/ or O/ commentary belong to the attachment, not the Point: move them to the edge, and keep the occurrence's other children with it." + note;
 }
 
 function reuseSpelling(block: AstBlock, anchor: string): string {
   const annotation = block.annotation;
-  const mark = annotation?.kind === "role" ? annotation.role : ".";
+  // A selector survives reuse: [O/ use @p] still undercuts the local attachment.
+  const mark = annotation?.kind === "role" ? annotation.role + (annotation.selector ? "/" : "") : ".";
   const clause = annotation && "operatorClause" in annotation && annotation.operatorClause
     ? ` ${operatorSymbol(annotation.operatorClause.op)} @${annotation.operatorClause.target.id}` : "";
   const handle = annotation && "handle" in annotation && annotation.handle ? "; @" + annotation.handle : "";
