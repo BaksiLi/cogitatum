@@ -1,8 +1,18 @@
 # Changelog
 
 The 0.4 entries below are unpublished source milestones, not npm releases; a shared preview is not a package release either.
-As of 12 October 2026, npm provides only Core and CLI **0.3.0-alpha.1**, under both `alpha` and `latest`.
-The current **0.4.9** candidate retains **format 0.4.0**: match compiler, schemas and consumers to the same source revision, and [migrate retained source](docs/syntax.md#compatibility-and-migration) rather than relabelling old JSON.
+As of 13 October 2026, npm provides only Core and CLI **0.3.0-alpha.1**, under both `alpha` and `latest`.
+The current **0.4.10** candidate retains **format 0.4.0**: match compiler, schemas and consumers to the same source revision, and [migrate retained source](docs/syntax.md#compatibility-and-migration) rather than relabelling old JSON.
+
+## 0.4.10 — 13 October 2026
+
+- Treat bracketed words that merely begin with a mark letter, such as `[O-ring]`, `[C++]` or `[G/O ratio]`, as ordinary body; the pre-0.3 `scope` prefix is also body, without a diagnostic.
+  Complete marks and keywords stay reserved, so `[C major]` or `[edge cases]` remain diagnosed.
+- Keep the Point when an operator lacks its spaces, as in `[O->@claim]`, rejecting only the clause; this changes some partial graphs.
+- Make diagnostics more actionable, including explicit spellings that preserve the selected target; codes and severities are unchanged, but the affected sources can produce a different set of diagnostics.
+- Require `operatorClause` on an undiagnosed `edge` in the AST schema, and align the docs and View display names with the glossary, such as Neutral Point; machine keys are unchanged.
+- **Migration:** reparse retained source; do not reuse stored AST, Graph IR or Explain.
+  See [#31](https://github.com/BaksiLi/cogitatum/pull/31).
 
 ## 0.4.9 — 12 October 2026
 
