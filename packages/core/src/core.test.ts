@@ -525,13 +525,16 @@ describe("Cogitatum language contracts", () => {
     ]);
   });
 
-  it("rejects the removed scope keyword while preserving its block as body", () => {
-    const ast = parseDocument("- [scope @legacy] Legacy container\n  - [C @c1] Claim.\n");
-    const graph = compileGraph(ast);
+  it("reads the pre-0.3 scope prefix as ordinary body, as its graph effect already was", () => {
+    for (const prefix of ["[scope @legacy]", "[scope review]", "[Scope", "[scope"]) {
+      const ast = parseDocument(`- [C @outer] Outer.\n  - ${prefix} Legacy container\n    - [G @c1] Ground.\n`);
+      const { graph } = compileGraphWithExplain(ast);
 
-    expect(ast.blocks[0].annotation).toBeUndefined();
-    expect(graph.points.map((point) => point.id)).toEqual(["c1"]);
-    expect(graph.diagnostics).toEqual([expect.objectContaining({ code: "MALFORMED_ANNOTATION" })]);
+      expect(ast.blocks[0].children[0].annotation, prefix).toBeUndefined();
+      expect(graph.points.map((point) => point.id), prefix).toEqual(["outer", "c1"]);
+      expect(graph.bearings, prefix).toEqual([expect.objectContaining({ kind: "supports", sources: [pointRef(graph, "c1")], target: pointRef(graph, "outer") })]);
+      expect(graph.diagnostics.map((diagnostic) => [diagnostic.severity, diagnostic.code]), prefix).toEqual([["suggestion", "IMPLICIT_ATTACHMENT_THROUGH_BODY"]]);
+    }
   });
 
   it("diagnoses malformed Cogitatum prefixes without claiming all bracketed prose", () => {
@@ -575,7 +578,7 @@ describe("Cogitatum language contracts", () => {
   });
 
   it("still diagnoses reserved prefixes with invalid case or missing delimiters", () => {
-    for (const prefix of ["[c]", "[Edge]", "[scope @legacy]", "[ ]", "[Q?]", "[c @claim", "[Edge @ground"]) {
+    for (const prefix of ["[c]", "[Edge]", "[ ]", "[Q?]", "[c @claim", "[Edge @ground"]) {
       const graph = compileGraph(parseDocument(`- ${prefix} Text.\n`));
       expect(graph.points, prefix).toEqual([]);
       expect(graph.bearings, prefix).toEqual([]);

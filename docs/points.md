@@ -81,7 +81,7 @@ The claim has the authored name `claim`. The reason and objection are anonymous:
 
 Names match `[a-z][a-z0-9_-]*` and share a namespace with named [connections](bearings.md). Prose can use any language. Keep a name across edits when the same authored item should remain identifiable; renaming requires updating references.
 
-Content can also be named without assigning a role: `[. @passage]`.
+Content can also be named without assigning a role: `[. @passage]` declares a Neutral Point.
 This is a Point form, not another role; the machine contract records it as `declaration.form: "material"`.
 See the [complete syntax](syntax.md#annotation-grammar) for this and all other naming forms.
 

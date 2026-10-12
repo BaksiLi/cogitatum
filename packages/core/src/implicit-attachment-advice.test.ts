@@ -94,4 +94,75 @@ describe("advice from actual implicit selection", () => {
     expect(advice(result)).toEqual([]);
     expect(selections(result)).toEqual([]);
   });
+
+  // Each suggested spelling already exists; following it must keep the same
+  // topology without advice and without a second relation.
+  const topology = (result: GraphCompilation) => {
+    const names = new Map([...result.graph.points.map(point => [point.key, "@" + (point.id ?? point.text)] as const), ...result.graph.bearings.map(bearing => [bearing.key, "@" + (bearing.handle ?? bearing.key)] as const)]);
+    return result.graph.bearings.map(bearing => [bearing.sources.map(source => names.get(source.key)), bearing.kind, names.get(bearing.target.key), bearing.handle]);
+  };
+  it.each([
+    ["- [C @c] Claim.\n  - Body\n    - [G @g; @step] Reason.", "[G @g +> @c; @step]", "- [C @c] Claim.\n  - Body\n    - [G @g +> @c; @step] Reason."],
+    ["- [C @c] Claim.\n  - Body\n    - [?] Gap.", "[? ~> @c]", "- [C @c] Claim.\n  - Body\n    - [? ~> @c] Gap."],
+    ["- [C @c] Claim.\n  - [G @g; @step] Reason.\n    - Body\n      - [O/ @o] Concern.", "[O @o /> @step]", "- [C @c] Claim.\n  - [G @g; @step] Reason.\n    - Body\n      - [O @o /> @step] Concern."],
+    ["- [Q @q] Question.\n  - Body\n    - [C @a] Answer.", "move this occurrence where no default applies and write [_ @a answers @q]; adding that edge while the occurrence stays here would create a second answers Bearing", "- [Q @q] Question.\n- Body\n  - [C @a] Answer.\n- [_ @a answers @q]"],
+    ["- [O @o] Objection.\n  - Body\n    - [R @r] Reply.", "[_ @r repliesTo @o]", "- [O @o] Objection.\n- Body\n  - [R @r] Reply.\n- [_ @r repliesTo @o]"],
+    ["- [C @c] Claim.\n  - Body\n    - [linked; @route]\n      - [G @a] A.\n      - [G @b] B.", "write [_ @a, @b +> @c; @route] in place of the linked header, move its source Grounds where no default applies", "- [C @c] Claim.\n- Body\n  - [G @a] A.\n  - [G @b] B.\n- [_ @a, @b +> @c; @route]"]
+  ])("teaches an existing explicit spelling for %s", (source, suggestion, followed) => {
+    const result = compile(source);
+    expect(advice(result)).toHaveLength(1);
+    expect(advice(result)[0].explanation).toContain(suggestion);
+    expect(advice(result)[0].explanation).toContain("Choosing note instead excludes the whole subtree from the graph.");
+    const explicit = compile(followed);
+    expect(explicit.graph.diagnostics).toEqual([]);
+    expect(topology(explicit)).toEqual(topology(result));
+  });
+
+  it("names the missing names instead of inventing them for anonymous Points", () => {
+    expect(advice(compile("- [Q] Question.\n  - Body\n    - [C] Answer."))[0].explanation).toContain("[_ @source answers @target] after naming its placeholder Points");
+    const linked = advice(compile("- [C] Claim.\n  - Body\n    - [linked]\n      - [G] First.\n      - [G] Second."))[0].explanation;
+    expect(linked).toContain("[_ @source, @source2 +> @target] in place of the linked header after naming each placeholder Point");
+    expect(advice(compile("- [C] Claim.\n  - Body\n    - [O] Concern."))[0].explanation).toContain("[O -> @target] after naming the target");
+  });
+
+  it("derives linked advice from the surviving joint sources and keeps independent members", () => {
+    const declarations = "- [G @a] A.\n- [G @b] B.\n- [C @other] Other.\n- [C @c] Claim.\n  - grouping\n";
+    const result = compile(declarations + "    - [linked; @joint]\n      - [G use @a]\n      - [G use @b +> @other]\n      - [note] Kept with the step.\n      - [O/ @doubt] The step needs a mechanism.");
+    const explanation = advice(result)[0].explanation ?? "";
+    expect(explanation).toContain("write [_ @a +> @c; @joint] in place of the linked header");
+    expect(explanation).not.toContain("@b +>");
+    const followed = compile(declarations + "    - [_ @a +> @c; @joint]\n      - [G use @b +> @other]\n      - [note] Kept with the step.\n      - [O/ @doubt] The step needs a mechanism.\n- [G use @a]");
+    expect(followed.graph.diagnostics).toEqual([]);
+    expect(topology(followed)).toEqual(topology(result));
+    expect(topology(result)).toEqual([[["@a"], "supports", "@c", "joint"], [["@b"], "supports", "@other", undefined], [["@doubt"], "undercuts", "@joint", undefined]]);
+  });
+
+  it("moves a handle and attachment commentary with the attachment when an edge replaces a default", () => {
+    const result = compile("- [Q @q] Question.\n  - grouping\n    - [C @a; @answer] Answer.\n      - [G] Reason for the answer.\n      - [O/ @o] Concern about answering.");
+    const explanation = advice(result)[0].explanation ?? "";
+    expect(explanation).toContain("write [_ @a answers @q; @answer]");
+    expect(explanation).toContain("Its handle and any G/ or O/ commentary that selects this attachment belong to the attachment, not the Point: move them to the edge, and keep the occurrence's other children, including selectors under nearer constructors, with it.");
+    // Moving only the occurrence and adding the edge leaves the handle and selector without an attachment.
+    const partial = compile("- [Q @q] Question.\n- grouping\n  - [C @a; @answer] Answer.\n    - [G] Reason for the answer.\n    - [O/ @o] Concern about answering.\n- [_ @a answers @q]");
+    expect(partial.graph.diagnostics.map(diagnostic => diagnostic.code)).toEqual(expect.arrayContaining(["BEARING_HANDLE_WITHOUT_BEARING", "NO_LOCAL_BEARING_ATTACHMENT"]));
+    const followed = compile("- [Q @q] Question.\n- grouping\n  - [C @a] Answer.\n    - [G] Reason for the answer.\n- [_ @a answers @q; @answer]\n  - [O/ @o] Concern about answering.");
+    expect(followed.graph.diagnostics).toEqual([]);
+    const sorted = (rows: unknown[]) => rows.map(row => JSON.stringify(row)).sort();
+    expect(sorted(topology(followed))).toEqual(sorted(topology(result)));
+    expect(topology(result)).toHaveLength(3);
+  });
+
+  it("keeps placeholders clear of every authored name in the source unit", () => {
+    const names = "- [G @source] Named.\n- [C @c] Claim.\n  - [G @source2; @target] Also named.\n  - body\n";
+    const linked = compile(names + "    - [linked]\n      - [G] Anonymous.\n      - [G use @source]");
+    expect(advice(linked)[0].explanation).toContain("write [_ @source3, @source +> @c] in place of the linked header after naming each placeholder Point");
+    const answer = compile("- [. @target] Taken.\n- [. @source] Taken.\n- [C @c] Claim.\n  - [G; @source2] Taken route.\n- [Q] Question.\n  - body\n    - [C] Answer.");
+    expect(advice(answer)[0].explanation).toContain("[_ @source3 answers @target2] after naming its placeholder Points");
+    // Following the advice with those spellings reproduces the joint support without diagnostics.
+    const followed = compile(names + "    - [_ @source3, @source +> @c]\n- [G @source3] Anonymous.");
+    expect(followed.graph.diagnostics).toEqual([]);
+    const ids = (result: GraphCompilation) => result.graph.bearings.map(bearing => [bearing.sources.length, bearing.kind, bearing.handle]);
+    expect(ids(followed)).toEqual(ids(linked));
+    expect(followed.graph.bearings.at(-1)?.sources.map(source => followed.graph.points.find(point => point.key === source.key)?.id)).toEqual(["source3", "source"]);
+  });
 });

@@ -2,7 +2,7 @@
 
 Check Cogitatum inquiry markup and inspect the reasoning connections marked in ordinary prose.
 
-Source candidate: **0.4.9**, format **0.4.0**, with local `linked` support and optional linked header descriptions.
+Source candidate: **0.4.10**, format **0.4.0**, with local `linked` support and optional linked header descriptions.
 Explicit `edge` clauses accept all canonical kind names, including `answers`, `repliesTo`, and `clarifies`.
 This candidate is not yet published; npm `alpha` currently provides **0.3.0-alpha.1** without linked. Requires Node.js 22.12 or newer.
 
@@ -29,5 +29,10 @@ Explicit `host` mode selects actual document-level Markdown fences, leaves comme
 A host without active regions succeeds with empty projections; actual fences nested in lists or blockquotes are diagnosed and omitted.
 
 For debugging a note, `cog explain inquiry.cog.md` prints an optional Alpha compiler trace: recognition, emitted or rejected points and connections, and the compilation rules involved. This command explains how the markup was compiled. It does not explain the prose or evaluate an argument.
+
+In `document` mode, `ast`, `graph` and `explain` print one AST, Graph IR and Explain projection; `check` prints `{ version, diagnostics }`.
+With `--input host`, `ast` and `graph` print the `parseSource` and `compileSource` envelopes, while `check` prints `{ version, mode, diagnostics }`.
+Host `explain` prints `{ version, mode, units, explanations, diagnostics }`: a command-specific projection without `documents` or `graphs`, so it is not a source-envelope schema instance.
+Validate each `explanations[i]` with the Explain schema, or call `explainSource` for the complete envelope.
 
 Read the [quick start](https://cogitatum.baksili.codes/docs/quick-start), browse [examples](https://cogitatum.baksili.codes/examples), or try the [playground](https://cogitatum.baksili.codes/playground).
