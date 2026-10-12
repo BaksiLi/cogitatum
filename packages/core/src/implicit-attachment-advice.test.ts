@@ -121,7 +121,7 @@ describe("advice from actual implicit selection", () => {
   it("names the missing names instead of inventing them for anonymous Points", () => {
     expect(advice(compile("- [Q] Question.\n  - Body\n    - [C] Answer."))[0].explanation).toContain("[_ @source answers @target] after naming its placeholder Points");
     const linked = advice(compile("- [C] Claim.\n  - Body\n    - [linked]\n      - [G] First.\n      - [G] Second."))[0].explanation;
-    expect(linked).toContain("[_ @source1, @source2 +> @target] in place of the linked header after naming each placeholder Point");
+    expect(linked).toContain("[_ @source, @source2 +> @target] in place of the linked header after naming each placeholder Point");
     expect(advice(compile("- [C] Claim.\n  - Body\n    - [O] Concern."))[0].explanation).toContain("[O -> @target] after naming the target");
   });
 
@@ -141,7 +141,7 @@ describe("advice from actual implicit selection", () => {
     const result = compile("- [Q @q] Question.\n  - grouping\n    - [C @a; @answer] Answer.\n      - [G] Reason for the answer.\n      - [O/ @o] Concern about answering.");
     const explanation = advice(result)[0].explanation ?? "";
     expect(explanation).toContain("write [_ @a answers @q; @answer]");
-    expect(explanation).toContain("Any handle and G/ or O/ commentary belong to the attachment, not the Point: move them to the edge, and keep the occurrence's other children with it.");
+    expect(explanation).toContain("Its handle and any G/ or O/ commentary that selects this attachment belong to the attachment, not the Point: move them to the edge, and keep the occurrence's other children, including selectors under nearer constructors, with it.");
     // Moving only the occurrence and adding the edge leaves the handle and selector without an attachment.
     const partial = compile("- [Q @q] Question.\n- grouping\n  - [C @a; @answer] Answer.\n    - [G] Reason for the answer.\n    - [O/ @o] Concern about answering.\n- [_ @a answers @q]");
     expect(partial.graph.diagnostics.map(diagnostic => diagnostic.code)).toEqual(expect.arrayContaining(["BEARING_HANDLE_WITHOUT_BEARING", "NO_LOCAL_BEARING_ATTACHMENT"]));
@@ -150,5 +150,19 @@ describe("advice from actual implicit selection", () => {
     const sorted = (rows: unknown[]) => rows.map(row => JSON.stringify(row)).sort();
     expect(sorted(topology(followed))).toEqual(sorted(topology(result)));
     expect(topology(result)).toHaveLength(3);
+  });
+
+  it("keeps placeholders clear of every authored name in the source unit", () => {
+    const names = "- [G @source] Named.\n- [C @c] Claim.\n  - [G @source2; @target] Also named.\n  - body\n";
+    const linked = compile(names + "    - [linked]\n      - [G] Anonymous.\n      - [G use @source]");
+    expect(advice(linked)[0].explanation).toContain("write [_ @source3, @source +> @c] in place of the linked header after naming each placeholder Point");
+    const answer = compile("- [. @target] Taken.\n- [. @source] Taken.\n- [C @c] Claim.\n  - [G; @source2] Taken route.\n- [Q] Question.\n  - body\n    - [C] Answer.");
+    expect(advice(answer)[0].explanation).toContain("[_ @source3 answers @target2] after naming its placeholder Points");
+    // Following the advice with those spellings reproduces the joint support without diagnostics.
+    const followed = compile(names + "    - [_ @source3, @source +> @c]\n- [G @source3] Anonymous.");
+    expect(followed.graph.diagnostics).toEqual([]);
+    const ids = (result: GraphCompilation) => result.graph.bearings.map(bearing => [bearing.sources.length, bearing.kind, bearing.handle]);
+    expect(ids(followed)).toEqual(ids(linked));
+    expect(followed.graph.bearings.at(-1)?.sources.map(source => followed.graph.points.find(point => point.key === source.key)?.id)).toEqual(["source3", "source"]);
   });
 });

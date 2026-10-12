@@ -151,7 +151,7 @@ Failed selections, complete explicit endpoints, root groups, leaf prose, nearer 
 Its explanation offers existing spellings: keep the grouping deliberately, move the active content beside its target, or state the relation explicitly.
 For `supports`, `challenges` and `about`, and for `G/` and `O/`, an operator written on the occurrence replaces the default, so it adds no second Bearing.
 `answers`, `repliesTo` and `clarifies` have no Point-attached operator: move the occurrence where no default applies and write an `edge`, because an edge added beside an unchanged default creates a second relation.
-A handle and `G/` or `O/` commentary belong to the attachment rather than the Point, so they move to that edge.
+Its handle and any `G/` or `O/` commentary that selects this attachment belong to it rather than to the Point, so they move to that edge; selectors beneath a nearer constructor stay with that constructor.
 A linked group likewise becomes an `edge` only after its Grounds leave their default positions.
 There is no automatic note-wrapping fix: that would remove the active subtree from the graph.
 

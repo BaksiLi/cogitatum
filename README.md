@@ -13,7 +13,7 @@ Use it while reading, developing or revising an argument: in reading notes, inve
   - Compare the traces tomorrow before changing the configuration.
 ```
 
-Four marked points, three explicit connections. The ordinary body remains in the source. The compiler exposes selected structure without judging whether the explanation is correct.
+Four marked points, three connections derived from the marks and indentation. The ordinary body remains in the source. The compiler exposes selected structure without judging whether the explanation is correct.
 
 [Try the playground](https://cogitatum.baksili.codes/playground) · [One-minute introduction](docs/introduction.md) · [Ten-minute quick start](docs/quick-start.md) · [Examples](https://cogitatum.baksili.codes/examples)
 

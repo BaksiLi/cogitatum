@@ -154,7 +154,7 @@ export function compileGraphWithExplain(ast: DocumentAst): GraphCompilation {
     }
   }
   addStructuralDiagnostics(ast.blocks, validation.bearings, symbols, diagnostics);
-  const entries = buildExplainEntries(explainDrafts, points, validation, diagnostics);
+  const entries = buildExplainEntries(explainDrafts, points, validation, diagnostics, new Set([...symbols.allIds.keys(), ...symbols.bearingIds]));
 
   const graph = {
     version: FORMAT_VERSION,
@@ -707,7 +707,8 @@ function buildExplainEntries(
   drafts: ExplainDraft[],
   points: Point[],
   validation: BearingValidation,
-  diagnostics: Diagnostic[]
+  diagnostics: Diagnostic[],
+  authoredNames: ReadonlySet<string>
 ): ExplainEntry[] {
   const pointKeys = new Set(points.map((point) => point.key));
   const pointTargets = new Map(points.map(point => [point.key, point]));
@@ -781,7 +782,7 @@ function buildExplainEntries(
             severity: "suggestion",
             code: "IMPLICIT_ATTACHMENT_THROUGH_BODY",
             message: "Implicit " + canonical.kind + " selects " + targetLabel + " through ordinary body at " + draft.implicit.crossedBodySpans.map(spanLabel).join(", ") + ".",
-            explanation: implicitAttachmentAdvice(draft.block, canonical.kind, draft.bearing.reason, name || undefined, canonical.sources.map(source => pointTargets.get(source.key)?.id)),
+            explanation: implicitAttachmentAdvice(draft.block, canonical.kind, draft.bearing.reason, name || undefined, canonical.sources.map(source => pointTargets.get(source.key)?.id), authoredNames),
             sourceSpan: draft.block.sourceSpan
           });
         }
@@ -816,20 +817,29 @@ function implicitAttachmentAdvice(
   kind: BearingKind,
   reason: Extract<BearingDraft, { outcome: "candidate" }>["reason"],
   targetName: string | undefined,
-  sourceNames: (string | undefined)[]
+  sourceNames: (string | undefined)[],
+  authoredNames: ReadonlySet<string>
 ): string {
+  // Placeholders for unnamed Points avoid every name in this source unit and each
+  // other, so following the advice never produces a duplicate or wrong reference.
+  const taken = new Set(authoredNames);
+  const placeholder = (base: string) => {
+    let name = base;
+    for (let index = 2; taken.has(name); index += 1) name = base + index;
+    taken.add(name);
+    return "@" + name;
+  };
   const keep = "This grouping is transparent to attachment. Keep it deliberately or move the active content beside its target.";
-  const target = targetName ? "@" + targetName : "@target";
+  const target = targetName ? "@" + targetName : placeholder("target");
   const naming = targetName ? "" : " after naming the target";
   const note = " Choosing note instead excludes the whole subtree from the graph.";
   const annotation = block.annotation;
   const handle = annotation && "handle" in annotation && annotation.handle ? "; @" + annotation.handle : "";
   if (reason === "linked-containment") {
-    // Distinct placeholders: one repeated name would be a duplicate source, not a rewrite.
-    const sources = sourceNames.map((id, index) => id ? "@" + id : "@source" + (index + 1));
+    const sources = sourceNames.map(id => id ? "@" + id : placeholder("source"));
     const unnamed = !targetName || sourceNames.some(id => !id);
     return keep + ` To state it explicitly, write [_ ${sources.join(", ")} +> ${target}${handle}] in place of the linked header` +
-      `${unnamed ? " after naming each placeholder Point" : ""}, move its source Grounds where no default applies, and keep its other children, such as independent relations, notes and G/ or O/ commentary, beneath the edge.` + note;
+      `${unnamed ? " after naming each placeholder Point" : ""}, move its source Grounds where no default applies, and keep its other children, such as independent relations, notes and direct G/ or O/ commentary, beneath the edge.` + note;
   }
   if (!annotation || (annotation.kind !== "role" && annotation.kind !== "use" && annotation.kind !== "gap")) return keep + note;
   if (reason === "local-attachment" && "selector" in annotation && annotation.selector) {
@@ -842,10 +852,10 @@ function implicitAttachmentAdvice(
   if (symbol) {
     return keep + ` To state it explicitly, write [${source} ${symbol} ${target}${handle}]${naming}; the operator replaces the default rather than adding a second Bearing.` + note;
   }
-  const sourceName = sourceNames[0] ? "@" + sourceNames[0] : "@source";
+  const sourceName = sourceNames[0] ? "@" + sourceNames[0] : placeholder("source");
   return keep + ` ${kind} has no Point-attached operator. To state it explicitly, move this occurrence where no default applies and write [_ ${sourceName} ${kind} ${target}${handle}]` +
     `${!sourceNames[0] || !targetName ? " after naming its placeholder Points" : ""}; adding that edge while the occurrence stays here would create a second ${kind} Bearing.` +
-    " Any handle and G/ or O/ commentary belong to the attachment, not the Point: move them to the edge, and keep the occurrence's other children with it." + note;
+    " Its handle and any G/ or O/ commentary that selects this attachment belong to the attachment, not the Point: move them to the edge, and keep the occurrence's other children, including selectors under nearer constructors, with it." + note;
 }
 
 function reuseSpelling(block: AstBlock, anchor: string): string {
