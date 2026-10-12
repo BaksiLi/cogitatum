@@ -2,7 +2,7 @@
 
 Cogitatum is a lightweight markup language for making selected reasoning structure explicit inside ordinary prose. This package provides its deterministic parser and compiler for Node.js and browsers.
 
-Source candidate: **0.4.11**, format **0.4.0**, with literal note subtrees, implicit-attachment suggestions and explicit C? retirement.
+Source candidate: **0.4.12**, format **0.4.0**, with literal note subtrees, implicit-attachment suggestions and explicit C? retirement.
 Explicit `edge` clauses can use any canonical kind name; Point-attached clauses retain the four symbolic operators.
 Reference-only `[. use @p]` or locally marked `[G use @p]` occurrences resolve an existing Point without copying its subtree or changing declaration metadata.
 Neutral Point use focuses without a default attachment.
@@ -42,6 +42,53 @@ Keep the original host and pair selected units with AST/Graph/Explain by array i
 ESM; Node.js 22.12 or newer for development and CLI use.
 
 Optional Alpha debugging APIs, `compileGraphWithExplain` and `explainSource`, add a compiler trace of recognition, emitted or rejected entities, and diagnostics. This trace explains compilation decisions; it does not assess reasoning or record inquiry history. Use AST and Graph IR for integrations that do not need it.
+
+## Written name references
+
+Before renaming a shared observation, inspect where its name is written:
+
+```js
+import { analyzeSourceReferences } from '@cogitatum/core';
+
+const review = analyzeSourceReferences(source); // Pass 'host' for Markdown.
+if (review.references.status === 'complete') {
+  for (const names of review.references.units) {
+    for (const name of names) {
+      console.log(name.name, name.ref, name.sourceSpan, name.references);
+    }
+  }
+}
+```
+
+Supply the complete document or host, not a selected fragment whose references may occur elsewhere.
+`references.units[i]` inventories declared Point names and Bearing handles in `units[i]`, in declaration order.
+Each record contains the authored `name` without `@`, the compiler's typed `ref`, the declaration block's `sourceSpan`, and `references` in source order.
+A reference has a block `sourceSpan` and `kind`: `point-use`, `bearing-use`, `source` or `target`.
+An explicit `source` also has a zero-based `sourceIndex`, preserving its order in that Bearing's source list.
+These are whole-block spans in original one-based UTF-16 coordinates, not replacement ranges for name tokens.
+Resolve identities with the unit index and typed key together; names and keys may repeat in another unit, and keys may change after edits.
+
+The inventory reuses the parser's annotation fields and the compiler's resolved Explain effects, including forward references.
+It counts only active written operands, not declarations, ordinary prose mentions, literal note descendants, implicit attachments, self sources, linked membership or local selectors.
+The record's typed `ref` identifies the entity referenced, including a Bearing used as an explicit target.
+Inspect AST/Explain for occurrence prose, attachment ownership and the relation constructed by a Point use; the inventory is not a replacement for those projections.
+
+On any error, including an omitted nested or unclosed host fence, `references` is `{ status: 'unavailable', reason: 'source-errors' }`, without inventories or counts.
+The unchanged compiler `diagnostics` explain why; warnings and suggestions do not prevent a complete inventory.
+A host without active units returns a complete empty unit array, which makes no claim about names in host prose or external material.
+Completeness covers only the supplied source in the chosen mode; the API cannot detect that a caller has supplied a valid-looking fragment.
+
+An empty `references` array means no active syntax references in this supplied unit.
+It does not establish that a name is useless, that its entity is disconnected, or that removal is safe: hosts, citations and later revisions may rely on it.
+This API reads source without editing, inventing names or reconstructing text from Graph IR.
+Retain the exact original source alongside the report; host unit text is a selected, normalised projection.
+Any later edit needs its own preservation contract and recompilation, including occurrence notes and how local attachments respond to moves.
+
+`SourceReferenceAnalysis`, `ReferencedName` and `WrittenReference` are exported TypeScript types.
+The result is a separate analysis projection, not an instance of the Source envelope schema; `version` identifies the underlying format, while the package/source revision identifies this API.
+No existing AST, Graph IR, Explain or Source schema is extended.
+
+## Compiler contracts
 
 AST blocks keep their semantic fields only in `annotation`; source `raw` and block text are retained separately. Reparse older source to migrate from format 0.2.0. The compiler rejects ASTs with a different format version.
 It also refuses an `edge` annotation that has neither an `operatorClause` nor a recorded syntax error, instead of deriving a relation; validate imported AST JSON against the AST schema first.

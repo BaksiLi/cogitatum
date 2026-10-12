@@ -54,7 +54,7 @@ for (const name of ["ast", "graph-ir", "explain", "source"]) {
 }
 const probe = `
 import assert from 'node:assert/strict';
-import { compileGraph, compileGraphWithExplain, compileSource, parseDocument } from '@cogitatum/core';
+import { analyzeSourceReferences, compileGraph, compileGraphWithExplain, compileSource, parseDocument } from '@cogitatum/core';
 const { graph, explain } = compileGraphWithExplain(parseDocument('- Ordinary context.\\n  - [C @claim] A claim.\\n    - [G; @route] A reason.\\n- [O /> @route] A route objection.\\n'));
 assert.equal(graph.points.length, 3);
 assert.equal(graph.points[1].id, undefined);
@@ -110,6 +110,21 @@ assert.deepEqual(layout.graph.points.map(point => point.id), ['outer', 'inner', 
 assert.equal(layout.graph.bearings.length, 1);
 assert.deepEqual(layout.graph.bearings[0].target, { key: layout.graph.points[1].key, kind: 'point' });
 assert.deepEqual(layout.graph.diagnostics.map(diagnostic => diagnostic.code), ['TAB_INDENTATION_UNSUPPORTED', 'FAILED_CONTEXT_REQUIRES_EXPLICIT_TARGET']);
+const referenceText = '- [_ use @route] Review.\\n- [_ @reason supports @claim; @route] Support.\\n- [C @claim] Claim.\\n- [G @reason] Reason.';
+const inventory = analyzeSourceReferences(referenceText);
+assert.equal(inventory.references.status, 'complete');
+assert.deepEqual(inventory.diagnostics, []);
+assert.equal(inventory.units[0].source, referenceText);
+assert.deepEqual(inventory.references.units[0].map(name => [name.name, name.ref.kind, name.references.map(reference => [reference.kind, reference.sourceSpan.startLine, reference.sourceIndex])]), [
+  ['route', 'bearing', [['bearing-use', 1, undefined]]],
+  ['claim', 'point', [['target', 2, undefined]]],
+  ['reason', 'point', [['source', 2, 0]]]
+]);
+const localNames = analyzeSourceReferences('- [C @claim] Claim.\\n  - [G @reason; @route] Reason.');
+assert.deepEqual(localNames.references.units[0].map(name => name.references), [[], [], []]);
+const incompleteInventory = analyzeSourceReferences(fence + 'cog\\n- [C @claim] Claim.\\n' + fence + '\\n' + fence + 'cog\\n- [. use @claim] Unclosed.', 'host');
+assert.deepEqual(incompleteInventory.references, { status: 'unavailable', reason: 'source-errors' });
+assert.equal(incompleteInventory.diagnostics[0].code, 'UNCLOSED_COGITATUM_FENCE');
 `;
 run(process.execPath, ["--input-type=module", "-e", probe], temporary);
 // Consumers may set the development condition; the package must remain usable.
@@ -135,9 +150,30 @@ assert.equal(graph.diagnostics.length, 0);
 const reused = JSON.parse(run(executable, ["explain", join(root, "fixtures/core/narrative-reference-reuse.cog.md")], temporary));
 assert.deepEqual(reused.diagnostics, []);
 assert.equal(reused.entries.filter(entry => entry.effects.some(effect => effect.kind === "focusPoint")).length, 6);
+const referenceFile = join(root, "fixtures/core/bearing-reference-reading.cog.md");
+const cliReferences = JSON.parse(run(executable, ["check", "--references", referenceFile], temporary));
+const apiReferences = JSON.parse(run(process.execPath, ["--input-type=module", "-e",
+  "import {readFileSync} from 'node:fs'; import {analyzeSourceReferences} from '@cogitatum/core'; console.log(JSON.stringify(analyzeSourceReferences(readFileSync(process.argv[1], 'utf8'))));", referenceFile
+], temporary));
+assert.deepEqual(cliReferences, apiReferences);
+assert.equal(cliReferences.references.status, "complete");
 
-writeFileSync(join(temporary, "consumer.mts"), `import {type Point, type PointDeclaration, type Bearing, type Annotation, type OperatorClause, type ExplainEmittedBearingSummary, compileGraph, parseDocument} from '@cogitatum/core';
+writeFileSync(join(temporary, "consumer.mts"), `import {type Point, type PointDeclaration, type Bearing, type Annotation, type OperatorClause, type ExplainEmittedBearingSummary, type SourceReferenceAnalysis, type ReferencedName, type WrittenReference, analyzeSourceReferences, compileGraph, parseDocument} from '@cogitatum/core';
 import { createGraphView, declarationMark } from '@cogitatum/view';
+const inventory: SourceReferenceAnalysis = analyzeSourceReferences('- [C @claim] Claim.');
+if (inventory.references.status === 'complete') {
+  const names: ReferencedName[] = inventory.references.units[0];
+  const references: WrittenReference[] = names[0].references;
+  for (const reference of references) {
+    if (reference.kind === 'source') { const order: number = reference.sourceIndex; }
+  }
+} else {
+  const reason: 'source-errors' = inventory.references.reason;
+  // @ts-expect-error Incomplete analysis cannot supply misleading empty inventories.
+  inventory.references.units;
+}
+// @ts-expect-error Source operands retain their authored order.
+const unorderedSource: WrittenReference = {kind: 'source', sourceSpan: {startLine: 1, startColumn: 1, endLine: 1, endColumn: 5}};
 const mount = (container: HTMLElement) => {
   const view = createGraphView(container, { onSelect: node => { const text: string = node.text; } });
   view.update(graph, 'host:source-unit');

@@ -2,7 +2,7 @@
 
 Check Cogitatum inquiry markup and inspect the reasoning connections marked in ordinary prose.
 
-Source candidate: **0.4.11**, format **0.4.0**, with local `linked` support and optional linked header descriptions.
+Source candidate: **0.4.12**, format **0.4.0**, with local `linked` support and optional linked header descriptions.
 Explicit `edge` clauses accept all canonical kind names, including `answers`, `repliesTo`, and `clarifies`.
 This candidate is not yet published; npm `alpha` currently provides **0.3.0-alpha.1** without linked. Requires Node.js 22.12 or newer.
 
@@ -34,5 +34,24 @@ In `document` mode, `ast`, `graph` and `explain` print one AST, Graph IR and Exp
 With `--input host`, `ast` and `graph` print the `parseSource` and `compileSource` envelopes, while `check` prints `{ version, mode, diagnostics }`.
 Host `explain` prints `{ version, mode, units, explanations, diagnostics }`: a command-specific projection without `documents` or `graphs`, so it is not a source-envelope schema instance.
 Validate each `explanations[i]` with the Explain schema, or call `explainSource` for the complete envelope.
+
+In this source candidate, opt in to a written-name inventory before reviewing a rename or deciding which names to retain:
+
+```sh
+npm run cog:dist -- check --references inquiry.cog.md
+npm run cog:dist -- check --references --input host notes.md
+```
+
+This option prints the same result as Core's [`analyzeSourceReferences`](../core/README.md#written-name-references): `{ version, mode, units, diagnostics, references }` in either input mode.
+When `references.status` is `complete`, `references.units[i]` lists declared names in `units[i]`, their typed entities and declaration locations, and written reference occurrences.
+It distinguishes Point/Bearing uses, explicit sources with their zero-based source order, and explicit targets.
+Locations cover the containing blocks, not individual name tokens.
+Any source or selection error returns `references: { status: 'unavailable', reason: 'source-errors' }`, without misleading empty inventories.
+
+Pass the whole document or host: the inventory cannot discover references outside the supplied input.
+An empty reference array is not an unused-name warning or permission to delete the name; external hosts may still rely on it.
+The option adds no diagnostics, changes no source, and retains the ordinary `check` exit status.
+Without the option, all command output remains unchanged; using it with `ast`, `graph` or `explain` is an argument error.
+The inventory is an additional analysis projection, not an extension to any of the four existing JSON Schemas.
 
 Read the [quick start](https://cogitatum.baksili.codes/docs/quick-start), browse [examples](https://cogitatum.baksili.codes/examples), or try the [playground](https://cogitatum.baksili.codes/playground).
