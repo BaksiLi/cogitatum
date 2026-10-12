@@ -2,7 +2,17 @@
 
 The 0.4 entries below are unpublished source milestones, not npm releases; a shared preview is not a package release either.
 As of 13 October 2026, npm provides only Core and CLI **0.3.0-alpha.1**, under both `alpha` and `latest`.
-The current **0.4.10** candidate retains **format 0.4.0**: match compiler, schemas and consumers to the same source revision, and [migrate retained source](docs/syntax.md#compatibility-and-migration) rather than relabelling old JSON.
+The current **0.4.11** candidate retains **format 0.4.0**: match compiler, schemas and consumers to the same source revision, and [migrate retained source](docs/syntax.md#compatibility-and-migration) rather than relabelling old JSON.
+
+## 0.4.11 — 13 October 2026
+
+- Retain recognised annotations at invalid indentation as failed boundaries, preventing implicit descendants from attaching to an outer Point.
+  Independent explicit relations and valid inner subtrees still survive.
+- Map block, diagnostic and graph spans to the actual content column after variable bullet spacing, including host fences.
+- Keep malformed-use error categories unique so parser output satisfies the AST schema, without dropping diagnostics or retirement guards.
+- Allow repeated sources in rejected Explain summaries while continuing to reject them in emitted Bearings; remove the unsupported `retired` derivation value from the Explain schema.
+- **Migration:** reparse affected source and use the complete schema bundle from this candidate.
+  Format remains unpublished 0.4.0; these corrections do not make earlier candidate JSON interchangeable.
 
 ## 0.4.10 — 13 October 2026
 

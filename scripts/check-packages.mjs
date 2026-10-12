@@ -102,6 +102,14 @@ assert.ok(notes.explain.entries[3].effects.some(effect => effect.kind === 'impli
 const retired = compileGraph(parseDocument('- [C? @old] Retired.'));
 assert.deepEqual(retired.points, []);
 assert.equal(retired.diagnostics[0].code, 'RETIRED_CLAIM_OPENNESS');
+const malformedUse = parseDocument('- [use] Missing operand.');
+assert.deepEqual(malformedUse.blocks[0].annotation.syntaxErrors, ['reference', 'retired']);
+const layout = compileGraphWithExplain(parseDocument('-    [C @outer] Outer.\\n\\t- [C @failed] Failed.\\n    - [G @inner] Inner.\\n      - [G @detail] Detail.'));
+assert.equal(layout.graph.points[0].sourceSpan.startColumn, 6);
+assert.deepEqual(layout.graph.points.map(point => point.id), ['outer', 'inner', 'detail']);
+assert.equal(layout.graph.bearings.length, 1);
+assert.deepEqual(layout.graph.bearings[0].target, { key: layout.graph.points[1].key, kind: 'point' });
+assert.deepEqual(layout.graph.diagnostics.map(diagnostic => diagnostic.code), ['TAB_INDENTATION_UNSUPPORTED', 'FAILED_CONTEXT_REQUIRES_EXPLICIT_TARGET']);
 `;
 run(process.execPath, ["--input-type=module", "-e", probe], temporary);
 // Consumers may set the development condition; the package must remain usable.

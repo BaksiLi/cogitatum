@@ -74,8 +74,10 @@ export function parseAnnotation(raw: string, sourceSpan?: SourceSpan): Annotatio
       annotation.syntaxErrors = ["reference"];
     } else if (annotation && annotation.kind !== "invalid" && annotation.kind !== "linked" && annotation.kind !== "note") {
       annotation.raw = raw;
-      annotation.syntaxErrors = [...(annotation.syntaxErrors ?? []), "retired"];
-      if (annotation.kind === "use" && /^\s*use(?=$|;|\s+@)/i.test(raw)) annotation.syntaxErrors.push("reference");
+      const errors = new Set(annotation.syntaxErrors);
+      errors.add("retired");
+      if (annotation.kind === "use" && /^\s*use(?=$|;|\s+@)/i.test(raw)) errors.add("reference");
+      annotation.syntaxErrors = [...errors];
     }
     return { annotation: /^\s*@/.test(raw) ? { kind: "invalid", raw } : annotation ?? { kind: "invalid", raw }, diagnostics: [{ severity: "error", code: "RETIRED_AUTHORING_SYNTAX", message: "Retired authoring spelling; migrate this annotation to [" + normalized + "] and reparse the original source.", sourceSpan }, ...parsed.diagnostics] };
   }
@@ -169,7 +171,7 @@ function parseCurrentAnnotation(raw: string, sourceSpan?: SourceSpan): Annotatio
       errors.push("handle");
       diagnostics.push({ severity: "error", code: "MALFORMED_BEARING_HANDLE", message: "Bearing handle separator ';' must be followed by exactly one valid @id.", sourceSpan });
     }
-    const base = { kind: "use" as const, ref: operand ? { id: operand } : undefined, handle, raw, syntaxErrors: errors.length ? errors : undefined };
+    const base = { kind: "use" as const, ref: operand ? { id: operand } : undefined, handle, raw, syntaxErrors: errors.length ? [...new Set(errors)] : undefined };
     return { annotation: selector ? { ...base, role: mark === "G/" ? "G" : "O", selector } : { ...base, role, operatorClause }, diagnostics };
   }
   if (/^linked(?=$|[\s;])/i.test(trimmed)) {
