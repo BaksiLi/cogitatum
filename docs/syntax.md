@@ -389,6 +389,14 @@ The parallel `units[]`, `documents[]`, `graphs[]`, and optional `explanations[]`
 Skipped literal content and rejected nested regions occupy no index and never import a namespace.
 No native Markdown annotation grammar, extension-based profile, or document-wide namespace is introduced here.
 
+### Language name and files
+
+The language is Cogitatum, with `cog` as its short technical name, as in the CLI and fence info word; Project Cogitatum is the wider research programme around it.
+A dedicated Cogitatum document uses the `.cog.md` suffix and is compiled in `document` mode.
+An ordinary Markdown note keeps its own `.md` name; select `host` mode explicitly to compile its `cog` fences, leaving the surrounding prose as host content.
+The suffix is a naming convention only: it does not select the parser, and the owned outline does not accept arbitrary Markdown.
+Cogitatum's literate presentation, inspired by literate programming, keeps explanation and structure in one document; its prose is not executable, and any computation over Cogitatum artefacts is a separate concern.
+
 ## Machine contract and CLI
 
 Recognized failed Point declarations retain an AST annotation with kind "invalid" and their original annotation raw text.
