@@ -2,6 +2,7 @@
 import { readFile } from "node:fs/promises";
 import { readFileSync } from "node:fs";
 import {
+  analyzeSourceReferences,
   compileGraphWithExplain,
   compileSource,
   explainSource,
@@ -19,6 +20,7 @@ type CliArgs = {
   command?: Command;
   file?: string;
   inputMode: SourceParseMode;
+  references: boolean;
   diagnostics: Diagnostic[];
 };
 
@@ -50,6 +52,15 @@ async function main(): Promise<void> {
   }
 
   const source = await readFile(args.file, "utf8");
+
+  if (args.references) {
+    const analysis = analyzeSourceReferences(source, args.inputMode);
+    printJson(analysis);
+    // The opt-in inventory adds no diagnostics or new failure conditions.
+    // Source errors withhold it and retain check's usual exit status.
+    process.exitCode = hasErrors(analysis.diagnostics) ? 1 : 0;
+    return;
+  }
 
   if (args.command === "ast") {
     const parsed = args.inputMode === "document" ? parseDocument(source) : parseSource(source, args.inputMode);
@@ -111,6 +122,7 @@ function parseArgs(argv: string[]): CliArgs {
   const args: CliArgs = {
     command: isCommand(commandArg) ? commandArg : undefined,
     inputMode: "document",
+    references: false,
     diagnostics
   };
 
@@ -136,6 +148,13 @@ function parseArgs(argv: string[]): CliArgs {
       }
       args.inputMode = value;
       index += 1;
+      continue;
+    }
+    if (!optionsEnded && arg === "--references") {
+      if (args.command !== "check") {
+        diagnostics.push({ severity: "error", code: "INVALID_OPTION", message: "--references is only available with check." });
+      }
+      args.references = true;
       continue;
     }
     if (!optionsEnded && arg.startsWith("-")) {
@@ -174,10 +193,12 @@ function printUsage(stream: NodeJS.WritableStream = process.stderr): void {
   stream.write("  explain  Print an Alpha compiler trace as JSON (optional debugging)\n\n");
   stream.write("Options:\n");
   stream.write("  --input <mode>  document (default) or host\n");
+  stream.write("  --references    Include written name references (check only)\n");
   stream.write("  -h, --help      Show this help\n");
   stream.write("  -v, --version   Show CLI and format version\n\n");
   stream.write("Examples:\n");
   stream.write("  cog check inquiry.cog.md\n");
+  stream.write("  cog check --references inquiry.cog.md\n");
   stream.write("  cog graph inquiry.cog.md\n");
   stream.write("  cog explain inquiry.cog.md\n");
   stream.write("  cog check --input host notes.md\n");

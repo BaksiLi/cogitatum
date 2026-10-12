@@ -23,7 +23,7 @@ Four marked points, three connections derived from the marks and indentation. Th
 
 Published Alpha: **@cogitatum/core 0.3.0-alpha.1** and **@cogitatum/cli 0.3.0-alpha.1**, with **format 0.3.0**. Install with the `alpha` tag: `npm install @cogitatum/core@alpha`, or run the CLI with `npx --package @cogitatum/cli@alpha cog check inquiry.cog.md`. These published packages and schemas stay fixed; later versions, including the 0.4 candidate below, may change syntax and machine contracts before a stable release.
 
-This checkout is the unpublished **0.4.11** source candidate, with **format 0.4.0**. It adds:
+This checkout is the unpublished **0.4.12** source candidate, with **format 0.4.0**. It adds:
 
 - literal `[note]` subtrees attached to source occurrences, nonblocking advice for actual implicit attachments through body, and explicit C? retirement;
 

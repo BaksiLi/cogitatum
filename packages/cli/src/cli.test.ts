@@ -1,10 +1,12 @@
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { analyzeSourceReferences, explainSource } from "../../core/src/index.js";
+import type { SourceParseMode } from "../../core/src/index.js";
 
 const repoRoot = fileURLToPath(new URL("../../../", import.meta.url));
 const cliPath = join(repoRoot, "packages", "cli", "src", "index.ts");
@@ -25,6 +27,45 @@ afterAll(() => {
 });
 
 describe("cog CLI", () => {
+  it.each([
+    ["document", "- [. use @record] Review.\r\n- [. @record] Calibration record.\r\n"],
+    ["host", "```cog\n- [C @record] First.\n```\n```cog\n- [. use @record] Review.\n- [C @record] Second.\n```"],
+    ["document", "- [C @record] Calibration record.\n- [. use @missing] Missing."],
+    ["host", "```cog\n- [C @record] Calibration record.\n```\n```cog\n- [. use @record] Omitted."],
+    ["host", "Ordinary prose with @record."]
+  ] as const)("matches the public reference API and normal check diagnostics in %s mode", (mode: SourceParseMode, source) => {
+    const path = join(workingDirectory, "reference-review.md");
+    writeFileSync(path, source);
+    const before = readFileSync(path);
+    const expected = analyzeSourceReferences(source, mode);
+    const normal = runCli("check", "--input", mode, path);
+    const inventory = runCli("check", "--references", "--input", mode, path);
+    expect(inventory.stderr).toBe("");
+    expect(inventory.status).toBe(expected.references.status === "unavailable" ? 1 : 0);
+    expect(inventory.status).toBe(normal.status);
+    expect(JSON.parse(inventory.stdout)).toEqual(expected);
+    expect(JSON.parse(normal.stdout)).toEqual({ version: expected.version, ...(mode === "host" ? { mode } : {}), diagnostics: expected.diagnostics });
+    expect(readFileSync(path)).toEqual(before);
+    const explanation = JSON.parse(runCli("explain", "--input", mode, path).stdout);
+    const compiled = explainSource(source, mode);
+    expect(explanation).toEqual(mode === "document" ? compiled.explanations[0] : {
+      version: compiled.version, mode, units: compiled.units, explanations: compiled.explanations, diagnostics: compiled.diagnostics
+    });
+  });
+
+  it.each(["ast", "graph", "explain"])("rejects --references on %s without altering that output contract", command => {
+    const result = runCli(command, "--references", "valid.cog.md");
+    expect(result.status).toBe(2);
+    expect(JSON.parse(result.stdout).diagnostics).toEqual([{ severity: "error", code: "INVALID_OPTION", message: "--references is only available with check." }]);
+  });
+
+  it("allows a file named --references after the option terminator", () => {
+    writeFileSync(join(workingDirectory, "--references"), "- [C @claim] A claim.");
+    const result = runCli("check", "--", "--references");
+    expect(result.status).toBe(0);
+    expect(JSON.parse(result.stdout)).toEqual({ version: "0.4.0", diagnostics: [] });
+  });
+
   it("prints valid partial output and exits with failure after a misindented annotation", () => {
     writeFileSync(join(workingDirectory, "misindented.cog.md"), "-    [C @outer] Outer.\n\t- [C @failed] Failed.\n    - [G @inner] Inner.\n      - [G @detail] Detail.");
     const result = runCli("graph", "misindented.cog.md");
@@ -68,10 +109,10 @@ describe("cog CLI", () => {
     const version = runCli("--version");
 
     expect(help.status).toBe(0);
-    expect(help.stdout).toContain("Cogitatum 0.4.11 (format 0.4.0)");
+    expect(help.stdout).toContain("Cogitatum 0.4.12 (format 0.4.0)");
     expect(help.stdout).toContain("cog <command>");
     expect(version.status).toBe(0);
-    expect(version.stdout).toContain("cog 0.4.11 (format 0.4.0)");
+    expect(version.stdout).toContain("cog 0.4.12 (format 0.4.0)");
   });
 
   it("checks valid source and preserves compiler diagnostics", () => {

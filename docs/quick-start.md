@@ -90,7 +90,7 @@ npx --package @cogitatum/cli@alpha cog graph inquiry.cog.md
 
 The published packages are `@cogitatum/core` and `@cogitatum/cli` at **0.3.0-alpha.1**. Use the `alpha` tag, or pin this exact version for a reproducible integration. To work on the compiler itself, see the [public source](https://github.com/BaksiLi/cogitatum).
 
-This checkout is an unpublished **0.4.11** source candidate with Neutral Points (`[.]`), explicit Point reuse, `linked` and local attachment commentary.
+This checkout is an unpublished **0.4.12** source candidate with Neutral Points (`[.]`), explicit Point reuse, `linked` and local attachment commentary.
 Use the [source build instructions](https://github.com/BaksiLi/cogitatum#public-alpha) to try it; match the exact compiler/schema commit and review the [migration table](syntax.md#compatibility-and-migration) before upgrading saved source.
 
 Replace the path with your file. `check` reports syntax and reference problems; `graph` prints the marked connections as JSON. For a visual result, use the playground.
@@ -98,3 +98,36 @@ Replace the path with your file. `check` reports syntax and reference problems; 
 In an existing Markdown document, place the outline in a document-level `cog` fence and use `cog check --input host` followed by the file path. Each fence is independent.
 
 Keep editing the source. The compiler checks marks and references; assessing the reasoning remains part of the inquiry. Look up [points](points.md), [connections](bearings.md), or [syntax](syntax.md) as needed.
+
+## Review names before a deliberate edit
+
+The unpublished source candidate offers `cog check --references inquiry.cog.md` to inspect written references before renaming an observation or reviewing which names to retain.
+Run it on the complete file; use `--input host` for Markdown.
+This is a read-only inventory, not an automatic cleanup rule.
+
+Here both Points participate in a connection, but neither name has a written reference:
+
+```md cog-check points=2 bearings=1 diagnostics=0
+- [C @sampling] Wait ten minutes before sampling.
+  - [G @measurement; @route] Drift was below 0.1% after ten minutes.
+```
+
+The connection comes from indentation.
+The inventory lists `sampling`, `measurement` and the Bearing handle `route`, each with an empty reference array.
+That does not justify removing them: a host or a later revision may rely on those names.
+
+Conversely, this measurement has a written reference even though it participates in no Bearing:
+
+```md cog-check points=1 bearings=0 diagnostics=1
+- [. use @measurement] Revisit the calibration record.
+- [. @measurement] Drift was below 0.1% after ten minutes.
+```
+
+The inventory records the forward Point use on the first line.
+The existing disconnected-material suggestion still applies; it answers a different question.
+Ordinary prose mentions and literal note descendants do not count as syntax references.
+
+Point uses, Bearing uses, explicit ordered sources and explicit targets appear separately in the inventory, with their containing block locations.
+Each host fence has its own namespace.
+If any selected input has errors, including an omitted unclosed or nested fence, the inventory is explicitly unavailable rather than reporting zero references.
+Names with no written references generate no new warnings, and the command never edits the source.

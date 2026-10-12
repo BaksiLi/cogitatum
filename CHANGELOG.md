@@ -2,7 +2,16 @@
 
 The 0.4 entries below are unpublished source milestones, not npm releases; a shared preview is not a package release either.
 As of 13 October 2026, npm provides only Core and CLI **0.3.0-alpha.1**, under both `alpha` and `latest`.
-The current **0.4.11** candidate retains **format 0.4.0**: match compiler, schemas and consumers to the same source revision, and [migrate retained source](docs/syntax.md#compatibility-and-migration) rather than relabelling old JSON.
+The current **0.4.12** candidate retains **format 0.4.0**: match compiler, schemas and consumers to the same source revision, and [migrate retained source](docs/syntax.md#compatibility-and-migration) rather than relabelling old JSON.
+
+## 0.4.12 — 13 October 2026
+
+- Add opt-in written-name reference inventories through Core's `analyzeSourceReferences` and `cog check --references`.
+  Point and Bearing declarations retain their typed identities and locations; references distinguish uses, ordered explicit sources and explicit targets within each source unit.
+- Decline the inventory on any source or selection error, without introducing an unused-name diagnostic or removing names.
+  Literal notes, prose mentions and implicit connections do not count as written references.
+- **Compatibility:** this is an additive API and CLI option; ordinary command output, diagnostics, syntax and all four existing schema contracts are unchanged.
+  Candidate packages advance together to 0.4.12; format remains 0.4.0.
 
 ## 0.4.11 — 13 October 2026
 
