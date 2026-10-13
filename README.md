@@ -51,6 +51,7 @@ The core provides a deterministic parser and compiler for Node.js and browser in
 
 ## Reference
 
+- [Writing style](docs/writing-style.md): readable notes, distinct voices, deliberate reuse and revision.
 - [Changelog](CHANGELOG.md): published releases and unpublished source milestones.
 - [Points](docs/points.md): marked material and optional names.
 - [Bearings](docs/bearings.md): positive bearing, objections, explicit targets, and joint reasons.
@@ -85,7 +86,7 @@ After `npm ci`, run `npm run build:public` to build Core, CLI, and the experimen
 | `spec/` | Authoritative JSON Schemas; builds copy them into the Core package |
 | `fixtures/` | Language conformance cases, including invalid input and expected diagnostics |
 | `examples/` | Public notes registered in the example manifest |
-| `docs/` | Introduction, quick start, Points, Bearings, glossary, and complete syntax |
+| `docs/` | Introduction, quick start, writing style, Points, Bearings, glossary, and complete syntax |
 
 For a compiler fix, add a small regression case and run `npx vitest run packages/core`. A [conformance fixture](fixtures/README.md) needs a specific purpose and a reviewed expected result, including diagnostics and the complete surviving graph topology. For a CLI fix, run `npx vitest run packages/cli`. For documentation, run `npm run check:docs` and review the Markdown. Finish with `npm run check`, which also verifies packed packages in an isolated consumer project.
 

@@ -78,6 +78,7 @@ These are writing and reconstruction recommendations, not extra compiler semanti
 Revising a note need not remove tentative wording or turn every ~> into +>.
 Neither `C` nor `supports` certifies truth or valid inference.
 The [English / 繁體中文 glossary](glossary.md) offers a compact terminology aid.
+For habits that make a note easier to read and revise, see [writing style](writing-style.md).
 
 ## Optional: use files and the CLI
 
