@@ -85,5 +85,17 @@ jobs:
             else
               npm publish --workspace "$package" --ignore-scripts --access public --tag latest --provenance
             fi
-            test "$(npm view "$package" dist-tags.latest)" = "$version"
+            # npm accepts a publish before its processed metadata becomes visible.
+            for attempt in {1..30}; do
+              latest=$(npm view "$package" dist-tags.latest --prefer-online)
+              if [ "$latest" = "$version" ]; then
+                break
+              fi
+              if [ "$attempt" -eq 30 ]; then
+                echo "::error::$package@$version was accepted, but latest is still $latest after 30 checks."
+                exit 1
+              fi
+              echo "Waiting for $package@$version to become visible (latest: $latest)."
+              sleep 10
+            done
           done

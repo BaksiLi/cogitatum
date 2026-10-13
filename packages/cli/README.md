@@ -10,8 +10,8 @@ Use the exact **0.4.12** package version for this API and syntax. Requires Node.
 Run without a global installation:
 
 ```sh
-npx --package @cogitatum/cli@alpha cog check inquiry.cog.md
-npx --package @cogitatum/cli@alpha cog graph inquiry.cog.md
+npx --package @cogitatum/cli@0.4.12 cog check inquiry.cog.md
+npx --package @cogitatum/cli@0.4.12 cog graph inquiry.cog.md
 ```
 
 Or, from a source checkout:
@@ -36,7 +36,7 @@ With `--input host`, `ast` and `graph` print the `parseSource` and `compileSourc
 Host `explain` prints `{ version, mode, units, explanations, diagnostics }`: a command-specific projection without `documents` or `graphs`, so it is not a source-envelope schema instance.
 Validate each `explanations[i]` with the Explain schema, or call `explainSource` for the complete envelope.
 
-In this source candidate, opt in to a written-name inventory before reviewing a rename or deciding which names to retain:
+In version 0.4.12, opt in to a written-name inventory before reviewing a rename or deciding which names to retain:
 
 ```sh
 npm run cog:dist -- check --references inquiry.cog.md

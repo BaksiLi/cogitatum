@@ -17,7 +17,7 @@ The historical npm `alpha` tag provides **0.3.0-alpha.1** without linked.
 Use the exact **0.4.12** package version for this API and syntax.
 
 ```sh
-npm install @cogitatum/core@alpha
+npm install @cogitatum/core@0.4.12
 ```
 
 ```js
@@ -107,6 +107,6 @@ import explainSchema from '@cogitatum/core/schemas/explain' with { type: 'json' 
 import sourceSchema from '@cogitatum/core/schemas/source' with { type: 'json' };
 ```
 
-The current source checkout also includes `sourceSchema`, which covers the `parseSource`, `compileSource`, and `explainSource` result envelopes and refers to the AST, Graph IR, and Explain schemas by their `$id`; load those sibling schemas into a validator before compiling it. The envelope keeps source units and projections in parallel arrays, paired by index. Schemas check data shapes; array alignment, reference integrity, and agreement with source remain compiler guarantees. Keys are opaque strings: their numbering is not an integration contract. Store application metadata separately from canonical compiler output. This envelope export is new in the development branch and is not in the published npm `0.3.0-alpha.1` tarball.
+Package 0.4.12 includes `sourceSchema`, which covers the `parseSource`, `compileSource`, and `explainSource` result envelopes and refers to the AST, Graph IR, and Explain schemas by their `$id`; load those sibling schemas into a validator before compiling it. The envelope keeps source units and projections in parallel arrays, paired by index. Schemas check data shapes; array alignment, reference integrity, and agreement with source remain compiler guarantees. Keys are opaque strings: their numbering is not an integration contract. Store application metadata separately from canonical compiler output. This envelope export is not in the historical npm `0.3.0-alpha.1` tarball.
 
 Read the [introduction](https://cogitatum.baksili.codes/docs/introduction), [syntax](https://cogitatum.baksili.codes/docs/syntax), or try the [playground](https://cogitatum.baksili.codes/playground).
