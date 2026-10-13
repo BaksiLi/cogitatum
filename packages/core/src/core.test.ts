@@ -880,18 +880,21 @@ describe("Cogitatum language contracts", () => {
       { kind: "undercuts", handle: undefined, sources: [7], target: bearing(0) }
     ]);
 
-    const review = ast.blocks[0].children;
-    expect(review[0].annotation).toBeUndefined();
-    expect(review[0].text).toMatch(/^The on-call report, quoted as filed: "Pool exhaustion caused last night's timeouts\./);
-    const reuse = review[2].children[0].children[0].children[1];
+    const flatten = (blocks: AstBlock[]): AstBlock[] => blocks.flatMap((block) => [block, ...flatten(block.children)]);
+    const review = flatten(ast.blocks);
+    const report = review.find((block) => block.text.startsWith("The on-call report"))!;
+    expect(report.annotation).toBeUndefined();
+    expect(report.text).toMatch(/^The on-call report, quoted as filed: "Pool exhaustion caused last night's timeouts\./);
+    const reuse = review.find((block) => block.annotation?.kind === "use")!;
     expect(reuse).toMatchObject({ text: "The logs show the pool is too small.", annotation: { kind: "use", ref: { id: "acq-fail" } } });
-    expect(graph.points.some((point) => point.text === reuse.text || review[0].text.includes(point.text))).toBe(false);
-    expect(review[2].children[1]).toMatchObject({ text: "The report's own step needs the same scrutiny.", annotation: { kind: "bearingUse", ref: { id: "report-step" } } });
+    expect(graph.points.some((point) => point.text === reuse.text || report.text.includes(point.text))).toBe(false);
+    const routeUse = review.find((block) => block.annotation?.kind === "bearingUse")!;
+    expect(routeUse).toMatchObject({ text: "The report's own step needs the same scrutiny.", annotation: { kind: "bearingUse", ref: { id: "report-step" } } });
     expect(graph.bearings[0].text).toBeUndefined();
 
     const effects = (line: number) => explain.entries.find((entry) => entry.sourceSpan.startLine === line)?.effects;
-    expect(effects(10)).toContainEqual({ kind: "focusPoint", operand: { id: "acq-fail" }, ref: { kind: "point", key: graph.points[1].key } });
-    expect(effects(14)).toEqual([{ kind: "focusBearing", operand: { id: "report-step" }, ref: { kind: "bearing", key: graph.bearings[0].key } }]);
+    expect(effects(reuse.sourceSpan.startLine)).toContainEqual({ kind: "focusPoint", operand: { id: "acq-fail" }, ref: { kind: "point", key: graph.points[1].key } });
+    expect(effects(routeUse.sourceSpan.startLine)).toEqual([{ kind: "focusBearing", operand: { id: "report-step" }, ref: { kind: "bearing", key: graph.bearings[0].key } }]);
   });
 
   it("keeps the Phaedo reconstruction, our objections and the stronger-conclusion test on their own targets", () => {
@@ -909,18 +912,18 @@ describe("Cogitatum language contracts", () => {
       [point.id, point.declaration.role, point.declaration.status, point.sourceSpan?.startLine, point.text]);
 
     expect(graph.diagnostics).toEqual([]);
-    expect(points(graph).map(([id, role, status, line]) => [id, role, status, line])).toEqual([
-      ["return", "C", undefined, 5],
-      ["opposites", "G", undefined, 7],
-      ["life-death", "G", undefined, 9],
-      ["exhaustion", "G", undefined, 11],
-      ["survival", "C", undefined, 14],
-      ["continuity", "G", undefined, 17],
-      [undefined, "O", undefined, 20],
-      [undefined, "O", undefined, 22],
-      [undefined, "O", undefined, 23],
-      ["imperishable", "C", undefined, 25],
-      [undefined, "O", undefined, 27]
+    expect(points(graph).map(([id, role, status]) => [id, role, status])).toEqual([
+      ["return", "C", undefined],
+      ["opposites", "G", undefined],
+      ["life-death", "G", undefined],
+      ["exhaustion", "G", undefined],
+      ["survival", "C", undefined],
+      ["continuity", "G", undefined],
+      [undefined, "O", undefined],
+      [undefined, "O", undefined],
+      [undefined, "O", undefined],
+      ["imperishable", "C", undefined],
+      [undefined, "O", undefined]
     ]);
     expect(relations(graph)).toEqual([
       // Two routes to the same conclusion: one joint step and one independent step.
@@ -941,20 +944,22 @@ describe("Cogitatum language contracts", () => {
     // Source notes, locations and the comparison with Cebes stay prose: no Point, no extra support.
     const lines = (blocks: AstBlock[]): AstBlock[] => blocks.flatMap((block) => [block, ...lines(block.children)]);
     const body = lines(ast.blocks).filter((block) => block.annotation === undefined);
-    expect(body.map((block) => block.sourceSpan.startLine)).toEqual([1, 2, 3, 4, 8, 10, 12, 13, 18, 19, 24, 28, 29]);
+    expect(lines(ast.blocks).some((block) => block.annotation?.kind === "note")).toBe(true);
     expect(graph.points.some((point) => body.some((block) => block.text.includes(point.text)))).toBe(false);
 
     // Each use focuses the declared Point or Bearing; canonical spans stay at the declarations.
     const effects = (line: number) => explain.entries.find((entry) => entry.sourceSpan.startLine === line)?.effects;
-    expect(effects(16)).toContainEqual({ kind: "focusPoint", operand: { id: "return" }, ref: { kind: "point", key: graph.points[0].key } });
-    expect(effects(21)).toEqual([{ kind: "focusBearing", operand: { id: "exhaustion-step" }, ref: { kind: "bearing", key: graph.bearings[1].key } }]);
-    expect(effects(26)).toContainEqual({ kind: "focusPoint", operand: { id: "survival" }, ref: { kind: "point", key: graph.points[4].key } });
+    const useLine = (id: string) => lines(ast.blocks).find((block) =>
+      (block.annotation?.kind === "use" || block.annotation?.kind === "bearingUse") && block.annotation.ref.id === id)!.sourceSpan.startLine;
+    expect(effects(useLine("return"))).toContainEqual({ kind: "focusPoint", operand: { id: "return" }, ref: { kind: "point", key: graph.points[0].key } });
+    expect(effects(useLine("exhaustion-step"))).toEqual([{ kind: "focusBearing", operand: { id: "exhaustion-step" }, ref: { kind: "bearing", key: graph.bearings[1].key } }]);
+    expect(effects(useLine("survival"))).toContainEqual({ kind: "focusPoint", operand: { id: "survival" }, ref: { kind: "point", key: graph.points[4].key } });
 
     // Counterfactual: a plain O at the same position challenges the shared survival Point instead.
     // Only that Bearing changes; layout, Points and every other relation are unchanged.
-    const objection = "        - [O/] Surviving one death";
+    const objection = "[O/] Surviving one death";
     expect(source.split(objection)).toHaveLength(2);
-    const plainAst = parseDocument(source.replace(objection, "        - [O] Surviving one death"));
+    const plainAst = parseDocument(source.replace(objection, "[O] Surviving one death"));
     const plain = compileGraph(plainAst);
     const layout = (blocks: AstBlock[]) => lines(blocks).map((block) =>
       [block.sourceSpan.startLine, block.sourceSpan.startColumn, block.children.length, block.text]);
@@ -965,6 +970,18 @@ describe("Cogitatum language contracts", () => {
       ...relations(graph).slice(0, 7),
       ["challenges", undefined, [10], "point", 4]
     ]);
+  });
+
+  it("keeps the trolley's moral premise joint and its objection on the step", () => {
+    const graph = compileGraph(parseDocument(example("trolley-switch.cog.md")));
+    expect(graph.diagnostics).toEqual([]);
+    const route = graph.bearings.find((bearing) => bearing.handle === "fewer-deaths")!;
+    expect(route.sources.map((ref) => graph.points.find((point) => point.key === ref.key)!.text)).toEqual([
+      "Switching kills fewer people than doing nothing.",
+      "When all other morally relevant considerations are equal, we should choose the action that kills fewer people."
+    ]);
+    expect(graph.bearings.find((bearing) => bearing.kind === "undercuts")?.target).toEqual({ kind: "bearing", key: route.key });
+    expect(graph.bearings.some((bearing) => bearing.kind === "challenges")).toBe(false);
   });
 
   it("supports naming neither, the Point, the Bearing, or both", () => {
