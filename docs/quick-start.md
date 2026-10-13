@@ -81,17 +81,19 @@ The [English / 繁體中文 glossary](glossary.md) offers a compact terminology 
 
 ## Optional: use files and the CLI
 
-With Node.js 22.12 or newer, run the Alpha CLI on your saved note:
+With Node.js 22.12 or newer, run the current CLI on your saved note:
 
 ```sh
-npx --package @cogitatum/cli@alpha cog check inquiry.cog.md
-npx --package @cogitatum/cli@alpha cog graph inquiry.cog.md
+npx --package @cogitatum/cli@0.4.12 cog check inquiry.cog.md
+npx --package @cogitatum/cli@0.4.12 cog graph inquiry.cog.md
 ```
 
-The published packages are `@cogitatum/core` and `@cogitatum/cli` at **0.3.0-alpha.1**. Use the `alpha` tag, or pin this exact version for a reproducible integration. To work on the compiler itself, see the [public source](https://github.com/BaksiLi/cogitatum).
+The published packages are `@cogitatum/core` and `@cogitatum/cli` at **0.4.12**, under `latest`.
+Pin this exact version for a reproducible integration; the historical `alpha` tag remains at **0.3.0-alpha.1**.
+To work on the compiler itself, see the [public source](https://github.com/BaksiLi/cogitatum).
 
-This checkout is an unpublished **0.4.12** source candidate with Neutral Points (`[.]`), explicit Point reuse, `linked` and local attachment commentary.
-Use the [source build instructions](https://github.com/BaksiLi/cogitatum#public-alpha) to try it; match the exact compiler/schema commit and review the [migration table](syntax.md#compatibility-and-migration) before upgrading saved source.
+The release includes Neutral Points (`[.]`), explicit Point reuse, `linked` and local attachment commentary.
+Use the complete **0.4.12** compiler and schema set, and review the [migration table](syntax.md#compatibility-and-migration) before upgrading saved source.
 
 Replace the path with your file. `check` reports syntax and reference problems; `graph` prints the marked connections as JSON. For a visual result, use the playground.
 
@@ -101,7 +103,7 @@ Keep editing the source. The compiler checks marks and references; assessing the
 
 ## Review names before a deliberate edit
 
-The unpublished source candidate offers `cog check --references inquiry.cog.md` to inspect written references before renaming an observation or reviewing which names to retain.
+Version **0.4.12** offers `cog check --references inquiry.cog.md` to inspect written references before renaming an observation or reviewing which names to retain.
 Run it on the complete file; use `--input host` for Markdown.
 This is a read-only inventory, not an automatic cleanup rule.
 

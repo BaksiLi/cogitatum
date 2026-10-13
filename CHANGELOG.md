@@ -1,17 +1,21 @@
 # Changelog
 
-The 0.4 entries below are unpublished source milestones, not npm releases; a shared preview is not a package release either.
-As of 13 October 2026, npm provides only Core and CLI **0.3.0-alpha.1**, under both `alpha` and `latest`.
-The current **0.4.12** candidate retains **format 0.4.0**: match compiler, schemas and consumers to the same source revision, and [migrate retained source](docs/syntax.md#compatibility-and-migration) rather than relabelling old JSON.
+Core and CLI **0.4.12** are published under `latest`, with **format 0.4.0**.
+The historical `alpha` tag remains at **0.3.0-alpha.1**.
+Earlier 0.4 entries below are unpublished source milestones included in this first 0.4 npm release.
+Use the complete released schema set and [migrate retained source](docs/syntax.md#compatibility-and-migration) rather than relabelling old JSON.
 
-## 0.4.12 — 13 October 2026
+## 0.4.12 — 13 October 2026 · published
 
+- Publish the first 0.4 Core and CLI packages through GitHub Actions trusted publishing, with provenance.
+  Syntax and JSON contracts differ from published 0.3 and earlier source candidates; reparse retained source against the released compiler and schemas.
 - Add opt-in written-name reference inventories through Core's `analyzeSourceReferences` and `cog check --references`.
   Point and Bearing declarations retain their typed identities and locations; references distinguish uses, ordered explicit sources and explicit targets within each source unit.
 - Decline the inventory on any source or selection error, without introducing an unused-name diagnostic or removing names.
   Literal notes, prose mentions and implicit connections do not count as written references.
 - **Compatibility:** this is an additive API and CLI option; ordinary command output, diagnostics, syntax and all four existing schema contracts are unchanged.
-  Candidate packages advance together to 0.4.12; format remains 0.4.0.
+  Published packages advance together to 0.4.12; format remains 0.4.0.
+  This release fixes the published 0.4.0 schema contract; later incompatible contracts need a new format identifier.
 
 ## 0.4.11 — 13 October 2026
 

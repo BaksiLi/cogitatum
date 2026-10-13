@@ -28,5 +28,6 @@ Paste the note into the [playground](https://cogitatum.baksili.codes/playground)
 That is enough to begin. The [quick start](quick-start.md) adds naming and explicit connections when needed. The [examples](https://cogitatum.baksili.codes/examples) offer notes you can adapt.
 
 Cogitatum is semi-formal: the marks have precise structural effects; the prose remains open to interpretation.
-The published 0.3 Alpha packages and this unpublished 0.4 source candidate have different language and compiler contracts.
+The historical 0.3 Alpha packages and the published 0.4 packages have different language and compiler contracts.
+The production playground is deployed separately from npm packages.
 Use documentation and the complete schema set matching your installed compiler.

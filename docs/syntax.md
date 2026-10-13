@@ -7,7 +7,9 @@ order: 4
 
 # Complete syntax
 
-Public reference for **format 0.4.0**, delivered by the **0.4.12** source candidate packages (not yet published). Match the exact source/schema ref: this unpublished identifier covers successive authoring changes. Examples, schemas, and conformance fixtures are checked against the implementation.
+Public reference for **format 0.4.0**, delivered by the published **0.4.12** packages.
+Use the complete released compiler and schema set; earlier unpublished 0.4 candidates may report the same format identifier with different contracts.
+Examples, schemas, and conformance fixtures are checked against the implementation.
 
 ## Outline and body
 
@@ -404,7 +406,7 @@ Recognized failed Point declarations retain an AST annotation with kind "invalid
 They emit no Point, remain source boundaries in Explain, and prevent implicit descendants from attaching to a more distant outer Point.
 Valid descendant Points, their own subtrees, and independent explicit relations survive; the first implicit Point receives FAILED_CONTEXT_REQUIRES_EXPLICIT_TARGET.
 Ordinary bracket prose remains transparent body, including the pre-0.3 `scope` prefix, which now receives no diagnostic.
-Match the exact source/schema candidate when storing or consuming unpublished compiler results.
+Match the complete released compiler and schema set when storing or consuming compiler results.
 
 `parseDocument` returns an ordered AST; `compileGraph` produces `GraphIR`. `parseSource` and `compileSource` expose envelopes for the input modes.
 
@@ -464,16 +466,16 @@ It covers only its own line, so a child's diagnostics appear on the child's entr
 
 ## Compatibility and migration
 
-This edition is an unpublished source candidate, package 0.4.12 / format 0.4.0.
+This edition documents published package 0.4.12 / format 0.4.0.
 Match the exact producing commit with its compiler, schemas and consumers; the retained format identifier alone does not distinguish earlier unpublished candidates.
 Reparse the retained original document with explicit document or host context.
 Relabelling older AST/Explain/source JSON cannot establish corrected selection, use mappings or new constructor shapes.
-This candidate reserves previously transparent `[note]` and retires `C?` with `RETIRED_CLAIM_OPENNESS`.
+This release reserves previously transparent `[note]` and retires `C?` with `RETIRED_CLAIM_OPENNESS`.
 Keep the original source and producing version, review every affected region, then explicitly migrate and reparse.
 C? to C preserves the written content and may preserve topology, but intentionally removes Claim open metadata.
 C certifies neither truth, acceptance, certainty nor completion; Q and the always-open Gap remain distinct.
 A retired C? is a failed constructor, never an alias or ordinary body; independent explicit clauses retain normal recovery.
-Earlier 0.4.0 JSON is not silently interchangeable with this unpublished schema revision.
+JSON from earlier unpublished 0.4.0 candidates is not silently interchangeable with this released schema set.
 Historical 0.3 research records remain evidence of that version's behaviour.
 
 Package 0.4.11 retains failed boundaries at invalid indentation, corrects content columns after wider bullet separators, and keeps malformed-use error categories unique.
@@ -509,7 +511,7 @@ Previous join variants/reasons and anchor-annotation emit reasons are not curren
 Retired source receives migration errors and retains its failed boundary; valid unrelated content remains available in the partial graph.
 An old anchor-only declaration emits no Point, a retired selector stays commentary, and a retired operator rejects only its attachment when the Point/use operand itself is valid.
 Canonical GraphIR stays {version, points, bearings, diagnostics}; typed refs stay {key, kind}.
-The nested Point `declaration` is an incompatible JSON-shape change within this unpublished candidate: compiler, schemas and consumers must match, and stored graphs must be reparsed from source rather than relabelled.
+The nested Point `declaration` is an incompatible JSON-shape change from 0.3 and earlier source candidates: compiler, schemas and consumers must match, and stored graphs must be reparsed from source rather than relabelled.
 The complete negative-kind mapping is challenges → challenges (Point target), undercuts → undercuts (Bearing target).
 The authored -> and /> checks remain distinct; no kind unification or C/R removal occurs.
 
@@ -539,17 +541,18 @@ Format 0.3.0 replaced generated Point IDs, optional Bearing IDs, ID-based graph 
 
 ### Schemas for integrations
 
-The source distribution's `spec/` directory contains JSON Schemas using draft 2020-12. The current development checkout includes AST, Graph IR, Explain, and source-envelope contracts through `@cogitatum/core/schemas/{ast,graph-ir,explain,source}`. The source-envelope schema refers to the other three by `$id`; load those sibling schemas too when validating it. The published npm `0.3.0-alpha.1` tarball includes only the first three exports. For example, in Node.js:
+The source distribution's `spec/` directory contains JSON Schemas using draft 2020-12. Package 0.4.12 includes AST, Graph IR, Explain, and source-envelope contracts through `@cogitatum/core/schemas/{ast,graph-ir,explain,source}`. The source-envelope schema refers to the other three by `$id`; load those sibling schemas too when validating it. The published npm `0.3.0-alpha.1` tarball includes only the first three exports. For example, in Node.js:
 
 ```js
 import graphSchema from '@cogitatum/core/schemas/graph-ir' with { type: 'json' };
 ```
 
 Schema `$id` values use `/schemas/0.4.0/`.
-After the first official package or schema publication of this format, the released schema set and its versioned URLs are fixed; later incompatible contracts require a new format identifier and schema URLs.
-Until then, the [unpublished-candidate policy](#compatibility-and-migration) applies: the shared preview may replace its schema mirrors together with the matching compiler, while earlier deployment snapshots remain archived.
+The complete schema set published in package 0.4.12 fixes the format 0.4.0 contract; later incompatible contracts require a new format identifier and schema URLs.
+Earlier preview snapshots are unpublished historical evidence and cannot replace this released contract.
 For reproducible or offline validation, use all four schema copies from the exact package or source commit; neither the format identifier nor an unchanged source-envelope schema identifies the complete contract.
-This source change does not publish the official schema URLs or update the production compiler; the website and npm remain separate release surfaces.
+The npm release provides all four packaged schemas.
+Deployment of the official schema URLs and production playground is separate; use the exact package copies for validation until the matching website release is deployed.
 
 The AST, Graph IR, and Explain schemas validate individual projections.
 The source-envelope schema validates the shape of the multi-unit `parseSource` / `compileSource` / `explainSource` envelopes, including each projection through its sibling schema.
