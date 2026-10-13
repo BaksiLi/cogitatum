@@ -1,29 +1,37 @@
-- Plato's cyclical argument: what does it establish?
+- A reading of Plato, Phaedo 70c–72d. The argument is paraphrased; the objections below are ours.
+- Socrates’ argument from opposites
+  - [C @return] The living come to be from the dead, just as the dead come to be from the living.
+    - [linked; @cycle] The argument from opposites.
+      - [G @opposites] Whatever has an opposite comes to be from that opposite, by processes running in both directions.
+        - [note] Passage 70d–71b
+          - Socrates' cases include becoming larger and smaller, and heating and cooling; sleeping and waking serve as the model pair at 71c–d.
+      - [G @life-death] Being alive and being dead are opposites, and dying is the process from one to the other.
+        - [note] Passage 71c–72a
+          - At 71e–72a Socrates adds that nature would be one-sided without the reverse process, coming back to life.
+    - [G @exhaustion; @exhaustion-step] If the dead remained dead, everything would at last be dead, even if new life came from some other source.
+      - [note] Passage 72a–d
+        - Socrates offers this as a further argument that the earlier admissions were right.
+      - [note] A reconstruction choice
+        - We treat it as a second, independent route to the same conclusion. It could instead be read as support for the two-way principle alone.
+- From returning to life to surviving death
+  - [C @survival] The souls of the dead exist somewhere, from where they come back to life.
+    - [linked; @survival-step]
+      - [G use @return]
+      - [G @continuity] If the living come to be from the dead, the souls of the dead must exist somewhere, since otherwise they could not come back to life.
+        - [note] Passages 70c–d and 72a
+          - Socrates states this link himself at 70c–d and applies it again at 72a.
+- Our objections to the reconstruction
+  - [O -> @opposites] The cases show that some opposites come from each other in both directions, not that every pair does, including being alive and being dead.
+  - [_ use @exhaustion-step] On the second route to the conclusion:
+    - [O/] The step also needs universal death to be impossible. Socrates treats that outcome as absurd rather than showing that it cannot happen.
+  - [O -> @continuity] Living things could come to be from dead ones without any soul persisting. The premise assumes that what comes back to life is the same soul.
+- Does survival mean the soul can never perish? Our further test
+  - [C @imperishable] The soul can never perish.
+    - [G use @survival; @stronger-step]
+      - [O/] Surviving one death, or many, leaves open whether the soul eventually perishes.
+      - [note] Why distinguish survival from imperishability?
+        - Death was agreed at [64c](https://www.perseus.tufts.edu/hopper/text?doc=Perseus:text:1999.01.0170:text=Phaedo:page=64) to be the separation of soul from body. That agreement says nothing about how long a separated soul lasts.
+        - Compare Cebes' later weaver objection at [87b–88b](https://www.perseus.tufts.edu/hopper/text?doc=Perseus:text:1999.01.0170:text=Phaedo:page=87). He grants repeated rebirth and still asks for proof that the soul is altogether imperishable. It is not a reply made within 70c–72d.
+- [note] Sources and scope
   - Source: Plato, Phaedo 70c–72d, located by Stephanus numbers. Translations consulted: [Jowett, unnumbered](https://classics.mit.edu/Plato/phaedo.html); Fowler, numbered, from [70a](https://www.perseus.tufts.edu/hopper/text?doc=Perseus:text:1999.01.0170:text=Phaedo:page=70) and [72a](https://www.perseus.tufts.edu/hopper/text?doc=Perseus:text:1999.01.0170:text=Phaedo:page=72).
-  - This note paraphrases and reconstructs the passage; it is not a quotation and does not certify the argument.
-  - Reconstructing Socrates' argument
-    - [C @return] The living come to be from the dead, just as the dead come to be from the living.
-      - [linked; @cycle] The argument from opposites.
-        - [G @opposites] Whatever has an opposite comes to be from that opposite, by processes running in both directions.
-          - 70d–71b. Socrates' cases include becoming larger and smaller, and heating and cooling; sleeping and waking serve as the model pair at 71c–d.
-        - [G @life-death] Being alive and being dead are opposites, and dying is the process from one to the other.
-          - 71c–e. At 71e–72a Socrates adds that nature would be one-sided without the reverse process, coming back to life.
-      - [G @exhaustion; @exhaustion-step] If the dead remained dead, everything would at last be dead, even if new life came from some other source.
-        - 72a–d. Socrates offers this as a further argument that the earlier admissions were right.
-        - Reconstruction choice: we treat it as a second, independent route to the same conclusion. It could instead be read as support for the two-way principle alone.
-    - [C @survival] The souls of the dead exist somewhere, from where they come back to life.
-      - [linked; @survival-step]
-        - [G use @return]
-        - [G @continuity] If the living come to be from the dead, the souls of the dead must exist somewhere, since otherwise they could not come back to life.
-          - 70c–d, applied again at 72a. Socrates states this link himself.
-  - Our assessment: added objections, not Plato's words
-    - [O -> @opposites] The cases show that some opposites come from each other in both directions, not that every pair does, including being alive and being dead.
-    - [_ use @exhaustion-step] On the second route to the conclusion:
-      - [O/] The step also needs universal death to be impossible. Socrates treats that outcome as absurd rather than showing that it cannot happen.
-    - [O -> @continuity] Living things could come to be from dead ones without any soul persisting. The premise assumes that what comes back to life is the same soul.
-  - Testing a stronger conclusion: our added step, not Plato's next line
-    - [C @imperishable] The soul can never perish.
-      - [G use @survival; @stronger-step]
-        - [O/] Surviving one death, or many, leaves open whether the soul eventually perishes.
-          - Death was agreed at [64c](https://www.perseus.tufts.edu/hopper/text?doc=Perseus:text:1999.01.0170:text=Phaedo:page=64) to be the separation of soul from body. That agreement says nothing about how long a separated soul lasts.
-          - Compare Cebes' later weaver objection at [87b–88b](https://www.perseus.tufts.edu/hopper/text?doc=Perseus:text:1999.01.0170:text=Phaedo:page=87). He grants repeated rebirth and still asks for proof that the soul is altogether imperishable. It is not a reply made within 70c–72d.
+  - Located by Stephanus numbers. The comparison with Cebes is from later in the dialogue.

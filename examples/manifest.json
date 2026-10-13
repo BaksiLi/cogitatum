@@ -39,6 +39,11 @@
       "file": "syllogism.cog.md",
       "purpose": "A minimal local joint-support reconstruction that keeps both premises as Grounds.",
       "expectedDiagnosticCodes": []
+    },
+    {
+      "file": "trolley-switch.cog.md",
+      "purpose": "A bounded trolley thought experiment that makes a moral premise explicit and questions its application without disputing the stipulated outcome.",
+      "expectedDiagnosticCodes": []
     }
   ]
 }

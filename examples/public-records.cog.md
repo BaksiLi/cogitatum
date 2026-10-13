@@ -1,3 +1,4 @@
+- A fictional public-records request. The governing rule is still unknown.
 - Public records request
   - [Q] Should the agency disclose the draft safety report?
     - [C @disclose] The report should be disclosed with limited redactions.

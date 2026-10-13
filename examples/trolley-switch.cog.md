@@ -1,0 +1,8 @@
+- A runaway trolley will kill five people. Switching it onto a side track will kill one. Assume these outcomes are certain and there is no third option.
+- [Q] Should we switch the trolley?
+  - [C] We should switch it.
+    - [linked; @fewer-deaths]
+      - [G] Switching kills fewer people than doing nothing.
+      - [G] When all other morally relevant considerations are equal, we should choose the action that kills fewer people.
+    - [O /> @fewer-deaths] Are the other considerations equal? Switching redirects a threat onto someone who would otherwise be safe.
+- The objection asks whether the reason is enough. It leaves the arithmetic intact.
