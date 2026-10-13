@@ -88,6 +88,38 @@ For a compiler fix, add a small regression case and run `npx vitest run packages
 
 Keep proposals concrete: include the source, the behavior you expected, and the effect on existing notes or integrations. Tests should demonstrate that behavior. Describe any syntax or JSON contract change explicitly; compatibility changes need a format-version decision, while implementation-only fixes can keep the format.
 
+## Publish npm packages
+
+Releases use [npm trusted publishing](https://docs.npmjs.com/trusted-publishers/) from GitHub Actions.
+The `Publish npm` workflow runs the full checks and publishes Core before CLI to `latest`.
+A tag must match the package version and point to a commit on `main`.
+An already published version is skipped on retry; registry failures and attempts to replace a newer `latest` stop the release.
+The experimental View package stays private.
+
+Before the first release, add a GitHub Actions trusted publisher in the npm settings for both [`@cogitatum/core`](https://www.npmjs.com/package/@cogitatum/core/access) and [`@cogitatum/cli`](https://www.npmjs.com/package/@cogitatum/cli/access):
+
+| Field | Value |
+| --- | --- |
+| Organization or user | `BaksiLi` |
+| Repository | `cogitatum` |
+| Workflow filename | `publish.yml` |
+| Environment name | Leave empty |
+| Allowed actions | Enable **Allow npm publish** |
+
+No npm token or GitHub secret is needed.
+A new trusted publisher must complete its first successful publish within two days of creation.
+
+Run `Publish npm` manually in the repository's Actions tab to verify and preview the packages without publishing.
+After the version and dependency changes pass CI and merge into `main`, create and push the matching tag:
+
+```sh
+git tag v0.4.12 <verified-main-commit>
+git push origin v0.4.12
+```
+
+Use the actual package version for each subsequent release.
+To recover a partially completed release, rerun the failed publishing job.
+
 ## Project Cogitatum
 
 Project Cogitatum explores inquiry artefacts: writing that keeps questions, reasons, and unresolved work available for further thought. Inquiry markup is its first public part. Its marks are semi-formal: structure has precise rules while prose remains open to interpretation.

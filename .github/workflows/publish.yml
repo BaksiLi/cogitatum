@@ -1,0 +1,89 @@
+name: Publish npm
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Serialize releases so two versions cannot race to update npm's latest tag.
+concurrency:
+  group: npm-publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: github.repository == 'BaksiLi/cogitatum'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      NPM_CONFIG_REGISTRY: https://registry.npmjs.org
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          registry-url: https://registry.npmjs.org
+          package-manager-cache: false
+      - name: Install npm with trusted publishing support
+        run: npm install --global npm@11.21.0
+      - name: Validate release tag
+        if: github.event_name == 'push'
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import { readFileSync } from 'node:fs';
+          const { version } = JSON.parse(readFileSync('package.json', 'utf8'));
+          assert.match(version, /^\d+\.\d+\.\d+$/, 'Only release versions can be published.');
+          assert.equal(process.env.RELEASE_TAG, `v${version}`, 'Tag must match package.json.');
+          NODE
+          git merge-base --is-ancestor HEAD origin/main
+      - run: npm ci
+      - run: npm run check
+      - run: npm run check:publication
+      - name: Preview packages without publishing
+        if: github.event_name == 'workflow_dispatch'
+        run: npm publish --dry-run --ignore-scripts --workspace @cogitatum/core --workspace @cogitatum/cli --access public --tag latest
+      - name: Publish Core, then CLI
+        if: github.event_name == 'push'
+        run: |
+          version=$(node -p "JSON.parse(require('node:fs').readFileSync('package.json', 'utf8')).version")
+          for package in @cogitatum/core @cogitatum/cli; do
+            # Read failures abort; only a confirmed existing version is skipped.
+            metadata=$(npm view "$package" versions dist-tags --json)
+            decision=$(node --input-type=module - "$version" "$metadata" <<'NODE'
+          import assert from 'node:assert/strict';
+          const [version, json] = process.argv.slice(2);
+          const metadata = JSON.parse(json);
+          const versions = typeof metadata.versions === 'string' ? [metadata.versions] : metadata.versions;
+          assert.ok(Array.isArray(versions), 'Registry did not return package versions.');
+          const latest = metadata['dist-tags']?.latest;
+          assert.equal(typeof latest, 'string', 'Registry did not return the latest tag.');
+          const numbers = value => value.split('-')[0].split('.').map(Number);
+          const current = numbers(latest);
+          const target = numbers(version);
+          for (let index = 0; index < 3; index++) {
+            assert.ok(Number.isInteger(current[index]) && Number.isInteger(target[index]));
+            if (target[index] > current[index]) break;
+            assert.ok(target[index] >= current[index], `Refusing to replace newer latest ${latest} with ${version}.`);
+          }
+          process.stdout.write(versions.includes(version) ? 'skip' : 'publish');
+          NODE
+            )
+            if [ "$decision" = skip ]; then
+              echo "$package@$version is already published; continuing the release."
+            else
+              npm publish --workspace "$package" --ignore-scripts --access public --tag latest --provenance
+            fi
+            test "$(npm view "$package" dist-tags.latest)" = "$version"
+          done

@@ -2,7 +2,7 @@
 
 Cogitatum is a lightweight markup language for making selected reasoning structure explicit inside ordinary prose. This package provides its deterministic parser and compiler for Node.js and browsers.
 
-Source candidate: **0.4.12**, format **0.4.0**, with literal note subtrees, implicit-attachment suggestions and explicit C? retirement.
+Package version: **0.4.12**, format **0.4.0**, with literal note subtrees, implicit-attachment suggestions and explicit C? retirement.
 Explicit `edge` clauses can use any canonical kind name; Point-attached clauses retain the four symbolic operators.
 Reference-only `[. use @p]` or locally marked `[G use @p]` occurrences resolve an existing Point without copying its subtree or changing declaration metadata.
 Neutral Point use focuses without a default attachment.
@@ -13,7 +13,8 @@ Occurrence prose, local marks and original UTF-16 spans remain in AST/Explain; f
 focusBearing similarly maps Bearing occurrences; selectBearing identifies a referenced context without claiming attachment ownership.
 Canonical spans remain declaration/construction spans; several uses may map to the same entity.
 Keep shared content, occurrence notes, quoted source context and proposed reconstructions separate; retained original source plus AST/Explain is required for reading, not Graph IR alone.
-This candidate is not yet published; npm `alpha` currently provides **0.3.0-alpha.1** without linked.
+The historical npm `alpha` tag provides **0.3.0-alpha.1** without linked.
+Use the exact **0.4.12** package version for this API and syntax.
 
 ```sh
 npm install @cogitatum/core@alpha
@@ -95,7 +96,7 @@ It also refuses an `edge` annotation that has neither an `operatorClause` nor a 
 
 `OperatorClause.op` holds the canonical selected `BearingKind`; edge sources are existing Point references, and self-sourced Point annotations admit only symbolic `BearingOp` kinds.
 Using a Point as an explicit source preserves its declaration metadata; indentation defaults do not add global role restrictions to explicit construction.
-Match this unpublished candidate's schemas and source ref even when an older candidate also reports format `0.4.0`.
+Match the **0.4.12** schemas and compiler even when an earlier source candidate also reports format `0.4.0`.
 
 The package includes self-contained draft 2020-12 JSON Schemas for offline integration:
 
