@@ -19,11 +19,14 @@ Four marked points, three connections derived from the marks and indentation. Th
 
 ## Public Alpha
 
-**Cogitatum 0.3 Public Alpha releases an inquiry markup language and a working compiler.**
+**Cogitatum 0.4 releases an inquiry markup language and a working compiler.**
 
-Published Alpha: **@cogitatum/core 0.3.0-alpha.1** and **@cogitatum/cli 0.3.0-alpha.1**, with **format 0.3.0**. Install with the `alpha` tag: `npm install @cogitatum/core@alpha`, or run the CLI with `npx --package @cogitatum/cli@alpha cog check inquiry.cog.md`. These published packages and schemas stay fixed; later versions, including the 0.4 candidate below, may change syntax and machine contracts before a stable release.
+Published packages: **@cogitatum/core 0.4.12** and **@cogitatum/cli 0.4.12**, with **format 0.4.0**, under `latest`.
+Install with `npm install @cogitatum/core`, or run the CLI with `npx --package @cogitatum/cli cog check inquiry.cog.md`.
+The historical `alpha` tag remains at **0.3.0-alpha.1**, with **format 0.3.0**.
+Published schema contracts stay fixed; later incompatible contracts require a new format identifier.
 
-This checkout is the unpublished **0.4.12** source candidate, with **format 0.4.0**. It adds:
+The **0.4.12** release adds:
 
 - literal `[note]` subtrees attached to source occurrences, nonblocking advice for actual implicit attachments through body, and explicit C? retirement;
 
@@ -32,8 +35,8 @@ This checkout is the unpublished **0.4.12** source candidate, with **format 0.4.
 - explicit Bearings written `[_ ...]` or `[edge ...]`, with every canonical kind name;
 - explicit source context: `document` by default, `host` for Markdown fences; content-dependent `auto` is retired.
 
-The npm `alpha` tag and the production [playground](https://cogitatum.baksili.codes/playground) still provide 0.3. A shared preview of this candidate is not a release.
-The format identifier alone does not distinguish unpublished candidates: match the exact source/schema commit and [migrate retained source](docs/syntax.md#compatibility-and-migration).
+The production [playground](https://cogitatum.baksili.codes/playground) is deployed separately from npm packages.
+When upgrading from 0.3 or an earlier unpublished 0.4 candidate, use the complete schemas from **0.4.12** and [migrate retained source](docs/syntax.md#compatibility-and-migration).
 
 With Node.js 22.12 or newer, from a source checkout:
 
@@ -128,7 +131,7 @@ Project Cogitatum investigates how people and AI agents can learn this form of e
 
 Further work under the name **Cogitatio** concerns ongoing inquiry, revision, review, and continuity. Cogitatio and its runtime are not part of this release.
 
-The current development checkout also contains an experimental integration package, marked private and not published with the Alpha: [`@cogitatum/view`](packages/view/README.md) provides an embeddable, source-linked graph renderer. It leaves evidence, persistence, review, and application UI with the host. The source candidate uses format 0.4.0.
+The current development checkout also contains an experimental integration package, marked private and not published with the Alpha: [`@cogitatum/view`](packages/view/README.md) provides an embeddable, source-linked graph renderer. It leaves evidence, persistence, review, and application UI with the host. The compiler uses format 0.4.0.
 
 The public source covers the language, compiler, CLI, schemas, conformance fixtures, selected examples, and these usage documents. Website source and brand assets are maintained and deployed separately; the website renders the public documents and uses the compiler. Research essays, benchmarks, prompts, and runtime experiments are outside this source distribution.
 
