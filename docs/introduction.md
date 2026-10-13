@@ -12,16 +12,15 @@ Cogitatum is a lightweight markup language for making selected reasoning structu
 
 Use it while reading, developing or revising an argument: in a reading note, an investigation, or the reasons for a decision. Start with the writing. Add a mark where seeing a question or connection would help.
 
-```md cog-check require=answers,supports,challenges points=4 bearings=3 diagnostics=0
-- We noticed slower requests after deployment. These notes collect what we know so far.
-  - [Q] Why are requests timing out?
-    - [C] The connection pool may be exhausted.
-      - [G] Logs show connection acquisition failures.
-      - [O] Upstream latency could also explain the timeouts.
-  - We will compare the traces tomorrow before changing the configuration.
+```md cog-check require=supports,challenges,undercuts points=4 bearings=3 diagnostics=0
+- A neighbourhood library is considering later opening hours. This is an imagined discussion.
+- [C] The library should stay open until eight on weekdays.
+  - [G] Forty people visited after six at last month's evening event.
+    - [O] The count included repeat entries, so fewer than forty people may have visited.
+    - [O/] People may have come for the special event, not for ordinary evening opening.
 ```
 
-The two ordinary sentences remain body. Four marked points and three connections derived from the marks and indentation become inspectable: a possible answer, a reason bearing positively on that answer, and an objection. The markup does not establish which explanation is right.
+The opening prose remains body. One objection questions the attendance count; the other grants it and asks what it tells us about ordinary evenings. Four marked points and three explicit connections make that distinction inspectable. The markup does not decide whether the library should open later.
 
 Paste the note into the [playground](https://cogitatum.baksili.codes/playground), edit a sentence, and inspect the map. Compilation happens in your browser; no account is needed.
 

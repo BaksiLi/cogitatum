@@ -1,7 +1,5 @@
-- API timeout inquiry
-  - The first timeouts appeared just after Tuesday's deployment.
-  - [Q] Why are requests timing out after deployment?
-    - We have rolled back the release while checking the logs.
-    - [C] Database connection pool exhaustion is causing the timeouts.
-      - [G] Logs show repeated connection acquisition failures.
-      - [O] Upstream latency may be the actual cause.
+- A neighbourhood library is considering later opening hours. This is an imagined discussion.
+- [C] The library should stay open until eight on weekdays.
+  - [G] Forty people visited after six at last month's evening event.
+    - [O] The count included repeat entries, so fewer than forty people may have visited.
+    - [O/] People may have come for the special event, not for ordinary evening opening.
