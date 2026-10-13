@@ -6,7 +6,7 @@ Each file is a complete, editable note; ordinary prose carries the context, and 
 | Reading | What to look for |
 | --- | --- |
 | [The trolley switch](trolley-switch.cog.md) | Fewer deaths is a fact about the scenario. What makes it a reason to act? |
-| [A first inquiry](getting-started.cog.md) | One question, an explanation, a reason, and an objection. |
+| [Should the library open later?](getting-started.cog.md) | A short first inquiry: question the count, or question what follows from it. |
 | [Socrates is mortal](syllogism.cog.md) | Two premises working together. |
 | [An unexpected assay result](assay-anomaly.cog.md) | Joint reasons, another explanation, and a check still to make. |
 | [Revisiting an incident report](api-timeout.cog.md) | The same evidence in a new discussion; doubting the evidence or the step taken from it. |
@@ -15,7 +15,7 @@ Each file is a complete, editable note; ordinary prose carries the context, and 
 | [A public-records request](public-records.cog.md) | A provisional decision with an unresolved governing rule. |
 | [A Logseq-shaped note](logseq-shaped-note.cog.md) | Ordinary task markers and properties around a small marked argument. |
 
-The incident, assay, records request, and working note are fictional.
+The library discussion, incident, assay, records request, and working note are fictional.
 The philosophical readings are reconstructions, not quotations or authoritative interpretations.
 Successful compilation checks the written structure; it does not settle the inquiry.
 

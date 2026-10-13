@@ -17,7 +17,7 @@
     },
     {
       "file": "getting-started.cog.md",
-      "purpose": "The smallest public onboarding inquiry used by the site and Playground.",
+      "purpose": "An imagined library discussion: ordinary prose, a claim, a reason, and two objections that distinguish the evidence from the step taken from it.",
       "expectedDiagnosticCodes": []
     },
     {
