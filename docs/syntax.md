@@ -45,7 +45,7 @@ REF_LIST   := REF ("," REF)*
 REF        := "@" ID
 ID         := [a-z][a-z0-9_-]*
 OP         := "+>" | "->" | "/>" | "~>"
-KIND       := "supports" | "challenges" | "undercuts" | "about"
+KIND       := "supports" | "challenges" | "about"
             | "answers" | "repliesTo" | "clarifies"
 ```
 
@@ -478,21 +478,25 @@ Neither records defeat, success or acceptability.
 | `-> @x` | `challenges` | `point` | Point |
 | `/> @x` | `challenges` | `bearing` | Bearing |
 | `challenges @x` in an edge | `challenges` | `either` | Point or Bearing |
-| `undercuts @x` in an edge | `challenges` | `bearing` | Bearing |
+| `undercuts @x` in an edge | Rejected: `RETIRED_BEARING_KIND` | — | — |
 | `+>` / `supports`, `~>` / `about` | Corresponding kind | `either` | Point or Bearing |
 | `answers`, `repliesTo`, `clarifies` | Corresponding kind | `point` | Point |
 
 Every explicit AST clause requires `targetKind`; compilation carries this constraint until reference validation and never recovers it from `raw`.
 Canonical Graph IR and emitted Explain summaries contain the resolved typed target, without an extra target constraint.
-Named `undercuts` remains an accepted constrained spelling; it is not a seventh canonical kind.
-`UNDERCUT_REQUIRES_BEARING_TARGET` and `CHALLENGE_REQUIRES_POINT_TARGET` retain their diagnostic codes for incompatible authored targets.
+Named `undercuts` is retired, with no compiling alias.
+Replace it with `/>` to preserve its Bearing-only target requirement, then recompile retained source.
+Replacing it with named `challenges` instead broadens the authored target requirement to either kind.
+A retired constructor retains its boundary and handle in AST but emits no Bearing; descendants and dependent references cannot fall back to an outer target.
+`CHALLENGE_REQUIRES_BEARING_TARGET` replaces the old `UNDERCUT_REQUIRES_BEARING_TARGET` diagnostic; `CHALLENGE_REQUIRES_POINT_TARGET` still diagnoses `->` against a Bearing.
+The word undercut has no active core kind or spelling; a future theory-specific use requires its own explicit, versioned contract.
 
 Bare `O` continues to challenge the nearest Point; directly beneath `linked`, `edge` or a Bearing use, write `O/` or a complete target.
 This keeps local Bearing selection explicit and avoids adding a second indentation-default table.
 A malformed or failed constructor still prevents outward fallback, and invalid linked sources still reject the whole joint.
 
 Recompile retained source with the complete 0.5 compiler and schema set; do not relabel saved 0.4 AST, Graph IR, Explain or source envelopes.
-Existing valid negative source forms retain their endpoints, source order and individual relation instances after recompilation.
+Existing symbolic negative forms retain their endpoints, source order and individual relation instances after recompilation; named `undercuts` requires the source migration above.
 The newly accepted case is named `challenges` targeting a Bearing; symbolic `->` still rejects that target.
 Consumers should replace canonical `undercuts` branches with `challenges` and inspect `target.kind` when the distinction matters.
 The format change does not add bare-O defaults, Serial sugar, hidden premises or transitive support.
@@ -531,7 +535,7 @@ The AST schema now requires `operatorClause` on an `edge` without `syntaxErrors`
 | [G_] / [O_] (unpublished candidate) | [G/] / [O/] | Same strict nearest-owner selector; old intent stays rejected commentary |
 | _> @b | /> @b | /> still requires a Bearing target; old attachment is rejected |
 | [join; @b] (unpublished candidate) | [linked; @b] | Same ordered joint sources after source migration; no accepted join alias |
-| [edge @p KIND @c; @b] | Unchanged, or [_ @p KIND @c; @b] | Two spellings of ONE explicit constructor, with six canonical kinds and the constrained undercuts spelling |
+| [edge @p KIND @c; @b] | Unchanged, or [_ @p KIND @c; @b] | Two spellings of ONE explicit constructor, with six canonical kinds |
 | source API auto | Explicit document or host | Host never falls back to parsing unselected prose as an outline |
 | Graph IR Point `form` / `role` / `status` (0.3 and earlier 0.4 candidates) | Point `declaration: { form, role?, status? }` | Retain Gap openness; deliberately remove retired Claim openness when migrating source. `key`, `id`, `text` and `sourceSpan` stay on the Point |
 
@@ -545,7 +549,8 @@ Retired source receives migration errors and retains its failed boundary; valid 
 An old anchor-only declaration emits no Point, a retired selector stays commentary, and a retired operator rejects only its attachment when the Point/use operand itself is valid.
 Canonical GraphIR stays {version, points, bearings, diagnostics}; typed refs stay {key, kind}.
 The nested Point `declaration` is an incompatible JSON-shape change from 0.3 and earlier source candidates: compiler, schemas and consumers must match, and stored graphs must be reparsed from source rather than relabelled.
-For 0.5, the complete negative-kind mapping is challenges → challenges (Point target), undercuts → challenges (Bearing target).
+For 0.5, the compiled negative-kind mapping is challenges → challenges (Point target), undercuts → challenges (Bearing target).
+This is a comparison of compiled relations, not permission to relabel JSON or accept the retired named source spelling.
 The authored -> and /> checks remain distinct; C and R remain unchanged.
 
 Consumers address entities by `(unit index, ref.kind, ref.key)` within one compilation; the unit index selects the corresponding `graphs[]` entry.

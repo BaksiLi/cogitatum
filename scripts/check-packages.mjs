@@ -102,6 +102,11 @@ assert.ok(notes.explain.entries[3].effects.some(effect => effect.kind === 'impli
 const retired = compileGraph(parseDocument('- [C? @old] Retired.'));
 assert.deepEqual(retired.points, []);
 assert.equal(retired.diagnostics[0].code, 'RETIRED_CLAIM_OPENNESS');
+const retiredKind = compileGraphWithExplain(parseDocument('- [C @claim] Claim.\\n- [G @reason] Reason.\\n- [edge @reason +> @claim; @route]\\n- [edge @reason undercuts @route; @failed]\\n  - [O/] No fallback.'));
+assert.deepEqual(retiredKind.graph.bearings.map(bearing => bearing.handle), ['route']);
+assert.ok(retiredKind.graph.diagnostics.some(diagnostic => diagnostic.code === 'RETIRED_BEARING_KIND'));
+assert.ok(retiredKind.graph.diagnostics.some(diagnostic => diagnostic.code === 'NO_LOCAL_BEARING_ATTACHMENT'));
+assert.equal(retiredKind.explain.entries[3].recognition.kind, 'edge');
 const malformedUse = parseDocument('- [use] Missing operand.');
 assert.deepEqual(malformedUse.blocks[0].annotation.syntaxErrors, ['reference', 'retired']);
 const layout = compileGraphWithExplain(parseDocument('-    [C @outer] Outer.\\n\\t- [C @failed] Failed.\\n    - [G @inner] Inner.\\n      - [G @detail] Detail.'));

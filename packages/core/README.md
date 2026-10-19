@@ -4,7 +4,7 @@ Cogitatum is a lightweight markup language for making selected reasoning structu
 
 Source candidate: **0.5.0**, format **0.5.0** (unpublished), with unified `challenges` and explicit authored target constraints.
 `->` requires a Point and `/>` requires a Bearing; both emit `challenges` with a typed target.
-Named `challenges` accepts either target, while named `undercuts` is a constrained Bearing-only spelling.
+Named `challenges` accepts either target; named `undercuts` is rejected with migration guidance to `/>`.
 Explicit `edge` clauses can use any canonical kind name; Point-attached clauses retain the four symbolic operators.
 Reference-only `[. use @p]` or locally marked `[G use @p]` occurrences resolve an existing Point without copying its subtree or changing declaration metadata.
 Neutral Point use focuses without a default attachment.

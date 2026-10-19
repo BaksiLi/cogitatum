@@ -159,7 +159,7 @@ describe("reference-only Point occurrences", () => {
   it("keeps local and explicit projections equal while preserving separate prose, spans and derivation", () => {
     const declarations = "- [C @premise] Original open premise.\n- [C @claim] Conclusion.\n- [O @objection] Objection.\n- [R @reply] Reply.";
     const local = compile(declarations + "\n- Narrative in reader order.\n- [. use @claim] Later discussion.\n  - [G use @premise; @step] Occurrence prose.\n    - [O/ use @objection; @attack]\n      - [R use @reply; @response]");
-    const explicit = compile(declarations + "\n- [edge @premise supports @claim; @step]\n- [edge @objection undercuts @step; @attack]\n- [edge @reply repliesTo @objection; @response]");
+    const explicit = compile(declarations + "\n- [edge @premise supports @claim; @step]\n- [edge @objection /> @step; @attack]\n- [edge @reply repliesTo @objection; @response]");
     expect(codes(local.graph)).toEqual([]);
     expect(codes(explicit.graph)).toEqual([]);
     expect(relations(local.graph)).toEqual(relations(explicit.graph));

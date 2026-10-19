@@ -61,7 +61,6 @@ Use the exact spellings below, including the capital T in `repliesTo`:
 | `supports`, `about` | Point or named Bearing |
 | `answers`, `repliesTo`, `clarifies` | Point |
 | `challenges` | Point or Bearing |
-| `undercuts` (constrained spelling of `challenges`) | Named Bearing |
 
 Each source is an existing Point; its declaration information (form, role and status), content, and identity remain unchanged.
 Sources are ordered and duplicate-free, and there is exactly one target.
@@ -109,7 +108,7 @@ Identity reuse can follow the explanation's order without copying content or imp
 - [C @cause] A persistent configuration fault may explain the timeouts.
 - [edge @measurement supports @cause; @support] Reuse the earlier observation in this step.
 - [O @limitation] The two retries may share a transient fault.
-- [edge @limitation undercuts @support] Object to this attachment rather than copying the observation.
+- [edge @limitation /> @support] Object to this attachment rather than copying the observation.
 - [Q @followup] Which environment did the retries share?
 - [edge @followup repliesTo @limitation]
 ```
@@ -165,7 +164,7 @@ The prose after each header describes the same connection.
 The two Grounds keep their own content and roles.
 They produce one joint `supports`, with no additional single-source supports to the Claim and no intermediate Point.
 A joint connection does not assert that its sources are minimal, that each is necessary, or that the inference is valid.
-An objection beneath a Ground targets that premise; an undercut of the handle targets the route.
+An objection beneath a Ground targets that premise; a challenge to the handle targets the route.
 
 **Counterexample: ordinary sibling Grounds are independent.**
 Removing the `linked` creates two single-source Bearings, rather than the one joint Bearing above.
@@ -227,7 +226,7 @@ One Point can support two conclusions through two uses, each creating its own na
     - [O @miscount] Only one retry actually timed out.
 ```
 
-`O/` undercuts only `to-config`, the route constructed by the enclosing `G use`; `to-monitoring` is not addressed.
+`O/` challenges only `to-config`, the route constructed by the enclosing `G use`; `to-monitoring` is not addressed.
 The plain `O` challenges the shared Point `retries`, not either route.
 Neither relation records that a route or Point has failed, and nothing propagates from one Bearing to another.
 
@@ -253,7 +252,9 @@ Unknown references in complete independent clauses fail independently; incomplet
 Only G/ and O/ are supported; no Q_, C_, R_, D_, suffixed Gap or targetless /> is introduced.
 The canonical kind is `challenges` for both Point and Bearing targets.
 The typed target preserves which object is challenged; `->` still requires a Point and `/>` still requires a Bearing.
-Named `challenges` accepts either target, while named `undercuts` retains its Bearing-only requirement.
+Named `challenges` accepts either target.
+The former named `undercuts` spelling is rejected; use `/>` to retain its Bearing-only target requirement.
+Challenging a Bearing does not by itself classify a theory-specific undercut.
 Bare `O` keeps its Point-context default; use `O/` to select a local Bearing.
 
 ## Argument structures

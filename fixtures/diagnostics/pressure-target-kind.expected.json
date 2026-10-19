@@ -3,7 +3,7 @@
   "diagnostics": [
     {
       "line": 5,
-      "code": "UNDERCUT_REQUIRES_BEARING_TARGET",
+      "code": "CHALLENGE_REQUIRES_BEARING_TARGET",
       "severity": "error"
     },
     {

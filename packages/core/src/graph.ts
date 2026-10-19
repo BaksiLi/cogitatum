@@ -624,8 +624,8 @@ function validateBearings(
       if (bearing.targetKind === "bearing" && targetKind !== "bearing") {
         diagnostics.push({
           severity: "error",
-          code: "UNDERCUT_REQUIRES_BEARING_TARGET",
-          message: `Challenge target ${targetLabel} is a Point; /> and named undercuts require a Bearing.`,
+          code: "CHALLENGE_REQUIRES_BEARING_TARGET",
+          message: `Challenge target ${targetLabel} is a Point; /> requires a Bearing.`,
           sourceSpan: bearing.sourceSpan
         });
         isValid = false;
@@ -862,7 +862,7 @@ function implicitAttachmentAdvice(
 
 function reuseSpelling(block: AstBlock, anchor: string): string {
   const annotation = block.annotation;
-  // A selector survives reuse: [O/ use @p] still undercuts the local attachment.
+  // A selector survives reuse: [O/ use @p] still challenges the local attachment.
   const mark = annotation?.kind === "role" ? annotation.role + (annotation.selector ? "/" : "") : ".";
   const clause = annotation && "operatorClause" in annotation && annotation.operatorClause
     ? ` ${operatorSymbol(annotation.operatorClause.op, annotation.operatorClause.targetKind)} @${annotation.operatorClause.target.id}` : "";
