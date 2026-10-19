@@ -66,3 +66,18 @@ Partial graphs are marked and all graph diagnostics are displayed, retaining the
 `--format json` is explicit default behavior; existing JSON output is unchanged.
 Text output is not a source formatter or interchange decoder.
 Host text output is an argument error (exit 2); use host JSON to retain all units and aggregate diagnostics.
+
+## Explicit target preview (0.5 candidate)
+
+`cog explicit-target --line 3 inquiry.cog.md` previews one checked insertion that fixes an ordinary implicit attachment to its current named Point target.
+For Markdown, use `cog explicit-target --input host --line 12 notes.md`; the line refers to the complete file.
+Output is JSON and the input file is never overwritten.
+The same operation is available as Core `previewExplicitTarget`.
+
+A ready preview retains prose, names, occurrence ownership and current relations, but deliberately changes future editing: moving the occurrence retains the explicit target, and changing its role retains the explicit operator.
+Compare `originalSource` with the current complete file before applying `proposedSource`; regenerate the preview if the file changed.
+The single `edit.offset` uses UTF-16 code units.
+Unnamed targets, selectors, Linked constructions, already explicit clauses and relations without a Point-attached operator receive an unavailable result with no proposed source.
+Errors anywhere in the complete input also withhold the edit.
+Exit 0 means ready; 1 means unavailable or an I/O failure; 2 means invalid options.
+`--line` is required and accepts one positive integer; `--format` and `--references` do not apply to this command.

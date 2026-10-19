@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { analyzeSourceReferences, compileGraph, formatGraph, parseDocument, explainSource } from "../../core/src/index.js";
+import { analyzeSourceReferences, compileGraph, formatGraph, parseDocument, explainSource, previewExplicitTarget } from "../../core/src/index.js";
 import type { SourceParseMode } from "../../core/src/index.js";
 
 const repoRoot = fileURLToPath(new URL("../../../", import.meta.url));
@@ -27,6 +27,45 @@ afterAll(() => {
 });
 
 describe("cog CLI", () => {
+  it.each([
+    ["document", "- [C @c] Claim.\r\n  - [G] Reason.", 2, 0],
+    ["host", "Intro 🌧️\n  ```cog\n  - [C @c] Claim.\n    - [O] Concern.\n  ```", 4, 0],
+    ["document", "- [C] Anonymous.\n  - [G] Reason.", 2, 1],
+    ["document", "- [C @c] Claim.\n  - [G] Reason.\n- [O /> @c] Invalid.", 2, 1]
+  ] as const)("previews explicit targets in %s mode with API parity and no file writes", (mode, source, line, status) => {
+    const file = join(workingDirectory, "edit-preview.md");
+    writeFileSync(file, source);
+    const result = runCli("explicit-target", "--input", mode, "--line", String(line), file);
+    expect(result.status).toBe(status);
+    expect(result.stderr).toBe("");
+    expect(JSON.parse(result.stdout)).toEqual(previewExplicitTarget(source, { line, mode }));
+    expect(readFileSync(file, "utf8")).toBe(source);
+  });
+
+  it.each([
+    ["explicit-target", "valid.cog.md"],
+    ["explicit-target", "--line", "0", "valid.cog.md"],
+    ["explicit-target", "--line", "1.2", "valid.cog.md"],
+    ["explicit-target", "--line", "-1", "valid.cog.md"],
+    ["explicit-target", "--line", "9007199254740992", "valid.cog.md"],
+    ["explicit-target", "--line", "1", "--line", "2", "valid.cog.md"],
+    ["explicit-target", "--line"],
+    ["graph", "--line", "1", "valid.cog.md"]
+  ])("rejects invalid line options: %j", (...args) => {
+    const result = runCli(...args);
+    expect(result.status).toBe(2);
+    expect(JSON.parse(result.stdout).diagnostics).toContainEqual(expect.objectContaining({ code: "INVALID_LINE_OPTION" }));
+  });
+
+  it("keeps option-like filenames available after -- and rejects unrelated options", () => {
+    const source = "- [C @c] Claim.\n  - [G] Reason.";
+    writeFileSync(join(workingDirectory, "--line"), source);
+    expect(runCli("explicit-target", "--line", "2", "--", "--line").status).toBe(0);
+    expect(readFileSync(join(workingDirectory, "--line"), "utf8")).toBe(source);
+    expect(runCli("explicit-target", "--line", "2", "--format", "text", "valid.cog.md").status).toBe(2);
+    expect(runCli("explicit-target", "--line", "2", "--references", "valid.cog.md").status).toBe(2);
+  });
+
   it.each([
     '- [C @c] Claim.\n  - [G; @step] Reason.\n- [O /> @step] Objection.',
     '- [C] Survives.\n- [G +> @missing] Fails.',

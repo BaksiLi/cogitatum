@@ -121,3 +121,26 @@ import sourceSchema from '@cogitatum/core/schemas/source' with { type: 'json' };
 Package 0.4.12 includes `sourceSchema`, which covers the `parseSource`, `compileSource`, and `explainSource` result envelopes and refers to the AST, Graph IR, and Explain schemas by their `$id`; load those sibling schemas into a validator before compiling it. The envelope keeps source units and projections in parallel arrays, paired by index. Schemas check data shapes; array alignment, reference integrity, and agreement with source remain compiler guarantees. Keys are opaque strings: their numbering is not an integration contract. Store application metadata separately from canonical compiler output. This envelope export is not in the historical npm `0.3.0-alpha.1` tarball.
 
 Read the [introduction](https://cogitatum.baksili.codes/docs/introduction), [syntax](https://cogitatum.baksili.codes/docs/syntax), or try the [playground](https://cogitatum.baksili.codes/playground).
+
+## Explicit target preview (0.5 candidate)
+
+`previewExplicitTarget(source, { line, mode? })` prepares one checked source edit without writing a file.
+`line` is one-based in the complete source and `mode` is `document` (default) or `host`.
+The operation inserts a symbolic target clause for an ordinary implicit support, challenge or relevance attachment to an already named Point.
+It preserves source prose and occurrence ownership as well as graph structure, while deliberately making future moves retain the explicit target.
+
+```js
+import { previewExplicitTarget } from '@cogitatum/core';
+const source = '- [C @claim] Claim.\n  - [G] Reason.';
+const preview = previewExplicitTarget(source, { line: 2 });
+if (preview.status === 'ready') {
+  console.log(preview.proposedSource); // Contains [G +> @claim].
+}
+```
+
+Ready results include the original/proposed source, a single insertion (`edit.offset` in UTF-16 code units and `edit.insert`), both diagnostic lists and the consequence for future edits.
+Before applying a saved preview, compare the complete current source with `originalSource`; recompute if it changed.
+Unavailable results contain only the common version/mode/diagnostics and a reason/message, with no edit payload.
+Errors anywhere in the complete input prevent an edit; anonymous targets, selectors, Linked constructions and dialogical relations require separate authoring decisions.
+The public types are `ExplicitTargetOptions`, `ExplicitTargetPreview` and `ExplicitTargetUnavailableReason`.
+This API does not add fields to AST, Graph IR, Explain or source schemas, and it is not a general formatter or patch application service.

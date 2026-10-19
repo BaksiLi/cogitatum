@@ -7,6 +7,10 @@ Use the complete released schema set and [migrate retained source](docs/syntax.m
 
 ## 0.5.0 (unreleased)
 
+- Add `previewExplicitTarget` and `cog explicit-target --line` for one checked, source-preserving target-clause preview.
+  The operation retains current relations and occurrence prose while explicitly changing future move/role-edit behavior.
+  It refuses unsupported or erroneous input and never overwrites files.
+
 - Add Core `formatGraph` and opt-in `cog graph --format text` for single-document structural inspection.
   The versioned structure-v1 projection preserves individual entities, declaration metadata, names, text, ordered sources and typed targets, and visibly marks partial graphs with diagnostics.
   Existing JSON output and schemas are unchanged by this formatter; host text, source reconstruction and rewriting remain outside its scope.

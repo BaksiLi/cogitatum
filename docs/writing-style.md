@@ -7,7 +7,7 @@ order: 3
 
 # Writing for another reading
 
-These are working conventions for authors using Cogitatum 0.4.
+These are working conventions for authors using Cogitatum.
 They help someone read and revise a note, including its future author.
 They are recommendations, not additional compiler rules or automatic fixes.
 The [syntax reference](syntax.md) defines what the language accepts.
@@ -109,3 +109,59 @@ Check the resulting source, then reread it: the compiler checks representation, 
 
 These conventions are the first author-facing slice of [source style and checked edits (#29)](https://github.com/BaksiLi/cogitatum/issues/29).
 There is no whole-document formatter or automatic style-fix command yet.
+
+
+## Preview an explicit target (0.5 candidate)
+
+Use `cog explicit-target --line 3 inquiry.cog.md` to preview fixing the currently selected target of one occurrence.
+The line is one-based in the complete input file; add `--input host` for a selected Cogitatum fence in Markdown.
+The command prints JSON and does not write to the input file.
+
+Before the edit, the Ground below selects the Claim through ordinary body:
+
+```md cog-check require=supports,challenges points=3 bearings=2 diagnostics=1
+- [C @claim] The service needs inspection.
+  - Evidence collected this morning
+    - [G; @route] Two independent retries timed out.
+      - [O/] Both may share a transient fault.
+```
+
+The preview inserts a clause into the selected annotation:
+
+```md cog-check require=supports,challenges points=3 bearings=2 diagnostics=0
+- [C @claim] The service needs inspection.
+  - Evidence collected this morning
+    - [G +> @claim; @route] Two independent retries timed out.
+      - [O/] Both may share a transient fault.
+```
+
+The same three Points and two individual Bearings remain, including the objection to this particular route.
+The source prose, occurrence ownership, note boundaries, indentation, names, handles and line endings are retained.
+The change removes this occurrence's implicit-attachment advice and changes its attachment provenance from structural to explicit.
+It does not decide whether the observations are independent or sufficient.
+
+**This deliberately changes future editing behavior.**
+Moving the Ground under another Claim will retain `@claim` as its target.
+Changing its role will retain the explicit operator rather than select a new relation from local defaults.
+Choose this operation when that is the intended commitment; it is not an automatic formatting fix.
+The inserted operators retain their normal target requirements: `->` requires a Point, while `+>` and `~>` permit either kind.
+Later changes to the target declaration therefore need their own review.
+
+The first operation handles ordinary implicit `supports`, `challenges` and `about` attachments on Point declarations and uses, with an already named Point target.
+It declines anonymous targets, local G/ or O/ selectors, Linked headers/members and relations without a Point-attached symbolic spelling, including `answers`, `repliesTo` and `clarifies`.
+Already explicit clauses are reported as unavailable rather than receiving a duplicate clause.
+Any error anywhere in the complete input withholds a preview, including an invalid or unclosed separate host fence.
+
+A ready result includes `originalSource`, `proposedSource`, one insertion in `edit`, the original and proposed diagnostic lists, and the consequence for future moves and role changes.
+The insertion offset counts UTF-16 code units in `originalSource`, not UTF-8 bytes.
+Before applying a saved preview, an editor or caller must compare the complete current source with `originalSource`; any difference requires a new preview.
+The command provides no delayed apply or file overwrite mode.
+An unavailable result contains a reason and message, with no edit or proposed source.
+Exit status is 0 for a ready preview, 1 for an unavailable preview or I/O failure, and 2 for invalid command options.
+
+The Core implementation reparses the proposed complete input in the same mode.
+It checks the ordered AST including occurrence text and note subtrees, allowing only the selected clause and source metadata to change.
+It checks every graph's identities, entity order, contents, declarations, ordered sources, typed targets and names, allowing only the selected Bearing's provenance and source positions to change.
+Diagnostics retain their ordered severity, code and starting location, except that the selected implicit-attachment suggestion may disappear.
+Full messages are returned for review because they may embed changed source columns.
+These checks establish the stated structural and source preservation conditions; they do not certify an interpretation of the prose.
