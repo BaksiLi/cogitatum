@@ -158,7 +158,7 @@ describe("parser failure boundaries", () => {
     );
     expect(result.graph.diagnostics).toEqual([]);
     expect(result.graph.bearings.map((bearing) => [bearing.kind, bearing.target.kind])).toEqual([
-      ["supports", "point"], ["challenges", "point"], ["undercuts", "bearing"], ["about", "point"]
+      ["supports", "point"], ["challenges", "point"], ["challenges", "bearing"], ["about", "point"]
     ]);
     expectValidContracts(result);
   });

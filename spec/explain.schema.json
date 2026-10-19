@@ -1,12 +1,12 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://cogitatum.baksili.codes/schemas/0.4.0/explain.schema.json",
+  "$id": "https://cogitatum.baksili.codes/schemas/0.5.0/explain.schema.json",
   "title": "Cogitatum Explain Projection",
   "description": "Recognition and compiler effects for one source unit. Emitted summaries obey canonical target restrictions; rejected candidates may retain unresolved or invalid targets. Agreement with a graph is checked separately.",
   "type": "object",
   "required": ["version", "entries", "diagnostics"],
   "properties": {
-    "version": { "const": "0.4.0" },
+    "version": { "const": "0.5.0" },
     "entries": { "type": "array", "items": { "$ref": "#/$defs/entry" } },
     "diagnostics": { "type": "array", "items": { "$ref": "#/$defs/diagnostic" } }
   },
@@ -68,7 +68,7 @@
         "key": { "$ref": "#/$defs/bearingKey" },
         "handle": { "$ref": "#/$defs/authoredId" },
         "kind": {
-          "enum": ["supports", "challenges", "undercuts", "about", "repliesTo", "clarifies", "answers"]
+          "enum": ["supports", "challenges", "about", "repliesTo", "clarifies", "answers"]
         },
         "sources": {
           "type": "array",
@@ -97,12 +97,8 @@
           },
           "allOf": [
             {
-              "if": { "properties": { "kind": { "enum": ["challenges", "answers", "repliesTo", "clarifies"] } }, "required": ["kind"] },
+              "if": { "properties": { "kind": { "enum": ["answers", "repliesTo", "clarifies"] } }, "required": ["kind"] },
               "then": { "properties": { "target": { "$ref": "#/$defs/pointRef" } } }
-            },
-            {
-              "if": { "properties": { "kind": { "const": "undercuts" } }, "required": ["kind"] },
-              "then": { "properties": { "target": { "$ref": "#/$defs/bearingRef" } } }
             }
           ]
         }

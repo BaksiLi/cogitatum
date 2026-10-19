@@ -29,7 +29,7 @@ Describe the method in ordinary prose or an `edge` description when it matters. 
 | --- | --- | --- |
 | `+>` | `supports`: positive bearing | Point or named Bearing |
 | `->` | `challenges`: objection to the target | Point |
-| `/>` | `undercuts`: pressure on a connection | Named Bearing |
+| `/>` | `challenges`: objection to a connection | Named Bearing |
 | `~>` | `about`: relevance without positive or negative commitment | Point or named Bearing |
 
 A Point annotation with an operator uses that Point as its source. An `edge` connects existing Points and creates no Point of its own.
@@ -40,7 +40,7 @@ In reconstruction, preserve an author's explicit supporting or opposing relation
 If the relation is unclear, describe that uncertainty in prose or mark your own Question or Gap without attributing a new position to the author.
 You need not classify every relevant passage as support or challenge.
 
-```md cog-check require=supports,undercuts points=4 bearings=2 diagnostics=0
+```md cog-check require=supports,challenges points=4 bearings=2 diagnostics=0
 - [C @conclusion] The service needs more capacity.
 - [G @load] Peak load exceeds current capacity.
 - [G @forecast] The forecast predicts further growth.
@@ -59,8 +59,9 @@ Use the exact spellings below, including the capital T in `repliesTo`:
 | Kind | Target |
 | --- | --- |
 | `supports`, `about` | Point or named Bearing |
-| `challenges`, `answers`, `repliesTo`, `clarifies` | Point |
-| `undercuts` | Named Bearing |
+| `answers`, `repliesTo`, `clarifies` | Point |
+| `challenges` | Point or Bearing |
+| `undercuts` (constrained spelling of `challenges`) | Named Bearing |
 
 Each source is an existing Point; its declaration information (form, role and status), content, and identity remain unchanged.
 Sources are ordered and duplicate-free, and there is exactly one target.
@@ -102,7 +103,7 @@ The comparison ignores local keys, source locations, narrative organization, Exp
 
 Identity reuse can follow the explanation's order without copying content or importing an earlier subtree:
 
-```md cog-check require=supports,undercuts,repliesTo points=4 bearings=3 diagnostics=0
+```md cog-check require=supports,challenges,repliesTo points=4 bearings=3 diagnostics=0
 - [. @measurement] Two independent retries timed out.
 - The sample is small; we discuss that limitation before using the observation.
 - [C @cause] A persistent configuration fault may explain the timeouts.
@@ -196,7 +197,7 @@ These are ordinary G and O Points with a retained local selector, not new roles.
 Body is transparent; another Point, linked, edge or Bearing use is a boundary even when its attachment or focus is missing or rejected.
 Selection never scans a Point's other outgoing Bearings, crosses an unattached Point, or selects the commentary relation being created by the same annotation.
 
-```md cog-check require=supports,undercuts,repliesTo points=6 bearings=4 diagnostics=0
+```md cog-check require=supports,challenges,repliesTo points=6 bearings=4 diagnostics=0
 - [C @claim] A persistent fault may explain the timeouts.
   - [linked; @step]
     - [G @first] Two retries timed out.
@@ -216,7 +217,7 @@ An explicit clause overrides the ordinary default, and combining one with a sele
 
 One Point can support two conclusions through two uses, each creating its own named attachment:
 
-```md cog-check require=supports,undercuts,challenges points=5 bearings=4 diagnostics=0
+```md cog-check require=supports,challenges points=5 bearings=4 diagnostics=0
 - [C @retries] Two retries timed out.
 - [C @config] The configuration is faulty.
   - [G use @retries; @to-config]
@@ -233,13 +234,13 @@ Neither relation records that a route or Point has failed, and nothing propagate
 The following pair preserves selected graph structure, declaration metadata, individual instances, ordered sources and typed targets.
 Spans, derivedBy, Explain and original source remain separate from that comparison.
 
-```md cog-check compare=local-attachment caption="Local selector" require=supports,undercuts points=3 bearings=2 diagnostics=0
+```md cog-check compare=local-attachment caption="Local selector" require=supports,challenges points=3 bearings=2 diagnostics=0
 - [C @claim] Claim.
   - [G @premise; @step] Premise.
     - [O/ @objection; @attack] This step assumes a stable environment.
 ```
 
-```md cog-check compare=local-attachment caption="Complete target" require=supports,undercuts points=3 bearings=2 diagnostics=0
+```md cog-check compare=local-attachment caption="Complete target" require=supports,challenges points=3 bearings=2 diagnostics=0
 - [C @claim] Claim.
   - [G @premise; @step] Premise.
     - [O @objection /> @step; @attack] This step assumes a stable environment.
@@ -250,7 +251,10 @@ Move commentary to the linked context or specify a complete target.
 A comments-only linked is invalid; commentary cannot invent its target.
 Unknown references in complete independent clauses fail independently; incomplete G +> rejects the whole joint.
 Only G/ and O/ are supported; no Q_, C_, R_, D_, suffixed Gap or targetless /> is introduced.
-The canonical negative mapping remains challenges for Point targets and undercuts for Bearing targets.
+The canonical kind is `challenges` for both Point and Bearing targets.
+The typed target preserves which object is challenged; `->` still requires a Point and `/>` still requires a Bearing.
+Named `challenges` accepts either target, while named `undercuts` retains its Bearing-only requirement.
+Bare `O` keeps its Point-context default; use `O/` to select a local Bearing.
 
 ## Argument structures
 
@@ -292,6 +296,52 @@ The explicit references reuse i's identity without copying its subtree or changi
 
 Argumentation includes developing, presenting, and examining arguments; it is not limited to debate between people.
 No additional Convergent or Serial keyword is required.
+
+### Shared evidence, intermediate steps and joint premises
+
+Linked records joint participation in one step.
+Two Points being logically related does not by itself make them joint premises.
+The same subject can be reconstructed at different levels of detail, with different explicit commitments.
+
+Here one fact is reused in two support steps, without copying its identity:
+
+```md cog-check require=supports points=3 bearings=2 diagnostics=0
+- [. @water-formula] Water's molecular formula is H₂O.
+- [C] Each water molecule has three atoms.
+  - [G use @water-formula]
+- [C] A water molecule contains no carbon atoms.
+  - [G use @water-formula]
+```
+
+If the author explicitly reasons through the absence of C in the formula, keep that intermediate Point.
+These nested and flat presentations retain the same two Serial steps:
+
+```md cog-check compare=water-serial caption="Nested Serial" require=supports points=3 bearings=2 diagnostics=0
+- [C @conclusion] A water molecule contains no carbon atoms.
+  - [G @no-c] The molecular formula contains no C.
+    - [G @formula] Water's molecular formula is H₂O.
+```
+
+```md cog-check compare=water-serial caption="Flat Serial" require=supports points=3 bearings=2 diagnostics=0
+- [G @formula +> @no-c] Water's molecular formula is H₂O.
+- [G @no-c +> @conclusion] The molecular formula contains no C.
+- [C @conclusion] A water molecule contains no carbon atoms.
+```
+
+If a convention is explicitly offered alongside the formula as a premise, a joint step can represent that choice:
+
+```md cog-check require=supports points=3 bearings=1 diagnostics=0
+- [C] A water molecule contains no carbon atoms.
+  - [linked]
+    - [G] Water's molecular formula is H₂O.
+    - [G] Molecular formulas enumerate the constituent elements; C symbolises carbon.
+```
+
+An unstated substantive warrant, a background convention for interpreting notation, and a compressed intermediate inference are different omissions.
+The compiler does not invent Points or Gaps for them or judge the inference invalid without a specified interpretation and consequence relation.
+Adding a premise or intermediate step is an explicit reconstruction decision; the examples above are not interchangeable topology.
+A possible Serial block would be sugar for several Bearings and would need to preserve intermediate identities, branches and objections to particular steps.
+It remains an authoring experiment, not a missing graph primitive.
 
 ## Connections from indentation
 
@@ -340,7 +390,7 @@ Explicit references can point forward or backward; generated source would remain
 
 Sometimes the weak part is how a reason bears on a claim. Name that connection with `; @route`, then use `/>` to question it:
 
-```md cog-check require=supports,undercuts,about points=4 bearings=3 diagnostics=0
+```md cog-check require=supports,challenges,about points=4 bearings=3 diagnostics=0
 - [C @cause] The connection pool may be exhausted.
   - [G; @log-route] Logs show connection acquisition failures.
 - [O /> @log-route] The same log message can result from a network failure.

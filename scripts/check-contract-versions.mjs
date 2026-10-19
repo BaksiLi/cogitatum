@@ -12,8 +12,8 @@ const typesSource = await readFile("packages/core/src/types.ts", "utf8");
 const formatVersion = /FORMAT_VERSION\s*=\s*"([^"]+)"/.exec(typesSource)?.[1];
 
 const expectedPackage = rootPackage.version;
-// Unpublished 0.4 candidates retain this format identifier; pair exact compiler/schema provenance.
-const expectedFormat = "0.4.0";
+// The negative-kind and authored-target contract requires a new format version.
+const expectedFormat = "0.5.0";
 if (expectedPackage.split("-")[0].split(".").slice(0, 2).join(".") !== expectedFormat.split(".").slice(0, 2).join(".")) {
   throw new Error(`Package ${expectedPackage} must share MAJOR.MINOR with format ${expectedFormat}.`);
 }

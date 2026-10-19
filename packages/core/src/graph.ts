@@ -41,6 +41,7 @@ type CandidateBearing = {
   derivedBy: BearingDerivedBy;
   sourceSpan?: SourceSpan;
   targetFocusKind?: "point" | "bearing";
+  targetKind?: OperatorClause["targetKind"];
 };
 
 type SymbolKind = "point" | "bearing" | "invalid" | "unknown";
@@ -268,7 +269,7 @@ function compileBlock(
     if (selected) {
       const source = annotation.kind === "use" ? annotation.ref : pointKeyForBlock(block, pointKeys);
       if (!source) throw new Error("Compiler invariant violated: a valid selector has no Point operand.");
-      const bearing = structural(block, annotation.role === "G" ? "supports" : "undercuts", [source], selected, "bearing");
+      const bearing = structural(block, annotation.role === "G" ? "supports" : "challenges", [source], selected, "bearing");
       bearing.key = "_b" + (bearings.length + 1);
       bearings.push(bearing);
       draft.bearing = { outcome: "candidate", candidate: bearing, reason: "local-attachment" };
@@ -434,6 +435,7 @@ function bearingFromOperator(
     key: "",
     ...(handle ? { handle } : {}),
     kind: operator.op,
+    targetKind: operator.targetKind,
     sources,
     target: { id: target.id },
     text: block.annotation?.kind === "edge" && block.text ? block.text : undefined,
@@ -619,20 +621,20 @@ function validateBearings(
         diagnostics.push({ severity: "error", code: bearing.targetFocusKind === "point" ? "POINT_FOCUS_REQUIRES_POINT" : "BEARING_FOCUS_REQUIRES_BEARING", message: bearing.targetFocusKind === "point" ? "The nearest Point use cannot supply a Bearing as its Point focus." : "The nearest Bearing use cannot supply a Point as its Bearing focus.", sourceSpan: bearing.sourceSpan });
         isValid = false;
       }
-      if (bearing.kind === "undercuts" && targetKind !== "bearing") {
+      if (bearing.targetKind === "bearing" && targetKind !== "bearing") {
         diagnostics.push({
           severity: "error",
           code: "UNDERCUT_REQUIRES_BEARING_TARGET",
-          message: `Undercut target ${targetLabel} is a Point; use /> only for a Bearing.`,
+          message: `Challenge target ${targetLabel} is a Point; /> and named undercuts require a Bearing.`,
           sourceSpan: bearing.sourceSpan
         });
         isValid = false;
       }
-      if (bearing.kind === "challenges" && targetKind !== "point") {
+      if (bearing.kind === "challenges" && bearing.targetKind === "point" && targetKind !== "point") {
         diagnostics.push({
           severity: "error",
           code: "CHALLENGE_REQUIRES_POINT_TARGET",
-          message: `Challenge target ${targetLabel} is a Bearing; use -> for a Point or /> to undercut the route.`,
+          message: `Challenge target ${targetLabel} is a Bearing; -> requires a Point. Use /> or named challenges for a Bearing.`,
           sourceSpan: bearing.sourceSpan
         });
         isValid = false;
@@ -863,7 +865,7 @@ function reuseSpelling(block: AstBlock, anchor: string): string {
   // A selector survives reuse: [O/ use @p] still undercuts the local attachment.
   const mark = annotation?.kind === "role" ? annotation.role + (annotation.selector ? "/" : "") : ".";
   const clause = annotation && "operatorClause" in annotation && annotation.operatorClause
-    ? ` ${operatorSymbol(annotation.operatorClause.op)} @${annotation.operatorClause.target.id}` : "";
+    ? ` ${operatorSymbol(annotation.operatorClause.op, annotation.operatorClause.targetKind)} @${annotation.operatorClause.target.id}` : "";
   const handle = annotation && "handle" in annotation && annotation.handle ? "; @" + annotation.handle : "";
   return `[${mark} use @${anchor}${clause}${handle}]`;
 }
@@ -918,19 +920,13 @@ function toCanonicalBearing(bearing: CandidateBearing): Bearing {
     }
     return source;
   });
-  const { targetFocusKind: _focusKind, ...canonicalFields } = bearing;
+  const { targetFocusKind: _focusKind, targetKind: _targetKind, ...canonicalFields } = bearing;
   const base = { ...canonicalFields, sources };
   if (requiresPointTarget(bearing.kind)) {
     if (bearing.target.kind !== "point") {
       throw new Error(`Compiler invariant violated: ${bearing.kind} target was not validated as a Point.`);
     }
     return { ...base, kind: bearing.kind, target: { key: bearing.target.key, kind: "point" } };
-  }
-  if (bearing.kind === "undercuts") {
-    if (bearing.target.kind !== "bearing") {
-      throw new Error("Compiler invariant violated: undercut target was not validated as a Bearing.");
-    }
-    return { ...base, kind: "undercuts", target: { key: bearing.target.key, kind: "bearing" } };
   }
   const target =
     bearing.target.kind === "point"
@@ -941,8 +937,8 @@ function toCanonicalBearing(bearing: CandidateBearing): Bearing {
 
 function requiresPointTarget(
   kind: BearingKind
-): kind is "challenges" | "answers" | "repliesTo" | "clarifies" {
-  return kind === "challenges" || kind === "answers" || kind === "repliesTo" || kind === "clarifies";
+): kind is "answers" | "repliesTo" | "clarifies" {
+  return kind === "answers" || kind === "repliesTo" || kind === "clarifies";
 }
 
 function addStructuralDiagnostics(

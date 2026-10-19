@@ -63,7 +63,7 @@ See [Points](points.md) for roles, Gap openness, and names.
 | --- | --- | --- | --- |
 | `+>` | supports | 支持 | 正面作用於目標；不認證推論有效或依據充分。 |
 | `->` | challenges | 質疑 | 對目標 Point 提出反對。 |
-| `/>` | undercuts | 質疑關係 | 質疑已命名的 Bearing。 |
+| `/>` | challenges | 質疑 | 對已命名的 Bearing 提出反對。 |
 | `~>` | about | 關涉 | 記錄相關性，不承諾正面或反面作用。 |
 | Claim beneath Question | answers | 回答 | 最近的外層 Point 是 Q 時，C 回答它。 |
 | Reply beneath Objection | repliesTo | 回應異議 | 最近的外層 Point 是 O 時，R 回應它。 |

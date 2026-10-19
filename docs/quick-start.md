@@ -89,6 +89,7 @@ npx --package @cogitatum/cli@0.4.12 cog check inquiry.cog.md
 npx --package @cogitatum/cli@0.4.12 cog graph inquiry.cog.md
 ```
 
+This checkout is an unpublished **0.5.0 / format 0.5.0** candidate; use the local source build to try it.
 The published packages are `@cogitatum/core` and `@cogitatum/cli` at **0.4.12**, under `latest`.
 Pin this exact version for a reproducible integration; the historical `alpha` tag remains at **0.3.0-alpha.1**.
 To work on the compiler itself, see the [public source](https://github.com/BaksiLi/cogitatum).

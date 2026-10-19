@@ -5,6 +5,16 @@ The historical `alpha` tag remains at **0.3.0-alpha.1**.
 Earlier 0.4 entries below are unpublished source milestones included in this first 0.4 npm release.
 Use the complete released schema set and [migrate retained source](docs/syntax.md#compatibility-and-migration) rather than relabelling old JSON.
 
+## 0.5.0 (unreleased)
+
+- Unify canonical negative relations as `challenges`, with Point or Bearing targets.
+  Preserve authored `->` and `/>` constraints in AST `operatorClause.targetKind` through validation.
+  Named `challenges` accepts either target; named `undercuts` remains a Bearing-only spelling.
+- Keep suffix-only local Bearing commentary through `O/`; bare `O` retains its Point-context default.
+- Advance AST, Graph IR, Explain and source envelopes to format 0.5.0 with matching schemas and View marks.
+  Recompile original source rather than relabelling 0.4 JSON.
+- Clarify Linked, Serial and reused evidence with executable examples that preserve intermediate Points and do not invent implicit premises.
+
 ## 0.4.12 — 13 October 2026 · published
 
 - Publish the first 0.4 Core and CLI packages through GitHub Actions trusted publishing, with provenance.

@@ -3,6 +3,18 @@ import { compileSource } from "@cogitatum/core";
 import { focusNeighborhood, layoutConstellation, layoutGraph, projectExploration, projectGraph, referenceKey } from "./projection.js";
 
 describe("faithful graph projection", () => {
+  it("keeps the typed endpoint when both content and route objections are challenges", () => {
+    const graph = compileSource('- [C @c] Claim.\n  - [G; @route] Reason.\n- [O -> @c; @content] Content objection.\n- [O /> @route; @step] Step objection.', 'document').graphs[0];
+    const topology = projectGraph(graph);
+    const display = projectExploration(topology);
+    const challenges = graph.bearings.filter(b => b.kind === 'challenges');
+    expect(challenges.map(b => b.target.kind)).toEqual(['point', 'bearing']);
+    for (const bearing of challenges) {
+      expect(topology.links).toContainEqual(expect.objectContaining({ bearingKey: bearing.key, target: referenceKey(bearing.target), segment: 'output' }));
+      expect(display.links).toContainEqual(expect.objectContaining({ bearingKey: bearing.key, target: referenceKey(bearing.target), segment: 'output' }));
+    }
+    expect(display.nodes.some(node => node.ref.kind === 'bearing' && node.ref.key === graph.bearings[0].key)).toBe(true);
+  });
   it("retains joint support and pressure on that same bearing", () => {
     const graph = compileSource('- [C @c] Claim.\n- [G @a] First.\n- [G @b] Second.\n- [edge @a, @b +> @c; @route]\n- [O /> @route] Route objection.','document').graphs[0];
     const p = projectGraph(graph);

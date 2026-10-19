@@ -32,7 +32,7 @@ If a premise or connection is your interpretation, say so; a successful compilat
 
 Here is an invented book argument followed by a reader's examination:
 
-```md cog-check require=supports,challenges,undercuts points=4 bearings=3 diagnostics=0
+```md cog-check require=supports,challenges points=4 bearings=3 diagnostics=0
 - Reconstructing the book's argument, chapter 2 (worked example).
   - [C @book-claim] This treatment may improve sleep.
     - [G @book-report; @book-step] Participants reported better sleep after treatment.

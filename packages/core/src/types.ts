@@ -1,7 +1,7 @@
-export const FORMAT_VERSION = "0.4.0";
+export const FORMAT_VERSION = "0.5.0";
 
 export type Role = "Q" | "C" | "G" | "O" | "R" | "D";
-export type BearingOp = "supports" | "challenges" | "undercuts" | "about";
+export type BearingOp = "supports" | "challenges" | "about";
 export type BearingKind = BearingOp | "repliesTo" | "clarifies" | "answers";
 export type BearingDerivedBy = "operator" | "structural";
 export type Severity = "error" | "warning" | "suggestion";
@@ -33,6 +33,8 @@ export type BearingRef = {
 
 export type OperatorClause = {
   op: BearingKind;
+  // Authored target requirement, retained independently of the canonical kind.
+  targetKind: "point" | "bearing" | "either";
   sources: Ref[] | "self";
   target: Ref;
 };
@@ -142,9 +144,8 @@ type BearingBase = {
 };
 
 type BearingRelation =
-  | { kind: "challenges" | "answers" | "repliesTo" | "clarifies"; target: PointRef }
-  | { kind: "undercuts"; target: BearingRef }
-  | { kind: "supports" | "about"; target: BearingTarget };
+  | { kind: "answers" | "repliesTo" | "clarifies"; target: PointRef }
+  | { kind: "supports" | "challenges" | "about"; target: BearingTarget };
 
 export type Bearing = BearingBase & BearingRelation;
 

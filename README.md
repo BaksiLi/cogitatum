@@ -4,7 +4,7 @@ Cogitatum is a lightweight markup language for making selected reasoning structu
 
 Use it while reading, developing or revising an argument: in reading notes, investigations, or the reasons for a decision. Keep the context in words; mark a question, reason, objection, or missing piece when making it explicit helps.
 
-```md cog-check require=supports,challenges,undercuts points=4 bearings=3 diagnostics=0
+```md cog-check require=supports,challenges points=4 bearings=3 diagnostics=0
 - A neighbourhood library is considering later opening hours. This is an imagined discussion.
 - [C] The library should stay open until eight on weekdays.
   - [G] Forty people visited after six at last month's evening event.
@@ -19,6 +19,11 @@ Four marked points and three explicit connections. One objection questions the a
 ## Public Alpha
 
 **Cogitatum 0.4 releases an inquiry markup language and a working compiler.**
+
+Source candidate: **0.5.0 / format 0.5.0**, not yet published.
+It unifies negative relations as `challenges` with typed targets, preserves `->` / `/>` target requirements, and keeps explicit `O/` local selection.
+See [migration](docs/syntax.md#compatibility-and-migration) before consuming candidate JSON.
+Use the local build commands below to try this candidate; the published install commands select the 0.4 contract.
 
 Published packages: **@cogitatum/core 0.4.12** and **@cogitatum/cli 0.4.12**, with **format 0.4.0**, under `latest`.
 Install with `npm install @cogitatum/core`, or run the CLI with `npx --package @cogitatum/cli cog check inquiry.cog.md`.
@@ -131,7 +136,7 @@ Project Cogitatum investigates how people and AI agents can learn this form of e
 
 Further work under the name **Cogitatio** concerns ongoing inquiry, revision, review, and continuity. Cogitatio and its runtime are not part of this release.
 
-The current development checkout also contains an experimental integration package, marked private and not published with the Alpha: [`@cogitatum/view`](packages/view/README.md) provides an embeddable, source-linked graph renderer. It leaves evidence, persistence, review, and application UI with the host. The compiler uses format 0.4.0.
+The current development checkout also contains an experimental integration package, marked private and not published with the Alpha: [`@cogitatum/view`](packages/view/README.md) provides an embeddable, source-linked graph renderer. It leaves evidence, persistence, review, and application UI with the host. This candidate compiler uses format 0.5.0.
 
 The public source covers the language, compiler, CLI, schemas, conformance fixtures, selected examples, and these usage documents. Website source and brand assets are maintained and deployed separately; the website renders the public documents and uses the compiler. Research essays, benchmarks, prompts, and runtime experiments are outside this source distribution.
 

@@ -20,7 +20,7 @@ describe("reference-only Point occurrences", () => {
     expect(graph.points[0].declaration.role).toBe(mark || undefined);
     expect(relations(graph)).toEqual([
       { kind: "supports", handle: "step", sources: ["premise"], target: { kind: "point", name: "claim" } },
-      { kind: "undercuts", handle: "attack", sources: ["objection"], target: { kind: "bearing", name: "step" } }
+      { kind: "challenges", handle: "attack", sources: ["objection"], target: { kind: "bearing", name: "step" } }
     ]);
     expect(graph.bearings[0].text).toBeUndefined();
     expect(explain.entries[2].effects).toContainEqual({ kind: "focusPoint", operand: { id: "premise" }, ref: { kind: "point", key: graph.points[0].key } });
@@ -33,7 +33,7 @@ describe("reference-only Point occurrences", () => {
     expect(codes(graph)).toEqual([]);
     expect(graph.points.filter(point => point.id === "premise")).toHaveLength(1);
     const names = relations(graph);
-    expect(names.filter(bearing => bearing.kind === "undercuts").map(bearing => bearing.target.name)).toEqual(["first-step", "second-step"]);
+    expect(names.filter(bearing => bearing.kind === "challenges").map(bearing => bearing.target.name)).toEqual(["first-step", "second-step"]);
     expect(new Set(graph.bearings.map(bearing => bearing.key)).size).toBe(6);
   });
 
@@ -53,7 +53,7 @@ describe("reference-only Point occurrences", () => {
   it.each(["G use @premise", ". use @premise"])("allows a complete symbolic override for %s and exactly one attachment", mark => {
     const { graph } = compile("- [. @premise] Premise.\n- [C @outer] Outer.\n  - [" + mark + " ~> @topic; @step] Local description.\n    - [O/] Assessment.\n- [Q @topic] Topic.");
     expect(codes(graph)).toEqual([]);
-    expect(relations(graph).map(bearing => [bearing.kind, bearing.target.name])).toEqual([["about", "topic"], ["undercuts", "step"]]);
+    expect(relations(graph).map(bearing => [bearing.kind, bearing.target.name])).toEqual([["about", "topic"], ["challenges", "step"]]);
   });
 
   it.each([". use @missing", ". use @route", "C? use @premise", "G use @", "G use @premise answers @claim", "O/ use @premise /> @route", ". use @premise; @dangling", ". use @premise", "Use @premise"])("retains %s failures without outer fallback or declaration", header => {

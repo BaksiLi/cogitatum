@@ -43,7 +43,7 @@ describe("advice from actual implicit selection", () => {
     expect(advice(result)).toEqual([]);
     const valid = compile("- [C @c] Claim.\n  - Group\n    - [linked; @route]\n      - [note] Detail.\n      - [G @g] Ground.\n        - Text\n          - [G/] Ground has no attachment.\n- [_ use @route]\n  - Commentary\n    - [O/] Route concern.\n- [_ use @route]\n  - [O/] Direct concern.");
     expect(selections(valid).map(effect => [effect.line, effect.target.kind])).toEqual([[3, "point"], [10, "bearing"]]);
-    expect(valid.graph.bearings.map(bearing => bearing.kind)).toEqual(["supports", "undercuts", "undercuts"]);
+    expect(valid.graph.bearings.map(bearing => bearing.kind)).toEqual(["supports", "challenges", "challenges"]);
     const selected = selections(valid)[1];
     expect(selected.targetSpan?.startLine).toBe(3);
     expect(selected.contextSpan.startLine).toBe(8);
@@ -134,7 +134,7 @@ describe("advice from actual implicit selection", () => {
     const followed = compile(declarations + "    - [_ @a +> @c; @joint]\n      - [G use @b +> @other]\n      - [note] Kept with the step.\n      - [O/ @doubt] The step needs a mechanism.\n- [G use @a]");
     expect(followed.graph.diagnostics).toEqual([]);
     expect(topology(followed)).toEqual(topology(result));
-    expect(topology(result)).toEqual([[["@a"], "supports", "@c", "joint"], [["@b"], "supports", "@other", undefined], [["@doubt"], "undercuts", "@joint", undefined]]);
+    expect(topology(result)).toEqual([[["@a"], "supports", "@c", "joint"], [["@b"], "supports", "@other", undefined], [["@doubt"], "challenges", "@joint", undefined]]);
   });
 
   it("moves a handle and attachment commentary with the attachment when an edge replaces a default", () => {

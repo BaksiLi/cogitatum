@@ -28,14 +28,14 @@ const ANCHOR_RE = /^@([a-z][a-z0-9_-]*)$/;
 const OP_TO_BEARING = new Map<string, BearingOp>([
   ["+>", "supports"],
   ["->", "challenges"],
-  ["/>", "undercuts"],
+  ["/>", "challenges"],
   ["~>", "about"]
 ]);
 const EDGE_TO_BEARING = new Map<string, BearingKind>([
   ...OP_TO_BEARING,
   ["supports", "supports"],
   ["challenges", "challenges"],
-  ["undercuts", "undercuts"],
+  ["undercuts", "challenges"],
   ["about", "about"],
   ["answers", "answers"],
   ["repliesTo", "repliesTo"],
@@ -474,7 +474,9 @@ function parseOperatorClause(
     return undefined;
   }
 
-  return { op, sources, target: targets[0] };
+  const targetKind = opToken === "->" || ["answers", "repliesTo", "clarifies"].includes(opToken)
+    ? "point" : opToken === "/>" || opToken === "undercuts" ? "bearing" : "either";
+  return { op, targetKind, sources, target: targets[0] };
 }
 
 function duplicateRefIds(refs: Ref[]): string[] {
@@ -593,10 +595,12 @@ function parseBearingHost(
 }
 
 const KIND_NAMES = [...EDGE_TO_BEARING.keys()].filter(key => /^[a-z]/i.test(key));
-const KIND_SYMBOLS = new Map<string, string>([...OP_TO_BEARING].map(([symbol, kind]) => [kind, symbol]));
+const KIND_SYMBOLS = new Map<string, string>([["supports", "+>"], ["challenges", "->"], ["undercuts", "/>"], ["about", "~>"]]);
 
 /** The symbolic operator for a kind that a Point annotation can state, if any. */
-export function operatorSymbol(kind: BearingKind): string | undefined {
+export function operatorSymbol(kind: BearingKind, targetKind?: OperatorClause["targetKind"]): string | undefined {
+  if (kind === "challenges" && targetKind === "bearing") return "/>";
+  if (kind === "challenges" && targetKind === "either") return undefined;
   return KIND_SYMBOLS.get(kind);
 }
 
@@ -616,6 +620,9 @@ function namedKindHint(rest: string[], mark: string, source: string | undefined,
   const kind = rest.find(token => KIND_NAMES.includes(token));
   if (!kind) return "";
   const target = rest[rest.indexOf(kind) + 1] ?? "@target";
+  if (kind === "challenges") {
+    return ` Named challenges is written in an edge and accepts either target kind. On a Point, use -> ${target} for a Point or /> ${target} for a Bearing.`;
+  }
   const symbol = KIND_SYMBOLS.get(kind);
   if (symbol) return ` Named kinds are written only in an edge; on a Point write the operator: [${mark} ${symbol} ${target}].`;
   const named = source ?? "@name";

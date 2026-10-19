@@ -1,12 +1,12 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://cogitatum.baksili.codes/schemas/0.4.0/ast.schema.json",
+  "$id": "https://cogitatum.baksili.codes/schemas/0.5.0/ast.schema.json",
   "title": "Cogitatum Document AST",
   "description": "Ordered parser output. An annotation is a block's only semantic representation; raw text preserves the source and is not reinterpreted during compilation.",
   "type": "object",
   "required": ["version", "blocks", "diagnostics"],
   "properties": {
-    "version": { "const": "0.4.0" },
+    "version": { "const": "0.5.0" },
     "blocks": {
       "type": "array",
       "items": { "$ref": "#/$defs/block" }
@@ -43,9 +43,10 @@
     },
     "operatorClause": {
       "type": "object",
-      "required": ["op", "sources", "target"],
+      "required": ["op", "targetKind", "sources", "target"],
       "properties": {
-        "op": { "enum": ["supports", "challenges", "undercuts", "about", "answers", "repliesTo", "clarifies"] },
+        "op": { "enum": ["supports", "challenges", "about", "answers", "repliesTo", "clarifies"] },
+        "targetKind": { "enum": ["point", "bearing", "either"] },
         "sources": {
           "oneOf": [
             { "const": "self" },
@@ -59,12 +60,17 @@
         },
         "target": { "$ref": "#/$defs/ref" }
       },
+      "allOf": [
+        { "if": { "properties": { "op": { "enum": ["answers", "repliesTo", "clarifies"] } }, "required": ["op"] }, "then": { "properties": { "targetKind": { "const": "point" } } } },
+        { "if": { "properties": { "op": { "enum": ["supports", "about"] } }, "required": ["op"] }, "then": { "properties": { "targetKind": { "const": "either" } } } }
+      ],
       "additionalProperties": false
     },
     "selfOperatorClause": {
       "allOf": [
         { "$ref": "#/$defs/operatorClause" },
-        { "type": "object", "properties": { "sources": { "const": "self" }, "op": { "enum": ["supports", "challenges", "undercuts", "about"] } } }
+        { "type": "object", "properties": { "sources": { "const": "self" }, "op": { "enum": ["supports", "challenges", "about"] } } },
+        { "type": "object", "if": { "properties": { "op": { "const": "challenges" } }, "required": ["op"] }, "then": { "properties": { "targetKind": { "enum": ["point", "bearing"] } } } }
       ]
     },
     "edgeOperatorClause": {

@@ -63,7 +63,7 @@ describe("cog CLI", () => {
     writeFileSync(join(workingDirectory, "--references"), "- [C @claim] A claim.");
     const result = runCli("check", "--", "--references");
     expect(result.status).toBe(0);
-    expect(JSON.parse(result.stdout)).toEqual({ version: "0.4.0", diagnostics: [] });
+    expect(JSON.parse(result.stdout)).toEqual({ version: "0.5.0", diagnostics: [] });
   });
 
   it("prints valid partial output and exits with failure after a misindented annotation", () => {
@@ -109,10 +109,10 @@ describe("cog CLI", () => {
     const version = runCli("--version");
 
     expect(help.status).toBe(0);
-    expect(help.stdout).toContain("Cogitatum 0.4.12 (format 0.4.0)");
+    expect(help.stdout).toContain("Cogitatum 0.5.0 (format 0.5.0)");
     expect(help.stdout).toContain("cog <command>");
     expect(version.status).toBe(0);
-    expect(version.stdout).toContain("cog 0.4.12 (format 0.4.0)");
+    expect(version.stdout).toContain("cog 0.5.0 (format 0.5.0)");
   });
 
   it("checks valid source and preserves compiler diagnostics", () => {
@@ -123,7 +123,7 @@ describe("cog CLI", () => {
     );
 
     expect(valid.status).toBe(0);
-    expect(JSON.parse(valid.stdout)).toMatchObject({ version: "0.4.0", diagnostics: [] });
+    expect(JSON.parse(valid.stdout)).toMatchObject({ version: "0.5.0", diagnostics: [] });
     expect(invalid.status).toBe(1);
     expect(JSON.parse(invalid.stdout).diagnostics).toEqual(
       expect.arrayContaining([expect.objectContaining({ code: "BEARING_HANDLE_WITHOUT_BEARING" })])
