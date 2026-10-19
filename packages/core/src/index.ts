@@ -5,3 +5,4 @@ export { compileGraph, compileGraphWithExplain } from "./graph.js";
 export { compileSource, explainSource, extractCogitatumSourceUnits, parseSource } from "./source.js";
 export { analyzeSourceReferences } from "./source-references.js";
 export type { WrittenReference, ReferencedName, SourceReferenceAnalysis } from "./source-references.js";
+export { formatGraph, GRAPH_TEXT_VERSION } from "./graph-text.js";

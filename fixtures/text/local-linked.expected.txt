@@ -1,0 +1,24 @@
+cogitatum-graph-text 1
+format: "0.5.0"
+projection: structure-v1
+status: no-errors
+
+points (8):
+p1: role(C) id="conclusion" text="Conclusion."
+p2: role(G) id="observation" text="An independent reason."
+p3: role(G) id="first" text="First joint premise."
+p4: role(O) id="objection" text="Objection to this premise."
+p5: role(R) id="reply" text="Reply to that objection."
+p6: role(G) id="second" text="Second joint premise."
+p7: role(O) id="undercut" text="Objection to the route."
+p8: role(C) id="other" text="Another conclusion."
+
+bearings (6):
+b1: supports([p2], p1)
+b2: supports([p3, p6], p1) handle="joint-route"
+b3: challenges([p4], p3)
+b4: repliesTo([p5], p4)
+b5: challenges([p7], b2)
+b6: supports([p3], p8) handle="shared-route"
+
+diagnostics (0):

@@ -51,7 +51,7 @@ npm run cog:dist -- check examples/getting-started.cog.md
 npm run cog:dist -- graph examples/getting-started.cog.md
 ```
 
-The core provides a deterministic parser and compiler for Node.js and browser integrations. The CLI checks syntax and references and prints AST or graph JSON. An optional `explain` command shows compiler decisions for debugging a note. The hosted playground lets you try the language without installation.
+The core provides a deterministic parser and compiler for Node.js and browser integrations. The CLI checks syntax and references, prints AST or graph JSON, and offers a text graph inspection view in the 0.5 candidate. An optional `explain` command shows compiler decisions for debugging a note. The hosted playground lets you try the language without installation.
 
 ## Reference
 
@@ -60,6 +60,7 @@ The core provides a deterministic parser and compiler for Node.js and browser in
 - [Points](docs/points.md): marked material and optional names.
 - [Bearings](docs/bearings.md): positive bearing, objections, explicit targets, and joint reasons.
 - [English / 繁體中文 glossary](docs/glossary.md): terminology for reading and argument reconstruction.
+- [Graph inspection](docs/graph-inspection.md): readable structure, diagnostics and preservation limits.
 - [Complete syntax](docs/syntax.md): grammar, input modes, resolution, and machine contracts.
 - `spec/`: JSON Schemas; `fixtures/`: conformance cases; `examples/`: curated source notes.
 

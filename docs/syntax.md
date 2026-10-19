@@ -606,7 +606,9 @@ cog check --input host notebook.md
 cog --version
 ```
 
-Commands output JSON; help and version output text.
+Commands output JSON by default; help and version output text.
+`cog graph --format text inquiry.cog.md` prints the [single-graph inspection view](graph-inspection.md).
+Text inspection requires document input; host text is rejected rather than dropping source units or selection diagnostics.
 In `document` mode, `ast`, `graph` and `explain` print one AST, Graph IR and Explain projection, and `check` prints `{ version, diagnostics }`.
 With `--input host`, `ast` and `graph` print the `parseSource` and `compileSource` envelopes and `check` prints `{ version, mode, diagnostics }`.
 Host `explain` prints `{ version, mode, units, explanations, diagnostics }`, a command-specific projection without `documents` or `graphs` that is not a source-envelope schema instance; validate each `explanations[i]` with the Explain schema, or call `explainSource` for the complete envelope.

@@ -92,6 +92,14 @@ Any later edit needs its own preservation contract and recompilation, including 
 The result is a separate analysis projection, not an instance of the Source envelope schema; `version` identifies the underlying format, while the package/source revision identifies this API.
 No existing AST, Graph IR, Explain or Source schema is extended.
 
+## Graph inspection
+
+The candidate exports `formatGraph(graph: GraphIR): string` and `GRAPH_TEXT_VERSION` (`"1"`).
+The formatter reads one compiled graph and returns a deterministic plain-text entity table and relation list, preserving typed identities, declaration metadata, names, text and ordered sources.
+Error-bearing graphs are explicitly marked partial and include diagnostics.
+It does not reconstruct source, infer validity or mutate the input.
+See [Graph inspection](../../docs/graph-inspection.md) for the versioned preservation contract and comparison limits.
+
 ## Compiler contracts
 
 AST blocks keep their semantic fields only in `annotation`; source `raw` and block text are retained separately. Reparse older source to migrate from format 0.2.0. The compiler rejects ASTs with a different format version.
