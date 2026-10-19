@@ -178,8 +178,8 @@ describe("public compiler contract boundaries", () => {
   });
 
   it("validates all named edge kinds without admitting those clauses on Point annotations", () => {
-    for (const kind of ["supports", "challenges", "undercuts", "about", "answers", "repliesTo", "clarifies"]) {
-      const target = kind === "undercuts" ? "route" : "claim";
+    for (const kind of ["supports", "challenges", "about", "answers", "repliesTo", "clarifies"]) {
+      const target = "claim";
       const source = "- [C @claim] Claim.\n- [. @material] Material.\n- [edge @material supports @claim; @route]\n- [edge @claim " + kind + " @" + target + "]";
       const ast = parseDocument(source);
       const { graph, explain } = compileGraphWithExplain(ast);

@@ -7,5 +7,5 @@
 - [_ @material clarifies @claim; @clarification]
 - [edge @claim supports @material; @support]
 - [_ @material challenges @claim; @challenge]
-- [edge @question undercuts @support; @pressure]
+- [edge @question /> @support; @pressure]
 - [edge @question about @pressure; @relevance]

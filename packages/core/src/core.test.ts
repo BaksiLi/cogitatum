@@ -754,7 +754,7 @@ describe("Cogitatum language contracts", () => {
     }
   });
 
-  it("distinguishes challenges to Points from undercuts of Bearings", () => {
+  it("distinguishes challenges to Points from challenges to Bearings", () => {
     const graph = compileGraph(parseDocument(fixture("diagnostics/pressure-target-kind.cog.md")));
 
     expect(graph.points.map((point) => point.id)).toEqual([
@@ -767,7 +767,7 @@ describe("Cogitatum language contracts", () => {
       expect.objectContaining({ handle: "route", kind: "supports", target: pointRef(graph, "claim") })
     ]);
     expect(graph.diagnostics).toEqual([
-      expect.objectContaining({ code: "UNDERCUT_REQUIRES_BEARING_TARGET" }),
+      expect.objectContaining({ code: "CHALLENGE_REQUIRES_BEARING_TARGET" }),
       expect.objectContaining({ code: "CHALLENGE_REQUIRES_POINT_TARGET" })
     ]);
   });

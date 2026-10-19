@@ -129,7 +129,7 @@ describe("reference-only Bearing occurrences", () => {
   it("retains typed explicit target checks within Bearing discussions", () => {
     const { graph } = compile(declarations + "\n" + route + "\n- [_ use @route]\n  - [O -> @route] Wrong Point target.\n  - [O /> @premise] Wrong Bearing target.\n  - [O /> @route] Correct.");
     expect(codes(graph)).toContain("CHALLENGE_REQUIRES_POINT_TARGET");
-    expect(codes(graph)).toContain("UNDERCUT_REQUIRES_BEARING_TARGET");
+    expect(codes(graph)).toContain("CHALLENGE_REQUIRES_BEARING_TARGET");
     expect(graph.bearings).toHaveLength(2);
   });
 

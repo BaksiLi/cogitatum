@@ -38,7 +38,7 @@ describe("independent and joint support stay distinct in the visual topology", (
     const host = explore(fixture("host/local-linked.md"), "host");
     const single = host.graph.bearings.find(b => b.handle === "route")!;
     expect(single.sources).toHaveLength(1);
-    // Addressed by an undercut, so it remains a junction even with one source; nothing is invented.
+    // Addressed by a Bearing-targeted challenge, so it remains a junction even with one source; nothing is invented.
     expect(host.exploration.nodes.some(n => n.id === referenceKey({ kind: "bearing", key: single.key }))).toBe(true);
     expect(host.exploration.links.filter(l => l.bearingKey === single.key && l.segment === "input")).toHaveLength(1);
   });

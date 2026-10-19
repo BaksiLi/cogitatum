@@ -81,7 +81,7 @@
     {
       "file": "core/explicit-bearing-sources.cog.md",
       "input": "document",
-      "purpose": "A joint edge uses existing material Points and can receive an undercut with a reply.",
+      "purpose": "A joint edge uses existing material Points and can receive a Bearing-targeted challenge with a reply.",
       "expected": "core/explicit-bearing-sources.expected.json"
     },
     {
@@ -105,7 +105,7 @@
     {
       "file": "core/grouped-route-pressure.cog.md",
       "input": "document",
-      "purpose": "Body grouping does not change an explicit edge or the undercut targeting it.",
+      "purpose": "Body grouping does not change an explicit edge or the challenge targeting it.",
       "expected": "core/grouped-route-pressure.expected.json"
     },
     {
@@ -153,7 +153,7 @@
     {
       "file": "core/route-handle-needed.cog.md",
       "input": "document",
-      "purpose": "An anonymous claim route can receive both an undercut and positive bearing.",
+      "purpose": "An anonymous claim route can receive both a challenge and positive bearing.",
       "expected": "core/route-handle-needed.expected.json"
     },
     {
@@ -333,7 +333,7 @@
     {
       "file": "core/local-linked.cog.md",
       "input": "document",
-      "purpose": "Local joint support coexists with ordinary unary support, premise objections, route undercuts, and a shared premise edge.",
+      "purpose": "Local joint support coexists with ordinary unary support, premise objections, route challenges, and a shared premise edge.",
       "expected": "core/local-linked.expected.json"
     },
     {

@@ -36,7 +36,6 @@ const EDGE_TO_BEARING = new Map<string, BearingKind>([
   ...OP_TO_BEARING,
   ["supports", "supports"],
   ["challenges", "challenges"],
-  ["undercuts", "challenges"],
   ["about", "about"],
   ["answers", "answers"],
   ["repliesTo", "repliesTo"],
@@ -256,6 +255,18 @@ function parseCurrentAnnotation(raw: string, sourceSpan?: SourceSpan): Annotatio
       sourceSpan
     });
     return { diagnostics };
+  }
+
+  // Retain the failed constructor and its handle so descendants and references
+  // cannot silently attach elsewhere. This is a migration error, never an alias.
+  if (edgeIntent && tokens.includes("undercuts")) {
+    diagnostics.push({
+      severity: "error",
+      code: "RETIRED_BEARING_KIND",
+      message: "The named undercuts spelling is retired. To preserve a challenge to a Bearing, replace undercuts with /> and recompile the original source. This does not classify a theory-specific undercut.",
+      sourceSpan
+    });
+    return { annotation: { kind: "edge", raw, handle, syntaxErrors: syntaxErrors(true, invalidHandle) }, diagnostics };
   }
 
   const opIndex = tokens.findIndex((token) => (edgeIntent ? EDGE_TO_BEARING : OP_TO_BEARING).has(token));
@@ -479,7 +490,7 @@ function parseOperatorClause(
   if (op === "supports" || op === "about") return { ...refs, op, targetKind: "either" };
   if (op === "challenges") {
     const targetKind = opToken === "->" ? "point"
-      : opToken === "/>" || opToken === "undercuts" ? "bearing" : "either";
+      : opToken === "/>" ? "bearing" : "either";
     return { ...refs, op, targetKind };
   }
   return { ...refs, op, targetKind: "point" };
@@ -611,7 +622,7 @@ function parseBearingHost(
 }
 
 const KIND_NAMES = [...EDGE_TO_BEARING.keys()].filter(key => /^[a-z]/i.test(key));
-const KIND_SYMBOLS = new Map<string, string>([["supports", "+>"], ["challenges", "->"], ["undercuts", "/>"], ["about", "~>"]]);
+const KIND_SYMBOLS = new Map<string, string>([["supports", "+>"], ["challenges", "->"], ["about", "~>"]]);
 
 /** The symbolic operator for a kind that a Point annotation can state, if any. */
 export function operatorSymbol(kind: BearingKind, targetKind?: OperatorClause["targetKind"]): string | undefined {
