@@ -14,9 +14,8 @@ const formatVersion = /FORMAT_VERSION\s*=\s*"([^"]+)"/.exec(typesSource)?.[1];
 const expectedPackage = rootPackage.version;
 // The negative-kind and authored-target contract requires a new format version.
 const expectedFormat = "0.5.0";
-if (expectedPackage.split("-")[0].split(".").slice(0, 2).join(".") !== expectedFormat.split(".").slice(0, 2).join(".")) {
-  throw new Error(`Package ${expectedPackage} must share MAJOR.MINOR with format ${expectedFormat}.`);
-}
+// A CLI/API-only compatibility change can advance packages without changing
+// the language format. Check each family internally, not against the other.
 const packages = new Map([
   ["root package", rootPackage.version],
   ["lockfile", lockfile.version],

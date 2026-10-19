@@ -16,6 +16,7 @@ Use the complete released schema set and [migrate retained source](docs/syntax.m
   Recompile original source rather than relabelling 0.4 JSON; consumers distinguish negative targets through `target.kind`.
   See the [migration reference](docs/syntax.md#compatibility-and-migration) and [version policy](README.md#version-policy).
 - Keep suffix-only local Bearing commentary through `O/`; bare `O` retains its Point-context default.
+- Align release checks with independent package and format versions, retaining schema identity, dependency and lockfile consistency checks.
 - Add Core `formatGraph` and opt-in `cog graph --format text` for single-document structural inspection.
   The versioned structure-v1 projection preserves individual entities, declaration metadata, names, text, ordered sources and typed targets, and visibly marks partial graphs with diagnostics.
   This formatter adds no further JSON/schema change; host text, source reconstruction and rewriting remain outside its scope.

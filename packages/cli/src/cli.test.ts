@@ -11,6 +11,7 @@ import type { SourceParseMode } from "../../core/src/index.js";
 const repoRoot = fileURLToPath(new URL("../../../", import.meta.url));
 const cliPath = join(repoRoot, "packages", "cli", "src", "index.ts");
 const tsxImport = createRequire(import.meta.url).resolve("tsx");
+const packageVersion = JSON.parse(readFileSync(join(repoRoot, "packages/cli/package.json"), "utf8")).version as string;
 let workingDirectory: string;
 
 beforeAll(() => {
@@ -184,15 +185,34 @@ describe("cog CLI", () => {
     expect(JSON.parse(result.stdout)).toMatchObject({ mode: "host", units: [], documents: [], graphs: [], diagnostics: [] });
   });
 
-  it("prints Alpha help and version information", () => {
+  it("prints package and format version information", () => {
     const help = runCli("--help");
     const version = runCli("--version");
 
     expect(help.status).toBe(0);
-    expect(help.stdout).toContain("Cogitatum 0.5.0 (format 0.5.0)");
+    expect(help.stdout).toContain(`Cogitatum ${packageVersion} (format 0.5.0)`);
     expect(help.stdout).toContain("cog <command>");
     expect(version.status).toBe(0);
-    expect(version.stdout).toContain("cog 0.5.0 (format 0.5.0)");
+    expect(version.stdout).toContain(`cog ${packageVersion} (format 0.5.0)`);
+  });
+
+  it.each(["document", "host"])("keeps parsing separate from reference validation in %s mode", mode => {
+    const source = '- [C @claim] Claim.\n  - [G +> @missing] Reason.';
+    const input = mode === "host" ? ["Context.", "", "```cog", source, "```"].join("\n") : source;
+    const file = join(workingDirectory, "unresolved-target.md");
+    writeFileSync(file, input);
+    const ast = runCli("ast", "--input", mode, file);
+    expect(ast.status).toBe(0);
+    const parsed = JSON.parse(ast.stdout);
+    expect(parsed.diagnostics).toEqual([]);
+    const document = mode === "host" ? parsed.documents[0] : parsed;
+    expect(document.blocks[0].children[0].annotation.operatorClause.target).toEqual({ id: "missing" });
+    for (const command of ["check", "graph", "explain"]) {
+      const result = runCli(command, "--input", mode, file);
+      expect(result.status).toBe(1);
+      expect(JSON.parse(result.stdout).diagnostics.map((d: { code: string }) => d.code)).toEqual(["UNKNOWN_TARGET"]);
+    }
+    expect(readFileSync(file, "utf8")).toBe(input);
   });
 
   it("checks valid source and preserves compiler diagnostics", () => {

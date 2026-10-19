@@ -229,7 +229,7 @@ Usage: cog <command> [options] <file>
 
 Commands:
   check            Check syntax and references; print diagnostics as JSON
-  ast              Print the ordered source AST as JSON
+  ast              Parse source to an ordered AST as JSON; no reference validation
   graph            Compile source to Point-Bearing Graph IR; JSON by default
   explain          Print an experimental compiler trace as JSON
   explicit-target  Preview one explicit target clause as JSON; never write it
@@ -246,6 +246,7 @@ Options:
 graph reads Cogitatum source, not saved Graph IR JSON.
 --format selects output notation; it does not format or rewrite source.
 All commands run locally without an LLM and leave input files unchanged.
+check, graph and explain all compile; ast stops at parsing.
 check validates markup; explain traces compilation. Neither evaluates reasoning.
 
 Output:

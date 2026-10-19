@@ -45,7 +45,7 @@ Nested active fences are diagnosed and omitted; a host with no active regions re
 Keep the original host and pair selected units with AST/Graph/Explain by array index; source spans refer to original one-based UTF-16 positions.
 ESM; Node.js 22.12 or newer for development and CLI use.
 
-Optional Alpha debugging APIs, `compileGraphWithExplain` and `explainSource`, add a compiler trace of recognition, emitted or rejected entities, and diagnostics. This trace explains compilation decisions; it does not assess reasoning or record inquiry history. Use AST and Graph IR for integrations that do not need it.
+Experimental debugging APIs, `compileGraphWithExplain` and `explainSource`, add a compiler trace of recognition, emitted or rejected entities, and diagnostics. This trace explains compilation decisions; it does not assess reasoning or record inquiry history. Use AST and Graph IR for integrations that do not need it.
 
 ## Written name references
 
@@ -102,14 +102,16 @@ See [Graph inspection](../../docs/graph-inspection.md) for the versioned preserv
 
 ## Compiler contracts
 
-AST blocks keep their semantic fields only in `annotation`; source `raw` and block text are retained separately. Reparse older source to migrate from format 0.2.0. The compiler rejects ASTs with a different format version.
+AST blocks keep their semantic fields only in `annotation`; source `raw` and block text are retained separately.
+To migrate an older format, apply the [source migration](../../docs/syntax.md#compatibility-and-migration) and reparse retained source.
+The compiler rejects ASTs with a different format version.
 It also refuses an `edge` annotation that has neither an `operatorClause` nor a recorded syntax error, instead of deriving a relation; validate imported AST JSON against the AST schema first.
 
 `OperatorClause.op` holds the canonical selected `BearingKind`; edge sources are existing Point references, and self-sourced Point annotations admit only symbolic `BearingOp` kinds.
 Using a Point as an explicit source preserves its declaration metadata; indentation defaults do not add global role restrictions to explicit construction.
 Match the **0.5.0** candidate schemas and compiler; format 0.4.0 JSON must be recompiled from retained source, not relabelled.
 
-The package includes self-contained draft 2020-12 JSON Schemas for offline integration:
+The package includes a draft 2020-12 JSON Schema bundle for offline integration:
 
 ```js
 import astSchema from '@cogitatum/core/schemas/ast' with { type: 'json' };
@@ -118,7 +120,14 @@ import explainSchema from '@cogitatum/core/schemas/explain' with { type: 'json' 
 import sourceSchema from '@cogitatum/core/schemas/source' with { type: 'json' };
 ```
 
-Package 0.4.12 includes `sourceSchema`, which covers the `parseSource`, `compileSource`, and `explainSource` result envelopes and refers to the AST, Graph IR, and Explain schemas by their `$id`; load those sibling schemas into a validator before compiling it. The envelope keeps source units and projections in parallel arrays, paired by index. Schemas check data shapes; array alignment, reference integrity, and agreement with source remain compiler guarantees. Keys are opaque strings: their numbering is not an integration contract. Store application metadata separately from canonical compiler output. This envelope export is not in the historical npm `0.3.0-alpha.1` tarball.
+`sourceSchema` covers the `parseSource`, `compileSource`, and `explainSource` result envelopes and refers to the AST, Graph IR, and Explain schemas by their `$id`.
+Load those sibling schemas from the same compiler bundle into a validator before compiling it.
+This candidate's bundle describes format 0.5.0; the published 0.4.12 bundle describes format 0.4.0.
+The envelope keeps source units and projections in parallel arrays, paired by index.
+Schemas check data shapes; array alignment, reference integrity, and agreement with source remain compiler guarantees.
+Keys are opaque strings: their numbering is not an integration contract.
+Store application metadata separately from canonical compiler output.
+The source-envelope export is absent from the historical npm `0.3.0-alpha.1` tarball.
 
 Read the [introduction](https://cogitatum.baksili.codes/docs/introduction), [syntax](https://cogitatum.baksili.codes/docs/syntax), or try the [playground](https://cogitatum.baksili.codes/playground).
 

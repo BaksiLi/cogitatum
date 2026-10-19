@@ -22,6 +22,8 @@ npm run cog:dist -- graph --format text inquiry.cog.md
 
 Installed candidate CLI packages expose the same operation as `cog graph --format text inquiry.cog.md`.
 `cog graph` reads source, parses it and compiles its Points and Bearings.
+Its name identifies the result to inspect, just as `cog ast` identifies the parsed source tree.
+`cog check` and `cog explain` also compile, returning diagnostics and a compilation trace respectively; there is no separate compilation step to run first.
 `--format` selects the output representation of that compilation: JSON by default, or the text projection below.
 `cog graph` and `cog graph --format json` return the same JSON output.
 The JSON data's `version` identifies the compiler format contract; the CLI's `--format json|text` option does not select a language version.

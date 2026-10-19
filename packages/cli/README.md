@@ -39,6 +39,11 @@ An agent can call the same commands as a person; no model account, API key or mo
 | `explain` | Inspect why the compiler emitted or rejected a construction |
 | `explicit-target --line N` | Preview one checked source edit, including its consequences |
 
+Choose the command for the result you need: `ast` for parsed source, `graph` for compiled connections, `check` for diagnostics, and `explain` for the compilation trace.
+`graph`, `check` and `explain` all perform compilation; it is not a prerequisite command you must run separately.
+`ast` stops at parsing: a syntactically valid `+> @missing` can appear in its output without an error, while the other three commands report `UNKNOWN_TARGET`.
+Use `check` when you need complete syntax and reference validation.
+
 `graph` consumes Cogitatum source, not a saved Graph IR JSON file.
 `--format` chooses how the result is printed; it does not format source or change the relations being compiled.
 Use `--input host` for mixed Markdown with `cog` fences.
@@ -49,7 +54,7 @@ The CLI accepts one file; it has no stdin or batch-input mode.
 
 Results and structured source/option diagnostics go to stdout.
 An I/O failure writes a message to stderr and may produce no JSON; check the exit status before assuming stdout contains a result.
-Missing command/file usage is printed to stderr; requested help is printed to stdout.
+Usage is printed to stderr when arguments are missing and no specific diagnostic is available; requested help is printed to stdout.
 Exit status is 0 for successful checks/inspection or a ready preview, 1 for source/I/O errors or an unavailable preview, and 2 for invalid or missing arguments.
 An unavailable preview may have valid source; inspect its `reason` and `message`.
 Warnings and suggestions do not fail ordinary checks, and an error-bearing graph is only the surviving partial structure.

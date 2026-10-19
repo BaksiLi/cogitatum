@@ -16,7 +16,7 @@ Four marked points and three explicit connections. One objection questions the a
 
 [Try the playground](https://cogitatum.baksili.codes/playground) · [One-minute introduction](docs/introduction.md) · [Ten-minute quick start](docs/quick-start.md) · [Examples](https://cogitatum.baksili.codes/examples)
 
-## Public Alpha
+## Release status
 
 **Cogitatum 0.4 releases an inquiry markup language and a working compiler.**
 
@@ -158,7 +158,7 @@ Project Cogitatum investigates how people and AI agents can learn this form of e
 
 Further work under the name **Cogitatio** concerns ongoing inquiry, revision, review, and continuity. Cogitatio and its runtime are not part of this release.
 
-The current development checkout also contains an experimental integration package, marked private and not published with the Alpha: [`@cogitatum/view`](packages/view/README.md) provides an embeddable, source-linked graph renderer. It leaves evidence, persistence, review, and application UI with the host. This candidate compiler uses format 0.5.0.
+The current development checkout also contains an experimental integration package, marked private and not published with Core/CLI: [`@cogitatum/view`](packages/view/README.md) provides an embeddable, source-linked graph renderer. It leaves evidence, persistence, review, and application UI with the host. This candidate compiler uses format 0.5.0.
 
 The public source covers the language, compiler, CLI, schemas, conformance fixtures, selected examples, and these usage documents. Website source and brand assets are maintained and deployed separately; the website renders the public documents and uses the compiler. Research essays, benchmarks, prompts, and runtime experiments are outside this source distribution.
 
