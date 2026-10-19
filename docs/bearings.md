@@ -11,6 +11,21 @@ A Bearing is a connection from one or more marked Points to a Point or to anothe
 It records how selected material bears on its target in this inquiry.
 It can be written explicitly, with an operator or `edge`, or derived from indentation; a local selector can target a Bearing that has no name.
 
+## Representation, interpretation and assessment
+
+Bearings record the relations asserted or reconstructed in an inquiry without certifying their success.
+Choosing a relation already represents a reading of the material; the core does not claim to be free of interpretation.
+An explicit theoretical interpretation can map selected Points and Bearings to theoretical constructs under stated assumptions.
+An assessment reports what follows under that interpretation; failure does not erase the recorded relation or establish that every other reading fails.
+Keep introduced assumptions and results separate from the original source, and retain the selected instances and source version when reporting a check.
+The core currently provides no theory-specific interpretation or assessment API.
+
+`supports` includes explanatory and interpretive reasons as well as inferences.
+`answers`, `repliesTo` and `clarifies` can describe discourse within one person's inquiry as well as a dialogue.
+They do not establish utterance events, speakers, dialogue protocols, or a one-to-one mapping to another theory's node types.
+`about` records relevance without choosing a positive or negative position.
+These are useful distinctions in reading, not new mutually exclusive families in the core type system.
+
 ## Positive bearing
 
 `+>` compiles as `supports`: the source bears positively on the target. This can express deductive or inductive reasoning, an abductive hypothesis, an explanation, or an interpretive reason. It does not declare which method is in use, guarantee validity, or certify sufficient grounds.
