@@ -10,6 +10,7 @@ Use the complete released schema set and [migrate retained source](docs/syntax.m
 - Unify canonical negative relations as `challenges`, with Point or Bearing targets.
   Preserve authored `->` and `/>` constraints in AST `operatorClause.targetKind` through validation.
   Named `challenges` accepts either target; named `undercuts` remains a Bearing-only spelling.
+  Align public AST TypeScript unions with schema target constraints, including Point declarations and uses.
 - Keep suffix-only local Bearing commentary through `O/`; bare `O` retains its Point-context default.
 - Advance AST, Graph IR, Explain and source envelopes to format 0.5.0 with matching schemas and View marks.
   Recompile original source rather than relabelling 0.4 JSON.

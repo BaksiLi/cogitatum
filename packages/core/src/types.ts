@@ -31,13 +31,22 @@ export type BearingRef = {
   kind: "bearing";
 };
 
+// Authored target requirements stay correlated with the canonical kind.
 export type OperatorClause = {
-  op: BearingKind;
-  // Authored target requirement, retained independently of the canonical kind.
-  targetKind: "point" | "bearing" | "either";
   sources: Ref[] | "self";
   target: Ref;
-};
+} & (
+  | { op: "supports" | "about"; targetKind: "either" }
+  | { op: "challenges"; targetKind: "point" | "bearing" | "either" }
+  | { op: "answers" | "repliesTo" | "clarifies"; targetKind: "point" }
+);
+
+// Point declarations and uses accept symbolic clauses only; named challenges
+// with an unrestricted target belongs to an edge.
+export type PointOperatorClause = OperatorClause & { sources: "self" } & (
+  | { op: "supports" | "about" }
+  | { op: "challenges"; targetKind: "point" | "bearing" }
+);
 
 type AnnotationBase<ErrorKind extends AnnotationSyntaxError = "operator" | "handle" | "selector" | "retired"> = {
   syntaxErrors?: ErrorKind[];
@@ -51,7 +60,7 @@ type RoleMark =
 
 type PointAnnotationBase = AnnotationBase & {
   anchor?: string;
-  operatorClause?: OperatorClause & { op: BearingOp; sources: "self" };
+  operatorClause?: PointOperatorClause;
 };
 
 export type Annotation =
@@ -61,7 +70,7 @@ export type Annotation =
   | (AnnotationBase<"reference" | "operator" | "selector" | "handle" | "retired"> & {
       kind: "use";
       ref?: Ref;
-      operatorClause?: OperatorClause & { op: BearingOp; sources: "self" };
+      operatorClause?: PointOperatorClause;
     } & (
       | { role?: Role; selector?: never }
       | { role: "G" | "O"; selector: "attachment"; operatorClause?: never }

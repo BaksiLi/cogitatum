@@ -77,6 +77,23 @@ describe("format 0.5 unified challenges", () => {
     expect(failed.diagnostics.filter(d => d.code === "UNRESOLVED_BEARING_TARGET")).toHaveLength(2);
   });
 
+  it.each(["O", "?", ".", "O use @a", ". use @a"])("rejects an unrestricted challenge in the %s AST schema", mark => {
+    const ast = JSON.parse(JSON.stringify(parseDocument(declarations + `\n- [${mark} /> @route] Objection.`)));
+    const clause = ast.blocks[4].annotation.operatorClause;
+    for (const targetKind of ["point", "bearing", "either"]) {
+      clause.targetKind = targetKind;
+      expect(ajv.validate(schemas.ast, ast), targetKind).toBe(targetKind !== "either");
+    }
+  });
+
+  it.each(["supports", "about", "answers", "repliesTo", "clarifies"])("keeps %s target requirements aligned with the AST schema", op => {
+    const ast = JSON.parse(JSON.stringify(parseDocument(declarations + `\n- [edge @a ${op} @claim]`)));
+    for (const targetKind of ["point", "bearing", "either"]) {
+      ast.blocks[4].annotation.operatorClause.targetKind = targetKind;
+      expect(ajv.validate(schemas.ast, ast), targetKind).toBe(targetKind === (op === "supports" || op === "about" ? "either" : "point"));
+    }
+  });
+
   it("requires target constraints and rejects old JSON instead of relabelling it", () => {
     const ast = JSON.parse(JSON.stringify(parseDocument(declarations + "\n- [O /> @route] Objection.")));
     const clause = ast.blocks[4].annotation.operatorClause;

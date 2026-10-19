@@ -4,6 +4,7 @@ import type {
   BearingOp,
   Diagnostic,
   OperatorClause,
+  PointOperatorClause,
   Ref,
   Role,
   SourceSpan
@@ -153,14 +154,14 @@ function parseCurrentAnnotation(raw: string, sourceSpan?: SourceSpan): Annotatio
       diagnostics.push({ severity: "error", code: "MALFORMED_POINT_USE", message: "Point uses must look like [. use @id] or [G use @id]; occurrence status is unsupported." + markCaseHint(mark), sourceSpan });
     }
     const suffix = tokens.slice(useIndex + 2);
-    let operatorClause: (OperatorClause & { op: BearingOp; sources: "self" }) | undefined;
+    let operatorClause: PointOperatorClause | undefined;
     if (suffix.length) {
       if (selector) {
         errors.push("selector");
         diagnostics.push({ severity: "error", code: "LOCAL_SELECTOR_WITH_EXPLICIT_CLAUSE", message: "A local selector and an explicit operator clause are mutually exclusive.", sourceSpan });
       } else if (OP_TO_BEARING.has(suffix[0])) {
         const clause = parseOperatorClause(suffix[0], "self", suffix.slice(1), sourceSpan, diagnostics);
-        if (clause) operatorClause = { ...clause, op: OP_TO_BEARING.get(suffix[0])!, sources: "self" };
+        if (clause) operatorClause = pointOperatorClause(clause);
         else errors.push("operator");
       } else {
         errors.push("reference");
@@ -296,7 +297,7 @@ function parseCurrentAnnotation(raw: string, sourceSpan?: SourceSpan): Annotatio
     return {
       annotation: {
         ...host,
-        operatorClause: operatorClause ? { ...operatorClause, op: OP_TO_BEARING.get(op)!, sources: "self" } : undefined,
+        operatorClause: operatorClause ? pointOperatorClause(operatorClause) : undefined,
         syntaxErrors: syntaxErrors(!operatorClause, invalidHandle),
         handle
       },
@@ -429,7 +430,7 @@ function parseOperatorClause(
 
   const sourceResult = sourceTokens === "self" ? undefined : parseRefs(sourceTokens);
   const targetResult = parseRefs(targetTokens);
-  const sources = sourceTokens === "self" ? "self" : (sourceResult?.refs ?? []);
+  const sources: OperatorClause["sources"] = sourceTokens === "self" ? "self" : (sourceResult?.refs ?? []);
   const targets = targetResult.refs;
 
   if (sourceResult && (sourceResult.invalid.length > 0 || sourceResult.refs.length === 0)) {
@@ -474,9 +475,24 @@ function parseOperatorClause(
     return undefined;
   }
 
-  const targetKind = opToken === "->" || ["answers", "repliesTo", "clarifies"].includes(opToken)
-    ? "point" : opToken === "/>" || opToken === "undercuts" ? "bearing" : "either";
-  return { op, targetKind, sources, target: targets[0] };
+  const refs = { sources, target: targets[0] };
+  if (op === "supports" || op === "about") return { ...refs, op, targetKind: "either" };
+  if (op === "challenges") {
+    const targetKind = opToken === "->" ? "point"
+      : opToken === "/>" || opToken === "undercuts" ? "bearing" : "either";
+    return { ...refs, op, targetKind };
+  }
+  return { ...refs, op, targetKind: "point" };
+}
+
+function pointOperatorClause(clause: OperatorClause): PointOperatorClause {
+  if (clause.sources === "self") {
+    if (clause.op === "supports" || clause.op === "about") return { ...clause, sources: "self" };
+    if (clause.op === "challenges" && clause.targetKind !== "either") {
+      return { ...clause, sources: "self", targetKind: clause.targetKind };
+    }
+  }
+  throw new Error("Parser invariant violated: a Point clause must use a symbolic operator and self source.");
 }
 
 function duplicateRefIds(refs: Ref[]): string[] {
