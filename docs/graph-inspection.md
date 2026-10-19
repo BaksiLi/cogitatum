@@ -21,7 +21,12 @@ npm run cog:dist -- graph --format text inquiry.cog.md
 ```
 
 Installed candidate CLI packages expose the same operation as `cog graph --format text inquiry.cog.md`.
-`cog graph` and `cog graph --format json` retain the existing JSON output.
+`cog graph` reads source, parses it and compiles its Points and Bearings.
+`--format` selects the output representation of that compilation: JSON by default, or the text projection below.
+`cog graph` and `cog graph --format json` return the same JSON output.
+The JSON data's `version` identifies the compiler format contract; the CLI's `--format json|text` option does not select a language version.
+Neither option rewrites source or calls an LLM.
+For an already compiled Graph IR in a program, call Core `formatGraph(graph)`; the CLI's file argument expects source rather than saved Graph IR JSON.
 Text inspection currently accepts `document` input only.
 Host input can contain several independent source units and source-selection errors; use its complete JSON envelope rather than silently formatting one surviving graph.
 

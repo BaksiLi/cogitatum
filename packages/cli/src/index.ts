@@ -223,29 +223,51 @@ function printJson(value: unknown): void {
 }
 
 function printUsage(stream: NodeJS.WritableStream = process.stderr): void {
-  stream.write(`Cogitatum ${PACKAGE_VERSION} (format ${FORMAT_VERSION})\n\n`);
-  stream.write("Usage: cog <command> [--input document|host] <file>\n\n");
-  stream.write("Commands:\n");
-  stream.write("  check    Report deterministic syntax and reference diagnostics\n");
-  stream.write("  ast      Print the ordered source AST as JSON\n");
-  stream.write("  graph    Print compiled Point-Bearing Graph IR as JSON\n");
-  stream.write("  explain  Print an Alpha compiler trace as JSON (optional debugging)\n");
-  stream.write("  explicit-target  Preview a checked explicit target clause as JSON\n\n");
-  stream.write("Options:\n");
-  stream.write("  --input <mode>  document (default) or host\n");
-  stream.write("  --format <kind> json (default) or text (graph, document only)\n");
-  stream.write("  --line <number>  Selected source line (explicit-target only)\n");
-  stream.write("  --references    Include written name references (check only)\n");
-  stream.write("  -h, --help      Show this help\n");
-  stream.write("  -v, --version   Show CLI and format version\n\n");
-  stream.write("Examples:\n");
-  stream.write("  cog explicit-target --line 3 inquiry.cog.md\n");
-  stream.write("  cog check inquiry.cog.md\n");
-  stream.write("  cog check --references inquiry.cog.md\n");
-  stream.write("  cog graph inquiry.cog.md\n");
-  stream.write("  cog graph --format text inquiry.cog.md\n");
-  stream.write("  cog explain inquiry.cog.md\n");
-  stream.write("  cog check --input host notes.md\n");
+  stream.write(`Cogitatum ${PACKAGE_VERSION} (format ${FORMAT_VERSION})
+
+Usage: cog <command> [options] <file>
+
+Commands:
+  check            Check syntax and references; print diagnostics as JSON
+  ast              Print the ordered source AST as JSON
+  graph            Compile source to Point-Bearing Graph IR; JSON by default
+  explain          Print an experimental compiler trace as JSON
+  explicit-target  Preview one explicit target clause as JSON; never write it
+
+Options:
+  --input <mode>   document (default) or host (Markdown Cogitatum fences)
+  --format <kind>  json or text (graph only; text requires document input)
+  --line <number>  Required for explicit-target; one-based line in the full file
+  --references     Include written-name references (check only)
+  --               End options before an option-like filename
+  -h, --help       Show this help
+  -v, --version    Show CLI and format version
+
+graph reads Cogitatum source, not saved Graph IR JSON.
+--format selects output notation; it does not format or rewrite source.
+All commands run locally without an LLM and leave input files unchanged.
+check validates markup; explain traces compilation. Neither evaluates reasoning.
+
+Output:
+  Results and source/option diagnostics go to stdout; I/O failures go to stderr.
+  Host JSON preserves source units; graph text accepts one document only.
+  Error-bearing graphs are partial; inspect diagnostics and the exit status.
+
+Exit status:
+  0  Successful inspection/check, or a ready explicit-target preview
+  1  Source/I/O error, or an unavailable explicit-target preview
+  2  Invalid or missing arguments
+An unavailable preview can have valid source; read its reason and message.
+
+Examples:
+  cog check inquiry.cog.md
+  cog check --references inquiry.cog.md
+  cog graph inquiry.cog.md
+  cog graph --format text inquiry.cog.md
+  cog graph --input host --format json notes.md
+  cog explain inquiry.cog.md
+  cog explicit-target --line 3 inquiry.cog.md
+`);
 }
 
 main().catch((error: unknown) => {

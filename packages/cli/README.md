@@ -24,18 +24,59 @@ npm run cog:dist -- check examples/getting-started.cog.md
 npm run cog:dist -- graph examples/getting-started.cog.md
 ```
 
-`check` reports syntax and reference diagnostics; `ast` and `graph` print JSON projections. Use `--input host` for mixed Markdown with `cog` fences. Exit status is 0 for success, 1 for source or I/O errors, and 2 for invalid arguments. Diagnostics check the markup, not whether the reasoning succeeds.
+## Choose a command
+
+Every command reads one source file, runs locally without an LLM and leaves that file unchanged.
+An agent can call the same commands as a person; no model account, API key or model inference is involved.
+
+| Command | Purpose |
+| --- | --- |
+| `check` | Check syntax and references, returning diagnostics |
+| `check --references` | Also inventory written names and their resolved references |
+| `ast` | Inspect ordered source blocks, annotations and occurrence prose |
+| `graph` | Compile source and return its Point-Bearing structure as JSON |
+| `graph --format text` | Present one compiled document as readable entity and relation tables |
+| `explain` | Inspect why the compiler emitted or rejected a construction |
+| `explicit-target --line N` | Preview one checked source edit, including its consequences |
+
+`graph` consumes Cogitatum source, not a saved Graph IR JSON file.
+`--format` chooses how the result is printed; it does not format source or change the relations being compiled.
+Use `--input host` for mixed Markdown with `cog` fences.
+Use `--` before a filename beginning with a dash.
+The CLI accepts one file; it has no stdin or batch-input mode.
+
+## Output and exit status
+
+Results and structured source/option diagnostics go to stdout.
+An I/O failure writes a message to stderr and may produce no JSON; check the exit status before assuming stdout contains a result.
+Missing command/file usage is printed to stderr; requested help is printed to stdout.
+Exit status is 0 for successful checks/inspection or a ready preview, 1 for source/I/O errors or an unavailable preview, and 2 for invalid or missing arguments.
+An unavailable preview may have valid source; inspect its `reason` and `message`.
+Warnings and suggestions do not fail ordinary checks, and an error-bearing graph is only the surviving partial structure.
+Diagnostics check the markup, not whether the reasoning succeeds.
 
 Input defaults to `document` independently of file contents; `--input auto` is retired and reports `INVALID_INPUT_MODE`.
 Explicit `host` mode selects actual document-level Markdown fences, leaves comments/raw HTML/literal code inactive, and never falls back to parsing the host as an outline.
 A host without active regions succeeds with empty projections; actual fences nested in lists or blockquotes are diagnosed and omitted.
 
-For debugging a note, `cog explain inquiry.cog.md` prints an optional Alpha compiler trace: recognition, emitted or rejected points and connections, and the compilation rules involved. This command explains how the markup was compiled. It does not explain the prose or evaluate an argument.
+For debugging a note, `cog explain inquiry.cog.md` prints an experimental compiler trace: recognition, emitted or rejected points and connections, and the compilation rules involved.
+Experimental describes this interface's maturity, not the installed package's release tag; its current data still follows the matching Explain schema.
+This command explains how the markup was compiled, without interpreting the prose or evaluating an argument.
 
-In `document` mode, `ast`, `graph` and `explain` print one AST, Graph IR and Explain projection; `check` prints `{ version, diagnostics }`.
-With `--input host`, `ast` and `graph` print the `parseSource` and `compileSource` envelopes, while `check` prints `{ version, mode, diagnostics }`.
-Host `explain` prints `{ version, mode, units, explanations, diagnostics }`: a command-specific projection without `documents` or `graphs`, so it is not a source-envelope schema instance.
-Validate each `explanations[i]` with the Explain schema, or call `explainSource` for the complete envelope.
+| JSON command | `document` output | `host` output |
+| --- | --- | --- |
+| `check` | `{ version, diagnostics }` | `{ version, mode, diagnostics }` |
+| `ast` | One AST | `parseSource` envelope with units and documents |
+| `graph` | One Graph IR | `compileSource` envelope with units, documents and graphs |
+| `explain` | One Explain trace | `{ version, mode, units, explanations, diagnostics }` |
+| `check --references` | Reference-analysis result | Reference-analysis result, with independent units |
+| `explicit-target` | Ready/unavailable preview | Ready/unavailable preview, using complete-file line numbers |
+
+Host `explain` is a command-specific projection without `documents` or `graphs`, so it is not a source-envelope schema instance.
+Validate each `explanations[i]` with the Explain schema, or call Core `explainSource` for the complete envelope.
+The reference-analysis and preview result contracts are documented below and exported as Core TypeScript types; they are not additional instances of the four existing JSON Schemas.
+
+## Written-name inventory
 
 In version 0.4.12, opt in to a written-name inventory before reviewing a rename or deciding which names to retain:
 
@@ -81,3 +122,15 @@ Unnamed targets, selectors, Linked constructions, already explicit clauses and r
 Errors anywhere in the complete input also withhold the edit.
 Exit 0 means ready; 1 means unavailable or an I/O failure; 2 means invalid options.
 `--line` is required and accepts one positive integer; `--format` and `--references` do not apply to this command.
+
+## Using the CLI from an assistant
+
+An LLM can propose a reconstruction, a wording revision or a reading of a passage, then call `check`, `graph` and `explain` to inspect the represented result.
+`check --references` helps it locate written dependencies; `explicit-target` provides one deterministic edit with its own preservation checks.
+Keep original source and complete command results, and distinguish a valid compilation from a faithful reconstruction or sound inference.
+Graph text omits ordinary body, notes and occurrence-local prose, so it cannot substitute for the source when reviewing meaning.
+
+Interpretation, supplying an unstated premise or deciding whether to move a reason to another conclusion remains an attributable authoring choice.
+A future model-assisted workflow should expose its source selection, assumptions and proposed change separately from deterministic checks; no such model command is currently shipped.
+The repository-only `npm run probe:interpretation` checks explicit finite interpretations without an LLM and is not an installed `cog` command.
+See [writing with an assistant](../../docs/writing-style.md#work-with-an-assistant) for the authoring boundary.

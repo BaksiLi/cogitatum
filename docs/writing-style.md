@@ -165,3 +165,33 @@ It checks every graph's identities, entity order, contents, declarations, ordere
 Diagnostics retain their ordered severity, code and starting location, except that the selected implicit-attachment suggestion may disappear.
 Full messages are returned for review because they may embed changed source columns.
 These checks establish the stated structural and source preservation conditions; they do not certify an interpretation of the prose.
+
+## Work with an assistant
+
+The current Core and CLI are deterministic tools: parsing, reference analysis, graph inspection, compiler explanation and explicit-target previews require no LLM.
+An assistant can use them to inspect a draft and propose edits through the same contracts available to a human or editor.
+An LLM is useful when the task involves interpreting prose, proposing a reconstruction, finding a possible missing premise or drafting an explanation; its output remains a proposal that can be mistaken.
+
+Keep three questions separate:
+
+| Question | Evidence |
+| --- | --- |
+| Did we represent the selected source faithfully? | Original passage, attribution, qualifications and a reviewed interpretation |
+| Does the markup express the intended structure? | `check`, `ast`, `graph`, `explain` and source review |
+| Does a conclusion follow under a particular theory? | Explicit assumptions, a stated mapping and a suitable proof or counterexample |
+
+Start with an attributable passage and retain the original source.
+Ask the assistant to distinguish the passage's commitments from its own interpretations, including any supplied premise.
+Compile the proposal, inspect its graph and diagnostics, and reread the source and occurrence-local notes.
+Apply only changes covered by the author's chosen operation or standing policy; a compiler success does not itself authorize adoption.
+When applying a saved explicit-target preview, first verify that its complete original source still matches.
+
+A logical checker need not use an LLM either: the repository's finite interpretation experiment checks explicitly supplied readings mechanically.
+That experiment is not a public general-purpose reasoning command.
+Future interpretation assistance can propose a reading and pass it to an independent checker while retaining assumptions and the original Bearings.
+A successful check of the formal reading does not establish that it faithfully translates the prose.
+
+Useful distinctions to retain in a revision include a declaration versus one use, shared text versus occurrence-local commentary, and a new copy versus another use of the same identity.
+Likewise, deriving a conclusion, hiding proof detail and deleting a premise are different operations with different obligations.
+For example, an extra observation may be unnecessary to prove one conclusion yet still record information worth keeping in the inquiry.
+Graph size and token count alone do not establish that a shorter note is a better or equivalent one.
