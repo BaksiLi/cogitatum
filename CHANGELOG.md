@@ -7,6 +7,9 @@ Use the complete released schema set and [migrate retained source](docs/syntax.m
 
 ## 0.5.0 (unreleased)
 
+- Unify the private View package’s Flow and Constellation into one Map: deterministic reading order, direct movement with bounded neighbour adjustment, and reset to automatic placement.
+  Remove the pre-release layout selector and duplicate layout algorithms; geometry remains local and never changes source or Bearings.
+
 - Add source-aware Reading to the private View package, retaining every original line and distinguishing entity declarations, local uses and Bearing constructions.
   Join source, AST, Explain and Graph IR from one compilation; derive local endpoints from compiler evidence instead of guessing from indentation.
   Share Map's marks, first-class Bearing topology and neighborhood guidance, with silent programmatic Reading selection for host-owned synchronization.

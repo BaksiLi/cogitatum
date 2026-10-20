@@ -1,6 +1,6 @@
 import type { BearingTarget, GraphIR } from "@cogitatum/core";
 import { focusNeighborhood, projectExploration, projectGraph, referenceKey, type GraphLink, type GraphNode, type GraphProjection } from "./projection.js";
-import { layoutFlow, layoutGraphSettled, relaxLayout, type Point2 } from "./layout.js";
+import { layoutGraph, relaxLayout, type Point2 } from "./layout.js";
 import { bearingMark, drawBearingGlyph, drawPointGlyph, MARK_TYPE, pointMark } from "./marks.js";
 export * from "./projection.js";
 export * from "./layout.js";
@@ -8,10 +8,8 @@ export * from "./marks.js";
 export * from "./reading-projection.js";
 export * from "./reading.js";
 
-export type GraphLayout = "flow" | "constellation";
 export type GraphViewOptions = {
   direction?: "down" | "right";
-  layout?: GraphLayout;
   /** The host may additionally disable motion; system reduced-motion is always respected. */
   reducedMotion?: () => boolean;
   onSelect?: (node: GraphNode) => void;
@@ -21,7 +19,6 @@ export type GraphViewOptions = {
 export type GraphView = {
   /** Scope identifies one source unit; anonymous keys never survive an update. */
   update(graph: GraphIR, scope: string): void;
-  setLayout(layout: GraphLayout): void;
   resetLayout(): void;
   select(ref: BearingTarget): void;
   clear(): void;
@@ -48,14 +45,14 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
     return node;
   };
   const svg = element("svg", { class: "cog-graph", role: "group",
-    "aria-label": "Inquiry graph. Select a mark to follow its connections. Arrow keys move; Enter opens source; Escape clears." });
+    "aria-label": `Inquiry graph. Select a mark to follow its connections. Arrow keys move; ${options.onNavigate ? "Enter opens source" : "Enter selects"}; Escape clears.` });
   const edgeLayer = element("g", { class: "cog-edges" }, svg), glyphLayer = element("g", { class: "cog-bearings" }, svg), nodeLayer = element("g", { class: "cog-nodes" }, svg);
   container.append(svg);
 
   let full: GraphProjection = { nodes: [], links: [] }, topology: GraphProjection = { nodes: [], links: [] };
   let inline = new Map<string, GraphLink>(), shapes = new Map<string, Shape>(), order: string[] = [];
   let world = new Map<string, Point2>(), camera: Camera = { k: 1, tx: 0, ty: 0 }, size = { w: 0, h: 0 };
-  let layout: GraphLayout = options.layout ?? "flow", scope = "", selected: string | undefined, hovered: string | undefined;
+  let scope = "", selected: string | undefined, hovered: string | undefined;
   let destroyed = false, cameraTouched = false, frame = 0, settleFrame = 0;
   const arrangement = new Map<string, Point2>();
   const abort = new AbortController(), on = { signal: abort.signal };
@@ -130,8 +127,7 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
 
   // ── geometry ──
   function baseLayout(): Map<string, Point2> {
-    const flow = layoutFlow(topology, { direction: options.direction, wrapWidth: Math.max(380, (size.w || 900) / .8) });
-    const positioned = layout === "constellation" ? layoutGraphSettled(topology, flow) : flow;
+    const positioned = layoutGraph(topology, { direction: options.direction, wrapWidth: Math.max(380, (size.w || 900) / .8) });
     return new Map(positioned.map(node => [node.id, { x: node.x, y: node.y }]));
   }
   function applyArrangement(positions: Map<string, Point2>): Map<string, Point2> {
@@ -147,11 +143,11 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
     const width = Math.max(96, Math.min(150, 168 * camera.k - 14));
     return wrap(node.text, focused ? Math.max(width, 150) : width, 2);
   }
-  /** Where a link attaches: below the label in flow (arrows never cross wording), at the rim otherwise. */
-  function anchor(id: string, toward: Point2, incoming: boolean): Point2 {
+  /** Route links around the label whenever the other endpoint lies below it. */
+  function anchor(id: string, toward: Point2): Point2 {
     const p = screen(world.get(id)!), shape = shapes.get(id);
     const r = shape?.node.ref.kind === "point" ? POINT_R + 2 : JUNCTION_R + 1;
-    if (layout === "flow" && incoming && shape?.label && toward.y > p.y + r) {
+    if (shape?.label && toward.y > p.y + r) {
       const lines = shape.label.childNodes.length;
       return { x: p.x, y: p.y + (lines ? 14 + lines * MARK_TYPE.lineHeight : r) };
     }
@@ -181,12 +177,12 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
       const mark = bearingMark(bearing.label), isInline = inline.has(bearingId);
       const A0 = screen(world.get(link.source)!), T0 = screen(world.get(link.target)!);
       const pair = [link.source, link.target].sort().join("|"), nth = pairs.get(pair) ?? 0; pairs.set(pair, nth + 1);
-      const a = anchor(link.source, T0, false), t = anchor(link.target, A0, true);
+      const a = anchor(link.source, T0), t = anchor(link.target, A0);
       const dx = t.x - a.x, dy = t.y - a.y, len = Math.hypot(dx, dy) || 1;
       const bend = (nth ? (nth % 2 ? 1 : -1) * Math.ceil(nth / 2) * .22 : 0) * len;
-      const flowCurve = layout === "flow" && !bend && Math.abs(dy) > 24;
-      const c1 = flowCurve ? { x: a.x, y: a.y + dy / 2 } : { x: (a.x + t.x) / 2 - dy / len * bend, y: (a.y + t.y) / 2 + dx / len * bend };
-      const c2 = flowCurve ? { x: t.x, y: t.y - dy / 2 } : c1;
+      const verticalCurve = !bend && Math.abs(dy) > Math.max(24, Math.abs(dx));
+      const c1 = verticalCurve ? { x: a.x, y: a.y + dy / 2 } : { x: (a.x + t.x) / 2 - dy / len * bend, y: (a.y + t.y) / 2 + dx / len * bend };
+      const c2 = verticalCurve ? { x: t.x, y: t.y - dy / 2 } : c1;
       const d = `M${a.x.toFixed(1)} ${a.y.toFixed(1)}C${c1.x.toFixed(1)} ${c1.y.toFixed(1)} ${c2.x.toFixed(1)} ${c2.y.toFixed(1)} ${t.x.toFixed(1)} ${t.y.toFixed(1)}`;
       const on = !guided || active.has(link.bearingKey);
       element("path", { d, class: `cog-link ${link.segment} cog-tone-${mark.tone}${mark.dashed ? " cog-dashed" : ""}`, "data-active": String(on), "data-bearing": link.bearingKey, "aria-hidden": "true" }, edgeLayer);
@@ -271,6 +267,15 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
   }
   function focusShape(id: string): void { const shape = shapes.get(id); if (shape) { selected = id; paint(); shape.g.focus({ preventScroll: true }); } }
 
+  function moveNode(node: GraphNode, position: Point2): void {
+    win?.cancelAnimationFrame(settleFrame);
+    world.set(node.id, position); arrangement.set(positionKey(node), { ...position });
+    if (!reduced()) relaxLayout(topology, world, {
+      iterations: 2, strength: .35, direction: options.direction,
+      pinned: new Set(topology.nodes.filter(n => arrangement.has(positionKey(n))).map(n => n.id))
+    });
+  }
+
   // ── pointer: drag a mark, pan the background, pinch to zoom; a click is a press that did not move ──
   const pointers = new Map<number, Point2>();
   let gesture: { id: number; start: Point2; moved: boolean; target?: string; node?: string; origin?: Point2; camera: Camera; pinch?: { d: number; k: number } } | undefined;
@@ -278,6 +283,7 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
   const local = (event: PointerEvent | WheelEvent | MouseEvent) => { const r = svg.getBoundingClientRect(); return { x: event.clientX - r.left, y: event.clientY - r.top }; };
   svg.addEventListener("pointerdown", event => {
     if (event.button !== 0) return;
+    win?.cancelAnimationFrame(settleFrame); // Direct manipulation owns geometry until release.
     pointers.set(event.pointerId, local(event));
     if (pointers.size === 2 && gesture) {
       const [p, q] = [...pointers.values()];
@@ -307,8 +313,7 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
     if (!gesture.moved) { gesture.moved = true; svg.dataset.dragging = gesture.node ? "node" : "camera"; }
     if (gesture.node) {
       const node = shapes.get(gesture.node)!.node, p = { x: gesture.origin!.x + dx / camera.k, y: gesture.origin!.y + dy / camera.k };
-      world.set(gesture.node, p); arrangement.set(positionKey(node), { ...p });
-      if (layout === "constellation" && !reduced()) relaxLayout(topology, world, { iterations: 2, strength: .35, pinned: new Set([gesture.node, ...topology.nodes.filter(n => arrangement.has(positionKey(n))).map(n => n.id)]) });
+      moveNode(node, p);
       schedule();
     } else { camera = { ...gesture.camera, tx: gesture.camera.tx + dx, ty: gesture.camera.ty + dy }; cameraTouched = true; schedule(); }
   }, on);
@@ -344,7 +349,7 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
       event.preventDefault();
       const p = world.get(id)!, step = 20 / camera.k;
       const next = { x: p.x + (event.key === "ArrowLeft" ? -step : event.key === "ArrowRight" ? step : 0), y: p.y + (event.key === "ArrowUp" ? -step : event.key === "ArrowDown" ? step : 0) };
-      world.set(id, next); arrangement.set(positionKey(node), { ...next }); select(id); return;
+      moveNode(node, next); select(id); return;
     }
     if (event.key === "Enter") { event.preventDefault(); select(id); options.onNavigate?.(node); }
     else if (event.key === " ") { event.preventDefault(); select(id); }
@@ -398,14 +403,6 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
       if (retained) options.onSelect?.(retained); else options.onClear?.();
       if (hadFocus) (svg.querySelector<SVGGElement>('[tabindex="0"]'))?.focus({ preventScroll: true });
     },
-    setLayout(next) {
-      if (destroyed) throw new Error("This graph view has been destroyed.");
-      if (next !== "flow" && next !== "constellation") throw new Error("Unknown graph layout.");
-      if (next === layout) return;
-      layout = next; svg.dataset.layout = layout; measureSize();
-      if (!topology.nodes.length) return;
-      moveTo(applyArrangement(baseLayout()), true); cameraTouched = false;
-    },
     resetLayout() {
       if (destroyed) throw new Error("This graph view has been destroyed.");
       arrangement.clear(); measureSize(); moveTo(baseLayout(), true); cameraTouched = false;
@@ -423,6 +420,5 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
       svg.remove(); shapes.clear(); world.clear(); arrangement.clear();
     }
   };
-  svg.dataset.layout = layout;
   return view;
 }

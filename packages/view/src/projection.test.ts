@@ -1,6 +1,7 @@
+import { layoutGraph } from "./layout.js";
 import { describe, expect, it } from "vitest";
 import { compileSource } from "@cogitatum/core";
-import { focusNeighborhood, layoutConstellation, layoutGraph, projectExploration, projectGraph, referenceKey } from "./projection.js";
+import { focusNeighborhood, projectExploration, projectGraph, referenceKey } from "./projection.js";
 
 describe("faithful graph projection", () => {
   it("keeps the typed endpoint when both content and route objections are challenges", () => {
@@ -38,34 +39,6 @@ describe("faithful graph projection", () => {
   it("rejects corrupt graph endpoints instead of drawing an invented connection", () => {
     const graph = compileSource('- [C] A.\n  - [G] B.','document').graphs[0];
     graph.points.pop(); expect(()=>projectGraph(graph)).toThrow('dangling');
-  });
-});
-
-
-describe("settled constellation layout", () => {
-  it("keeps every joint source and bearing target, with deterministic, separated positions", () => {
-    const source = '- [C @c] Claim.\n- [G @a] First.\n- [G @b] Second.\n- [edge @a, @b +> @c; @route]\n- [O /> @route] Route objection.';
-    const projection = projectGraph(compileSource(source, 'document').graphs[0]);
-    const before = structuredClone(projection);
-    const positioned = layoutConstellation(projection);
-    expect(positioned).toEqual(layoutConstellation(projection));
-    expect(positioned.map(({x, y, ...node}) => node)).toEqual(projection.nodes);
-    expect(projection).toEqual(before);
-    for (let i = 0; i < positioned.length; i++) for (let j = i + 1; j < positioned.length; j++) {
-      const a = positioned[i], b = positioned[j];
-      const width = 100;
-      const height = (a.ref.kind === 'point' ? 58 : 44) + (b.ref.kind === 'point' ? 58 : 44);
-      expect(Math.abs(a.x - b.x) >= width || Math.abs(a.y - b.y) >= height).toBe(true);
-    }
-  });
-  it("handles empty, disconnected and cyclic fragments without inventing connections", () => {
-    expect(layoutConstellation({nodes: [], links: []})).toEqual([]);
-    for (const source of ['- [C @a] A.\n- [Q @b] B.', '- [C @a +> @b] A.\n- [C @b +> @a] B.']) {
-      const projection = projectGraph(compileSource(source, 'document').graphs[0]);
-      const positioned = layoutConstellation(projection);
-      expect(positioned).toHaveLength(projection.nodes.length);
-      expect(positioned.every(node => Number.isFinite(node.x) && Number.isFinite(node.y) && node.x >= 0 && node.y >= 0)).toBe(true);
-    }
   });
 });
 

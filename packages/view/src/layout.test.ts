@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { compileSource } from "@cogitatum/core";
 import { projectExploration, projectGraph, referenceKey } from "./projection.js";
-import { layoutFlow, layoutGraphSettled, relaxLayout } from "./layout.js";
+import { layoutGraph, relaxLayout } from "./layout.js";
 import { BEARING_MARKS, POINT_MARKS, bearingMark, isJoint, pointMark } from "./marks.js";
 
 const fixture = (name: string) => readFileSync(new URL(`../../../fixtures/${name}`, import.meta.url), "utf8");
@@ -47,8 +47,8 @@ describe("independent and joint support stay distinct in the visual topology", (
 describe("reading layout", () => {
   it("places what is borne upon above what bears on it, deterministically", () => {
     const { topology, graph } = explore(fixture("core/independent-and-joint-support.cog.md"));
-    const placed = layoutFlow(topology);
-    expect(layoutFlow(topology)).toEqual(placed);
+    const placed = layoutGraph(topology);
+    expect(layoutGraph(topology)).toEqual(placed);
     const y = new Map(placed.map(n => [n.id, n.y]));
     for (const link of topology.links) if (link.source !== link.target) expect(y.get(link.target)!).toBeLessThan(y.get(link.source)!);
     expect(placed.map(({ x, y, ...node }) => node)).toEqual(topology.nodes);
@@ -57,7 +57,7 @@ describe("reading layout", () => {
 
   it("separates disconnected fragments and keeps every point readable apart", () => {
     const { topology } = explore("- [Q] One?\n  - [C] Answer.\n- [O] A top-level objection stays a Point.\n- [?] A gap.\n  - [C] A claim under a gap.");
-    const placed = layoutFlow(topology);
+    const placed = layoutGraph(topology);
     expect(placed).toHaveLength(topology.nodes.length);
     for (let i = 0; i < placed.length; i++) for (let j = i + 1; j < placed.length; j++) {
       const a = placed[i], b = placed[j];
@@ -65,16 +65,34 @@ describe("reading layout", () => {
     }
   });
 
+  it("keeps source order in either direction and does not mutate the graph", () => {
+    const { topology } = explore("- [C] Claim.\n  - [G] First reason.\n  - [G] Second reason.");
+    const before = structuredClone(topology);
+    for (const direction of ["down", "right"] as const) {
+      const placed = layoutGraph(topology, { direction });
+      const [claim, first, second] = placed;
+      const depth = direction === "down" ? "y" : "x";
+      const order = direction === "down" ? "x" : "y";
+      expect(claim[depth]).toBeLessThan(first[depth]);
+      expect(first[order]).toBeLessThan(second[order]);
+      const positions = new Map(placed.map(node => [node.id, { x: node.x, y: node.y }]));
+      const pinned = new Set([first.id, second.id]);
+      relaxLayout(topology, positions, { iterations: 2, pinned, direction });
+      for (const node of [first, second]) expect(positions.get(node.id)).toEqual({ x: node.x, y: node.y });
+    }
+    expect(topology).toEqual(before);
+    expect(layoutGraph({ nodes: [], links: [] })).toEqual([]);
+  });
+
   it("relaxes without moving pinned nodes and never touches the projection", () => {
     const { topology } = explore(fixture("core/local-linked.cog.md"));
     const before = structuredClone(topology);
-    const seed = layoutFlow(topology);
+    const seed = layoutGraph(topology);
     const positions = new Map(seed.map(n => [n.id, { x: n.x, y: n.y }]));
     const pinned = seed[0].id, at = { ...positions.get(pinned)! };
     relaxLayout(topology, positions, { iterations: 30, pinned: new Set([pinned]) });
     expect(positions.get(pinned)).toEqual(at);
     expect([...positions.values()].every(p => Number.isFinite(p.x) && Number.isFinite(p.y))).toBe(true);
-    expect(layoutGraphSettled(topology)).toEqual(layoutGraphSettled(topology));
     expect(topology).toEqual(before);
   });
 });

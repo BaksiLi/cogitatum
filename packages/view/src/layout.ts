@@ -1,7 +1,7 @@
 import type { GraphNode, GraphProjection, PositionedNode } from "./projection.js";
 
 export type Point2 = { x: number; y: number };
-export type FlowOptions = { direction?: "down" | "right"; wrapWidth?: number };
+export type LayoutOptions = { direction?: "down" | "right"; wrapWidth?: number };
 
 const sourceLine = (node: GraphNode) => node.sourceSpan?.startLine ?? Number.MAX_SAFE_INTEGER;
 const footprint = (node: GraphNode) => node.ref.kind === "point" ? 168 : 64;
@@ -12,7 +12,7 @@ const GAP = 18;
  * what bears on it; each node hangs below its first target in source order (a placement choice only;
  * every link is still drawn). Siblings keep source order; separate trees are wrapped in rows.
  */
-export function layoutFlow(topology: GraphProjection, options: FlowOptions = {}): PositionedNode[] {
+export function layoutGraph(topology: GraphProjection, options: LayoutOptions = {}): PositionedNode[] {
   const { direction = "down", wrapWidth = 1100 } = options;
   const byId = new Map(topology.nodes.map(node => [node.id, node]));
   const parent = new Map<string, string>();
@@ -59,14 +59,14 @@ export function layoutFlow(topology: GraphProjection, options: FlowOptions = {})
   });
 }
 
-export type RelaxOptions = { iterations?: number; pinned?: ReadonlySet<string>; strength?: number };
+export type RelaxOptions = { iterations?: number; pinned?: ReadonlySet<string>; strength?: number; direction?: "down" | "right" };
 
 /**
- * A bounded, deterministic force pass shared by the settled graph layout and live dragging.
+ * A bounded, deterministic adjustment while dragging in the Map.
  * Pinned nodes do not move. Proximity is arrangement only; it never represents a Bearing.
  */
 export function relaxLayout(topology: GraphProjection, positions: Map<string, Point2>, options: RelaxOptions = {}): Map<string, Point2> {
-  const { iterations = 1, pinned = new Set<string>(), strength = 1 } = options;
+  const { iterations = 1, pinned = new Set<string>(), strength = 1, direction = "down" } = options;
   const nodes = topology.nodes.filter(node => positions.has(node.id));
   const radius = (node: GraphNode) => node.ref.kind === "point" ? 62 : 24;
   const links = topology.links.filter(link => link.source !== link.target && positions.has(link.source) && positions.has(link.target));
@@ -88,7 +88,8 @@ export function relaxLayout(topology: GraphProjection, positions: Map<string, Po
       const fs = force.get(link.source)!, ft = force.get(link.target)!;
       fs.x += dx / d * pull; fs.y += dy / d * pull; ft.x -= dx / d * pull; ft.y -= dy / d * pull;
       // Gentle reading bias: what is borne upon tends to sit above what bears on it.
-      if (b.y > a.y - 40) { ft.y -= 1.2; fs.y += 1.2; }
+      const axis = direction === "right" ? "x" : "y";
+      if (b[axis] > a[axis] - 40) { ft[axis] -= 1.2; fs[axis] += 1.2; }
     }
     for (const node of nodes) {
       if (pinned.has(node.id)) continue;
@@ -98,11 +99,4 @@ export function relaxLayout(topology: GraphProjection, positions: Map<string, Po
     }
   }
   return positions;
-}
-
-/** The settled exploration arrangement: starts from the reading layout, then relaxes. */
-export function layoutGraphSettled(topology: GraphProjection, seed: PositionedNode[] = layoutFlow(topology)): PositionedNode[] {
-  const positions = new Map(seed.map(node => [node.id, { x: node.x, y: node.y }]));
-  relaxLayout(topology, positions, { iterations: 140, strength: .9 });
-  return topology.nodes.map(node => ({ ...node, ...(positions.get(node.id) ?? { x: 0, y: 0 }) }));
 }
