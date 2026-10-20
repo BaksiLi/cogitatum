@@ -19,6 +19,8 @@ export type ReadingView = {
   update(projection: ReadingProjection): void;
   /** Silent; a current local occurrence of the same ref is retained. */
   select(ref: BearingTarget, unitIndex?: number): void;
+  /** Silent; select an exact occurrence in the current projection, including body or notes. */
+  selectOccurrence(occurrenceId: string, ref?: BearingTarget): void;
   /** Silent; user Escape and update notify onClear. */
   clear(): void;
   destroy(): void;
@@ -293,6 +295,15 @@ export function createReadingView(container: HTMLElement, options: ReadingViewOp
       const candidates = [...rows.values()].filter(row => row.occurrence.unitIndex === unitIndex);
       const row = candidates.find(row => row.occurrence.references.some(reference => reference.kind !== "uses" && sameRef(reference.ref, ref))) ??
         candidates.find(row => row.occurrence.references.some(reference => sameRef(reference.ref, ref)));
+      choose(row && selectionFor(row.occurrence, ref), false);
+      if (row) reveal(row);
+    },
+    selectOccurrence(occurrenceId, ref) {
+      alive();
+      const row = rows.get(occurrenceId);
+      if (ref && row && !row.occurrence.references.some(reference => sameRef(reference.ref, ref))) {
+        throw new Error("The reference does not belong to this occurrence.");
+      }
       choose(row && selectionFor(row.occurrence, ref), false);
       if (row) reveal(row);
     },

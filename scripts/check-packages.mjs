@@ -237,6 +237,9 @@ const mount = (container: HTMLElement) => {
       if (selection.ref) view.select(selection.ref);
     }
   });
+  reading.selectOccurrence('current-occurrence', { kind: 'point', key: '_p1' });
+  // @ts-expect-error Occurrence selection requires its local id, not a graph entity.
+  reading.selectOccurrence({ kind: 'point', key: '_p1' });
   const projected: ReadingProjection = projectReading('- [C] Claim.', explainSource('- [C] Claim.'));
   reading.update(projected);
   reading.select({kind: 'point', key: 'opaque'}, 0);
