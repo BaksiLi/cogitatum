@@ -59,6 +59,18 @@ describe("explicit target previews", () => {
     expect(second.units[0].source).toContain('[G +> @claim]');
   });
 
+  it.each(["\n", "\r\n", "\r", "mixed"])("preserves original host line endings %j when locating the edit", lineEnding => {
+    const lines = ["Host 🌧️ prose.", "  ```cog", "  - [C @claim] Claim.", "    - [G] Reason.", "  ```", "", "```cog", "- [C @other] Other unit.", "```"];
+    const source = lines.map((line, index) => line + (index === lines.length - 1 ? "" : lineEnding === "mixed" ? ["\r", "\n", "\r\n"][index % 3] : lineEnding)).join("");
+    const preview = ready(previewExplicitTarget(source, { line: 4, mode: "host" }));
+    expect(preview.edit.offset).toBe(source.indexOf("[G]") + 2);
+    expect(preview.proposedSource).toBe(source.replace("[G]", "[G +> @claim]"));
+    expect(preview.proposedDiagnostics).toEqual([]);
+    const before = explainSource(source, "host"), after = explainSource(preview.proposedSource, "host");
+    expect(formatGraph(after.graphs[0])).toBe(formatGraph(before.graphs[0]));
+    expect(after.graphs[1]).toEqual(before.graphs[1]);
+  });
+
   it("retains unrelated diagnostics and removes only the selected implicit advice", () => {
     const source = '- [. @alone] Isolated material.\n- [C @a] Claim.\n  - Group\n    - [G] One.\n    - [O] Two.';
     const preview = ready(previewExplicitTarget(source, { line: 4 }));

@@ -31,6 +31,7 @@ describe("cog CLI", () => {
   it.each([
     ["document", "- [C @c] Claim.\r\n  - [G] Reason.", 2, 0],
     ["host", "Intro 🌧️\n  ```cog\n  - [C @c] Claim.\n    - [O] Concern.\n  ```", 4, 0],
+    ["host", "Intro 🌧️\r  ```cog\r  - [C @c] Claim.\r    - [G] Reason.\r  ```", 4, 0],
     ["document", "- [C] Anonymous.\n  - [G] Reason.", 2, 1],
     ["document", "- [C @c] Claim.\n  - [G] Reason.\n- [O /> @c] Invalid.", 2, 1]
   ] as const)("previews explicit targets in %s mode with API parity and no file writes", (mode, source, line, status) => {

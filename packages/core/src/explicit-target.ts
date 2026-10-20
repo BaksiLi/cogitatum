@@ -59,8 +59,14 @@ export function previewExplicitTarget(source: string, options: ExplicitTargetOpt
     ? { sources: "self", op: "challenges", targetKind: "point", target: { id: targetName } }
     : { sources: "self", op: relation.kind, targetKind: "either", target: { id: targetName } };
 
-  const lines = source.split("\n");
-  const lineOffset = lines.slice(0, options.line - 1).reduce((length, line) => length + line.length + 1, 0);
+  // Host Markdown recognizes lone CR as well as CRLF/LF; document outlines
+  // recognize CRLF/LF. Count the original separators without normalizing bytes.
+  const lineEndings = before.mode === "host" ? /\r\n|\r|\n/g : /\r?\n/g;
+  let lineOffset = 0, line = 1;
+  for (const ending of source.matchAll(lineEndings)) {
+    if (line++ === options.line) break;
+    lineOffset = ending.index + ending[0].length;
+  }
   const annotationOffset = lineOffset + block.sourceSpan.startColumn - 1;
   const expected = "[" + annotation.raw + "]";
   if (source.slice(annotationOffset, annotationOffset + expected.length) !== expected) {
