@@ -48,7 +48,7 @@ export function createReadingView(container: HTMLElement, options: ReadingViewOp
   const page = html("div", "cog-reading-page", root);
   const svg = svgElement("svg", { class: "cog-reading-connections", "aria-hidden": "true" }, page);
   const lines = html("ol", "cog-reading-lines", page);
-  lines.setAttribute("aria-label", "Source reading. Up and Down move between occurrences; Left and Right choose a reference; Enter opens source; Escape clears.");
+  lines.setAttribute("aria-label", `Source reading. Up and Down move between occurrences; Left and Right choose a reference; Enter ${options.onNavigate ? "opens source" : "selects"}; Escape clears.`);
   let projection: ReadingProjection | undefined, rows = new Map<string, Row>();
   let full: GraphProjection[] = [], inline: Set<string>[] = [];
   let selected: ReadingSelection | undefined, hovered: ReadingSelection | undefined;
