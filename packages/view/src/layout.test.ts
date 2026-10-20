@@ -4,6 +4,7 @@ import { compileSource } from "@cogitatum/core";
 import { projectExploration, projectGraph, referenceKey } from "./projection.js";
 import { layoutGraph, relaxLayout } from "./layout.js";
 import { BEARING_MARKS, POINT_MARKS, bearingMark, isJoint, pointMark } from "./marks.js";
+import { readingLanes, readingPorts } from "./reading.js";
 
 const fixture = (name: string) => readFileSync(new URL(`../../../fixtures/${name}`, import.meta.url), "utf8");
 const explore = (source: string, mode: "document" | "host" = "document") => {
@@ -94,6 +95,57 @@ describe("reading layout", () => {
     expect(positions.get(pinned)).toEqual(at);
     expect([...positions.values()].every(p => Number.isFinite(p.x) && Number.isFinite(p.y))).toBe(true);
     expect(topology).toEqual(before);
+  });
+
+  it("layers shared uses, joint and local routes so every link reads upward and junctions sit between their ends", () => {
+    const { topology } = explore([
+      "- [C @cause] The pool is exhausted.",
+      "  - [G @load] Load exceeds pool capacity.",
+      "- [C @other] A second conclusion.",
+      "  - [G use @load] Reused here for the second conclusion.",
+      "    - [O] Under this use, the load figure is from a test run.",
+      "  - [linked; @joint] Load and config jointly bear on it.",
+      "    - [G use @load] The same load, as one linked member.",
+      "    - [G @config] The pool size is fixed.",
+      "- [C @third] A third conclusion.",
+      "  - [G use @load; @local-route] A named local attachment.",
+      "    - [O/] Pressure on this local attachment, not on the load.",
+    ].join("\n"));
+    const placed = new Map(layoutGraph(topology).map(n => [n.id, n]));
+    for (const link of topology.links) if (link.source !== link.target) {
+      expect(placed.get(link.target)!.y, `${link.source} -> ${link.target}`).toBeLessThan(placed.get(link.source)!.y);
+    }
+    const junctions = topology.nodes.filter(n => n.ref.kind === "bearing");
+    expect(junctions.length).toBeGreaterThan(0);
+    for (const junction of junctions) {
+      const at = placed.get(junction.id)!;
+      const above = topology.links.filter(l => l.source === junction.id).map(l => placed.get(l.target)!.y);
+      const below = topology.links.filter(l => l.target === junction.id).map(l => placed.get(l.source)!.y);
+      expect(Math.max(...above)).toBeLessThan(at.y);
+      expect(Math.min(...below)).toBeGreaterThan(at.y);
+    }
+  });
+});
+
+describe("reading rail", () => {
+  it("nests overlapping spans in distinct lanes and reuses a lane only for disjoint spans", () => {
+    const spans = [[0, 6], [1, 2], [3, 5], [2, 4], [7, 9]] as const;
+    const lanes = readingLanes(spans);
+    for (let i = 0; i < spans.length; i++) for (let j = i + 1; j < spans.length; j++) {
+      const [a, b] = [spans[i], spans[j]];
+      if (a[0] <= b[1] && b[0] <= a[1]) expect(lanes[i], `${a} / ${b}`).not.toBe(lanes[j]);
+    }
+    // The widest span wraps the ones inside it; the disjoint tail reuses the innermost lane.
+    expect(lanes[0]).toBeGreaterThan(Math.max(lanes[1], lanes[2], lanes[3]));
+    expect(lanes[4]).toBe(0);
+    expect(readingLanes([[4, 1]])).toEqual([0]);
+  });
+
+  it("orders ports on a shared row so no stub crosses another connector's run", () => {
+    const ports = readingPorts([{ lane: 0, up: false }, { lane: 2, up: true }, { lane: 1, up: false }, { lane: 0, up: true }]);
+    // Upward ends first, inner lane outermost; downward ends after, inner lane outermost again.
+    expect(ports).toEqual([1.5, -0.5, 0.5, -1.5]);
+    expect(readingPorts([{ lane: 3, up: true }])).toEqual([0]);
   });
 });
 

@@ -30,6 +30,36 @@ type Position = { x: number; y: number };
 type Row = { occurrence: ReadingOccurrence; element: HTMLLIElement; mark: HTMLElement };
 const NS = "http://www.w3.org/2000/svg";
 const sameRef = (a?: BearingTarget, b?: BearingTarget) => !!a && !!b && referenceKey(a) === referenceKey(b);
+/** Gap between the text column and the innermost lane, corner radius, and the narrowest useful rail. */
+const INSET = 14, CORNER = 6, RAIL_MIN = 28;
+
+/**
+ * Arc-diagram lanes: shorter spans nest inside longer ones, so spans that share a row never share a lane.
+ * Intervals are row indices, so lanes are known before anything is measured.
+ */
+export function readingLanes(spans: readonly (readonly [number, number])[]): number[] {
+  const order = spans.map((span, index) => ({ index, lo: Math.min(...span), hi: Math.max(...span) }))
+    .sort((a, b) => (a.hi - a.lo) - (b.hi - b.lo) || a.lo - b.lo);
+  const taken: [number, number][][] = [], lanes = new Array<number>(spans.length).fill(0);
+  for (const span of order) {
+    let lane = 0;
+    while (taken[lane]?.some(([lo, hi]) => span.lo <= hi && lo <= span.hi)) lane++;
+    (taken[lane] ??= []).push([span.lo, span.hi]); lanes[span.index] = lane;
+  }
+  return lanes;
+}
+
+/**
+ * Port order where several connectors meet one row: those leaving upward sit above those leaving
+ * downward, and inner lanes sit furthest out, so no stub crosses another connector's vertical run.
+ */
+export function readingPorts(ends: readonly { lane: number; up: boolean }[]): number[] {
+  const order = ends.map((end, index) => ({ ...end, index }))
+    .sort((a, b) => Number(b.up) - Number(a.up) || (a.up ? a.lane - b.lane : b.lane - a.lane));
+  const ports = new Array<number>(ends.length);
+  order.forEach((end, slot) => { ports[end.index] = slot - (ends.length - 1) / 2; });
+  return ports;
+}
 
 /** Render compiler-owned occurrences; all temporary state belongs to this instance. */
 export function createReadingView(container: HTMLElement, options: ReadingViewOptions = {}): ReadingView {
@@ -49,7 +79,7 @@ export function createReadingView(container: HTMLElement, options: ReadingViewOp
   const svg = svgElement("svg", { class: "cog-reading-connections", "aria-hidden": "true" }, page);
   const lines = html("ol", "cog-reading-lines", page);
   lines.setAttribute("aria-label", `Source reading. Up and Down move between occurrences; Left and Right choose a reference; Enter ${options.onNavigate ? "opens source" : "selects"}; Escape clears.`);
-  let projection: ReadingProjection | undefined, rows = new Map<string, Row>();
+  let projection: ReadingProjection | undefined, rows = new Map<string, Row>(), order: string[] = [];
   let full: GraphProjection[] = [], inline: Set<string>[] = [];
   let selected: ReadingSelection | undefined, hovered: ReadingSelection | undefined;
   let destroyed = false, frame = 0;
@@ -107,7 +137,7 @@ export function createReadingView(container: HTMLElement, options: ReadingViewOp
     }
   }
   function build(): void {
-    lines.replaceChildren(); svg.replaceChildren(); diagnostics.replaceChildren(); rows = new Map();
+    lines.replaceChildren(); svg.replaceChildren(); diagnostics.replaceChildren(); rows = new Map(); order = [];
     if (!projection) return;
     diagnostics.hidden = projection.diagnostics.length === 0;
     const summary = html("summary", "", diagnostics);
@@ -119,9 +149,13 @@ export function createReadingView(container: HTMLElement, options: ReadingViewOp
       const item = html("li", "", diagnosticList);
       item.textContent = `${diagnostic.severity} · ${diagnostic.code}${diagnostic.sourceSpan ? ` · L${diagnostic.sourceSpan.startLine}` : ""}: ${diagnostic.message}`;
     }
+    const last = projection.rows.at(-1);
     for (const source of projection.rows) {
+      // A file's final newline ends the last line; it is not an empty line of the document.
+      if (source === last && source.kind === "source" && !source.raw && !source.diagnostics.length && projection.rows.length > 1) continue;
       const row = html("li", "cog-reading-row", lines);
       row.dataset.line = String(source.line);
+      row.style.setProperty("--cog-reading-order", String(lines.childElementCount - 1));
       row.dataset.kind = source.kind === "source" ? "source" : source.recognition.kind;
       const number = html("span", "cog-reading-number", row); number.textContent = String(source.line); number.setAttribute("aria-hidden", "true");
       const glyph = html("span", "cog-reading-mark", row);
@@ -158,7 +192,7 @@ export function createReadingView(container: HTMLElement, options: ReadingViewOp
           !source.references.some(reference => reference.kind === "uses")) {
           html("span", "cog-reading-use", content).textContent = `@${source.recognition.ref?.id ?? "?"} unresolved`;
         }
-        rows.set(source.id, { occurrence: source, element: row, mark: glyph });
+        rows.set(source.id, { occurrence: source, element: row, mark: glyph }); order.push(source.id);
       } else content.textContent = source.raw || "\u00a0";
       if (source.diagnostics.length) {
         row.dataset.error = String(source.diagnostics.some(diagnostic => diagnostic.severity === "error"));
@@ -169,75 +203,115 @@ export function createReadingView(container: HTMLElement, options: ReadingViewOp
     }
   }
 
+  /** One drawn connector between two rows; `junction` ends meet at the Bearing's diamond on its own row. */
+  type Connector = { route: number; from: ReadingEndpoint | "junction"; to: ReadingEndpoint | "junction"; rows: [number, number] };
+  /** Sources on their constructor's row meet the adjacent diamond; every output remains visible, including self-targets. */
+  function connectorsOf(unitIndex: number): Connector[] {
+    const unit = projection!.units[unitIndex], row = (id: string) => order.indexOf(id), out: Connector[] = [];
+    const add = (connector: Connector) => {
+      if (connector.rows[0] !== connector.rows[1] || connector.to !== "junction") out.push(connector);
+    };
+    unit.bearings.forEach((route, index) => {
+      if (inline[unitIndex].has(route.bearing.key)) {
+        const source = route.sources[0];
+        if (source) add({ route: index, from: source, to: route.target, rows: [row(source.occurrenceId), row(route.target.occurrenceId)] });
+        return;
+      }
+      const at = row(route.occurrenceId);
+      for (const source of route.sources) add({ route: index, from: source, to: "junction", rows: [row(source.occurrenceId), at] });
+      add({ route: index, from: "junction", to: route.target, rows: [at, row(route.target.occurrenceId)] });
+    });
+    return out;
+  }
+  /**
+   * Reading draws an arc diagram in the left margin: each connector leaves its row horizontally,
+   * runs vertically in its own lane and enters the other row horizontally. Lanes nest, and ports
+   * order the stubs on a shared row, so connectors never overlap or cross on a row.
+   */
   function paint(): void {
     frame = 0;
     if (destroyed || !projection) return;
     svg.replaceChildren();
-    root.dataset.compact = String(root.getBoundingClientRect().width < 600);
+    const compact = root.getBoundingClientRect().width < 600;
+    root.dataset.compact = String(compact);
+    const units = projection.units.map((unit, unitIndex) => {
+      const connectors = connectorsOf(unitIndex);
+      return { connectors, lanes: readingLanes(connectors.map(connector => connector.rows)) };
+    });
+    const hasJunction = projection.units.some((unit, unitIndex) => unit.bearings.some(route => !inline[unitIndex].has(route.bearing.key)));
+    const laneCount = Math.max(0, ...units.flatMap(unit => unit.lanes.map(lane => lane + 1)));
+    const inset = INSET + (hasJunction ? 12 : 0);
+    const maxRail = compact ? 96 : 200;
+    const step = laneCount ? Math.min(compact ? 7 : 10, (maxRail - inset - 8) / laneCount) : 0;
+    const rail = laneCount ? Math.max(RAIL_MIN, Math.ceil(inset + (laneCount - 1) * step + 10)) : hasJunction ? inset + 10 : 0;
+    root.style.setProperty("--cog-reading-rail", `${rail}px`);
     const box = page.getBoundingClientRect();
     svg.setAttribute("width", String(box.width)); svg.setAttribute("height", String(box.height));
-    const positions = new Map<string, Position>();
-    for (const [id, row] of rows) {
-      const mark = row.mark.getBoundingClientRect();
-      // A separate margin keeps arcs and their hit areas out of the line-number and text columns.
-      positions.set(id, { x: row.element.getBoundingClientRect().left - box.left - 4, y: mark.top - box.top + mark.height / 2 });
-    }
+    const ys: number[] = [];
+    let edge = 0;
+    order.forEach((id, index) => {
+      const row = rows.get(id)!, mark = row.mark.getBoundingClientRect();
+      edge = row.element.getBoundingClientRect().left - box.left - 2;
+      ys[index] = mark.top - box.top + mark.height / 2;
+    });
+    const laneX = (lane: number) => edge - inset - lane * step, diamondX = edge - 10, DIAMOND = 6.5;
     projection.units.forEach((unit, unitIndex) => {
-      // Precompute all junctions; Bearing cycles never require recursive geometry.
-      const junctions = new Map<string, Position>();
-      for (const route of unit.bearings) {
-        const at = positions.get(route.occurrenceId);
-        if (at && !inline[unitIndex].has(route.bearing.key)) junctions.set(route.bearing.key, { x: at.x - 34, y: at.y });
-      }
-      const endpoint = (end: ReadingEndpoint) => {
-        const occurrence = rows.get(end.occurrenceId)?.occurrence;
-        const constructs = occurrence?.references.some(reference => reference.kind === "constructs" && sameRef(reference.ref, end.ref));
-        if (end.ref.kind === "bearing" && constructs) {
-          const junction = junctions.get(end.ref.key);
-          // Stop outside the diamond, independent of which Bearing is painted first.
-          return junction && { x: junction.x - 12, y: junction.y };
-        }
-        return positions.get(end.occurrenceId);
+      const { connectors, lanes } = units[unitIndex];
+      const junctionRow = new Map<string, number>();
+      for (const route of unit.bearings) if (!inline[unitIndex].has(route.bearing.key)) junctionRow.set(route.bearing.key, order.indexOf(route.occurrenceId));
+      // An endpoint that is the Bearing constructed on that row meets its diamond; anything else meets the row.
+      const onDiamond = (end: ReadingEndpoint | "junction") => {
+        if (end === "junction") return true;
+        if (end.ref.kind !== "bearing" || !junctionRow.has(end.ref.key)) return false;
+        return !!rows.get(end.occurrenceId)?.occurrence.references.some(reference => reference.kind === "constructs" && sameRef(reference.ref, end.ref));
       };
-      for (const route of unit.bearings) {
-        const bearing = route.bearing, target = endpoint(route.target);
-        if (!target) continue;
-        const tone = bearingMark(bearing.kind);
-        const group = svgElement("g", {
-          class: `cog-reading-bearing cog-tone-${tone.tone}`, "data-bearing": bearing.key, "data-unit": String(unitIndex),
-          "data-subtle": String(bearing.derivedBy === "structural" && inline[unitIndex].has(bearing.key))
-        }, svg);
-        const curve = (from: Position, to: Position, output: boolean, lane: number): Position => {
-          const span = Math.abs(to.y - from.y);
-          const bend = Math.max(12, Math.min(from.x, to.x) - 16 - span * .3 - lane * 3);
-          const c1 = { x: bend, y: from.y }, c2 = { x: bend, y: to.y };
-          if (Math.abs(from.y - to.y) < 1) { c1.y -= 15; c2.y += 15; }
-          const d = `M${from.x} ${from.y} C${c1.x} ${c1.y} ${c2.x} ${c2.y} ${to.x} ${to.y}`;
-          svgElement("path", { d, class: `cog-reading-arc${tone.dashed ? " cog-reading-dashed" : ""}` }, group);
-          const hit = svgElement("path", { d, class: "cog-reading-hit" }, group);
-          hit.dataset.occurrence = route.occurrenceId; hit.dataset.ref = bearing.key;
-          if (output) {
-            const dx = to.x - c2.x, dy = to.y - c2.y, length = Math.hypot(dx, dy) || 1, x = dx / length, y = dy / length;
-            svgElement("path", { class: "cog-reading-arrow", d: `M${to.x} ${to.y}L${to.x - 6*x - 3*y} ${to.y - 6*y + 3*x}L${to.x - 6*x + 3*y} ${to.y - 6*y - 3*x}Z` }, group);
-          }
-          return { x: (from.x + to.x + 3*c1.x + 3*c2.x) / 8, y: (from.y + to.y + 3*c1.y + 3*c2.y) / 8 };
-        };
-        let glyph = junctions.get(bearing.key);
-        if (glyph) {
-          route.sources.forEach((source, i) => { const from = endpoint(source); if (from) curve(from, glyph!, false, i); });
-          curve(glyph, target, true, route.sources.length);
-        } else {
-          const source = endpoint(route.sources[0]);
-          if (!source) continue;
-          glyph = curve(source, target, true, 0);
-        }
-        const symbol = svgElement("g", { transform: `translate(${glyph.x} ${glyph.y})`, class: "cog-reading-symbol" }, group);
-        symbol.dataset.occurrence = route.occurrenceId; symbol.dataset.ref = bearing.key;
-        svgElement("circle", { r: "12", fill: "transparent" }, symbol);
-        drawBearingGlyph(symbol, bearing.kind, junctions.has(bearing.key));
-        svgElement("title", {}, symbol).textContent = `${tone.name}${bearing.handle ? ` @${bearing.handle}` : ""}; line ${rows.get(route.occurrenceId)!.occurrence.line}`;
-        // Selection is delegated below, so redraws do not accumulate listeners.
+      // Ports: every connector end on a row gets its own vertical offset.
+      const ends = new Map<number, { connector: number; side: 0 | 1; lane: number; up: boolean }[]>();
+      connectors.forEach((connector, index) => connector.rows.forEach((row, side) => {
+        const other = connector.rows[1 - side];
+        ends.set(row, [...ends.get(row) ?? [], { connector: index, side: side as 0 | 1, lane: lanes[index], up: other < row }]);
+      }));
+      const offset = new Map<string, number>();
+      for (const list of ends.values()) {
+        const spacing = list.length > 1 ? Math.min(4.5, 14 / (list.length - 1)) : 0;
+        readingPorts(list).forEach((port, i) => offset.set(`${list[i].connector}:${list[i].side}`, port * spacing));
       }
+      const groups = unit.bearings.map(route => svgElement("g", {
+        class: `cog-reading-bearing cog-tone-${bearingMark(route.bearing.kind).tone}`, "data-bearing": route.bearing.key, "data-unit": String(unitIndex),
+        "data-subtle": String(route.bearing.derivedBy === "structural" && inline[unitIndex].has(route.bearing.key))
+      }, svg));
+      const glyphs = new Map<number, Position>();
+      connectors.forEach((connector, index) => {
+        const route = unit.bearings[connector.route], bearing = route.bearing, group = groups[connector.route];
+        const lx = laneX(lanes[index]);
+        const [a, b] = ([0, 1] as const).map(side => {
+          const end = side ? connector.to : connector.from;
+          // Separate the two ends of a self-target so its loop has an observable direction.
+          const dy = connector.rows[0] === connector.rows[1] ? (side ? 4 : -4) : offset.get(`${index}:${side}`) ?? 0;
+          // A diamond end stops on its edge; the diamond is drawn once, after every connector.
+          return { x: onDiamond(end) ? diamondX - Math.max(1.5, DIAMOND - Math.abs(dy)) : edge, y: ys[connector.rows[side]] + dy };
+        });
+        const r = Math.min(CORNER, Math.abs(b.y - a.y) / 2, (Math.min(a.x, b.x) - lx) / 2), down = Math.sign(b.y - a.y);
+        const d = `M${a.x} ${a.y}H${lx + r}Q${lx} ${a.y} ${lx} ${a.y + down * r}V${b.y - down * r}Q${lx} ${b.y} ${lx + r} ${b.y}H${b.x}`;
+        svgElement("path", { d, class: `cog-reading-arc${bearingMark(bearing.kind).dashed ? " cog-reading-dashed" : ""}` }, group);
+        const hit = svgElement("path", { d, class: "cog-reading-hit" }, group);
+        hit.dataset.occurrence = route.occurrenceId; hit.dataset.ref = bearing.key;
+        if (connector.to !== "junction") {
+          svgElement("path", { class: "cog-reading-arrow", d: `M${b.x} ${b.y}L${b.x - 6} ${b.y - 3}L${b.x - 6} ${b.y + 3}Z` }, group);
+        }
+        if (inline[unitIndex].has(bearing.key)) glyphs.set(connector.route, { x: lx, y: (a.y + b.y) / 2 });
+      });
+      unit.bearings.forEach((route, index) => {
+        const bearing = route.bearing, row = junctionRow.get(bearing.key);
+        const glyph = row !== undefined ? { x: diamondX, y: ys[row] } : glyphs.get(index);
+        if (!glyph) return;
+        const symbol = svgElement("g", { transform: `translate(${glyph.x} ${glyph.y})`, class: "cog-reading-symbol" }, groups[index]);
+        symbol.dataset.occurrence = route.occurrenceId; symbol.dataset.ref = bearing.key;
+        svgElement("circle", { r: "11", fill: "transparent", stroke: "none" }, symbol);
+        drawBearingGlyph(symbol, bearing.kind, row !== undefined, row !== undefined ? DIAMOND - 2.5 : 5.5);
+        svgElement("title", {}, symbol).textContent = `${bearingMark(bearing.kind).name}${bearing.handle ? ` @${bearing.handle}` : ""}; line ${rows.get(route.occurrenceId)!.occurrence.line}`;
+        // Selection is delegated below, so redraws do not accumulate listeners.
+      });
     });
     guide();
   }
@@ -283,6 +357,7 @@ export function createReadingView(container: HTMLElement, options: ReadingViewOp
   return {
     update(next) {
       alive(); const hadFocus = root.contains(doc.activeElement);
+      root.dataset.entering = String(!projection && !options.reducedMotion?.());
       projection = next; selected = undefined; hovered = undefined;
       full = next.units.map(unit => projectGraph(unit.graph));
       inline = full.map(graph => new Set(projectExploration(graph).inlineBearings.map(node => node.ref.key)));

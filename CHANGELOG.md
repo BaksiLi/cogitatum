@@ -9,10 +9,12 @@ Use the complete released schema set and [migrate retained source](docs/syntax.m
 
 - Unify the private View package’s Flow and Constellation into one Map: deterministic reading order, direct movement with bounded neighbour adjustment, and reset to automatic placement.
   Remove the pre-release layout selector and duplicate layout algorithms; geometry remains local and never changes source or Bearings.
+  Place shared sources among their targets, reserve room for named junctions, fit labels within the viewport, and route links around marks and wording.
 
 - Add source-aware Reading to the private View package, retaining every original line and distinguishing entity declarations, local uses and Bearing constructions.
   Join source, AST, Explain and Graph IR from one compilation; derive local endpoints from compiler evidence instead of guessing from indentation.
   Share Map's marks, first-class Bearing topology and neighborhood guidance, with silent programmatic Reading selection for host-owned synchronization.
+  Nest margin connectors in compact lanes, retain same-line target loops, and keep first-render animation from shifting measured endpoints.
 - Record the selected occurrence for every successful structural Bearing in Explain's `implicitAttachment`, including direct containment with an empty `crossedBodySpans`.
   Only crossings of ordinary body produce the existing advisory; explicit and rejected relations do not acquire implicit-selection evidence.
   Formalize the per-unit AST / Explain occurrence correspondence for the unpublished 0.5 contract.
@@ -33,6 +35,7 @@ Use the complete released schema set and [migrate retained source](docs/syntax.m
 - Add `previewExplicitTarget` and `cog explicit-target --line` for one checked, source-preserving target-clause preview.
   The operation retains current relations and occurrence prose while explicitly changing future move/role-edit behavior.
   It refuses unsupported or erroneous input and never overwrites files.
+  Locate host edits using Markdown's LF, CRLF and CR line endings, preserving the original separators and UTF-16 offsets.
 - Clarify CLI input/output, exit status, the distinction between output formatting and source editing, and the boundary between deterministic tools and interpretation assistance.
   Expand executable tutorials for Point versus Bearing challenges, Linked, Serial, reused evidence and deliberate edits without inventing implicit premises.
 - Add a repository-only interpretation experiment that preserves original Bearings under two explicitly assumed readings.

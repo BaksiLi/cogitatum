@@ -27,7 +27,7 @@ for (const name of ["core", "cli", "view"]) {
   for (const path of paths) {
     const permitted = /^(package\.json|README\.md|LICENSE(?:\.md|\.txt)?|(?:dist|src)\/[a-z-]+\.(?:js|d\.ts|js\.map|ts))$/.test(path)
       || (name === "core" && /^dist\/schemas\/(ast|graph-ir|explain|source)\.schema\.json$/.test(path))
-      || (name === "view" && path === "dist/style.css");
+      || (name === "view" && /^(dist|src)\/style\.css$/.test(path));
     assert.ok(permitted && !path.includes(".test."), `Unexpected ${pkg.name} payload: ${path}`);
   }
   for (const required of ["package.json", "README.md", "dist/index.js", "dist/index.d.ts"]) {

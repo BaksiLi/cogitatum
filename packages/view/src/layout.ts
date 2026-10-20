@@ -4,53 +4,98 @@ export type Point2 = { x: number; y: number };
 export type LayoutOptions = { direction?: "down" | "right"; wrapWidth?: number };
 
 const sourceLine = (node: GraphNode) => node.sourceSpan?.startLine ?? Number.MAX_SAFE_INTEGER;
-const footprint = (node: GraphNode) => node.ref.kind === "point" ? 168 : 64;
+// Named junctions need a text column too; anonymous junctions only need glyph spacing.
+const footprint = (node: GraphNode) => node.ref.kind === "point" || node.name ? 168 : 64;
 const GAP = 18;
 
 /**
- * Reading layout for any topology (usually `projectExploration`). What is borne upon sits above
- * what bears on it; each node hangs below its first target in source order (a placement choice only;
- * every link is still drawn). Siblings keep source order; separate trees are wrapped in rows.
+ * Place each node in a row, keeping its order and the minimum spacing.
+ * The node is pulled toward its wish. Averaging the left-packed and right-packed solutions keeps
+ * every gap, because both satisfy it, and it does not drift to either side.
+ */
+function settle(row: GraphNode[], wish: Map<string, number>): Map<string, number> {
+  const gap = (a: GraphNode, b: GraphNode) => (footprint(a) + footprint(b)) / 2 + GAP;
+  const left: number[] = [], right: number[] = [];
+  row.forEach((node, i) => { left[i] = i ? Math.max(wish.get(node.id)!, left[i - 1] + gap(row[i - 1], node)) : wish.get(node.id)!; });
+  for (let i = row.length - 1; i >= 0; i--) right[i] = i < row.length - 1 ? Math.min(wish.get(row[i].id)!, right[i + 1] - gap(row[i], row[i + 1])) : wish.get(row[i].id)!;
+  return new Map(row.map((node, i) => [node.id, (left[i] + right[i]) / 2]));
+}
+
+/**
+ * The reading layout for any topology, usually the result of `projectExploration`.
+ * Layered: what is borne upon sits above what bears on it.
+ * A node shared by several Bearings sits among all of its targets, not only the first,
+ * so no link has to run sideways across the Map.
+ * Order within a layer follows the neighbours, then source order. Separate fragments wrap in rows.
+ * Placement is a reading aid only: every link is still drawn, and nothing is inferred from position.
  */
 export function layoutGraph(topology: GraphProjection, options: LayoutOptions = {}): PositionedNode[] {
   const { direction = "down", wrapWidth = 1100 } = options;
-  const byId = new Map(topology.nodes.map(node => [node.id, node]));
-  const parent = new Map<string, string>();
-  const ancestorOf = (a: string, id: string) => { for (let c: string | undefined = id, n = 0; c && n < 999; c = parent.get(c), n++) if (c === a) return true; return false; };
   const ordered = [...topology.nodes].sort((a, b) => sourceLine(a) - sourceLine(b));
-  for (const node of ordered) {
-    const out = topology.links.filter(l => l.source === node.id && l.target !== node.id && byId.has(l.target));
-    const target = out.find(l => !ancestorOf(node.id, l.target))?.target;
-    if (target) parent.set(node.id, target);
-  }
-  const children = new Map(topology.nodes.map(node => [node.id, [] as GraphNode[]]));
-  for (const node of ordered) { const p = parent.get(node.id); if (p) children.get(p)!.push(node); }
-  const width = new Map<string, number>();
-  const measure = (node: GraphNode): number => {
-    const kids = children.get(node.id)!;
-    const w = kids.length ? Math.max(footprint(node), kids.reduce((sum, kid, i) => sum + measure(kid) + (i ? GAP : 0), 0)) : footprint(node);
-    width.set(node.id, w); return w;
-  };
-  const step = (a: GraphNode, b: GraphNode) => a.ref.kind === "point" && b.ref.kind === "point" ? 118 : 76;
-  const placed = new Map<string, Point2>();
-  const place = (node: GraphNode, left: number, y: number): number => {
-    const kids = children.get(node.id)!;
-    let x = left + width.get(node.id)! / 2;
-    if (kids.length) {
-      const span = kids.reduce((sum, kid, i) => sum + width.get(kid.id)! + (i ? GAP : 0), 0);
-      let at = left + (width.get(node.id)! - span) / 2;
-      const xs = kids.map(kid => { const cx = place(kid, at, y + step(node, kid)); at += width.get(kid.id)! + GAP; return cx; });
-      x = (xs[0] + xs[xs.length - 1]) / 2;
+  const rank = new Map(ordered.map((node, i) => [node.id, i]));
+  const byRank = (a: GraphNode, b: GraphNode) => rank.get(a.id)! - rank.get(b.id)!;
+
+  // An acyclic reading: a link that closes a cycle, found in source order, does not constrain layers.
+  const outgoing = new Map(ordered.map(node => [node.id, [] as string[]]));
+  for (const link of topology.links) if (link.source !== link.target && rank.has(link.source) && rank.has(link.target)) outgoing.get(link.source)!.push(link.target);
+  const targets = new Map(ordered.map(node => [node.id, new Set<string>()]));
+  const sources = new Map(ordered.map(node => [node.id, new Set<string>()]));
+  const state = new Map<string, "open" | "done">();
+  const visit = (id: string) => {
+    state.set(id, "open");
+    for (const target of outgoing.get(id)!.sort((a, b) => rank.get(a)! - rank.get(b)!)) {
+      if (state.get(target) === "open") continue;
+      targets.get(id)!.add(target); sources.get(target)!.add(id);
+      if (!state.has(target)) visit(target);
     }
-    placed.set(node.id, { x, y });
-    return x;
+    state.set(id, "done");
   };
-  const depth = (node: GraphNode): number => Math.max(0, ...children.get(node.id)!.map(kid => step(node, kid) + depth(kid)));
+  for (const node of ordered) if (!state.has(node.id)) visit(node.id);
+  const layer = new Map<string, number>();
+  const layerOf = (id: string): number => {
+    if (!layer.has(id)) layer.set(id, Math.max(-1, ...[...targets.get(id)!].map(layerOf)) + 1);
+    return layer.get(id)!;
+  };
+
+  // Fragments are laid out separately and keep the order in which they begin in the source.
+  const fragment = new Map<string, string>();
+  const rootOf = (id: string): string => { const up = fragment.get(id) ?? id; return up === id ? id : rootOf(up); };
+  for (const [id, set] of targets) for (const target of set) { const a = rootOf(id), b = rootOf(target); if (a !== b) fragment.set(rank.get(a)! < rank.get(b)! ? b : a, rank.get(a)! < rank.get(b)! ? a : b); }
+  const fragments = new Map<string, GraphNode[]>();
+  for (const node of ordered) { const root = rootOf(node.id); fragments.set(root, [...fragments.get(root) ?? [], node]); }
+
+  const placed = new Map<string, Point2>();
+  const mean = (ids: Iterable<string>, x: Map<string, number>) => { const xs = [...ids].map(id => x.get(id)!); return xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : undefined; };
   let cursorX = 0, cursorY = 0, rowHeight = 0;
-  for (const root of ordered.filter(node => !parent.has(node.id))) {
-    const w = measure(root), h = depth(root);
+  for (const nodes of fragments.values()) {
+    const layers: GraphNode[][] = [];
+    for (const node of nodes) (layers[layerOf(node.id)] ??= []).push(node);
+    const x = new Map<string, number>();
+    // Downward: each node under the mean of what it bears on. Upward: each target over its sources.
+    // The top layer keeps source order, so the reading begins where the text begins.
+    layers.forEach((row, depth) => {
+      const wish = new Map(row.map((node, i) => [node.id, depth ? mean(targets.get(node.id)!, x) ?? i * 200 : i * 200]));
+      row.sort((a, b) => depth ? wish.get(a.id)! - wish.get(b.id)! || byRank(a, b) : byRank(a, b));
+      settle(row, wish).forEach((value, id) => x.set(id, value));
+    });
+    for (let pass = 0; pass < 3; pass++) {
+      for (let depth = layers.length - 2; depth >= 0; depth--) {
+        const row = layers[depth];
+        settle(row, new Map(row.map(node => [node.id, mean(sources.get(node.id)!, x) ?? x.get(node.id)!]))).forEach((value, id) => x.set(id, value));
+      }
+      for (let depth = 1; depth < layers.length; depth++) {
+        const row = layers[depth];
+        settle(row, new Map(row.map(node => [node.id, mean(targets.get(node.id)!, x) ?? x.get(node.id)!]))).forEach((value, id) => x.set(id, value));
+      }
+    }
+    // Points need room for their wording; a layer of junctions alone sits closer.
+    const ys: number[] = [];
+    const hasPoint = (row: GraphNode[]) => row.some(node => node.ref.kind === "point");
+    layers.forEach((row, depth) => { ys[depth] = depth ? ys[depth - 1] + (hasPoint(row) && hasPoint(layers[depth - 1]) ? 124 : 92) : 0; });
+    const left = Math.min(...nodes.map(node => x.get(node.id)! - footprint(node) / 2));
+    const w = Math.max(...nodes.map(node => x.get(node.id)! + footprint(node) / 2)) - left, h = ys[ys.length - 1];
     if (cursorX > 0 && cursorX + w > wrapWidth) { cursorX = 0; cursorY += rowHeight + 110; rowHeight = 0; }
-    place(root, cursorX, cursorY);
+    for (const node of nodes) placed.set(node.id, { x: cursorX + x.get(node.id)! - left, y: cursorY + ys[layer.get(node.id)!] });
     cursorX += w + 72; rowHeight = Math.max(rowHeight, h);
   }
   return topology.nodes.map(node => {
