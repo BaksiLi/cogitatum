@@ -14,6 +14,13 @@ G/ and O/ select only the nearest constructor's exposed Bearing: its local attac
 Occurrence prose, local marks and original UTF-16 spans remain in AST/Explain; focusPoint maps each use to a typed Point ref, and rejectFocus explains lookup failure.
 focusBearing similarly maps Bearing occurrences; selectBearing identifies a referenced context without claiming attachment ownership.
 Canonical spans remain declaration/construction spans; several uses may map to the same entity.
+Every successfully emitted structural Bearing has an `implicitAttachment` effect whose `contextSpan` identifies the local selected occurrence.
+Its `targetSpan` identifies the canonical target and may differ when a Point or Bearing is reused.
+`crossedBodySpans` is empty for direct containment; only a nonempty list triggers the existing through-body suggestion.
+Failed relations and explicit target clauses have no successful implicit-attachment effect.
+Within a source unit, each nonliteral AST block has one Explain entry with the same full block `sourceSpan`, in preorder.
+The note header has an entry; its literal descendants do not.
+These line spans identify occurrences only within the current compilation; retain the exact original source and rebuild the projections after an edit.
 Keep shared content, occurrence notes, quoted source context and proposed reconstructions separate; retained original source plus AST/Explain is required for reading, not Graph IR alone.
 The historical npm `alpha` tag provides **0.3.0-alpha.1** without linked.
 Build this checkout to use the 0.5 candidate API and syntax.

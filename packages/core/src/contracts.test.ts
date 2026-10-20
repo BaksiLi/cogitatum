@@ -91,7 +91,7 @@ describe("public compiler contract boundaries", () => {
       expect(validateAst(namedNote), field).toBe(false);
     }
     const advice = json(explain).entries.flatMap((entry: any) => entry.effects).find((effect: any) => effect.kind === "implicitAttachment");
-    for (const invalidEffect of [{ ...advice, target: { id: "q" } }, { ...advice, crossedBodySpans: [] }]) {
+    for (const invalidEffect of [{ ...advice, target: { id: "q" } }, { ...advice, contextSpan: undefined }]) {
       expect(validateExplain({ ...json(explain), entries: [{ ...json(explain).entries[2], effects: [invalidEffect] }] })).toBe(false);
     }
   });

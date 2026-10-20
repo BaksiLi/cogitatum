@@ -208,6 +208,7 @@ export type ExplainEmittedBearingSummary = Omit<BearingBase, "text" | "sourceSpa
 
 export type ExplainEffect =
   | { kind: "preserveNote"; parentSpan?: SourceSpan }
+  // Successful structural selection, even with no intervening body. Not emitted for rejected Bearings.
   | { kind: "implicitAttachment"; target: BearingTarget; targetSpan?: SourceSpan; contextSpan: SourceSpan; crossedBodySpans: SourceSpan[] }
   | { kind: "linkedMember"; linkedSpan: SourceSpan; eligible: boolean; function: LinkedChildFunction }
   | { kind: "focusPoint"; ref: PointRef; operand: Ref }

@@ -5,6 +5,8 @@ import { bearingMark, drawBearingGlyph, drawPointGlyph, MARK_TYPE, pointMark } f
 export * from "./projection.js";
 export * from "./layout.js";
 export * from "./marks.js";
+export * from "./reading-projection.js";
+export * from "./reading.js";
 
 export type GraphLayout = "flow" | "constellation";
 export type GraphViewOptions = {

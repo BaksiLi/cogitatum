@@ -1,5 +1,5 @@
 /* One visual vocabulary for every surface. Hosts theme it with the --cog-* properties only. */
-.cog-graph, .cog-chip {
+.cog-graph, .cog-chip, .cog-reading {
   --cog-ink-resolved: var(--cog-ink, #18242a);
   --cog-surface-resolved: var(--cog-surface, #fbfcf8);
   --cog-canvas-resolved: var(--cog-canvas, #f1f2ee);
@@ -53,3 +53,57 @@
 
 @media (prefers-reduced-motion: reduce) { .cog-graph * { transition: none !important; } }
 .cog-chip { display: inline-block; vertical-align: -0.18em; overflow: visible; }
+
+/* Reading keeps prose in source order and compiled relations in a separate margin. */
+.cog-reading {
+  --cog-reading-rail: 210px;
+  color: var(--cog-ink-resolved);
+  font-family: inherit;
+  font-size: 17px;
+  line-height: 1.62;
+}
+.cog-reading-page { position: relative; }
+.cog-reading-lines { list-style: none; margin: 0; padding: 0 0 0 var(--cog-reading-rail); }
+.cog-reading-row { display: grid; grid-template-columns: 2.2em 1.9em minmax(0, 1fr); align-items: start; padding: 3px 8px 3px 0; position: relative; border-radius: 6px; }
+.cog-reading-number { font: 11px/27.5px ui-monospace, "SF Mono", Menlo, monospace; color: var(--cog-muted-resolved); opacity: .55; text-align: right; padding-right: .7em; user-select: none; }
+.cog-reading-mark { height: 27.5px; display: flex; align-items: center; justify-content: center; }
+.cog-reading-content { white-space: pre-wrap; overflow-wrap: anywhere; padding-left: calc(var(--cog-reading-depth, 0) * 1.35em); position: relative; min-height: 27.5px; }
+.cog-reading-content::before { content: ""; position: absolute; left: calc(var(--cog-reading-depth, 0) * 1.35em - .75em); top: .2em; bottom: .2em; border-left: 1px solid var(--cog-line-resolved); opacity: calc(min(var(--cog-reading-depth, 0), 1) * .45); }
+.cog-reading-name { font: 12px ui-monospace, "SF Mono", Menlo, monospace; color: var(--cog-muted-resolved); margin-left: .5em; white-space: nowrap; }
+.cog-reading-tag { font: 600 10.5px/1 system-ui, sans-serif; letter-spacing: .1em; text-transform: uppercase; color: var(--cog-muted-resolved); border: 1px solid var(--cog-line-resolved); border-radius: 3px; padding: 3px 5px 2px; margin-right: .55em; vertical-align: .15em; }
+.cog-reading-use { display: block; margin-top: 2px; font: 13px/1.5 system-ui, sans-serif; color: var(--cog-muted-resolved); }
+.cog-reading-row[data-role="G"] .cog-reading-mark { --cog-ink: var(--cog-support, #357873); }
+.cog-reading-row[data-role="O"] .cog-reading-mark { --cog-ink: var(--cog-objection, #a8553d); }
+.cog-reading-row[data-kind="use"] .cog-glyph-shape { fill: var(--cog-surface-resolved); }
+.cog-reading-row[data-kind="use"] .cog-glyph-letter { fill: var(--cog-ink-resolved); }
+.cog-reading-row[data-kind="note"] .cog-reading-text { font-style: italic; font-size: .92em; color: var(--cog-muted-resolved); }
+.cog-reading-row[data-kind="linked"] .cog-reading-text { font-style: italic; }
+.cog-reading-row[data-kind="literal"] .cog-reading-text { font: 13px/1.7 ui-monospace, monospace; color: var(--cog-muted-resolved); }
+.cog-reading-row[data-kind="source"] .cog-reading-content { font: 14px/1.7 system-ui, sans-serif; color: var(--cog-muted-resolved); }
+.cog-reading-row[data-error="true"] .cog-reading-text { text-decoration: underline dotted var(--cog-negative); text-underline-offset: 4px; }
+.cog-reading-row[role="button"] { cursor: pointer; }
+.cog-reading-row:focus-visible { outline: 2px solid var(--cog-focus-resolved); outline-offset: 1px; }
+.cog-reading-row[aria-pressed="true"] { background: color-mix(in srgb, var(--cog-focus-resolved) 10%, transparent); box-shadow: inset 2px 0 var(--cog-focus-resolved); }
+.cog-reading-row[data-same="true"] { background: color-mix(in srgb, var(--cog-muted-resolved) 7%, transparent); }
+.cog-reading[data-guided="true"] .cog-reading-row[data-related="false"] { opacity: .35; }
+.cog-reading-connections { position: absolute; left: 0; top: 0; pointer-events: none; overflow: visible; }
+.cog-reading-arc { fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; }
+.cog-reading-dashed { stroke-dasharray: 4 3; }
+.cog-reading-arrow { fill: currentColor; stroke: none; }
+.cog-reading-hit { fill: none; stroke: transparent; stroke-width: 12; pointer-events: stroke; cursor: pointer; }
+.cog-reading-symbol { pointer-events: all; cursor: pointer; }
+.cog-reading-symbol .cog-bearing-glyph-shape { fill: currentColor; stroke: var(--cog-surface-resolved); stroke-width: 1.5; }
+.cog-reading-symbol .cog-bearing-glyph-symbol { fill: var(--cog-surface-resolved); font-size: 9px; }
+.cog-reading-bearing[data-subtle="true"] { opacity: .26; }
+.cog-reading[data-guided="true"] .cog-reading-bearing[data-active="false"] { opacity: .1; }
+.cog-reading[data-guided="true"] .cog-reading-bearing[data-active="true"] { opacity: 1; }
+.cog-reading[data-guided="true"] .cog-reading-bearing[data-active="true"] .cog-reading-arc { stroke-width: 2.2; }
+.cog-reading-diagnostics { margin-bottom: 18px; padding: 8px 0; border-bottom: 1px solid var(--cog-line-resolved); font: 12px/1.55 system-ui, sans-serif; color: var(--cog-muted-resolved); }
+.cog-reading-diagnostics summary { cursor: pointer; }
+.cog-reading-diagnostics ul { padding-left: 18px; overflow-wrap: anywhere; }
+.cog-reading-diagnostic { display: inline-block; margin-left: .6em; font: 500 10px/1.4 system-ui, sans-serif; color: var(--cog-muted-resolved); background: color-mix(in srgb, var(--cog-muted-resolved) 8%, transparent); border-radius: 3px; padding: 2px 4px; vertical-align: .2em; }
+.cog-reading-row[data-error="true"] .cog-reading-diagnostic { color: var(--cog-negative); background: color-mix(in srgb, var(--cog-negative) 10%, transparent); }
+.cog-reading[data-compact="true"] { --cog-reading-rail: 96px; }
+.cog-reading[data-compact="true"] .cog-reading-row { grid-template-columns: 1.6em 1.5em minmax(0, 1fr); }
+.cog-reading[data-compact="true"] .cog-reading-content { padding-left: calc(min(var(--cog-reading-depth, 0), 2) * .9em); }
+.cog-reading[data-compact="true"] .cog-reading-content::before { left: calc(min(var(--cog-reading-depth, 0), 2) * .9em - .45em); }

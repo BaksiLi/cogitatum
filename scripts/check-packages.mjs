@@ -147,15 +147,23 @@ const tsx = resolve(root, "node_modules/tsx/dist/loader.mjs");
 run(process.execPath, ["--conditions", "development", "--import", tsx, "--input-type=module", "-e", probe], temporary);
 const integrationProbe = `
 import assert from 'node:assert/strict';
-import { compileSource } from '@cogitatum/core';
-import { projectGraph, createGraphView } from '@cogitatum/view';
+import { compileSource, explainSource } from '@cogitatum/core';
+import { projectGraph, createGraphView, projectReading, createReadingView } from '@cogitatum/view';
 const compiled = compileSource('- [C @claim] A claim.\\n  - [G] A reason.\\n', 'document');
 assert.equal(projectGraph(compiled.graphs[0]).nodes.length, 3);
 assert.equal(typeof createGraphView, 'function');
+assert.equal(typeof createReadingView, 'function');
+const readingSource = '- [C @p] Original.\\n- [. use @p] Here.\\n  - [O] Local concern.';
+const reading = projectReading(readingSource, explainSource(readingSource));
+assert.equal(reading.rows.length, 3);
+assert.equal(reading.units[0].bearings[0].target.occurrenceId, reading.units[0].occurrences[1].id);
+assert.equal(reading.units[0].bearings[0].target.basis, 'context');
 `;
 run(process.execPath, ["--input-type=module", "-e", integrationProbe], temporary);
 run(process.execPath, ["--conditions", "development", "--import", tsx, "--input-type=module", "-e", integrationProbe], temporary);
-assert.ok(readFileSync(join(temporary, "node_modules/@cogitatum/view/dist/style.css"), "utf8").includes(".cog-graph"));
+for (const surface of [".cog-graph", ".cog-reading"]) {
+  assert.ok(readFileSync(join(temporary, "node_modules/@cogitatum/view/dist/style.css"), "utf8").includes(surface));
+}
 const executable = join(temporary, "node_modules", ".bin", "cog");
 assert.match(run(executable, ["--version"], temporary), new RegExp(rootPackage.version.replaceAll(".", "\\.")));
 const explicitFile = join(temporary, "explicit.cog.md");
@@ -183,7 +191,8 @@ assert.deepEqual(cliReferences, apiReferences);
 assert.equal(cliReferences.references.status, "complete");
 
 writeFileSync(join(temporary, "consumer.mts"), `import {type Point, type PointDeclaration, type Bearing, type Annotation, type OperatorClause, type ExplainEmittedBearingSummary, type SourceReferenceAnalysis, type ReferencedName, type WrittenReference, type ExplicitTargetPreview, previewExplicitTarget, analyzeSourceReferences, formatGraph, GRAPH_TEXT_VERSION, compileGraph, parseDocument} from '@cogitatum/core';
-import { createGraphView, declarationMark } from '@cogitatum/view';
+import { createGraphView, declarationMark, projectReading, createReadingView, type ReadingProjection } from '@cogitatum/view';
+import { explainSource } from '@cogitatum/core';
 const preview: ExplicitTargetPreview = previewExplicitTarget('- [C @c] Claim.\\n  - [G] Reason.', {line: 2, mode: 'document'});
 if (preview.status === 'ready') {
   const original: string = preview.originalSource;
@@ -221,6 +230,24 @@ const mount = (container: HTMLElement) => {
   view.update(graph, 'host:source-unit');
   // @ts-expect-error A host must identify the source unit to retain selection safely.
   view.update(graph);
+  const reading = createReadingView(container, {
+    onSelect(selection) {
+      const unit: number = selection.unitIndex;
+      const occurrence: string = selection.occurrenceId;
+      if (selection.ref) view.select(selection.ref);
+    }
+  });
+  const projected: ReadingProjection = projectReading('- [C] Claim.', explainSource('- [C] Claim.'));
+  reading.update(projected);
+  reading.select({kind: 'point', key: 'opaque'}, 0);
+  // @ts-expect-error Reading requires original source plus the complete Explain envelope.
+  projectReading(graph);
+  // @ts-expect-error A graph alone cannot reconstruct Reading.
+  reading.update(graph);
+  // @ts-expect-error Unit indices are numeric and local to the projection.
+  reading.select({kind: 'point', key: 'opaque'}, 'unit');
+  reading.clear();
+  reading.destroy();
   return view;
 };
 const graph = compileGraph(parseDocument('- [C] Claim.'));

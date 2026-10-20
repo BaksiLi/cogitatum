@@ -443,7 +443,10 @@ Read the whole subtree from AST: literal children do not receive separate Explai
 This also applies to a malformed reserved note, which retains its error and literal boundary.
 Direct notes in linked have `linkedMember` function `supplementary` and `eligible: false`.
 
-The `implicitAttachment` Explain effect records the successful typed `target`, its canonical `targetSpan` when available, the LOCAL selected `contextSpan` and ordered `crossedBodySpans`.
+Every successfully emitted structural Bearing has an `implicitAttachment` Explain effect recording the typed `target`, its canonical `targetSpan` when available, the selected occurrence's `contextSpan` and ordered `crossedBodySpans`.
+`crossedBodySpans` is empty for direct attachment; only a nonempty list produces the advisory diagnostic.
+This covers ordinary containment, Linked and local Bearing selectors, including selection through a Point or Bearing use.
+Explicit clauses and rejected Bearings do not receive this effect.
 The entry span identifies the responsible source occurrence.
 For a reused target, its remote declaration span and local context span may differ; neither substitutes for the other.
 Unavailable target spans are omitted, never manufactured.
@@ -562,6 +565,11 @@ One span therefore need not select only one entity; inspect the typed emission r
 Point and Bearing occurrence spans map through focusPoint or focusBearing to the original entity key; canonical spans stay at declarations/constructions.
 Valid use block text holds the local note separately from shared entity text.
 Address an occurrence by source-unit index and Explain entry index; address its entity by source-unit index and (kind,key), scoped to that compilation.
+Within one compiler-produced source unit, each nonliteral AST block has exactly one Explain entry with the same full `sourceSpan`, in AST preorder.
+A note header has an entry; its literal descendants do not.
+An entry's span covers its own source line, not its subtree.
+Join AST and Explain only within that unit and compilation; neither spans, entry indexes nor generated keys identify an occurrence after editing.
+Retain the original source to display host prose, blank lines and malformed lines that are absent from the selected AST.
 Several occurrences may match one entity; return their distinct locations instead of silently choosing a single span.
 Optional missing canonical spans do not justify inventing source positions or extracting narrative from Graph IR.
 An occurrence can both focus a Point and emit an attached Bearing; neither operation creates a GraphIR occurrence entity.

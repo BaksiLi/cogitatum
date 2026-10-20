@@ -2,7 +2,7 @@
   "name": "@cogitatum/view",
   "private": true,
   "version": "0.5.0",
-  "description": "Source-linked SVG rendering of Cogitatum Points and Bearings.",
+  "description": "Source-aware Map and Reading views of Cogitatum Points and Bearings.",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

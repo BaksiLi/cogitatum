@@ -4,7 +4,7 @@ import type { AstBlock, GraphCompilation } from "./types.js";
 
 const compile = (source: string) => compileGraphWithExplain(parseDocument(source));
 const advice = (result: GraphCompilation) => result.graph.diagnostics.filter(diagnostic => diagnostic.code === "IMPLICIT_ATTACHMENT_THROUGH_BODY");
-const selections = (result: GraphCompilation) => result.explain.entries.flatMap(entry => entry.effects.filter(effect => effect.kind === "implicitAttachment").map(effect => ({ line: entry.sourceSpan.startLine, ...effect })));
+const throughBodySelections = (result: GraphCompilation) => result.explain.entries.flatMap(entry => entry.effects.filter(effect => effect.kind === "implicitAttachment" && effect.crossedBodySpans.length > 0).map(effect => ({ line: entry.sourceSpan.startLine, ...effect })));
 
 describe("advice from actual implicit selection", () => {
   it.each([["C", "G", "supports"], ["C", "O", "challenges"], ["C", "?", "about"], ["C", "D", "clarifies"], ["Q", "C", "answers"], ["O", "R", "repliesTo"]])("reports %s > body > %s as %s", (parent, child, kind) => {
@@ -12,7 +12,7 @@ describe("advice from actual implicit selection", () => {
     const result = compileGraphWithExplain(ast);
     expect(result.graph.bearings[0].kind).toBe(kind);
     expect(advice(result)).toEqual([expect.objectContaining({ severity: "suggestion", sourceSpan: ast.blocks[0].children[0].children[0].children[0].sourceSpan, message: expect.stringContaining("@target") })]);
-    expect(selections(result)).toEqual([{ line: 4, kind: "implicitAttachment", target: { kind: "point", key: "_p1" }, targetSpan: ast.blocks[0].sourceSpan, contextSpan: ast.blocks[0].sourceSpan, crossedBodySpans: [ast.blocks[0].children[0].sourceSpan, ast.blocks[0].children[0].children[0].sourceSpan] }]);
+    expect(throughBodySelections(result)).toEqual([{ line: 4, kind: "implicitAttachment", target: { kind: "point", key: "_p1" }, targetSpan: ast.blocks[0].sourceSpan, contextSpan: ast.blocks[0].sourceSpan, crossedBodySpans: [ast.blocks[0].children[0].sourceSpan, ast.blocks[0].children[0].children[0].sourceSpan] }]);
     const withoutBody = structuredClone(ast);
     const unwrap = (blocks: AstBlock[]): AstBlock[] => blocks.flatMap(block => block.annotation ? [{ ...block, children: unwrap(block.children) }] : unwrap(block.children));
     withoutBody.blocks = unwrap(withoutBody.blocks);
@@ -25,7 +25,7 @@ describe("advice from actual implicit selection", () => {
   it("distinguishes a reused Point's canonical span from its local selected context", () => {
     const ast = parseDocument("- [Q @topic] Original inquiry.\n- [Q use @topic] Local occurrence.\n  - Commentary\n    - [C] Answer.\n      - [G] Inner reason.");
     const result = compileGraphWithExplain(ast);
-    expect(selections(result)).toEqual([{ line: 4, kind: "implicitAttachment", target: { kind: "point", key: "_p1" }, targetSpan: ast.blocks[0].sourceSpan, contextSpan: ast.blocks[1].sourceSpan, crossedBodySpans: [ast.blocks[1].children[0].sourceSpan] }]);
+    expect(throughBodySelections(result)).toEqual([{ line: 4, kind: "implicitAttachment", target: { kind: "point", key: "_p1" }, targetSpan: ast.blocks[0].sourceSpan, contextSpan: ast.blocks[1].sourceSpan, crossedBodySpans: [ast.blocks[1].children[0].sourceSpan] }]);
     expect(result.graph.bearings.map(bearing => bearing.kind)).toEqual(["answers", "supports"]);
   });
 
@@ -33,7 +33,7 @@ describe("advice from actual implicit selection", () => {
     const children = "\n  - Reconstruction\n    - [C @reconstruction] Reconstructed answer.\n      - [G] Reason.\n  - Independent assessment\n    - [C @assessment] Our assessment.\n      - [O] Concern.";
     expect(advice(compile("- Reading" + children))).toEqual([]);
     const result = compile("- [Q @inquiry] Reading" + children);
-    expect(selections(result).map(effect => effect.line)).toEqual([3, 6]);
+    expect(throughBodySelections(result).map(effect => effect.line)).toEqual([3, 6]);
     expect(advice(result).every(diagnostic => diagnostic.message.includes("answers selects @inquiry"))).toBe(true);
     expect(result.graph.bearings.map(bearing => bearing.kind)).toEqual(["answers", "supports", "answers", "challenges"]);
   });
@@ -42,9 +42,9 @@ describe("advice from actual implicit selection", () => {
     const result = compile("- [C @c] Claim.\n  - Group\n    - [linked; @route]\n      - [note] Literal\n      - [G @g] Ground.\n      - Commentary\n        - [O/] Rejected linked body member.");
     expect(advice(result)).toEqual([]);
     const valid = compile("- [C @c] Claim.\n  - Group\n    - [linked; @route]\n      - [note] Detail.\n      - [G @g] Ground.\n        - Text\n          - [G/] Ground has no attachment.\n- [_ use @route]\n  - Commentary\n    - [O/] Route concern.\n- [_ use @route]\n  - [O/] Direct concern.");
-    expect(selections(valid).map(effect => [effect.line, effect.target.kind])).toEqual([[3, "point"], [10, "bearing"]]);
+    expect(throughBodySelections(valid).map(effect => [effect.line, effect.target.kind])).toEqual([[3, "point"], [10, "bearing"]]);
     expect(valid.graph.bearings.map(bearing => bearing.kind)).toEqual(["supports", "challenges", "challenges"]);
-    const selected = selections(valid)[1];
+    const selected = throughBodySelections(valid)[1];
     expect(selected.targetSpan?.startLine).toBe(3);
     expect(selected.contextSpan.startLine).toBe(8);
   });
@@ -52,7 +52,7 @@ describe("advice from actual implicit selection", () => {
   it("uses the actual span for an anonymous selected Bearing", () => {
     const result = compile("- [C] Claim.\n  - [G] Reason.\n    - Prose\n      - [G/] Extra support for this inference.");
     expect(advice(result)[0].message).toContain("bearing at 2:5–2:16");
-    expect(selections(result)[0].target).toEqual({ kind: "bearing", key: "_b1" });
+    expect(throughBodySelections(result)[0].target).toEqual({ kind: "bearing", key: "_b1" });
   });
 
   it.each([
@@ -74,7 +74,7 @@ describe("advice from actual implicit selection", () => {
     const fence = String.fromCharCode(96).repeat(3);
     const result = explainSource("Host 😀\n  " + fence + "cog\n  - [Q] 問題😀\n    - 第一段😀\n      - 第二段\n        - [C] 回答😀\n  " + fence, "host");
     const graph = result.graphs[0], explain = result.explanations[0];
-    const selection = selections({ graph, explain })[0];
+    const selection = throughBodySelections({ graph, explain })[0];
     expect(selection).toMatchObject({ line: 6, targetSpan: { startLine: 3, startColumn: 5, endLine: 3, endColumn: 13 }, contextSpan: graph.points[0].sourceSpan, crossedBodySpans: [{ startLine: 4, startColumn: 7, endLine: 4, endColumn: 12 }, { startLine: 5, startColumn: 9, endLine: 5, endColumn: 12 }] });
     expect(advice({ graph, explain })[0]).toMatchObject({ sourceSpan: graph.points[1].sourceSpan, message: expect.stringContaining("point at 3:5–3:13") });
   });
@@ -92,7 +92,7 @@ describe("advice from actual implicit selection", () => {
   ])("does not invent successful advice for %s", source => {
     const result = compile(source);
     expect(advice(result)).toEqual([]);
-    expect(selections(result)).toEqual([]);
+    expect(throughBodySelections(result)).toEqual([]);
   });
 
   // Each suggested spelling already exists; following it must keep the same

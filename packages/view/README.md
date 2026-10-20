@@ -1,6 +1,8 @@
 # @cogitatum/view
 
-Experimental, framework-neutral SVG rendering of compiler-produced Cogitatum Graph IR. No source parsing, inference, application state or persistence. Currently available from this checkout, not the published Core/CLI release.
+Experimental, framework-neutral Map and Reading views of compiler-produced Cogitatum structure.
+Core owns parsing and relation semantics; View owns presentation and temporary selection.
+Currently available from this checkout, not the published Core/CLI release.
 
 ```ts
 import { createGraphView } from '@cogitatum/view';
@@ -32,4 +34,74 @@ Mount once in a React effect, call `update` for each compiled revision, and retu
 
 `marks` is the shared vocabulary for every surface: `POINT_MARKS`, `BEARING_MARKS`, `pointMark(label)`, `declarationMark(point.declaration)` and `bearingMark(kind)` give canonical names (docs/glossary.md), auxiliary Chinese readings, glyph shapes and kind symbols; `drawPointGlyph`, `drawBearingGlyph`, `createMarkChip` and `createBearingChip` draw the same glyphs for host chips and lists; `MARK_TYPE` is the type scale. Display names follow the glossary: the `Material` key, matching Graph IR `declaration.form: "material"`, displays as Neutral Point (中性點); keys, label unions and shapes are unchanged identifiers. Shape carries meaning (filled Point, dashed ring for Gap, square for Neutral Point); colour only distinguishes authored support from objection and never judges correctness. `layoutFlow`, `relaxLayout` and `layoutGraphSettled` are the pure layouts the view uses.
 
-CSS is scoped to `.cog-graph` and `.cog-chip`, themed only through `--cog-ink`, `--cog-surface`, `--cog-canvas`, `--cog-muted`, `--cog-line`, `--cog-focus`, `--cog-support` and `--cog-objection` (`--cog-bearing-surface` and `--cog-accent` are no longer read). The host controls container size, full-text/evidence UI and diagnostics. This is a small renderer for inquiry fragments, not a graph editor or a large-workspace layout engine.
+Map CSS is scoped to `.cog-graph` and `.cog-chip`, themed only through `--cog-ink`, `--cog-surface`, `--cog-canvas`, `--cog-muted`, `--cog-line`, `--cog-focus`, `--cog-support` and `--cog-objection` (`--cog-bearing-surface` and `--cog-accent` are no longer read). The host controls container size, full-text/evidence UI and diagnostics. This is a small renderer for inquiry fragments, not a graph editor or a large-workspace layout engine.
+
+
+## Reading
+
+Reading presents the original source in order, with connections at the occurrences where they are used.
+Supply the complete original string and its `explainSource` result from the **same revision**:
+
+```ts
+import { explainSource } from '@cogitatum/core';
+import { createReadingView, projectReading } from '@cogitatum/view';
+import '@cogitatum/view/style.css';
+
+const reading = createReadingView(container, {
+  onSelect(selection) { showOccurrence(selection.unitIndex, selection.sourceSpan, selection.ref); },
+  onClear() { clearDetails(); },
+  onNavigate(selection) { openSource(selection.sourceSpan); }
+});
+const projection = projectReading(originalSource, explainSource(originalSource, 'host'));
+reading.update(projection);
+// After an edit, recompile and project the entire input again.
+// On unmount:
+reading.destroy();
+```
+
+`projectReading` is a pure projection, with no DOM access or additional parsing.
+It retains every source line, including blank lines, host prose, fences, literal note descendants and malformed lines, alongside the original string.
+Occurrences expose their local text, recognition, diagnostics and typed `declares`, `uses` or `constructs` references.
+A rejected summary never becomes a selectable graph identity.
+Every compiler diagnostic remains available even when it belongs to an omitted host region.
+Source and compiler mismatches detectable from the supplied evidence throw; this is not a revision authentication mechanism.
+The host must pair the exact input and output, including host text outside selected units.
+
+For an implicit target, the endpoint is the occurrence identified by Core's `implicitAttachment.contextSpan`.
+For an explicit target or source operand, it is the canonical declaration/construction.
+Joint sources use their own Linked member occurrences.
+A local Bearing use remains a local row; a target at the Bearing's construction reaches its junction.
+These display locations do not create extra graph entities, independent evidence or inferred relations.
+Repeated names and keys in different source units remain separate.
+
+Rendering uses plain text, without interpreting host or occurrence prose as rich Markdown or HTML.
+The complete `raw` line and original source remain in the projection and raw lines are available on occurrence tooltips.
+The reading surface presents prose with authored names; a separate reference line quotes shared Point/Bearing content without replacing local wording.
+Rejected lines retain their annotation for inspection.
+Ordinary structural arcs are faint until selected, and reference-free prose does not dim the document on hover.
+This is a reading surface, not a source editor, Markdown renderer or reconstruction of prose from Graph IR.
+There is no drag-to-edit or source-writing operation.
+
+`select(ref, unitIndex = 0)` and `clear()` are silent programmatic operations.
+User selection invokes `onSelect` with `{ unitIndex, occurrenceId, sourceSpan, ref? }`; a body or note occurrence may have no graph ref.
+`onNavigate` receives the same shape.
+Up/Down and Home/End move through occurrences in source order; Left/Right choose among the Point and Bearing references at one occurrence.
+Space selects, Enter or double-click navigates to source, and Escape clears.
+Hover/focus guides the same immediate neighborhood as Map; it does not infer a chain or hide the remaining source.
+An occurrence ID, unit index and typed key address only the current projection.
+`update` clears occurrence selection and calls `onClear`; it never carries a local occurrence across edits by line number or generated key.
+Call `update` on Reading before updating the Map if the host then wants to restore a named Map selection.
+
+For synchronization, let the host track the active unit.
+Reading's `onSelect` can call `map.select(selection.ref)` after choosing that unit's graph under a callback guard; Map's `onSelect` can call `reading.select(node.ref, activeUnit)`.
+If the same ref returns from Map, Reading keeps the selected local occurrence instead of jumping to its declaration.
+Map's programmatic `clear` emits `onClear`, whereas Reading's is silent; connect Map's `onClear` to `reading.clear`, and Reading's user/update `onClear` to `map.clear`.
+While switching units, guard Map's `update` callbacks so its synchronous `onClear` cannot erase the just-selected Reading occurrence.
+For a Reading selection without a ref, guard Map's `clear` callback for the same reason.
+No shared global selection store is required.
+
+Each instance owns its DOM, resize observation and event listeners.
+`destroy()` removes only that instance, cancels pending rendering and releases listeners.
+Importing the module on a server is safe; creating a view requires a browser DOM.
+Reading styles are scoped to `.cog-reading` and use the same `--cog-*` theme properties and shared glyphs as Map.
+The host controls available width, surrounding scrolling, active-unit Map state and source navigation.

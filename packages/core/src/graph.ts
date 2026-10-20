@@ -319,8 +319,8 @@ function compileBlock(
     });
   }
 
-  if (producedBearing?.derivedBy === "structural" && context?.crossedBodySpans?.length) {
-    draft.implicit = { contextSpan: context.block.sourceSpan, crossedBodySpans: context.crossedBodySpans };
+  if (producedBearing?.derivedBy === "structural" && context) {
+    draft.implicit = { contextSpan: context.block.sourceSpan, crossedBodySpans: context.crossedBodySpans ?? [] };
   }
   const childContext: Context =
     annotation.kind === "edge"
@@ -378,7 +378,7 @@ function compileLinked(
     bearing.key = `_b${bearings.length + 1}`;
     bearings.push(bearing);
     draft.bearing = { outcome: "candidate", candidate: bearing, reason: "linked-containment" };
-    if (context?.crossedBodySpans?.length) draft.implicit = { contextSpan: context.block.sourceSpan, crossedBodySpans: context.crossedBodySpans };
+    if (context) draft.implicit = { contextSpan: context.block.sourceSpan, crossedBodySpans: context.crossedBodySpans ?? [] };
     attachment = bearing;
   } else {
     draft.bearing = { outcome: "rejected", reason: "invalid-linked" };
@@ -780,7 +780,7 @@ function buildExplainEntries(
             contextSpan: { ...draft.implicit.contextSpan },
             crossedBodySpans: draft.implicit.crossedBodySpans.map(span => ({ ...span }))
           });
-          diagnostics.push({
+          if (draft.implicit.crossedBodySpans.length) diagnostics.push({
             severity: "suggestion",
             code: "IMPLICIT_ATTACHMENT_THROUGH_BODY",
             message: "Implicit " + canonical.kind + " selects " + targetLabel + " through ordinary body at " + draft.implicit.crossedBodySpans.map(spanLabel).join(", ") + ".",

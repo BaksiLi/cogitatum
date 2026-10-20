@@ -7,6 +7,13 @@ Use the complete released schema set and [migrate retained source](docs/syntax.m
 
 ## 0.5.0 (unreleased)
 
+- Add source-aware Reading to the private View package, retaining every original line and distinguishing entity declarations, local uses and Bearing constructions.
+  Join source, AST, Explain and Graph IR from one compilation; derive local endpoints from compiler evidence instead of guessing from indentation.
+  Share Map's marks, first-class Bearing topology and neighborhood guidance, with silent programmatic Reading selection for host-owned synchronization.
+- Record the selected occurrence for every successful structural Bearing in Explain's `implicitAttachment`, including direct containment with an empty `crossedBodySpans`.
+  Only crossings of ordinary body produce the existing advisory; explicit and rejected relations do not acquire implicit-selection evidence.
+  Formalize the per-unit AST / Explain occurrence correspondence for the unpublished 0.5 contract.
+
 - **Breaking:** unify canonical negative relations as `challenges`, with Point or Bearing targets.
   Preserve authored `->` and `/>` constraints in AST `operatorClause.targetKind` through validation.
   Named `challenges` accepts either target; named `undercuts` is retired with an error and migration guidance to `/>`.
