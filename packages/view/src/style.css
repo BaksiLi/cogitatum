@@ -68,7 +68,9 @@
 .cog-reading-lines { list-style: none; margin: 0; padding: 0 0 0 var(--cog-reading-rail); }
 .cog-reading-row { display: grid; grid-template-columns: 2.2em 1.9em minmax(0, 1fr); align-items: start; padding: 3px 10px 3px 0; position: relative; border-radius: 0 4px 4px 0; transition: opacity 200ms ease, background-color 200ms ease; }
 /* Fade only on first appearance. Moving rows would invalidate measured connector positions. */
-.cog-reading[data-entering="true"] .cog-reading-row { animation: cog-reading-enter 480ms cubic-bezier(.2, .7, .2, 1) both; animation-delay: min(calc(var(--cog-reading-order, 0) * 22ms), 420ms); }
+@media (prefers-reduced-motion: no-preference) {
+  .cog-reading[data-entering="true"] .cog-reading-row { animation: cog-reading-enter 480ms cubic-bezier(.2, .7, .2, 1) both; animation-delay: min(calc(var(--cog-reading-order, 0) * 22ms), 420ms); }
+}
 @keyframes cog-reading-enter { from { opacity: 0; } }
 .cog-reading-number { font: 10.5px/27.5px ui-monospace, "SF Mono", Menlo, monospace; font-variant-numeric: tabular-nums; color: var(--cog-muted-resolved); opacity: .5; text-align: right; padding-right: .7em; user-select: none; }
 .cog-reading-mark { height: 27.5px; display: flex; align-items: center; justify-content: center; }
@@ -113,4 +115,4 @@
 .cog-reading[data-compact="true"] .cog-reading-row { grid-template-columns: 1.6em 1.5em minmax(0, 1fr); }
 .cog-reading[data-compact="true"] .cog-reading-content { padding-left: calc(min(var(--cog-reading-depth, 0), 2) * .9em); }
 .cog-reading[data-compact="true"] .cog-reading-content::before { left: calc(min(var(--cog-reading-depth, 0), 2) * .9em - .45em); }
-@media (prefers-reduced-motion: reduce) { .cog-reading-row { animation: none; transition: none; } }
+@media (prefers-reduced-motion: reduce) { .cog-reading-row { transition: none; } }

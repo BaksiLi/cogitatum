@@ -16,6 +16,7 @@ Use the complete released schema set and [migrate retained source](docs/syntax.m
   Share Map's marks, first-class Bearing topology and neighborhood guidance, with silent programmatic Reading selection for host-owned synchronization.
   Include direct relations targeting a Point's incident Bearings in its focus neighborhood, keeping step challenges visible without recursive expansion.
   Nest margin connectors in compact lanes, retain same-line target loops, and keep first-render animation from shifting measured endpoints.
+  Enable the Reading entrance fade only when the system permits motion, including preference changes after mounting.
 - Record the selected occurrence for every successful structural Bearing in Explain's `implicitAttachment`, including direct containment with an empty `crossedBodySpans`.
   Only crossings of ordinary body produce the existing advisory; explicit and rejected relations do not acquire implicit-selection evidence.
   Formalize the per-unit AST / Explain occurrence correspondence for the unpublished 0.5 contract.
