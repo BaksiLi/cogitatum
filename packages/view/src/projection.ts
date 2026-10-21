@@ -35,11 +35,18 @@ export function projectGraph(graph: GraphIR): GraphProjection {
 
 export type GraphFocus = { nodeIds: string[]; bearingKeys: string[] };
 
-/** Reading assistance only: whole incident Bearings, with no transitive or inferential closure. */
+/** Whole incident Bearings; Point focus also includes their direct incoming relations. No transitive closure. */
 export function focusNeighborhood(projection: GraphProjection, ref?: BearingTarget): GraphFocus {
   const id = ref && referenceKey(ref);
   if (!id || !projection.nodes.some(node => node.id === id)) return { nodeIds: [], bearingKeys: [] };
   const bearings = new Set(projection.links.filter(link => link.source === id || link.target === id).map(link => link.bearingKey));
+  if (ref?.kind === "point") {
+    // Take a snapshot: following a growing set would make depth depend on link order.
+    const incidentIds = new Set([...bearings].map(key => referenceKey({ kind: "bearing", key })));
+    for (const link of projection.links) {
+      if (link.segment === "output" && incidentIds.has(link.target)) bearings.add(link.bearingKey);
+    }
+  }
   const related = new Set([id]);
   for (const link of projection.links) if (bearings.has(link.bearingKey)) { related.add(link.source); related.add(link.target); }
   return {

@@ -14,6 +14,7 @@ Use the complete released schema set and [migrate retained source](docs/syntax.m
 - Add source-aware Reading to the private View package, retaining every original line and distinguishing entity declarations, local uses and Bearing constructions.
   Join source, AST, Explain and Graph IR from one compilation; derive local endpoints from compiler evidence instead of guessing from indentation.
   Share Map's marks, first-class Bearing topology and neighborhood guidance, with silent programmatic Reading selection for host-owned synchronization.
+  Include direct relations targeting a Point's incident Bearings in its focus neighborhood, keeping step challenges visible without recursive expansion.
   Nest margin connectors in compact lanes, retain same-line target loops, and keep first-render animation from shifting measured endpoints.
 - Record the selected occurrence for every successful structural Bearing in Explain's `implicitAttachment`, including direct containment with an empty `crossedBodySpans`.
   Only crossings of ordinary body produce the existing advisory; explicit and rejected relations do not acquire implicit-selection evidence.

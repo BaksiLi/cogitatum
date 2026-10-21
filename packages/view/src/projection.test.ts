@@ -102,3 +102,60 @@ describe("focus neighborhood", () => {
     expect(focusNeighborhood(projection, {kind: 'point', key: 'missing'})).toEqual({nodeIds: [], bearingKeys: []});
   });
 });
+
+
+describe("Point focus includes direct context of its incident Bearings", () => {
+  const graphFor = (lines: string[]) => {
+    const compiled = compileSource(lines.join("\n"), "document");
+    expect(compiled.diagnostics).toEqual([]);
+    return compiled.graphs[0];
+  };
+
+  it.each(["challenges", "supports", "about"])("includes direct Point and step relations for %s", kind => {
+    const graph = graphFor([
+      "- [C @claim] Claim.", "  - [G @reason; @route] Reason.",
+      "- [O @content -> @claim; @content-attack] Content objection.",
+      "- [C @assessment] Assess the route.",
+      `- [_ @assessment ${kind} @route; @step-assessment]`
+    ]);
+    const projection = projectGraph(graph), before = structuredClone(projection);
+    const claim = graph.points.find(point => point.id === "claim")!;
+    expect(focusNeighborhood(projection, { kind: "point", key: claim.key })).toEqual({
+      nodeIds: projection.nodes.map(node => node.id),
+      bearingKeys: graph.bearings.map(bearing => bearing.key)
+    });
+    expect(projection).toEqual(before);
+  });
+
+  it("retains all Linked sources and one level of assessment without following neighbouring Points", () => {
+    const graph = graphFor([
+      "- [C @claim] Claim.", "  - [linked; @route]", "    - [G @a] First premise.", "    - [G @b] Second premise.",
+      "- [O @objection /> @route; @attack] Step objection.",
+      "- [O @reply /> @attack; @counterattack] A further objection.",
+      "- [C @next] Later claim.", "- [_ @claim supports @next; @onward]"
+    ]);
+    const projection = projectGraph(graph);
+    const point = graph.points.find(point => point.id === "a")!;
+    const focus = focusNeighborhood(projection, { kind: "point", key: point.key });
+    expect(focus.bearingKeys).toEqual(graph.bearings.filter(bearing => ["route", "attack"].includes(bearing.handle!)).map(bearing => bearing.key));
+    expect(focus.nodeIds).toEqual(projection.nodes.filter(node => ["claim", "a", "b", "objection", "route", "attack"].includes(node.name!)).map(node => node.id));
+    // Link ordering changes neither membership nor the projection's stable output order.
+    expect(focusNeighborhood({ nodes: projection.nodes, links: [...projection.links].reverse() }, { kind: "point", key: point.key })).toEqual(focus);
+    // Selecting a Bearing still includes only its own endpoints and immediate incoming relations.
+    const route = graph.bearings.find(bearing => bearing.handle === "route")!;
+    expect(focusNeighborhood(projection, { kind: "bearing", key: route.key })).toEqual(focus);
+  });
+
+  it("does not extend through a cycle or through newly included assessments", () => {
+    const graph = graphFor([
+      "- [C @a] First premise.", "- [C @b] Second premise.", "- [C @c] Assessment.", "- [C @d] Further assessment.",
+      "- [_ @a supports @second; @first]", "- [_ @b about @first; @second]",
+      "- [_ @c challenges @first; @assessment]", "- [_ @d about @assessment; @further]"
+    ]);
+    const projection = projectGraph(graph), point = graph.points.find(point => point.id === "a")!;
+    const focus = focusNeighborhood(projection, { kind: "point", key: point.key });
+    expect(focus.bearingKeys).toEqual(graph.bearings.filter(bearing => bearing.handle !== "further").map(bearing => bearing.key));
+    expect(focus.nodeIds).toEqual(projection.nodes.filter(node => !["d", "further"].includes(node.name!)).map(node => node.id));
+    expect(new Set(focus.nodeIds).size).toBe(focus.nodeIds.length);
+  });
+});
