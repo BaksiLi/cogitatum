@@ -31,9 +31,20 @@ function parseRawOutline(
   lineOffset: number,
   columnOffsets: number[]
 ): RawNode[] {
+  // Mapping errors belong to the API caller, not to the author's source.
+  // Reject them before returning coordinates that cannot locate original text.
+  if (!Number.isSafeInteger(lineOffset) || lineOffset < 0) {
+    throw new RangeError("lineOffset must be a nonnegative safe integer.");
+  }
+  if (columnOffsets.some(offset => !Number.isSafeInteger(offset) || offset < 0)) {
+    throw new RangeError("lineColumnOffsets must contain nonnegative safe integers.");
+  }
   const roots: RawNode[] = [];
   const stack: RawNode[] = [];
   const lines = source.replace(/\r\n/g, "\n").split("\n");
+  if (!Number.isSafeInteger(lineOffset + lines.length)) {
+    throw new RangeError("lineOffset places source lines beyond the safe integer range.");
+  }
 
   lines.forEach((rawLine, index) => {
     if (rawLine.trim() === "") {
@@ -41,6 +52,9 @@ function parseRawOutline(
     }
 
     const columnOffset = columnOffsets[index] ?? 0;
+    if (!Number.isSafeInteger(rawLine.length + 1 + columnOffset)) {
+      throw new RangeError(`lineColumnOffsets places source line ${index + 1} beyond the safe integer range.`);
+    }
     const match = /^([ \t]*)-(\s+)(.*)$/.exec(rawLine);
     if (!match) {
       diagnostics.push({

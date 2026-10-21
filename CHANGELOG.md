@@ -24,6 +24,9 @@ Use the complete released schema set and [migrate retained source](docs/syntax.m
   Named `challenges` accepts either target; named `undercuts` is retired with an error and migration guidance to `/>`.
   `CHALLENGE_REQUIRES_BEARING_TARGET` replaces the old undercut-specific target diagnostic.
   Align public AST TypeScript unions with schema target constraints, including Point declarations and uses.
+- Reject invalid or overflowing parser source offsets with `RangeError`, keeping malformed coordinates out of AST, Graph and Explain.
+  Document the public source-mapping options and retain zero defaults for missing offsets.
+- Explain why explicit-target previews decline Linked headers and source members while retaining their existing machine-readable refusal reasons.
 - Propagate failed Bearing targets through their dependents without repeatedly scanning the complete graph.
   Preserve independent relations, valid cycles and the existing diagnostic order.
 - Align Explain's Point-use selector type with AST and schema: only local G and O roles may select a Bearing attachment.

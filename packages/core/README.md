@@ -50,6 +50,13 @@ Pass `host` explicitly for Markdown: actual document-level `cog`/`cogitatum` fen
 Nested active fences are diagnosed and omitted; a host with no active regions returns empty projections without parsing host prose as an outline.
 `auto` is retired and explicit JavaScript uses receive a `TypeError` with migration guidance.
 Keep the original host and pair selected units with AST/Graph/Explain by array index; source spans refer to original one-based UTF-16 positions.
+
+For an already extracted outline, `parseDocument(source, { lineOffset, lineColumnOffsets })` maps spans back to its original location.
+`lineOffset` counts preceding lines; `lineColumnOffsets` counts removed UTF-16 code units for each source line.
+Offsets must be nonnegative safe integers; omitted options and missing per-line entries default to zero.
+Invalid offsets or resulting coordinates beyond JavaScript's safe integer range throw `RangeError` instead of returning malformed spans.
+These are caller errors, separate from source diagnostics.
+
 ESM; Node.js 22.12 or newer for development and CLI use.
 
 Experimental debugging APIs, `compileGraphWithExplain` and `explainSource`, add a compiler trace of recognition, emitted or rejected entities, and diagnostics. This trace explains compilation decisions; it does not assess reasoning or record inquiry history. Use AST and Graph IR for integrations that do not need it.

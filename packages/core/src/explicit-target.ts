@@ -40,6 +40,9 @@ export function previewExplicitTarget(source: string, options: ExplicitTargetOpt
   const unitIndex = before.documents.findIndex(document => findBlock(document.blocks, options.line));
   const block = unitIndex < 0 ? undefined : findBlock(before.documents[unitIndex].blocks, options.line);
   const annotation = block?.annotation;
+  if (annotation?.kind === "linked") {
+    return unavailable("no-attachment", "This linked header constructs one joint Bearing. Making its target explicit requires a separate edit that preserves its source members and their order.");
+  }
   if (!block || !annotation || (annotation.kind !== "role" && annotation.kind !== "gap" && annotation.kind !== "use")) {
     return unavailable("no-attachment", "Select an active Point occurrence with an ordinary implicit attachment.");
   }
@@ -47,7 +50,12 @@ export function previewExplicitTarget(source: string, options: ExplicitTargetOpt
   if ("selector" in annotation && annotation.selector) return unavailable("unsupported-attachment", "Local Bearing selectors require a separate edit; this operation handles ordinary Point attachments only.");
   const entry = before.explanations[unitIndex].entries.find(e => e.sourceSpan.startLine === options.line);
   const emission = entry?.effects.find(effect => effect.kind === "emitBearing");
-  if (!emission || emission.reason !== "annotated-containment") return unavailable("no-attachment", "This occurrence does not construct an ordinary implicit attachment.");
+  if (!emission || emission.reason !== "annotated-containment") {
+    if (entry?.effects.some(effect => effect.kind === "linkedMember" && effect.eligible && effect.function === "source")) {
+      return unavailable("no-attachment", "This Ground contributes to the enclosing joint Bearing. Making the joint target explicit requires a separate edit of the linked construction, preserving its source members and their order.");
+    }
+    return unavailable("no-attachment", "This occurrence does not construct an ordinary implicit attachment.");
+  }
   const relation = emission.bearing;
   if (relation.target.kind !== "point" || (relation.kind !== "supports" && relation.kind !== "challenges" && relation.kind !== "about")) {
     return unavailable("unsupported-attachment", "This relation has no equivalent Point-attached symbolic clause; moving it into an edge is a different operation.");

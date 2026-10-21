@@ -112,6 +112,28 @@ describe("explicit target previews", () => {
     expect(preview).not.toHaveProperty('proposedSource');
   });
 
+  it("explains why a joint target cannot be made explicit by editing a single member", () => {
+    const source = "- [C @claim] Claim.\n  - [linked; @joint] Joint route.\n    - [G @first] First source.\n    - [G @second] Second source.";
+    for (const [line, message] of [[2, "This linked header constructs one joint Bearing."], [3, "This Ground contributes to the enclosing joint Bearing."], [4, "This Ground contributes to the enclosing joint Bearing."]] as const) {
+      const preview = previewExplicitTarget(source, { line });
+      expect(preview).toMatchObject({ status: "unavailable", reason: "no-attachment", message: expect.stringContaining(message) });
+      expect(preview).not.toHaveProperty("edit");
+      expect(preview).not.toHaveProperty("proposedSource");
+    }
+  });
+
+  it("keeps errors, independent clauses, selectors and literal notes ahead of joint-member advice", () => {
+    const source = "- [C @claim] Claim.\n  - [linked; @joint] Joint route.\n    - [G @first] Source.\n    - [G +> @claim] Independent support.\n    - [O/] Review joint.\n    - [note] Literal.\n      - [G] Inert.";
+    expect(previewExplicitTarget(source + "\n- [G +> @missing] Broken.", { line: 2 })).toMatchObject({ reason: "source-errors" });
+    expect(previewExplicitTarget(source, { line: 4 })).toMatchObject({ reason: "already-explicit" });
+    expect(previewExplicitTarget(source, { line: 5 })).toMatchObject({ reason: "unsupported-attachment" });
+    for (const line of [6, 7]) {
+      const preview = previewExplicitTarget(source, { line });
+      expect(preview).toMatchObject({ reason: "no-attachment" });
+      if (preview.status === "unavailable") expect(preview.message).not.toContain("joint");
+    }
+  });
+
   it.each([0, -1, 1.5, NaN, Infinity, Number.MAX_SAFE_INTEGER + 1])('rejects invalid source line %s', line => {
     expect(previewExplicitTarget('- [C] Claim.', { line })).toMatchObject({ status: 'unavailable', reason: 'invalid-line' });
   });

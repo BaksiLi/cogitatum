@@ -104,7 +104,9 @@ export type DocumentAst = {
 };
 
 export type ParseOptions = {
+  /** Lines preceding this source; nonnegative safe integer, default zero. */
   lineOffset?: number;
+  /** UTF-16 columns removed from each line; nonnegative safe integers, missing entries default to zero. */
   lineColumnOffsets?: number[];
 };
 
