@@ -30,7 +30,7 @@ export type GraphView = {
 const NS = "http://www.w3.org/2000/svg";
 const POINT_R = 9, JUNCTION_R = 10, LABEL_K = .6, DRAG_SLOP = 4, MIN_K = .3, MAX_K = 2.2;
 type Camera = { k: number; tx: number; ty: number };
-type Shape = { id: string; node: GraphNode; g: SVGGElement; label?: SVGTextElement; inline: boolean };
+type Shape = { id: string; node: GraphNode; g: SVGGElement; label?: SVGTextElement; labelHit?: SVGRectElement; inline: boolean };
 
 /**
  * Framework-neutral mount/update/destroy lifecycle. Positions live in a world space; the camera maps
@@ -106,9 +106,10 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
       element("circle", { class: "cog-focus-ring", r: isPoint ? "15" : "16" }, g);
       if (isPoint) drawPointGlyph(g, node.label, POINT_R); else drawBearingGlyph(g, node.label, true, JUNCTION_R - 2.5);
       // A junction's name sits beside its diamond, so links may enter it from below without detouring.
+      const labelHit = element("rect", { class: "cog-hit cog-label-hit", width: "0", height: "0", "aria-hidden": "true" }, g);
       const label = element("text", { class: isPoint ? "cog-text" : "cog-label", "text-anchor": isPoint ? "middle" : "start" }, g);
       describe(g, node);
-      shapes.set(node.id, { id: node.id, node, g, label, inline: false });
+      shapes.set(node.id, { id: node.id, node, g, label, labelHit, inline: false });
     }
     for (const [id] of inline) {
       const node = nodeById(id)!;
@@ -275,6 +276,19 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
     for (const shape of shapes.values()) {
       shape.g.setAttribute("aria-pressed", String(shape.id === selected));
       shape.g.setAttribute("tabindex", shape.id === (selected ?? order[0]) ? "0" : "-1");
+    }
+    // Measure after all text and selected font weights are applied. Batch reads before writes
+    // so label hit areas include actual host fonts and line gaps without a layout flush per node.
+    const visible = svg.getClientRects().length > 0;
+    const labelHits = [...shapes.values()].flatMap(shape => shape.labelHit ? [{
+      hit: shape.labelHit,
+      bounds: visible && shape.label!.childNodes.length ? shape.label!.getBBox() : undefined,
+    }] : []);
+    for (const { hit, bounds } of labelHits) {
+      const box = bounds
+        ? { x: bounds.x - 4, y: bounds.y - 4, width: bounds.width + 8, height: bounds.height + 8 }
+        : { x: 0, y: 0, width: 0, height: 0 };
+      for (const [name, value] of Object.entries(box)) hit.setAttribute(name, String(value));
     }
   }
   const schedule = () => { if (!frame && !destroyed) frame = win?.requestAnimationFrame(paint) ?? (paint(), 0); };

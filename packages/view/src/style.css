@@ -40,8 +40,9 @@
 
 .cog-graph .cog-node { cursor: pointer; transition: opacity 160ms ease; }
 .cog-graph .cog-node.point, .cog-graph .cog-junction-node { cursor: grab; }
+.cog-graph[data-dragging] .cog-node { cursor: grabbing; }
 .cog-graph .cog-node:focus { outline: none; }
-.cog-graph .cog-hit { fill: transparent; }
+.cog-graph .cog-hit { fill: transparent; pointer-events: visibleFill; }
 .cog-graph .cog-focus-ring { fill: none; stroke: var(--cog-focus-resolved); stroke-width: 1.5; opacity: 0; }
 .cog-graph .cog-node:focus-visible .cog-focus-ring { opacity: 1; stroke-dasharray: 3 2; }
 .cog-graph .cog-node[aria-pressed="true"] .cog-focus-ring { opacity: 1; stroke-dasharray: none; }

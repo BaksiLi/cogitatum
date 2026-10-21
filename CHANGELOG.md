@@ -8,6 +8,7 @@ Use the complete released schema set and [migrate retained source](docs/syntax.m
 ## 0.5.0 (unreleased)
 
 - Unify the private View package’s Flow and Constellation into one Map: deterministic reading order, direct movement with bounded neighbour adjustment, and reset to automatic placement.
+  Point wording, its line gaps and named Bearing labels share the node’s selection and drag behavior, with measured hit areas that disappear when wording is hidden.
   Remove the pre-release layout selector and duplicate layout algorithms; geometry remains local and never changes source or Bearings.
   Place shared sources among their targets, reserve room for named junctions, fit labels within the viewport, and route links around marks and wording.
 
