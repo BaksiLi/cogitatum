@@ -24,6 +24,10 @@ Use the complete released schema set and [migrate retained source](docs/syntax.m
   Named `challenges` accepts either target; named `undercuts` is retired with an error and migration guidance to `/>`.
   `CHALLENGE_REQUIRES_BEARING_TARGET` replaces the old undercut-specific target diagnostic.
   Align public AST TypeScript unions with schema target constraints, including Point declarations and uses.
+- Propagate failed Bearing targets through their dependents without repeatedly scanning the complete graph.
+  Preserve independent relations, valid cycles and the existing diagnostic order.
+- Align Explain's Point-use selector type with AST and schema: only local G and O roles may select a Bearing attachment.
+  Check both accepted and rejected combinations in the installed package's TypeScript contract.
 - Advance AST, Graph IR, Explain and source envelopes to format 0.5.0 with matching schemas and View marks.
   Recompile original source rather than relabelling 0.4 JSON; consumers distinguish negative targets through `target.kind`.
   See the [migration reference](docs/syntax.md#compatibility-and-migration) and [version policy](README.md#version-policy).

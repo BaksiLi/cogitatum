@@ -398,7 +398,12 @@ function recognitionForBlock(block: AstBlock): ExplainRecognition {
   }
   if (annotation.kind === "invalid") return annotation.selector ? { kind: "invalid", selector: annotation.selector } : { kind: "invalid" };
   if (annotation.kind === "bearingUse") return { kind: "bearingUse", ...(annotation.ref ? { ref: { ...annotation.ref } } : {}) };
-  if (annotation.kind === "use") return { kind: "use", ...(annotation.ref ? { ref: { ...annotation.ref } } : {}), ...(annotation.role ? { role: annotation.role } : {}), ...(annotation.selector ? { selector: annotation.selector } : {}) };
+  if (annotation.kind === "use") {
+    const focus = { kind: "use" as const, ...(annotation.ref ? { ref: { ...annotation.ref } } : {}) };
+    return annotation.selector
+      ? { ...focus, role: annotation.role, selector: annotation.selector }
+      : { ...focus, ...(annotation.role ? { role: annotation.role } : {}) };
+  }
   if (annotation.kind === "gap") {
     return { kind: "gap", status: "open" };
   }
@@ -676,26 +681,40 @@ function validateBearings(
     validity.set(bearing, isValid);
   }
 
-  let changed = true;
-  while (changed) {
-    changed = false;
-    const validBearingKeys = new Set(
-      bearings.filter((bearing) => validity.get(bearing)).map((bearing) => bearing.key)
-    );
-
-    for (const bearing of bearings) {
-      if (!validity.get(bearing) || !("key" in bearing.target) || bearing.target.kind !== "bearing" || validBearingKeys.has(bearing.target.key)) {
-        continue;
-      }
-      diagnostics.push({
-        severity: "error",
-        code: "UNRESOLVED_BEARING_TARGET",
-        message: `Target Bearing ${referenceLabel(bearing.target, symbols)} did not compile into canonical Graph IR.`,
-        sourceSpan: bearing.sourceSpan
-      });
-      validity.set(bearing, false);
-      changed = true;
+  // Follow reverse dependencies once instead of rescanning every Bearing for
+  // each failed link. A valid cycle has no failed seed and remains intact.
+  const dependents = new Map<string, number[]>();
+  const rejected: { index: number; depth: number }[] = [];
+  for (const [index, bearing] of bearings.entries()) {
+    if (!validity.get(bearing)) {
+      rejected.push({ index, depth: 0 });
+    } else if ("key" in bearing.target && bearing.target.kind === "bearing") {
+      const target = bearing.target.key;
+      const entries = dependents.get(target);
+      if (entries) entries.push(index);
+      else dependents.set(target, [index]);
     }
+  }
+  for (let next = 0; next < rejected.length; next += 1) {
+    const { index, depth } = rejected[next];
+    for (const dependent of dependents.get(bearings[index].key) ?? []) {
+      if (!validity.get(bearings[dependent])) continue;
+      validity.set(bearings[dependent], false);
+      rejected.push({ index: dependent, depth: depth + 1 });
+    }
+  }
+  // Retain the existing diagnostic order: successive failure depths, then
+  // construction order within each depth, regardless of dependency traversal.
+  const propagated = rejected.filter(item => item.depth > 0)
+    .sort((a, b) => a.depth - b.depth || a.index - b.index);
+  for (const { index } of propagated) {
+    const bearing = bearings[index];
+    diagnostics.push({
+      severity: "error",
+      code: "UNRESOLVED_BEARING_TARGET",
+      message: `Target Bearing ${referenceLabel(bearing.target, symbols)} did not compile into canonical Graph IR.`,
+      sourceSpan: bearing.sourceSpan
+    });
   }
 
   const accepted = bearings.filter((bearing) => validity.get(bearing));

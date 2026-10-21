@@ -190,7 +190,7 @@ const apiReferences = JSON.parse(run(process.execPath, ["--input-type=module", "
 assert.deepEqual(cliReferences, apiReferences);
 assert.equal(cliReferences.references.status, "complete");
 
-writeFileSync(join(temporary, "consumer.mts"), `import {type Point, type PointDeclaration, type Bearing, type Annotation, type OperatorClause, type ExplainEmittedBearingSummary, type SourceReferenceAnalysis, type ReferencedName, type WrittenReference, type ExplicitTargetPreview, previewExplicitTarget, analyzeSourceReferences, formatGraph, GRAPH_TEXT_VERSION, compileGraph, parseDocument} from '@cogitatum/core';
+writeFileSync(join(temporary, "consumer.mts"), `import {type Point, type PointDeclaration, type Bearing, type Annotation, type OperatorClause, type ExplainEmittedBearingSummary, type ExplainRecognition, type SourceReferenceAnalysis, type ReferencedName, type WrittenReference, type ExplicitTargetPreview, previewExplicitTarget, analyzeSourceReferences, formatGraph, GRAPH_TEXT_VERSION, compileGraph, parseDocument} from '@cogitatum/core';
 import { createGraphView, declarationMark, projectReading, createReadingView, type ReadingProjection } from '@cogitatum/view';
 import { explainSource } from '@cogitatum/core';
 const preview: ExplicitTargetPreview = previewExplicitTarget('- [C @c] Claim.\\n  - [G] Reason.', {line: 2, mode: 'document'});
@@ -337,6 +337,25 @@ const attachedBearingUse: Annotation = {kind: 'bearingUse', ref: {id: 'route'}, 
 // @ts-expect-error Neutral material is a Point variant, not a local role.
 const neutralRole: Annotation = {kind: 'material', role: 'G', raw: '.'};
 const selectorUse: Annotation = {kind: 'use', ref: {id: 'p'}, role: 'O', selector: 'attachment', raw: 'O/ use @p'};
+const neutralRecognition: ExplainRecognition = {kind: 'use', ref: {id: 'p'}};
+const questionRecognition: ExplainRecognition = {kind: 'use', role: 'Q', ref: {id: 'p'}};
+const groundSelectorRecognition: ExplainRecognition = {kind: 'use', role: 'G', selector: 'attachment', ref: {id: 'p'}};
+const objectionSelectorRecognition: ExplainRecognition = {kind: 'use', role: 'O', selector: 'attachment', ref: {id: 'p'}};
+// Rejected uses may retain the role and selector without a resolved operand.
+const unresolvedSelectorRecognition: ExplainRecognition = {kind: 'use', role: 'O', selector: 'attachment'};
+function selectedUseRole(recognition: ExplainRecognition): 'G' | 'O' | undefined {
+  if (recognition.kind === 'use' && recognition.selector) return recognition.role;
+}
+// @ts-expect-error An Explain selector requires its local G or O role.
+const neutralSelectorRecognition: ExplainRecognition = {kind: 'use', ref: {id: 'p'}, selector: 'attachment'};
+// @ts-expect-error A Question occurrence cannot select a local Bearing.
+const questionSelectorRecognition: ExplainRecognition = {kind: 'use', role: 'Q', ref: {id: 'p'}, selector: 'attachment'};
+// @ts-expect-error A Claim occurrence cannot select a local Bearing.
+const claimSelectorRecognition: ExplainRecognition = {kind: 'use', role: 'C', ref: {id: 'p'}, selector: 'attachment'};
+// @ts-expect-error A Reply occurrence cannot select a local Bearing.
+const replySelectorRecognition: ExplainRecognition = {kind: 'use', role: 'R', ref: {id: 'p'}, selector: 'attachment'};
+// @ts-expect-error A Distinction occurrence cannot select a local Bearing.
+const distinctionSelectorRecognition: ExplainRecognition = {kind: 'use', role: 'D', ref: {id: 'p'}, selector: 'attachment'};
 // @ts-expect-error A use operand is not a declaration anchor.
 const aliasedUse: Annotation = {kind: 'use', ref: {id: 'p'}, anchor: 'alias', raw: ''};
 // @ts-expect-error Occurrence status is excluded.

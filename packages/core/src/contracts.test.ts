@@ -169,6 +169,20 @@ describe("public compiler contract boundaries", () => {
     expect(validateExplain(json(result.explain))).toBe(true);
   });
 
+  it.each(["G", "O"])("keeps the %s/ use recognition correlated with its local role", role => {
+    const source = `- [C @claim] Claim.\n  - [G @reason; @route] Reason.\n    - [${role}/ use @reason] Review this step.`;
+    const { explain } = compileGraphWithExplain(parseDocument(source));
+    const recognition = explain.entries[2].recognition;
+    expect(recognition).toEqual({ kind: "use", ref: { id: "reason" }, role, selector: "attachment" });
+    expect(explain.diagnostics).toEqual([]);
+    expect(validateExplain(json(explain)), JSON.stringify(validateExplain.errors)).toBe(true);
+    for (const invalidRole of [undefined, "Q", "C", "R", "D"]) {
+      const invalid = json(explain);
+      invalid.entries[2].recognition.role = invalidRole;
+      expect(validateExplain(json(invalid)), String(invalidRole)).toBe(false);
+    }
+  });
+
   it("validates failed Point annotations as retained source boundaries", () => {
     const ast = parseDocument("- [C @outer] Outer.\n  - [O?] Invalid.\n    - [G] Valid child.");
     const { graph, explain } = compileGraphWithExplain(ast);

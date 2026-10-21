@@ -58,6 +58,12 @@ type RoleMark =
   | { role: "G" | "O"; status?: never; selector: "attachment"; operatorClause?: never }
   | { role: Role; status?: never; selector?: never };
 
+// A reused Point has its own local role; only G/ and O/ select an attachment.
+// AST and Explain must retain the same role/selector correlation.
+type PointUseMark =
+  | { role?: Role; selector?: never }
+  | { role: "G" | "O"; selector: "attachment"; operatorClause?: never };
+
 type PointAnnotationBase = AnnotationBase & {
   anchor?: string;
   operatorClause?: PointOperatorClause;
@@ -71,10 +77,7 @@ export type Annotation =
       kind: "use";
       ref?: Ref;
       operatorClause?: PointOperatorClause;
-    } & (
-      | { role?: Role; selector?: never }
-      | { role: "G" | "O"; selector: "attachment"; operatorClause?: never }
-    ))
+    } & PointUseMark)
   | (PointAnnotationBase & RoleMark & { kind: "role" })
   | (PointAnnotationBase & { kind: "gap"; status: "open" })
   | (PointAnnotationBase & { kind: "material" })
@@ -183,7 +186,7 @@ export type ExplainRecognition =
   | { kind: "edge" }
   | { kind: "linked" }
   | { kind: "bearingUse"; ref?: Ref }
-  | { kind: "use"; ref?: Ref; role?: Role; selector?: "attachment" };
+  | ({ kind: "use"; ref?: Ref } & PointUseMark);
 
 export type ExplainBearingRef = {
   kind: "bearing";
