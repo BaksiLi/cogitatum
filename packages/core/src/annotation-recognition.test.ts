@@ -74,7 +74,7 @@ describe("annotation recognition boundaries", () => {
     expect(message(graph, "MALFORMED_EXPLICIT_BEARING")).toBe(`Separate an operator from its neighbours with spaces, as in ${spaced}.`);
     // The occurrence keeps its Point or focus; its child attaches to it, never past it.
     expect(graph.bearings.map(bearing => bearing.kind)).toEqual(["supports"]);
-    expect(graph.bearings.every(bearing => bearing.kind !== "challenges" && bearing.kind !== "undercuts")).toBe(true);
+    expect(graph.bearings.every(bearing => bearing.kind !== "challenges")).toBe(true);
   });
 
   it("ends a name at a glued operator, since > cannot occur in a name", () => {
@@ -141,6 +141,7 @@ describe("actionable parser messages", () => {
 
   it.each([
     ["- [G @x supports @c]", "MALFORMED_ROLE_ANNOTATION", "on a Point write the operator: [G @x +> @c]."],
+    ["- [O challenges @x]", "MALFORMED_ROLE_ANNOTATION", "use -> @x for a Point or /> @x for a Bearing"],
     ["- [R repliesTo @o]", "MALFORMED_ROLE_ANNOTATION", "repliesTo has no Point-attached form. Declare [R @name] and connect it with [_ @name repliesTo @o]"],
     ["- [O use @p repliesTo @o]", "MALFORMED_POINT_USE", "Connect the existing Point with [_ @p repliesTo @o]"],
     ["- [G @a, @b +> @c]", "MALFORMED_ROLE_BEARING", "write joint sources in an edge: [_ @a, @b +> @c]."],
@@ -169,7 +170,7 @@ describe("actionable parser messages", () => {
     }
   });
 
-  it.each([["O", "undercuts"], ["G", "supports"]])("keeps the %s/ selector in the suggested reuse and its typed endpoint", (role, kind) => {
+  it.each([["O", "challenges"], ["G", "supports"]])("keeps the %s/ selector in the suggested reuse and its typed endpoint", (role, kind) => {
     const prefix = "- [C @p] Shared.\n- [C @c] Claim.\n  - [G @g; @step] Ground.\n";
     const duplicate = compileGraph(parseDocument(prefix + `    - [${role}/ @p] Assess the step.`));
     const reuse = `[${role}/ use @p]`;

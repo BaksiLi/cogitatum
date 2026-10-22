@@ -741,20 +741,20 @@ describe("Cogitatum language contracts", () => {
           target: pointRef(graph, "claim")
         }),
         expect.objectContaining({
-          kind: "undercuts",
+          kind: "challenges",
           sources: [pointRef(graph, "explicit-objection")],
           target: bearingRef(graph, "route")
         })
       ]);
       expect(graph.points.some((point) => point.id === "implicit-objection")).toBe(true);
-      expect(graph.bearings.some((bearing) => bearing.kind === "challenges")).toBe(false);
+      expect(graph.bearings.some((bearing) => bearing.kind === "challenges" && bearing.target.kind === "point")).toBe(false);
       expect(graph.diagnostics).toEqual([
         expect.objectContaining({ code: "EDGE_DESCENDANT_REQUIRES_EXPLICIT_TARGET" })
       ]);
     }
   });
 
-  it("distinguishes challenges to Points from undercuts of Bearings", () => {
+  it("distinguishes challenges to Points from challenges to Bearings", () => {
     const graph = compileGraph(parseDocument(fixture("diagnostics/pressure-target-kind.cog.md")));
 
     expect(graph.points.map((point) => point.id)).toEqual([
@@ -767,7 +767,7 @@ describe("Cogitatum language contracts", () => {
       expect.objectContaining({ handle: "route", kind: "supports", target: pointRef(graph, "claim") })
     ]);
     expect(graph.diagnostics).toEqual([
-      expect.objectContaining({ code: "UNDERCUT_REQUIRES_BEARING_TARGET" }),
+      expect.objectContaining({ code: "CHALLENGE_REQUIRES_BEARING_TARGET" }),
       expect.objectContaining({ code: "CHALLENGE_REQUIRES_POINT_TARGET" })
     ]);
   });
@@ -874,10 +874,10 @@ describe("Cogitatum language contracts", () => {
       { kind: "supports", handle: undefined, sources: [1], target: point(3) },
       // An O beneath the use challenges the shared observation; O/ assesses only the new step.
       { kind: "challenges", handle: undefined, sources: [4], target: point(1) },
-      { kind: "undercuts", handle: undefined, sources: [5], target: bearing(2) },
+      { kind: "challenges", handle: undefined, sources: [5], target: bearing(2) },
       { kind: "repliesTo", handle: undefined, sources: [6], target: point(5) },
       // A Bearing use selects the report's own step without constructing another relation.
-      { kind: "undercuts", handle: undefined, sources: [7], target: bearing(0) }
+      { kind: "challenges", handle: undefined, sources: [7], target: bearing(0) }
     ]);
 
     const flatten = (blocks: AstBlock[]): AstBlock[] => blocks.flatMap((block) => [block, ...flatten(block.children)]);
@@ -933,11 +933,11 @@ describe("Cogitatum language contracts", () => {
       ["supports", "survival-step", [0, 5], "point", 4],
       // Our objections: plain O on premise content, O/ on the reused route only.
       ["challenges", undefined, [6], "point", 1],
-      ["undercuts", undefined, [7], "bearing", 1],
+      ["challenges", undefined, [7], "bearing", 1],
       ["challenges", undefined, [8], "point", 5],
       // The added step is ours; its objection targets that step, not the survival Point.
       ["supports", "stronger-step", [4], "point", 9],
-      ["undercuts", undefined, [10], "bearing", 6]
+      ["challenges", undefined, [10], "bearing", 6]
     ]);
     expect(graph.bearings.map((item) => item.text)).toEqual(["The argument from opposites.", ...Array(7).fill(undefined)]);
 
@@ -980,8 +980,8 @@ describe("Cogitatum language contracts", () => {
       "Switching kills fewer people than doing nothing.",
       "When all other morally relevant considerations are equal, we should choose the action that kills fewer people."
     ]);
-    expect(graph.bearings.find((bearing) => bearing.kind === "undercuts")?.target).toEqual({ kind: "bearing", key: route.key });
-    expect(graph.bearings.some((bearing) => bearing.kind === "challenges")).toBe(false);
+    expect(graph.bearings.find((bearing) => bearing.kind === "challenges")?.target).toEqual({ kind: "bearing", key: route.key });
+    expect(graph.bearings.some((bearing) => bearing.kind === "challenges" && bearing.target.kind === "point")).toBe(false);
   });
 
   it("supports naming neither, the Point, the Bearing, or both", () => {
@@ -994,7 +994,7 @@ describe("Cogitatum language contracts", () => {
     expect(graph.bearings).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          kind: "undercuts",
+          kind: "challenges",
           target: bearingRef(graph, "route")
         }),
         expect.objectContaining({
@@ -1038,7 +1038,7 @@ describe("Cogitatum language contracts", () => {
         target: pointRef(graph, "claim")
       }),
       expect.objectContaining({
-        kind: "undercuts",
+        kind: "challenges",
         sources: [{ key: objection?.key, kind: "point" }],
         target: bearingRef(graph, "route")
       })
@@ -1087,7 +1087,7 @@ describe("Cogitatum language contracts", () => {
           target: pointRef(graph, "claim")
         }),
         expect.objectContaining({
-          kind: "undercuts",
+          kind: "challenges",
           sources: [{ key: "_p4", kind: "point" }],
           target: bearingRef(graph, "route"),
           derivedBy: "operator"
@@ -1657,7 +1657,7 @@ describe("Cogitatum language contracts", () => {
     const aboutBearingGraph = jsonValue(
       compileGraph(parseDocument(fixture("core/gap-about-bearing.cog.md")))
     );
-    const undercut = undercutGraph.bearings.find((bearing) => bearing.kind === "undercuts");
+    const undercut = undercutGraph.bearings.find((bearing) => bearing.kind === "challenges" && bearing.target.kind === "bearing");
 
     if (!undercut) {
       throw new Error("Expected pressure Bearings in schema fixtures.");
@@ -1677,8 +1677,8 @@ describe("Cogitatum language contracts", () => {
 
     (undercut.target as { kind: string }).kind = "point";
 
-    expect(validateGraph(undercutGraph)).toBe(false);
-    for (const kind of ["challenges", "answers", "repliesTo", "clarifies"] as const) {
+    expect(validateGraph(undercutGraph)).toBe(true);
+    for (const kind of ["answers", "repliesTo", "clarifies"] as const) {
       const invalid = jsonValue(pointTargetGraph);
       const bearing = invalid.bearings.find((candidate) => candidate.kind === kind);
       if (!bearing) {

@@ -71,7 +71,7 @@ assert.equal(host.graphs[0].points[0].sourceSpan.startLine, 8);
 assert.deepEqual(host.diagnostics, []);
 const local = compileGraphWithExplain(parseDocument('- [C @claim] Claim.\\n  - [G; @step] Ground.\\n    - [O/] Assessment.'));
 assert.deepEqual(local.graph.diagnostics, []);
-assert.equal(local.graph.bearings[1].kind, 'undercuts');
+assert.equal(local.graph.bearings[1].kind, 'challenges');
 const reuse = compileGraphWithExplain(parseDocument('- [C @premise] Original.\\n- [C @claim] Claim.\\n  - [G use @premise; @step] Local prose.\\n    - [O/ use @premise] Reuse as objection.'));
 assert.deepEqual(reuse.graph.diagnostics, []);
 assert.equal(reuse.graph.points.length, 2);
@@ -102,6 +102,11 @@ assert.ok(notes.explain.entries[3].effects.some(effect => effect.kind === 'impli
 const retired = compileGraph(parseDocument('- [C? @old] Retired.'));
 assert.deepEqual(retired.points, []);
 assert.equal(retired.diagnostics[0].code, 'RETIRED_CLAIM_OPENNESS');
+const retiredKind = compileGraphWithExplain(parseDocument('- [C @claim] Claim.\\n- [G @reason] Reason.\\n- [edge @reason +> @claim; @route]\\n- [edge @reason undercuts @route; @failed]\\n  - [O/] No fallback.'));
+assert.deepEqual(retiredKind.graph.bearings.map(bearing => bearing.handle), ['route']);
+assert.ok(retiredKind.graph.diagnostics.some(diagnostic => diagnostic.code === 'RETIRED_BEARING_KIND'));
+assert.ok(retiredKind.graph.diagnostics.some(diagnostic => diagnostic.code === 'NO_LOCAL_BEARING_ATTACHMENT'));
+assert.equal(retiredKind.explain.entries[3].recognition.kind, 'edge');
 const malformedUse = parseDocument('- [use] Missing operand.');
 assert.deepEqual(malformedUse.blocks[0].annotation.syntaxErrors, ['reference', 'retired']);
 const layout = compileGraphWithExplain(parseDocument('-    [C @outer] Outer.\\n\\t- [C @failed] Failed.\\n    - [G @inner] Inner.\\n      - [G @detail] Detail.'));
@@ -201,12 +206,51 @@ const keys: string[] = bearings.flatMap(bearing => bearing.sources.map(source =>
 const pointTarget = {key: 'point-key', kind: 'point' as const};
 const routeTarget = {key: 'route-key', kind: 'bearing' as const};
 const summary = {key: 'another-route', sources: [pointTarget], derivedBy: 'operator' as const};
-const undercut: ExplainEmittedBearingSummary = {...summary, kind: 'undercuts', target: routeTarget};
-// @ts-expect-error An emitted undercut cannot target a Point.
+const routeChallenge: ExplainEmittedBearingSummary = {...summary, kind: 'challenges', target: routeTarget};
+const pointChallenge: ExplainEmittedBearingSummary = {...summary, kind: 'challenges', target: pointTarget};
+// @ts-expect-error undercuts is no longer a canonical kind.
 const invalidUndercut: ExplainEmittedBearingSummary = {...summary, kind: 'undercuts', target: pointTarget};
 // @ts-expect-error Role-level openness is unsupported.
 const invalidRole: Annotation = {kind: 'role', role: 'G', status: 'open', raw: 'G?'};
-const namedKind: Annotation = {kind: 'edge', raw: 'edge @a answers @b', operatorClause: {op: 'answers', sources: [{id: 'a'}], target: {id: 'b'}}};
+const namedKind: Annotation = {kind: 'edge', raw: 'edge @a answers @b', operatorClause: {op: 'answers', targetKind: 'point', sources: [{id: 'a'}], target: {id: 'b'}}};
+// Named edge challenges may accept either target; Point clauses must choose one.
+const generalChallenge: Annotation = {kind: 'edge', raw: '', operatorClause: {op: 'challenges', targetKind: 'either', sources: [{id: 'a'}], target: {id: 'b'}}};
+const roleChallengePoint: Annotation = {kind: 'role', role: 'O', raw: '', operatorClause: {op: 'challenges', targetKind: 'point', sources: 'self', target: {id: 'b'}}};
+const roleChallengeBearing: Annotation = {kind: 'role', role: 'O', raw: '', operatorClause: {op: 'challenges', targetKind: 'bearing', sources: 'self', target: {id: 'b'}}};
+// @ts-expect-error Unrestricted named challenges have no Point-attached form.
+const roleChallengeEither: Annotation = {kind: 'role', role: 'O', raw: '', operatorClause: {op: 'challenges', targetKind: 'either', sources: 'self', target: {id: 'b'}}};
+const gapChallengePoint: Annotation = {kind: 'gap', status: 'open', raw: '', operatorClause: {op: 'challenges', targetKind: 'point', sources: 'self', target: {id: 'b'}}};
+const gapChallengeBearing: Annotation = {kind: 'gap', status: 'open', raw: '', operatorClause: {op: 'challenges', targetKind: 'bearing', sources: 'self', target: {id: 'b'}}};
+// @ts-expect-error Unrestricted named challenges have no Point-attached form.
+const gapChallengeEither: Annotation = {kind: 'gap', status: 'open', raw: '', operatorClause: {op: 'challenges', targetKind: 'either', sources: 'self', target: {id: 'b'}}};
+const materialChallengePoint: Annotation = {kind: 'material', raw: '', operatorClause: {op: 'challenges', targetKind: 'point', sources: 'self', target: {id: 'b'}}};
+const materialChallengeBearing: Annotation = {kind: 'material', raw: '', operatorClause: {op: 'challenges', targetKind: 'bearing', sources: 'self', target: {id: 'b'}}};
+// @ts-expect-error Unrestricted named challenges have no Point-attached form.
+const materialChallengeEither: Annotation = {kind: 'material', raw: '', operatorClause: {op: 'challenges', targetKind: 'either', sources: 'self', target: {id: 'b'}}};
+const useChallengePoint: Annotation = {kind: 'use', ref: {id: 'a'}, raw: '', operatorClause: {op: 'challenges', targetKind: 'point', sources: 'self', target: {id: 'b'}}};
+const useChallengeBearing: Annotation = {kind: 'use', ref: {id: 'a'}, raw: '', operatorClause: {op: 'challenges', targetKind: 'bearing', sources: 'self', target: {id: 'b'}}};
+// @ts-expect-error Unrestricted named challenges have no Point-attached form.
+const useChallengeEither: Annotation = {kind: 'use', ref: {id: 'a'}, raw: '', operatorClause: {op: 'challenges', targetKind: 'either', sources: 'self', target: {id: 'b'}}};
+// @ts-expect-error Target requirement must match the authored relation kind.
+const invalidSupportsPoint: OperatorClause = {op: 'supports', targetKind: 'point', sources: [{id: 'a'}], target: {id: 'b'}};
+// @ts-expect-error Target requirement must match the authored relation kind.
+const invalidSupportsBearing: OperatorClause = {op: 'supports', targetKind: 'bearing', sources: [{id: 'a'}], target: {id: 'b'}};
+// @ts-expect-error Target requirement must match the authored relation kind.
+const invalidAboutPoint: OperatorClause = {op: 'about', targetKind: 'point', sources: [{id: 'a'}], target: {id: 'b'}};
+// @ts-expect-error Target requirement must match the authored relation kind.
+const invalidAboutBearing: OperatorClause = {op: 'about', targetKind: 'bearing', sources: [{id: 'a'}], target: {id: 'b'}};
+// @ts-expect-error Target requirement must match the authored relation kind.
+const invalidAnswersBearing: OperatorClause = {op: 'answers', targetKind: 'bearing', sources: [{id: 'a'}], target: {id: 'b'}};
+// @ts-expect-error Target requirement must match the authored relation kind.
+const invalidAnswersEither: OperatorClause = {op: 'answers', targetKind: 'either', sources: [{id: 'a'}], target: {id: 'b'}};
+// @ts-expect-error Target requirement must match the authored relation kind.
+const invalidRepliestoBearing: OperatorClause = {op: 'repliesTo', targetKind: 'bearing', sources: [{id: 'a'}], target: {id: 'b'}};
+// @ts-expect-error Target requirement must match the authored relation kind.
+const invalidRepliestoEither: OperatorClause = {op: 'repliesTo', targetKind: 'either', sources: [{id: 'a'}], target: {id: 'b'}};
+// @ts-expect-error Target requirement must match the authored relation kind.
+const invalidClarifiesBearing: OperatorClause = {op: 'clarifies', targetKind: 'bearing', sources: [{id: 'a'}], target: {id: 'b'}};
+// @ts-expect-error Target requirement must match the authored relation kind.
+const invalidClarifiesEither: OperatorClause = {op: 'clarifies', targetKind: 'either', sources: [{id: 'a'}], target: {id: 'b'}};
 const localSelector: Annotation = {kind: 'role', role: 'O', selector: 'attachment', raw: 'O/'};
 const pointUse: Annotation = {kind: 'use', ref: {id: 'p'}, role: 'G', raw: 'G use @p'};
 const neutralPoint: Annotation = {kind: 'material', raw: '.'};
@@ -218,7 +262,7 @@ const bearingUse: Annotation = {kind: 'bearingUse', ref: {id: 'route'}, raw: '_ 
 // @ts-expect-error A Bearing use cannot construct or alias an attachment.
 const aliasedBearingUse: Annotation = {kind: 'bearingUse', ref: {id: 'route'}, handle: 'alias', raw: ''};
 // @ts-expect-error A Bearing use cannot serve as a self-sourced Point.
-const attachedBearingUse: Annotation = {kind: 'bearingUse', ref: {id: 'route'}, operatorClause: {op: 'supports', sources: 'self', target: {id: 'c'}}, raw: ''};
+const attachedBearingUse: Annotation = {kind: 'bearingUse', ref: {id: 'route'}, operatorClause: {op: 'supports', targetKind: 'either', sources: 'self', target: {id: 'c'}}, raw: ''};
 // @ts-expect-error Neutral material is a Point variant, not a local role.
 const neutralRole: Annotation = {kind: 'material', role: 'G', raw: '.'};
 const selectorUse: Annotation = {kind: 'use', ref: {id: 'p'}, role: 'O', selector: 'attachment', raw: 'O/ use @p'};
@@ -227,19 +271,19 @@ const aliasedUse: Annotation = {kind: 'use', ref: {id: 'p'}, anchor: 'alias', ra
 // @ts-expect-error Occurrence status is excluded.
 const statusUse: Annotation = {kind: 'use', ref: {id: 'p'}, role: 'C', status: 'open', raw: ''};
 // @ts-expect-error A use selector excludes an explicit operator clause.
-const excludedUse: Annotation = {kind: 'use', ref: {id: 'p'}, role: 'O', selector: 'attachment', operatorClause: {op: 'undercuts', sources: 'self', target: {id: 'b'}}, raw: ''};
+const excludedUse: Annotation = {kind: 'use', ref: {id: 'p'}, role: 'O', selector: 'attachment', operatorClause: {op: 'challenges', targetKind: 'bearing', sources: 'self', target: {id: 'b'}}, raw: ''};
 // @ts-expect-error Only G and O can select local attachments.
 const invalidUseSelector: Annotation = {kind: 'use', ref: {id: 'p'}, role: 'Q', selector: 'attachment', raw: ''};
 // @ts-expect-error A selector and a complete operator clause are mutually exclusive.
-const excludedSelector: Annotation = {kind: 'role', role: 'O', selector: 'attachment', operatorClause: {op: 'undercuts', sources: 'self', target: {id: 'b'}}, raw: ''};
+const excludedSelector: Annotation = {kind: 'role', role: 'O', selector: 'attachment', operatorClause: {op: 'challenges', targetKind: 'bearing', sources: 'self', target: {id: 'b'}}, raw: ''};
 // @ts-expect-error Only G and O support a selector.
 const invalidSelector: Annotation = {kind: 'role', role: 'Q', selector: 'attachment', raw: 'Q/'};
 // @ts-expect-error Named kinds are only adopted on edge clauses.
-const namedSelf: Annotation = {kind: 'role', role: 'Q', raw: '', operatorClause: {op: 'repliesTo', sources: 'self', target: {id: 'b'}}};
+const namedSelf: Annotation = {kind: 'role', role: 'Q', raw: '', operatorClause: {op: 'repliesTo', targetKind: 'point', sources: 'self', target: {id: 'b'}}};
 // @ts-expect-error Operator clauses have exactly one target.
-const multipleTargets: OperatorClause = {op: 'supports', sources: 'self', target: [{id: 'a'}, {id: 'b'}]};
+const multipleTargets: OperatorClause = {op: 'supports', targetKind: 'either', sources: 'self', target: [{id: 'a'}, {id: 'b'}]};
 // @ts-expect-error Point annotations use themselves as the source.
-const otherSource: Annotation = {kind: 'role', role: 'G', raw: '', operatorClause: {op: 'supports', sources: [{id: 'other'}], target: {id: 'claim'}}};
+const otherSource: Annotation = {kind: 'role', role: 'G', raw: '', operatorClause: {op: 'supports', targetKind: 'either', sources: [{id: 'other'}], target: {id: 'claim'}}};
 // @ts-expect-error AST annotations have one semantic home.
 graph.points[0] && parseDocument('- [C] Claim.').blocks[0].role;
 `);

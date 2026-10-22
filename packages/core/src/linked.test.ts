@@ -40,7 +40,7 @@ describe("local joint support", () => {
     expect(codes(missing)).toEqual(["RETIRED_JOIN_ANNOTATION", "UNKNOWN_TARGET"]);
     const valid = compile("- [C @c] Conclusion.\n  - [join; @route]\n    - [G] Old premise.\n  - [linked; @route]\n    - [G] Current premise.\n- [O /> @route] Objection.");
     expect(codes(valid)).toEqual(["RETIRED_JOIN_ANNOTATION"]);
-    expect(valid.bearings.map(bearing => bearing.kind)).toEqual(["supports", "undercuts"]);
+    expect(valid.bearings.map(bearing => bearing.kind)).toEqual(["supports", "challenges"]);
     const pointName = compile("- [C @route] Conclusion.\n  - [join; @route]\n    - [G] Premise.");
     expect(codes(pointName)).toEqual(["RETIRED_JOIN_ANNOTATION"]);
   });
@@ -101,7 +101,7 @@ describe("local joint support", () => {
       { kind: "supports", handle: "shared", sources: ["a"], target: { kind: "point", name: "other" } },
       { kind: "challenges", handle: undefined, sources: ["premise-objection"], target: { kind: "point", name: "a" } },
       { kind: "repliesTo", handle: undefined, sources: ["reply"], target: { kind: "point", name: "premise-objection" } },
-      { kind: "undercuts", handle: undefined, sources: ["route-objection"], target: { kind: "bearing", name: "route" } }
+      { kind: "challenges", handle: undefined, sources: ["route-objection"], target: { kind: "bearing", name: "route" } }
     ]));
     expect(graph.points.map(p => p.id)).toEqual(["c", "independent", "a", "premise-objection", "reply", "b", "other", "route-objection"]);
     expect(graph.bearings).toHaveLength(6);

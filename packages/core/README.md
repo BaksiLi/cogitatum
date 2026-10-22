@@ -2,7 +2,9 @@
 
 Cogitatum is a lightweight markup language for making selected reasoning structure explicit inside ordinary prose. This package provides its deterministic parser and compiler for Node.js and browsers.
 
-Package version: **0.4.12**, format **0.4.0**, with literal note subtrees, implicit-attachment suggestions and explicit C? retirement.
+Source candidate: **0.5.0**, format **0.5.0** (unpublished), with unified `challenges` and explicit authored target constraints.
+`->` requires a Point and `/>` requires a Bearing; both emit `challenges` with a typed target.
+Named `challenges` accepts either target; named `undercuts` is rejected with migration guidance to `/>`.
 Explicit `edge` clauses can use any canonical kind name; Point-attached clauses retain the four symbolic operators.
 Reference-only `[. use @p]` or locally marked `[G use @p]` occurrences resolve an existing Point without copying its subtree or changing declaration metadata.
 Neutral Point use focuses without a default attachment.
@@ -14,7 +16,8 @@ focusBearing similarly maps Bearing occurrences; selectBearing identifies a refe
 Canonical spans remain declaration/construction spans; several uses may map to the same entity.
 Keep shared content, occurrence notes, quoted source context and proposed reconstructions separate; retained original source plus AST/Explain is required for reading, not Graph IR alone.
 The historical npm `alpha` tag provides **0.3.0-alpha.1** without linked.
-Use the exact **0.4.12** package version for this API and syntax.
+Build this checkout to use the 0.5 candidate API and syntax.
+The published 0.4.12 install command below selects the earlier contract.
 
 ```sh
 npm install @cogitatum/core@0.4.12
@@ -96,7 +99,7 @@ It also refuses an `edge` annotation that has neither an `operatorClause` nor a 
 
 `OperatorClause.op` holds the canonical selected `BearingKind`; edge sources are existing Point references, and self-sourced Point annotations admit only symbolic `BearingOp` kinds.
 Using a Point as an explicit source preserves its declaration metadata; indentation defaults do not add global role restrictions to explicit construction.
-Match the **0.4.12** schemas and compiler even when an earlier source candidate also reports format `0.4.0`.
+Match the **0.5.0** candidate schemas and compiler; format 0.4.0 JSON must be recompiled from retained source, not relabelled.
 
 The package includes self-contained draft 2020-12 JSON Schemas for offline integration:
 

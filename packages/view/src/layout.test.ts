@@ -38,7 +38,7 @@ describe("independent and joint support stay distinct in the visual topology", (
     const host = explore(fixture("host/local-linked.md"), "host");
     const single = host.graph.bearings.find(b => b.handle === "route")!;
     expect(single.sources).toHaveLength(1);
-    // Addressed by an undercut, so it remains a junction even with one source; nothing is invented.
+    // Addressed by a Bearing-targeted challenge, so it remains a junction even with one source; nothing is invented.
     expect(host.exploration.nodes.some(n => n.id === referenceKey({ kind: "bearing", key: single.key }))).toBe(true);
     expect(host.exploration.links.filter(l => l.bearingKey === single.key && l.segment === "input")).toHaveLength(1);
   });
@@ -87,9 +87,9 @@ describe("shared mark vocabulary", () => {
     expect(Object.values(POINT_MARKS).filter(m => m.shape === "gap").map(m => m.label)).toEqual(["Gap"]);
     expect(pointMark("Material").shape).toBe("material");
     expect(pointMark("O").zh).toBe("駁議");
-    expect(bearingMark("undercuts").zh).toBe("質疑關係");
+    expect(bearingMark("challenges").zh).toBe("質疑");
     expect(bearingMark("about").tone).toBe("neutral");
-    expect(Object.keys(BEARING_MARKS).sort()).toEqual(["about", "answers", "challenges", "clarifies", "repliesTo", "supports", "undercuts"]);
+    expect(Object.keys(BEARING_MARKS).sort()).toEqual(["about", "answers", "challenges", "clarifies", "repliesTo", "supports"]);
   });
 
   it("matches the glossary's canonical names and suggested readings", () => {
@@ -102,7 +102,7 @@ describe("shared mark vocabulary", () => {
     for (const [mark, key] of Object.entries(marks)) {
       expect({ name: POINT_MARKS[key].name, zh: POINT_MARKS[key].zh }, mark).toEqual({ name: rows.get(mark)?.english, zh: rows.get(mark)?.zh });
     }
-    for (const [symbol, kind] of [["+>", "supports"], ["->", "challenges"], ["/>", "undercuts"], ["~>", "about"]]) {
+    for (const [symbol, kind] of [["+>", "supports"], ["->", "challenges"], ["/>", "challenges"], ["~>", "about"]]) {
       expect(bearingMark(kind).zh, symbol).toBe(rows.get(symbol)?.zh);
     }
   });

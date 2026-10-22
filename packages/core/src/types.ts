@@ -1,7 +1,7 @@
-export const FORMAT_VERSION = "0.4.0";
+export const FORMAT_VERSION = "0.5.0";
 
 export type Role = "Q" | "C" | "G" | "O" | "R" | "D";
-export type BearingOp = "supports" | "challenges" | "undercuts" | "about";
+export type BearingOp = "supports" | "challenges" | "about";
 export type BearingKind = BearingOp | "repliesTo" | "clarifies" | "answers";
 export type BearingDerivedBy = "operator" | "structural";
 export type Severity = "error" | "warning" | "suggestion";
@@ -31,11 +31,22 @@ export type BearingRef = {
   kind: "bearing";
 };
 
+// Authored target requirements stay correlated with the canonical kind.
 export type OperatorClause = {
-  op: BearingKind;
   sources: Ref[] | "self";
   target: Ref;
-};
+} & (
+  | { op: "supports" | "about"; targetKind: "either" }
+  | { op: "challenges"; targetKind: "point" | "bearing" | "either" }
+  | { op: "answers" | "repliesTo" | "clarifies"; targetKind: "point" }
+);
+
+// Point declarations and uses accept symbolic clauses only; named challenges
+// with an unrestricted target belongs to an edge.
+export type PointOperatorClause = OperatorClause & { sources: "self" } & (
+  | { op: "supports" | "about" }
+  | { op: "challenges"; targetKind: "point" | "bearing" }
+);
 
 type AnnotationBase<ErrorKind extends AnnotationSyntaxError = "operator" | "handle" | "selector" | "retired"> = {
   syntaxErrors?: ErrorKind[];
@@ -49,7 +60,7 @@ type RoleMark =
 
 type PointAnnotationBase = AnnotationBase & {
   anchor?: string;
-  operatorClause?: OperatorClause & { op: BearingOp; sources: "self" };
+  operatorClause?: PointOperatorClause;
 };
 
 export type Annotation =
@@ -59,7 +70,7 @@ export type Annotation =
   | (AnnotationBase<"reference" | "operator" | "selector" | "handle" | "retired"> & {
       kind: "use";
       ref?: Ref;
-      operatorClause?: OperatorClause & { op: BearingOp; sources: "self" };
+      operatorClause?: PointOperatorClause;
     } & (
       | { role?: Role; selector?: never }
       | { role: "G" | "O"; selector: "attachment"; operatorClause?: never }
@@ -142,9 +153,8 @@ type BearingBase = {
 };
 
 type BearingRelation =
-  | { kind: "challenges" | "answers" | "repliesTo" | "clarifies"; target: PointRef }
-  | { kind: "undercuts"; target: BearingRef }
-  | { kind: "supports" | "about"; target: BearingTarget };
+  | { kind: "answers" | "repliesTo" | "clarifies"; target: PointRef }
+  | { kind: "supports" | "challenges" | "about"; target: BearingTarget };
 
 export type Bearing = BearingBase & BearingRelation;
 

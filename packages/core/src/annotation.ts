@@ -4,6 +4,7 @@ import type {
   BearingOp,
   Diagnostic,
   OperatorClause,
+  PointOperatorClause,
   Ref,
   Role,
   SourceSpan
@@ -28,14 +29,13 @@ const ANCHOR_RE = /^@([a-z][a-z0-9_-]*)$/;
 const OP_TO_BEARING = new Map<string, BearingOp>([
   ["+>", "supports"],
   ["->", "challenges"],
-  ["/>", "undercuts"],
+  ["/>", "challenges"],
   ["~>", "about"]
 ]);
 const EDGE_TO_BEARING = new Map<string, BearingKind>([
   ...OP_TO_BEARING,
   ["supports", "supports"],
   ["challenges", "challenges"],
-  ["undercuts", "undercuts"],
   ["about", "about"],
   ["answers", "answers"],
   ["repliesTo", "repliesTo"],
@@ -153,14 +153,14 @@ function parseCurrentAnnotation(raw: string, sourceSpan?: SourceSpan): Annotatio
       diagnostics.push({ severity: "error", code: "MALFORMED_POINT_USE", message: "Point uses must look like [. use @id] or [G use @id]; occurrence status is unsupported." + markCaseHint(mark), sourceSpan });
     }
     const suffix = tokens.slice(useIndex + 2);
-    let operatorClause: (OperatorClause & { op: BearingOp; sources: "self" }) | undefined;
+    let operatorClause: PointOperatorClause | undefined;
     if (suffix.length) {
       if (selector) {
         errors.push("selector");
         diagnostics.push({ severity: "error", code: "LOCAL_SELECTOR_WITH_EXPLICIT_CLAUSE", message: "A local selector and an explicit operator clause are mutually exclusive.", sourceSpan });
       } else if (OP_TO_BEARING.has(suffix[0])) {
         const clause = parseOperatorClause(suffix[0], "self", suffix.slice(1), sourceSpan, diagnostics);
-        if (clause) operatorClause = { ...clause, op: OP_TO_BEARING.get(suffix[0])!, sources: "self" };
+        if (clause) operatorClause = pointOperatorClause(clause);
         else errors.push("operator");
       } else {
         errors.push("reference");
@@ -257,6 +257,18 @@ function parseCurrentAnnotation(raw: string, sourceSpan?: SourceSpan): Annotatio
     return { diagnostics };
   }
 
+  // Retain the failed constructor and its handle so descendants and references
+  // cannot silently attach elsewhere. This is a migration error, never an alias.
+  if (edgeIntent && tokens.includes("undercuts")) {
+    diagnostics.push({
+      severity: "error",
+      code: "RETIRED_BEARING_KIND",
+      message: "The named undercuts spelling is retired. To preserve a challenge to a Bearing, replace undercuts with /> and recompile the original source. This does not classify a theory-specific undercut.",
+      sourceSpan
+    });
+    return { annotation: { kind: "edge", raw, handle, syntaxErrors: syntaxErrors(true, invalidHandle) }, diagnostics };
+  }
+
   const opIndex = tokens.findIndex((token) => (edgeIntent ? EDGE_TO_BEARING : OP_TO_BEARING).has(token));
   if (opIndex >= 0) {
     const prefix = tokens.slice(0, opIndex);
@@ -296,7 +308,7 @@ function parseCurrentAnnotation(raw: string, sourceSpan?: SourceSpan): Annotatio
     return {
       annotation: {
         ...host,
-        operatorClause: operatorClause ? { ...operatorClause, op: OP_TO_BEARING.get(op)!, sources: "self" } : undefined,
+        operatorClause: operatorClause ? pointOperatorClause(operatorClause) : undefined,
         syntaxErrors: syntaxErrors(!operatorClause, invalidHandle),
         handle
       },
@@ -429,7 +441,7 @@ function parseOperatorClause(
 
   const sourceResult = sourceTokens === "self" ? undefined : parseRefs(sourceTokens);
   const targetResult = parseRefs(targetTokens);
-  const sources = sourceTokens === "self" ? "self" : (sourceResult?.refs ?? []);
+  const sources: OperatorClause["sources"] = sourceTokens === "self" ? "self" : (sourceResult?.refs ?? []);
   const targets = targetResult.refs;
 
   if (sourceResult && (sourceResult.invalid.length > 0 || sourceResult.refs.length === 0)) {
@@ -474,7 +486,24 @@ function parseOperatorClause(
     return undefined;
   }
 
-  return { op, sources, target: targets[0] };
+  const refs = { sources, target: targets[0] };
+  if (op === "supports" || op === "about") return { ...refs, op, targetKind: "either" };
+  if (op === "challenges") {
+    const targetKind = opToken === "->" ? "point"
+      : opToken === "/>" ? "bearing" : "either";
+    return { ...refs, op, targetKind };
+  }
+  return { ...refs, op, targetKind: "point" };
+}
+
+function pointOperatorClause(clause: OperatorClause): PointOperatorClause {
+  if (clause.sources === "self") {
+    if (clause.op === "supports" || clause.op === "about") return { ...clause, sources: "self" };
+    if (clause.op === "challenges" && clause.targetKind !== "either") {
+      return { ...clause, sources: "self", targetKind: clause.targetKind };
+    }
+  }
+  throw new Error("Parser invariant violated: a Point clause must use a symbolic operator and self source.");
 }
 
 function duplicateRefIds(refs: Ref[]): string[] {
@@ -593,10 +622,12 @@ function parseBearingHost(
 }
 
 const KIND_NAMES = [...EDGE_TO_BEARING.keys()].filter(key => /^[a-z]/i.test(key));
-const KIND_SYMBOLS = new Map<string, string>([...OP_TO_BEARING].map(([symbol, kind]) => [kind, symbol]));
+const KIND_SYMBOLS = new Map<string, string>([["supports", "+>"], ["challenges", "->"], ["about", "~>"]]);
 
 /** The symbolic operator for a kind that a Point annotation can state, if any. */
-export function operatorSymbol(kind: BearingKind): string | undefined {
+export function operatorSymbol(kind: BearingKind, targetKind?: OperatorClause["targetKind"]): string | undefined {
+  if (kind === "challenges" && targetKind === "bearing") return "/>";
+  if (kind === "challenges" && targetKind === "either") return undefined;
   return KIND_SYMBOLS.get(kind);
 }
 
@@ -616,6 +647,9 @@ function namedKindHint(rest: string[], mark: string, source: string | undefined,
   const kind = rest.find(token => KIND_NAMES.includes(token));
   if (!kind) return "";
   const target = rest[rest.indexOf(kind) + 1] ?? "@target";
+  if (kind === "challenges") {
+    return ` Named challenges is written in an edge and accepts either target kind. On a Point, use -> ${target} for a Point or /> ${target} for a Bearing.`;
+  }
   const symbol = KIND_SYMBOLS.get(kind);
   if (symbol) return ` Named kinds are written only in an edge; on a Point write the operator: [${mark} ${symbol} ${target}].`;
   const named = source ?? "@name";

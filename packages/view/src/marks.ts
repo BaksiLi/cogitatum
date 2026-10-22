@@ -31,7 +31,6 @@ export const POINT_MARKS: Readonly<Record<PointMarkLabel, PointMark>> = {
 export const BEARING_MARKS: Readonly<Record<string, BearingMark>> = {
   supports: { kind: "supports", name: "supports", zh: "支持", symbol: "+", tone: "support", dashed: false },
   challenges: { kind: "challenges", name: "challenges", zh: "質疑", symbol: "−", tone: "objection", dashed: false },
-  undercuts: { kind: "undercuts", name: "undercuts", zh: "質疑關係", symbol: "×", tone: "objection", dashed: true },
   about: { kind: "about", name: "is about", zh: "關涉", symbol: "∼", tone: "neutral", dashed: true },
   answers: { kind: "answers", name: "answers", zh: "回答", symbol: "↳", tone: "neutral", dashed: false },
   repliesTo: { kind: "repliesTo", name: "replies to", zh: "回應異議", symbol: "↩", tone: "neutral", dashed: false },

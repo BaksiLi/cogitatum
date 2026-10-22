@@ -57,9 +57,9 @@ describe("reference-only Bearing occurrences", () => {
     expect(codes(referenced.graph)).toEqual([]);
     expect(relations(referenced.graph)).toEqual(relations(created.graph));
     expect(relations(referenced.graph).slice(1)).toEqual([
-      { kind: "undercuts", handle: "attack", sources: ["bias"], target: { kind: "bearing", name: "route" } },
+      { kind: "challenges", handle: "attack", sources: ["bias"], target: { kind: "bearing", name: "route" } },
       { kind: "challenges", handle: undefined, sources: ["independent"], target: { kind: "point", name: "bias" } },
-      { kind: "undercuts", handle: undefined, sources: ["cancellation"], target: { kind: "bearing", name: "attack" } },
+      { kind: "challenges", handle: undefined, sources: ["cancellation"], target: { kind: "bearing", name: "attack" } },
       { kind: "repliesTo", handle: undefined, sources: ["reply"], target: { kind: "point", name: "bias" } }
     ]);
     expect(referenced.explain.entries[4].effects).toContainEqual({ kind: "selectBearing", contextSpan: referenced.explain.entries[3].sourceSpan, target: { kind: "bearing", key: referenced.graph.bearings[0].key } });
@@ -129,7 +129,7 @@ describe("reference-only Bearing occurrences", () => {
   it("retains typed explicit target checks within Bearing discussions", () => {
     const { graph } = compile(declarations + "\n" + route + "\n- [_ use @route]\n  - [O -> @route] Wrong Point target.\n  - [O /> @premise] Wrong Bearing target.\n  - [O /> @route] Correct.");
     expect(codes(graph)).toContain("CHALLENGE_REQUIRES_POINT_TARGET");
-    expect(codes(graph)).toContain("UNDERCUT_REQUIRES_BEARING_TARGET");
+    expect(codes(graph)).toContain("CHALLENGE_REQUIRES_BEARING_TARGET");
     expect(graph.bearings).toHaveLength(2);
   });
 

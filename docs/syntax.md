@@ -1,13 +1,13 @@
 ---
 title: Complete syntax
-summary: Format 0.4.0 grammar, indentation, references, input modes, and machine contract.
+summary: Format 0.5.0 grammar, indentation, references, input modes, and machine contract.
 section: reference
 order: 4
 ---
 
 # Complete syntax
 
-Public reference for **format 0.4.0**, delivered by the published **0.4.12** packages.
+Public reference for **format 0.5.0**, implemented by the unpublished **0.5.0** source candidate.
 Use the complete released compiler and schema set; earlier unpublished 0.4 candidates may report the same format identifier with different contracts.
 Examples, schemas, and conformance fixtures are checked against the implementation.
 
@@ -45,7 +45,7 @@ REF_LIST   := REF ("," REF)*
 REF        := "@" ID
 ID         := [a-z][a-z0-9_-]*
 OP         := "+>" | "->" | "/>" | "~>"
-KIND       := "supports" | "challenges" | "undercuts" | "about"
+KIND       := "supports" | "challenges" | "about"
             | "answers" | "repliesTo" | "clarifies"
 ```
 
@@ -122,7 +122,7 @@ C certifies neither truth, certainty, acceptance nor completion; Gap openness is
 | --- | --- | --- |
 | `+>` | `supports` | Point or Bearing |
 | `->` | `challenges` | Point |
-| `/>` | `undercuts` | Bearing |
+| `/>` | `challenges` | Bearing |
 | `~>` | `about` | Point or Bearing |
 
 Outside a linked block, without an operator, use the nearest enclosing Point:
@@ -259,7 +259,7 @@ A complete symbolic override, such as `[. use @p +> @claim; @step]`, constructs 
 `O/` or `G/` beneath that occurrence selects step; beneath a bare use or linked member they fail.
 A handle without a locally constructed attachment is diagnosed.
 
-```md cog-check require=supports,undercuts,repliesTo points=4 bearings=3 diagnostics=0
+```md cog-check require=supports,challenges,repliesTo points=4 bearings=3 diagnostics=0
 - [C @observation] Two retries timed out.
 - [C @claim] The shared configuration may explain the timeouts.
   - [G use @observation; @step] This observation matters in the current step.
@@ -300,7 +300,7 @@ An O beneath O/ challenges that new O Point, while a sibling O/ selects its loca
 R beneath O/ replies to that O Point.
 Existing explicit graph cycles remain possible; references never recursively expand source.
 
-```md cog-check require=supports,undercuts,challenges points=5 bearings=4 diagnostics=0
+```md cog-check require=supports,challenges points=5 bearings=4 diagnostics=0
 - [C @premise] Measurements agree.
 - [C @claim] The comparison is reliable.
 - [_ @premise supports @claim; @route] The original inference description.
@@ -406,7 +406,7 @@ Recognized failed Point declarations retain an AST annotation with kind "invalid
 They emit no Point, remain source boundaries in Explain, and prevent implicit descendants from attaching to a more distant outer Point.
 Valid descendant Points, their own subtrees, and independent explicit relations survive; the first implicit Point receives FAILED_CONTEXT_REQUIRES_EXPLICIT_TARGET.
 Ordinary bracket prose remains transparent body, including the pre-0.3 `scope` prefix, which now receives no diagnostic.
-Match the complete released compiler and schema set when storing or consuming compiler results.
+Match the complete compiler and schema set for the producing version when storing or consuming compiler results.
 
 `parseDocument` returns an ordered AST; `compileGraph` produces `GraphIR`. `parseSource` and `compileSource` expose envelopes for the input modes.
 
@@ -431,7 +431,7 @@ These remain distinct fields; open status belongs to that declaration, and no us
 Marks written at uses, including neutral and selector marks, live only in the AST annotation and Explain recognition; derive them from there, never from `declaration`.
 An attachment created at an occurrence is an ordinary Bearing.
 
-An AST block holds its text, raw source, children, span, and optional `annotation`. Role, anchor, status, operator, handle, and annotation errors live only inside `annotation`; there are no mirrored block-level semantic fields. A Point name appears as `annotation.anchor` in the AST and `id` in Graph IR. Ordinary body has no annotation. An `operatorClause` contains `op`, `sources`, and one authored `target: { id }`. Point annotations use `sources: "self"`; an `edge` uses a nonempty array of authored source references.
+An AST block holds its text, raw source, children, span, and optional `annotation`. Role, anchor, status, operator, handle, and annotation errors live only inside `annotation`; there are no mirrored block-level semantic fields. A Point name appears as `annotation.anchor` in the AST and `id` in Graph IR. Ordinary body has no annotation. An `operatorClause` contains `op`, an authored `targetKind` requirement (`point`, `bearing` or `either`), `sources`, and one authored `target: { id }`. Point annotations use `sources: "self"`; an `edge` uses a nonempty array of authored source references.
 The distinct use annotation holds ref: {id}, never a declaration anchor.
 The separate bearingUse annotation also holds ref: {id}, with no role, handle, anchor or operatorClause.
 Its operand can be absent only on a diagnosed malformed use; original raw text and occurrence prose remain inspectable.
@@ -466,7 +466,44 @@ It covers only its own line, so a child's diagnostics appear on the child's entr
 
 ## Compatibility and migration
 
-This edition documents published package 0.4.12 / format 0.4.0.
+This edition documents candidate package 0.5.0 / format 0.5.0; it is not published.
+Published 0.4.12 / format 0.4.0 remains a separate contract.
+
+Format 0.5 unifies canonical `undercuts` into `challenges` while retaining each Bearing's identity, ordered sources and typed target.
+A challenge to a Point and a challenge to a Bearing remain distinguishable by `target.kind`.
+Neither records defeat, success or acceptability.
+
+| Authored clause | AST `op` | AST `targetKind` | Accepted target |
+| --- | --- | --- | --- |
+| `-> @x` | `challenges` | `point` | Point |
+| `/> @x` | `challenges` | `bearing` | Bearing |
+| `challenges @x` in an edge | `challenges` | `either` | Point or Bearing |
+| `undercuts @x` in an edge | Rejected: `RETIRED_BEARING_KIND` | — | — |
+| `+>` / `supports`, `~>` / `about` | Corresponding kind | `either` | Point or Bearing |
+| `answers`, `repliesTo`, `clarifies` | Corresponding kind | `point` | Point |
+
+Every explicit AST clause requires `targetKind`; compilation carries this constraint until reference validation and never recovers it from `raw`.
+Canonical Graph IR and emitted Explain summaries contain the resolved typed target, without an extra target constraint.
+Named `undercuts` is retired, with no compiling alias.
+Replace it with `/>` to preserve its Bearing-only target requirement, then recompile retained source.
+Replacing it with named `challenges` instead broadens the authored target requirement to either kind.
+A retired constructor retains its boundary and handle in AST but emits no Bearing; descendants and dependent references cannot fall back to an outer target.
+`CHALLENGE_REQUIRES_BEARING_TARGET` replaces the old `UNDERCUT_REQUIRES_BEARING_TARGET` diagnostic; `CHALLENGE_REQUIRES_POINT_TARGET` still diagnoses `->` against a Bearing.
+The word undercut has no active core kind or spelling; a future theory-specific use requires its own explicit, versioned contract.
+
+Bare `O` continues to challenge the nearest Point; directly beneath `linked`, `edge` or a Bearing use, write `O/` or a complete target.
+This keeps local Bearing selection explicit and avoids adding a second indentation-default table.
+A malformed or failed constructor still prevents outward fallback, and invalid linked sources still reject the whole joint.
+
+Recompile retained source with the complete 0.5 compiler and schema set; do not relabel saved 0.4 AST, Graph IR, Explain or source envelopes.
+Existing symbolic negative forms retain their endpoints, source order and individual relation instances after recompilation; named `undercuts` requires the source migration above.
+The newly accepted case is named `challenges` targeting a Bearing; symbolic `->` still rejects that target.
+Consumers should replace canonical `undercuts` branches with `challenges` and inspect `target.kind` when the distinction matters.
+The format change does not add bare-O defaults, Serial sugar, hidden premises or transitive support.
+
+### Earlier migrations
+
+The following notes describe migration into the published 0.4.12 baseline before recompilation with 0.5.
 Match the exact producing commit with its compiler, schemas and consumers; the retained format identifier alone does not distinguish earlier unpublished candidates.
 Reparse the retained original document with explicit document or host context.
 Relabelling older AST/Explain/source JSON cannot establish corrected selection, use mappings or new constructor shapes.
@@ -496,9 +533,9 @@ The AST schema now requires `operatorClause` on an `edge` without `syntaxErrors`
 | [@p] | [. @p] | Neutral Point declaration; old annotation is a rejected boundary, never a lookup |
 | [use @p] (unpublished candidate) | [. use @p] | Neutral reference occurrence; no default attachment |
 | [G_] / [O_] (unpublished candidate) | [G/] / [O/] | Same strict nearest-owner selector; old intent stays rejected commentary |
-| _> @b | /> @b | undercuts still requires a Bearing target; old attachment is rejected |
+| _> @b | /> @b | /> still requires a Bearing target; old attachment is rejected |
 | [join; @b] (unpublished candidate) | [linked; @b] | Same ordered joint sources after source migration; no accepted join alias |
-| [edge @p KIND @c; @b] | Unchanged, or [_ @p KIND @c; @b] | Two spellings of ONE explicit constructor, with all seven kinds |
+| [edge @p KIND @c; @b] | Unchanged, or [_ @p KIND @c; @b] | Two spellings of ONE explicit constructor, with six canonical kinds |
 | source API auto | Explicit document or host | Host never falls back to parsing unselected prose as an outline |
 | Graph IR Point `form` / `role` / `status` (0.3 and earlier 0.4 candidates) | Point `declaration: { form, role?, status? }` | Retain Gap openness; deliberately remove retired Claim openness when migrating source. `key`, `id`, `text` and `sourceSpan` stay on the Point |
 
@@ -512,8 +549,9 @@ Retired source receives migration errors and retains its failed boundary; valid 
 An old anchor-only declaration emits no Point, a retired selector stays commentary, and a retired operator rejects only its attachment when the Point/use operand itself is valid.
 Canonical GraphIR stays {version, points, bearings, diagnostics}; typed refs stay {key, kind}.
 The nested Point `declaration` is an incompatible JSON-shape change from 0.3 and earlier source candidates: compiler, schemas and consumers must match, and stored graphs must be reparsed from source rather than relabelled.
-The complete negative-kind mapping is challenges → challenges (Point target), undercuts → undercuts (Bearing target).
-The authored -> and /> checks remain distinct; no kind unification or C/R removal occurs.
+For 0.5, the compiled negative-kind mapping is challenges → challenges (Point target), undercuts → challenges (Bearing target).
+This is a comparison of compiled relations, not permission to relabel JSON or accept the retired named source spelling.
+The authored -> and /> checks remain distinct; C and R remain unchanged.
 
 Consumers address entities by `(unit index, ref.kind, ref.key)` within one compilation; the unit index selects the corresponding `graphs[]` entry.
 Explain's emission `graphIndex` instead indexes that selected graph's Bearing array.
@@ -541,17 +579,17 @@ Format 0.3.0 replaced generated Point IDs, optional Bearing IDs, ID-based graph 
 
 ### Schemas for integrations
 
-The source distribution's `spec/` directory contains JSON Schemas using draft 2020-12. Package 0.4.12 includes AST, Graph IR, Explain, and source-envelope contracts through `@cogitatum/core/schemas/{ast,graph-ir,explain,source}`. The source-envelope schema refers to the other three by `$id`; load those sibling schemas too when validating it. The published npm `0.3.0-alpha.1` tarball includes only the first three exports. For example, in Node.js:
+The source distribution's `spec/` directory contains JSON Schemas using draft 2020-12. This candidate includes AST, Graph IR, Explain, and source-envelope contracts through `@cogitatum/core/schemas/{ast,graph-ir,explain,source}`. The source-envelope schema refers to the other three by `$id`; load those sibling schemas too when validating it. The published npm `0.3.0-alpha.1` tarball includes only the first three exports. For example, in Node.js:
 
 ```js
 import graphSchema from '@cogitatum/core/schemas/graph-ir' with { type: 'json' };
 ```
 
-Schema `$id` values use `/schemas/0.4.0/`.
-The complete schema set published in package 0.4.12 fixes the format 0.4.0 contract; later incompatible contracts require a new format identifier and schema URLs.
-Earlier preview snapshots are unpublished historical evidence and cannot replace this released contract.
+Candidate schema `$id` values use `/schemas/0.5.0/`.
+The published 0.4.12 bundle fixes format 0.4.0; this incompatible candidate uses a new identifier and schema URLs.
+Use the candidate schema files from this checkout to validate format 0.5; the 0.4 bundle cannot validate it.
 For reproducible or offline validation, use all four schema copies from the exact package or source commit; neither the format identifier nor an unchanged source-envelope schema identifies the complete contract.
-The npm release provides all four packaged schemas.
+The 0.5 source build includes all four candidate schemas.
 Deployment of the official schema URLs and production playground is separate; use the exact package copies for validation until the matching website release is deployed.
 
 The AST, Graph IR, and Explain schemas validate individual projections.

@@ -2,10 +2,11 @@
 
 Check Cogitatum inquiry markup and inspect the reasoning connections marked in ordinary prose.
 
-Package version: **0.4.12**, format **0.4.0**, with local `linked` support and optional linked header descriptions.
+Source candidate: **0.5.0**, format **0.5.0** (unpublished), with local `linked` support and optional linked header descriptions.
 Explicit `edge` clauses accept all canonical kind names, including `answers`, `repliesTo`, and `clarifies`.
 The historical npm `alpha` tag provides **0.3.0-alpha.1** without linked.
-Use the exact **0.4.12** package version for this API and syntax. Requires Node.js 22.12 or newer.
+Build this checkout to use the 0.5 candidate API and syntax.
+The published 0.4.12 install command below selects the earlier contract. Requires Node.js 22.12 or newer.
 
 Run without a global installation:
 

@@ -178,8 +178,8 @@ describe("public compiler contract boundaries", () => {
   });
 
   it("validates all named edge kinds without admitting those clauses on Point annotations", () => {
-    for (const kind of ["supports", "challenges", "undercuts", "about", "answers", "repliesTo", "clarifies"]) {
-      const target = kind === "undercuts" ? "route" : "claim";
+    for (const kind of ["supports", "challenges", "about", "answers", "repliesTo", "clarifies"]) {
+      const target = "claim";
       const source = "- [C @claim] Claim.\n- [. @material] Material.\n- [edge @material supports @claim; @route]\n- [edge @claim " + kind + " @" + target + "]";
       const ast = parseDocument(source);
       const { graph, explain } = compileGraphWithExplain(ast);
@@ -300,7 +300,7 @@ describe("public compiler contract boundaries", () => {
   it("uses a single target reference and rejects target arrays in AST JSON", () => {
     const source = "- [C @claim] Claim.\n- [G +> @claim] Reason.\n";
     const ast = json(parseDocument(source));
-    expect(ast.blocks[1].annotation.operatorClause).toEqual({ op: "supports", sources: "self", target: { id: "claim" } });
+    expect(ast.blocks[1].annotation.operatorClause).toEqual({ op: "supports", targetKind: "either", sources: "self", target: { id: "claim" } });
     expect(validateAst(ast)).toBe(true);
     const legacy = json(ast);
     const clause = legacy.blocks[1].annotation.operatorClause;
@@ -337,7 +337,7 @@ describe("public compiler contract boundaries", () => {
     const rejected = json(explain);
     expect(validateExplain(rejected)).toBe(true);
     expect(rejected.entries[1].effects).toContainEqual(expect.objectContaining({
-      kind: "rejectBearing", bearing: expect.objectContaining({ kind: "undercuts", target: expect.objectContaining({ kind: "point" }) })
+      kind: "rejectBearing", bearing: expect.objectContaining({ kind: "challenges", target: expect.objectContaining({ kind: "point" }) })
     }));
     const emitted = json(compileGraphWithExplain(parseDocument("- [C @claim] Claim.\n  - [G] Reason.\n")).explain);
     emitted.entries[1].effects.find((effect: { kind: string }) => effect.kind === "emitBearing").bearing.kind = "undercuts";
@@ -433,7 +433,7 @@ describe("Point declaration metadata", () => {
     const name = new Map([...reused.points.map(point => [point.key, "@" + point.id] as const), ...reused.bearings.map(bearing => [bearing.key, ";" + bearing.handle] as const)]);
     expect(reused.bearings.map(bearing => [bearing.sources.map(ref => name.get(ref.key)).join(), bearing.kind, bearing.target.kind, name.get(bearing.target.key)])).toEqual([
       ["@p", "supports", "point", "@a"],
-      ["@transient", "undercuts", "bearing", ";to-a"],
+      ["@transient", "challenges", "bearing", ";to-a"],
       ["@open", "supports", "point", "@a"],
       ["@gap", "supports", "point", "@a"],
       ["@p", "supports", "point", "@b"],

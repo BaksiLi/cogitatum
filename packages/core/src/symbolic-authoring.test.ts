@@ -17,9 +17,9 @@ describe("consolidated symbolic authoring", () => {
     expect(compile("- [C @claim] Claim.\n  - Body.\n    - [G] Reason.").graph.bearings[0].target.key).toBe("_p1");
   });
 
-  it.each(["supports", "challenges", "undercuts", "about", "answers", "repliesTo", "clarifies"] satisfies BearingKind[])("uses one normalized explicit constructor for %s", kind => {
+  it.each(["supports", "challenges", "about", "answers", "repliesTo", "clarifies"] satisfies BearingKind[])("uses one normalized explicit constructor for %s", kind => {
     const prefix = "- [. @source] Source.\n- [C @target] Target.\n- [edge @source +> @target; @route]\n";
-    const target = kind === "undercuts" ? "route" : "target";
+    const target = "target";
     const compact = compile(prefix + "- [_ @source " + kind + " @" + target + "; @current] Route description.");
     const readable = compile(prefix + "- [edge @source " + kind + " @" + target + "; @current] Route description.");
     expect(compact.graph.diagnostics).toEqual([]);
@@ -70,7 +70,7 @@ describe("consolidated symbolic authoring", () => {
 
   it("keeps authored negative target checks after adopting slash", () => {
     const source = "- [. @source] Source.\n- [C @claim] Claim.\n- [_ @source +> @claim; @route]\n- [O -> @route] Wrong Point target.\n- [O /> @claim] Wrong Bearing target.";
-    expect(codes(source)).toEqual(["CHALLENGE_REQUIRES_POINT_TARGET", "UNDERCUT_REQUIRES_BEARING_TARGET"]);
+    expect(codes(source)).toEqual(["CHALLENGE_REQUIRES_POINT_TARGET", "CHALLENGE_REQUIRES_BEARING_TARGET"]);
     expect(compile(source).graph.bearings).toHaveLength(1);
   });
 

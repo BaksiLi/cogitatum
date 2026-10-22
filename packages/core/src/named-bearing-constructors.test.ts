@@ -5,11 +5,11 @@ import type { BearingKind, GraphIR } from "./types.js";
 const compile = (source: string) => compileGraph(parseDocument(source));
 const codes = (graph: GraphIR) => graph.diagnostics.map(diagnostic => diagnostic.code);
 const declarations = "- [. @first] Material premise.\n- [Q @second] A clarification question.\n- [C @target] Open claim.\n- [edge @target +> @first; @base] Base route.";
-const kinds: BearingKind[] = ["supports", "challenges", "undercuts", "about", "answers", "repliesTo", "clarifies"];
+const kinds: BearingKind[] = ["supports", "challenges", "about", "answers", "repliesTo", "clarifies"];
 
 describe("named canonical Bearing constructors", () => {
   it.each(kinds)("constructs ordered %s with existing Point identities and declaration metadata", kind => {
-    const target = kind === "undercuts" ? "base" : "target";
+    const target = "target";
     const source = declarations + "\n- [edge @second, @first " + kind + " @" + target + "; @named] Description mentions repliesTo without another clause.";
     const { graph, explain } = compileGraphWithExplain(parseDocument(source));
     expect(codes(graph)).toEqual([]);
@@ -20,30 +20,28 @@ describe("named canonical Bearing constructors", () => {
     const bearing = graph.bearings.find(entry => entry.handle === "named")!;
     expect(bearing.kind).toBe(kind);
     expect(bearing.sources.map(ref => graph.points.find(point => point.key === ref.key)?.id)).toEqual(["second", "first"]);
-    expect(bearing.target.kind).toBe(kind === "undercuts" ? "bearing" : "point");
+    expect(bearing.target.kind).toBe("point");
     expect(bearing.text).toBe("Description mentions repliesTo without another clause.");
     expect(bearing.derivedBy).toBe("operator");
-    expect(explain.entries[4].effects).toContainEqual(expect.objectContaining({ kind: "emitBearing", reason: "operator-clause", bearing: expect.objectContaining({ kind }) }));
+    expect(explain.entries[4].effects).toContainEqual(expect.objectContaining({ kind: "emitBearing", reason: "operator-clause", bearing: expect.objectContaining({ kind: kind }) }));
   });
 
-  it.each(["supports", "about"])("allows named %s to target an existing Bearing", kind => {
+  it.each(["supports", "challenges", "about"])("allows named %s to target an existing Bearing", kind => {
     const graph = compile(declarations + "\n- [edge @second " + kind + " @base]");
     expect(codes(graph)).toEqual([]);
     expect(graph.bearings[1]).toMatchObject({ kind, target: { key: graph.bearings[0].key, kind: "bearing" } });
   });
 
-  it.each(["answers", "repliesTo", "clarifies", "challenges"])("retains the Point target constraint for named %s", kind => {
+  it.each(["answers", "repliesTo", "clarifies"])("retains the Point target constraint for named %s", kind => {
     const graph = compile(declarations + "\n- [edge @first " + kind + " @base; @rejected]");
     expect(graph.bearings).toHaveLength(1);
-    expect(codes(graph)).toEqual([kind === "challenges" ? "CHALLENGE_REQUIRES_POINT_TARGET" : "BEARING_KIND_REQUIRES_POINT_TARGET"]);
+    expect(codes(graph)).toEqual(["BEARING_KIND_REQUIRES_POINT_TARGET"]);
   });
 
-  it("retains the Bearing target constraint for undercuts and existing symbolic />", () => {
-    const named = compile(declarations + "\n- [edge @first undercuts @target]");
+  it("retains the Bearing target constraint for symbolic />", () => {
     const symbolic = compile(declarations + "\n- [edge @first /> @target]");
-    expect(codes(named)).toEqual(["UNDERCUT_REQUIRES_BEARING_TARGET"]);
-    expect(codes(symbolic)).toEqual(codes(named));
-    expect(named.bearings).toHaveLength(1);
+    expect(codes(symbolic)).toEqual(["CHALLENGE_REQUIRES_BEARING_TARGET"]);
+    expect(symbolic.bearings).toHaveLength(1);
   });
 
   it.each([

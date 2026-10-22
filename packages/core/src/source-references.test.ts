@@ -122,7 +122,7 @@ describe("source reference analysis", () => {
     ["unknown source", "- [C @a] Claim.\n- [_ @missing +> @a] Missing.", "UNKNOWN_SOURCE"],
     ["unknown target", "- [G @a +> @missing] Missing.", "UNKNOWN_TARGET"],
     ["wrong use kind", "- [C @a] Claim.\n- [_ use @a] Wrong kind.", "POINT_IS_NOT_BEARING_REFERENCE"],
-    ["wrong target kind", "- [C @a] Claim.\n- [O /> @a] Wrong target kind.", "UNDERCUT_REQUIRES_BEARING_TARGET"],
+    ["wrong target kind", "- [C @a] Claim.\n- [O /> @a] Wrong target kind.", "CHALLENGE_REQUIRES_BEARING_TARGET"],
     ["malformed use", "- [C @a] Claim.\n- [. use] Missing operand.", "MALFORMED_POINT_USE"],
     ["malformed annotation", "- [C @a] Claim.\n- [G use @a", "MALFORMED_ANNOTATION_PREFIX"],
     ["invalid layout", "- [C @a] Claim.\n\t- [. use @a] Invalid.", "TAB_INDENTATION_UNSUPPORTED"],
