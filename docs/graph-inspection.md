@@ -156,5 +156,7 @@ The CLI deliberately rejects host text output until a batch representation is sp
 `GRAPH_TEXT_VERSION` is `"1"`; it identifies the notation independently of `FORMAT_VERSION`.
 The header records both versions.
 Changing the spelling/layout of records or the projection requires a new notation version; supporting a future Graph IR format requires an explicit preservation review.
-The 0.5.0 source candidate adds this API and CLI option without changing any existing JSON schema or default command output.
-LaTeX, source-aware reading, decoders and theoretical adapters remain separately scoped.
+The formatter adds no further JSON schema change beyond the breaking [0.5 format migration](syntax.md#compatibility-and-migration); default graph output remains JSON.
+The experimental View package's source-aware Reading consumes original input and a matching `explainSource` result; graph-text output is not its input or an intermediate source representation.
+Its Map geometry and selection do not change Graph IR or source.
+LaTeX, decoders and theoretical adapters remain separately scoped.

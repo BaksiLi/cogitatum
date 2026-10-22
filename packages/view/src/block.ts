@@ -14,6 +14,8 @@ export type BlockEditRequest = {
 };
 export type BlockViewOptions = {
   onEdit?: (request: BlockEditRequest) => void | Promise<void>;
+  /** Build provenance supplied by the host, rendered as plain text. */
+  version?: { label: string; detail: string };
   /** May be resolved after attachment when a host constructs previews off-DOM. */
   initialMode?: () => BlockMode | undefined;
   onMode?: (mode: BlockMode) => void;
@@ -84,6 +86,13 @@ export function createBlockView(container: HTMLElement, options: BlockViewOption
     readingSurface.querySelector<HTMLElement>('[aria-pressed="true"]')?.focus({ preventScroll: true });
   });
   element("p", "hint", mapPanel).textContent = "Drag marks to arrange; drag the canvas to pan. Ctrl / Cmd + scroll to zoom." + (edit ? " Enter to edit the selected passage." : "");
+  if (options.version) {
+    const version = element("details", "version", root);
+    const summary = element("summary", "version-label", version);
+    summary.textContent = options.version.label;
+    summary.title = "Build information";
+    element("p", "version-detail", version).textContent = options.version.detail;
+  }
 
   let mode: BlockMode = "reading", source: string | undefined, graph: GraphIR | undefined, map: GraphView | undefined;
   let selected: BearingTarget | undefined, selectedSpan: SourceSpan | undefined;

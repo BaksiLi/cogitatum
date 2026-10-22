@@ -30,6 +30,8 @@ Each changed source is compiled once and clears selection and pending navigation
 Reading/Map mode and the live Map instance survive updates; an empty fragment returns to Reading.
 `initialMode` is resolved again after DOM attachment for hosts that construct previews off-DOM.
 `onMode` reports user choices so the host can remember a view preference across render-child replacement.
+Optional `version: { label, detail }` adds a quiet, expandable build stamp below the preview.
+The host supplies installed package versions and source provenance at build time; the shell displays plain text without inferring release status.
 
 Edit and Enter request native source navigation; omitting `onEdit` removes the edit action.
 The callback receives the exact source revision, its optional local occurrence span, and a cancellation signal.

@@ -7,6 +7,15 @@ Use the complete released schema set and [migrate retained source](docs/syntax.m
 
 ## 0.5.0 (unreleased)
 
+**Migration from published 0.4.12 / format 0.4.0:** replace active named `undercuts` clauses with `/>` to retain their Bearing-only requirement, then recompile original source with the complete 0.5 compiler and schema bundle.
+Do not rename kinds or relabel versions in saved JSON as an upgrade.
+Consumers now distinguish negative targets through `challenges` plus `target.kind`; update the renamed target diagnostic and rebuild source/Reading projections.
+See the [migration procedure and executable example](docs/syntax.md#compatibility-and-migration).
+
+The intended npm release comprises Core and CLI.
+View remains private and experimental; its inclusion below records source changes, not a published package, host adoption or website deployment.
+Interpretation research does not introduce a Cogitatio runtime or a public theory API.
+
 - Add the optional `@cogitatum/view/block` preview shell for native host adapters.
   Share Reading/Map controls, diagnostics, expansion and cancellable Edit requests while native editors and storage remain host-owned.
   Keep the Playground Lens independent of this code-block preview.

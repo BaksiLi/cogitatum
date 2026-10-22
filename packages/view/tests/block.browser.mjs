@@ -12,11 +12,12 @@ const bundle = await build({
       import { explainSource } from '@cogitatum/core';
       import { projectReading, referenceKey } from '@cogitatum/view';
       import { createBlockView } from '@cogitatum/view/block';
-      window.mount = (source, editable = true) => {
+      window.mount = (source, editable = true, version) => {
         window.block?.destroy();
         window.requests = []; window.modes = [];
         window.projection = projectReading(source, explainSource(source, 'document'));
         window.block = createBlockView(document.querySelector('#host'), {
+          version,
           onMode: mode => window.modes.push(mode),
           ...(editable ? { onEdit: request => new Promise((resolve, reject) => {
             window.requests.push({ ...request, resolve, reject, observed: {
@@ -223,6 +224,22 @@ try {
         assert.equal(await root.locator('.cog-block-map').evaluate(node => node.getBoundingClientRect().height), 390);
         await assertContained();
       }
+    });
+    await check('optional build stamp opens with the keyboard and fits a narrow host', async () => {
+      await mount();
+      assert.equal(await root.locator('.cog-block-version').count(), 0);
+      const version = { label: 'Core candidate', detail: 'Core candidate\nView candidate\nSource ' + 'a'.repeat(40) };
+      await page.evaluate(([source, version]) => window.mount(source, true, version), [source, version]);
+      const stamp = root.locator('.cog-block-version');
+      await page.locator('#host').evaluate(node => { node.style.width = '280px'; });
+      assert.equal(await stamp.locator('p').isVisible(), false);
+      await stamp.locator('summary').focus(); await page.keyboard.press('Enter');
+      assert.equal(await stamp.locator('p').isVisible(), true);
+      assert.equal(await stamp.locator('p').textContent(), version.detail);
+      await flush();
+      assert.equal(await root.evaluate(node => node.scrollWidth <= node.clientWidth + 1), true);
+      await page.keyboard.press('Space');
+      assert.equal(await stamp.locator('p').isVisible(), false);
     });
     await page.close();
   }

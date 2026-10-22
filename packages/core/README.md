@@ -125,6 +125,12 @@ It also refuses an `edge` annotation that has neither an `operatorClause` nor a 
 Using a Point as an explicit source preserves its declaration metadata; indentation defaults do not add global role restrictions to explicit construction.
 Match the **0.5.0** candidate schemas and compiler; format 0.4.0 JSON must be recompiled from retained source, not relabelled.
 
+In 0.5, consumers branch on `bearing.kind === 'challenges'` and then `bearing.target.kind` to distinguish a Point challenge from a Bearing challenge.
+The resolved target does not recover the authored restriction: symbolic `/>` and named `challenges` can reach the same Bearing while only `/>` requires that target kind.
+Keep the AST for `operatorClause.targetKind`, and original source plus Explain for local occurrences.
+Replacing the named `undercuts` operator with `/>` preserves its authored restriction; replacing it with named `challenges` broadens it.
+Follow the [complete migration procedure](../../docs/syntax.md#compatibility-and-migration), including diagnostic-code changes and regenerating all projections.
+
 The package includes a draft 2020-12 JSON Schema bundle for offline integration:
 
 ```js

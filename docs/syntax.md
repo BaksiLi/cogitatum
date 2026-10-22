@@ -494,6 +494,22 @@ A retired constructor retains its boundary and handle in AST but emits no Bearin
 `CHALLENGE_REQUIRES_BEARING_TARGET` replaces the old `UNDERCUT_REQUIRES_BEARING_TARGET` diagnostic; `CHALLENGE_REQUIRES_POINT_TARGET` still diagnoses `->` against a Bearing.
 The word undercut has no active core kind or spelling; a future theory-specific use requires its own explicit, versioned contract.
 
+For example, the 0.4 clause `[_ @objection undercuts @route; @challenge]` becomes `[_ @objection /> @route; @challenge]`.
+Keep the sources, their order, target name, handle and occurrence prose; change the retired operator only.
+The complete migrated document is executable under 0.5:
+
+```md cog-check require=supports,challenges points=4 bearings=2 diagnostics=0
+- [C @claim] The bridge is safe.
+- [G @inspection] Yesterday's inspection found no defects.
+- [G @record] The maintenance record reports no damage.
+- [edge @inspection, @record +> @claim; @route] Joint grounds for the claim.
+- [O @objection] Neither check covered the underside.
+- [_ @objection /> @route; @challenge] Challenge this joint step.
+```
+
+This migration applies to the operator in an active `edge` or `_` annotation.
+Do not replace ordinary prose, authored names or literal `[note]` descendants merely because they contain `undercuts`.
+
 Bare `O` continues to challenge the nearest Point; directly beneath `linked`, `edge` or a Bearing use, write `O/` or a complete target.
 This keeps local Bearing selection explicit and avoids adding a second indentation-default table.
 A malformed or failed constructor still prevents outward fallback, and invalid linked sources still reject the whole joint.
@@ -503,6 +519,22 @@ Existing symbolic negative forms retain their endpoints, source order and indivi
 The newly accepted case is named `challenges` targeting a Bearing; symbolic `->` still rejects that target.
 Consumers should replace canonical `undercuts` branches with `challenges` and inspect `target.kind` when the distinction matters.
 The format change does not add bare-O defaults, Serial sugar, hidden premises or transitive support.
+
+For a consumer upgrade:
+
+1. Retain the complete original input and its explicit `document` or `host` mode, alongside the producing package version and schemas.
+   Keep historical output with its original format identifier.
+2. Migrate active retired clauses, then recompile with the 0.5 compiler and load all four schemas from that compiler's bundle.
+   Use `explainSource` when retaining Explain or feeding Reading; otherwise `compileSource` suffices.
+   Regenerate every retained projection from that same source revision; review aggregate diagnostics even when surviving graphs are available.
+3. Update negative-kind consumers and diagnostic-code handling, then verify both Point- and Bearing-targeted challenges, ordered joint sources and distinct parallel Bearings.
+   Update stored-schema pins and test actual host integrations against that same compiler revision.
+4. Rebuild Reading and Map projections from the new compilation.
+   Discard old compilation keys, occurrence addresses and saved edit previews; authored names can be resolved again within the correct source unit.
+
+If only old Graph IR remains, the original source, local occurrence prose and authored target requirements cannot be recovered from it.
+Retain it as a historical snapshot for its matching consumer; changing `version` or renaming `undercuts` in JSON is not a supported upgrade.
+The [graph preservation limits](graph-inspection.md#what-structure-v1-preserves) explain why a graph migration alone cannot establish source or application compatibility.
 
 ### Earlier migrations
 
