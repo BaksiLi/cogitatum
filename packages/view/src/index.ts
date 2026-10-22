@@ -1,6 +1,7 @@
 import type { BearingTarget, GraphIR } from "@cogitatum/core";
 import { focusNeighborhood, projectExploration, projectGraph, referenceKey, type GraphLink, type GraphNode, type GraphProjection } from "./projection.js";
-import { layoutGraph, relaxLayout, type Point2 } from "./layout.js";
+import { layoutGraph, type Point2 } from "./layout.js";
+import { createDragMotion } from "./motion.js";
 import { bearingMark, drawBearingGlyph, drawPointGlyph, MARK_TYPE, pointMark } from "./marks.js";
 export * from "./projection.js";
 export * from "./layout.js";
@@ -346,7 +347,7 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
 
   // ── transitions ──
   function moveTo(next: Map<string, Point2>, refit: boolean): void {
-    win?.cancelAnimationFrame(settleFrame);
+    stopMotion();
     const from = new Map([...next.keys()].map(id => [id, world.get(id) ?? next.get(id)!]));
     const camFrom = camera;
     world = new Map([...next].map(([id, p]) => [id, { ...p }]));
@@ -376,26 +377,39 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
   }
   function focusShape(id: string): void { const shape = shapes.get(id); if (shape) { selected = id; paint(); shape.g.focus({ preventScroll: true }); } }
 
-  /**
-   * Direct placement. Only unheld incident neighbours may follow, so one drag never reshuffles the
-   * rest of the Map; keyboard nudges (`follow = false`) and reduced motion move the mark alone.
-   */
-  function moveNode(node: GraphNode, position: Point2, follow: boolean): void {
+  let motion: ReturnType<typeof createDragMotion> | undefined;
+  let motionTime = 0;
+  function stopMotion(): void {
     win?.cancelAnimationFrame(settleFrame);
+    settleFrame = 0; motion = undefined;
+  }
+  function settle(now: number): void {
+    if (!motion || reduced() || destroyed) { stopMotion(); return; }
+    const active = motion.step(now - motionTime);
+    motionTime = now;
+    for (const node of topology.nodes) {
+      const p = world.get(node.id);
+      if (p) arrangement.set(positionKey(node), { ...p });
+    }
+    paint();
+    if (active) settleFrame = win!.requestAnimationFrame(settle);
+    else { settleFrame = 0; motion = undefined; }
+  }
+
+  /** The held mark follows the pointer exactly; its unheld component settles around it. */
+  function moveNode(node: GraphNode, position: Point2, follow: boolean): void {
+    if (!follow) stopMotion();
     const before = world.get(node.id);
     if (before && before.x === position.x && before.y === position.y) return;
     world.set(node.id, position); arrangement.set(positionKey(node), { ...position }); held.add(positionKey(node));
-    if (!follow || reduced()) return;
-    const neighbours = new Set(topology.links.flatMap(link =>
-      link.source === node.id ? [link.target] : link.target === node.id ? [link.source] : []));
-    const free = topology.nodes.filter(n => neighbours.has(n.id) && n.id !== node.id && !held.has(positionKey(n)));
-    if (!free.length) return;
-    const movable = new Set(free.map(n => n.id));
-    relaxLayout(topology, world, {
-      iterations: 2, strength: .35, direction: options.direction,
-      pinned: new Set(topology.nodes.filter(n => !movable.has(n.id)).map(n => n.id))
-    });
-    for (const n of free) arrangement.set(positionKey(n), { ...world.get(n.id)! });
+    if (!follow || reduced() || !win) return;
+    if (!motion) {
+      motion = createDragMotion(topology, world, node.id,
+        new Set(topology.nodes.filter(n => held.has(positionKey(n))).map(n => n.id)), options.direction);
+      motionTime = win.performance.now();
+      settleFrame = win.requestAnimationFrame(settle);
+    }
+    motion.reheat();
   }
 
   // ── pointer: drag a mark, pan the background, pinch to zoom; a click is a press that did not move ──
@@ -405,7 +419,7 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
   const local = (event: PointerEvent | WheelEvent | MouseEvent) => { const r = svg.getBoundingClientRect(); return { x: event.clientX - r.left, y: event.clientY - r.top }; };
   svg.addEventListener("pointerdown", event => {
     if (event.button !== 0) return;
-    win?.cancelAnimationFrame(settleFrame); // Direct manipulation owns geometry until release.
+    stopMotion(); // A new gesture supersedes the previous settling or Arrange transition.
     pointers.set(event.pointerId, local(event));
     if (pointers.size === 2 && gesture) {
       const [p, q] = [...pointers.values()];
@@ -445,6 +459,7 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
     // With pointer capture the event target is the svg; the press target decides what a click selects.
     const { moved, target } = gesture;
     gesture = undefined; delete svg.dataset.dragging;
+    if (event.type === "pointercancel") stopMotion();
     if (svg.hasPointerCapture?.(event.pointerId)) svg.releasePointerCapture(event.pointerId);
     if (moved) { suppressClick = true; return; }
     if (event.type === "pointerup") select(target && shapes.has(target) ? target : undefined);
@@ -506,7 +521,7 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
   const view: GraphView = {
     update(graph, nextScope) {
       if (destroyed) throw new Error("This graph view has been destroyed.");
-      win?.cancelAnimationFrame(settleFrame); // a pending transition must not overwrite the new frame
+      stopMotion(); // a pending transition must not overwrite the new frame
       const previous = nodeById(selected), hadFocus = svg.contains(doc.activeElement);
       hovered = undefined;
       const sameScope = nextScope === scope;
@@ -547,7 +562,7 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
     },
     destroy() {
       destroyed = true; abort.abort(); observer?.disconnect();
-      win?.cancelAnimationFrame(frame); win?.cancelAnimationFrame(settleFrame);
+      win?.cancelAnimationFrame(frame); stopMotion();
       svg.remove(); shapes.clear(); world.clear(); arrangement.clear(); held.clear();
     }
   };

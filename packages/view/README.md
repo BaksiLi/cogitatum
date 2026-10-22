@@ -26,7 +26,10 @@ Callbacks receive a projected node with its typed compilation `ref`, optional au
 Mount once in a React effect, call `update` for each compiled revision, and return `destroy` from cleanup. Recreate the view or use current refs when callback closures change. Each instance appends/removes only its own SVG and has independent markers and event handlers. No DOM access occurs at module import, so server-side imports work.
 
 `update(graph, scope)` takes **one** source unit and requires a host-owned scope identifier. Change `scope` when switching units or artefacts. Named selection is retained within a scope and `onSelect` receives the refreshed node; otherwise `onClear` clears obsolete details. Anonymous keys never retain selection or positions across updates. Initial layouts are deterministic. Same-scope updates may preserve a user-adjusted camera when the previous layout has authored names; otherwise the view fits the graph. It also re-frames when the revised graph would no longer read in view. Map is one workflow: automatic placement puts what is borne upon above what bears on it, keeping siblings in source order.
-Every Point and junction can then be dragged, or nudged with Alt + arrow keys; unpinned neighbours adjust locally and stop on release.
+Every Point and junction can then be dragged, or nudged with Alt + arrow keys.
+During pointer dragging, the connected component follows with damped attraction and repulsion, including across joint Bearings.
+Earlier manual placements and separate fragments stay fixed.
+Motion settles within 900 ms of the last movement and stops scheduling frames; reduced motion and keyboard nudges move only the chosen mark.
 Reduced motion keeps neighbours still during direct manipulation.
 A press that does not move selects; dragging does not select or clear.
 Background drag pans, Ctrl/Command + wheel or a pinch zooms, and the ordinary wheel is left to the page. Positions are view-local and never modify the compiled graph or source; `resetLayout()` discards the arrangement.
