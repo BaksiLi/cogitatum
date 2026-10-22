@@ -22,7 +22,7 @@
     "cog": "tsx --conditions development packages/cli/src/index.ts",
     "cog:dist": "node packages/cli/dist/index.js",
     "build": "npm run build:public",
-    "check": "npm run build && npm test && npm run check:cli && npm run check:docs && npm run check:json && npm run check:versions && npm run check:packages"
+    "check": "npm run build && npm test && npm run check:cli && npm run check:docs && npm run check:json && npm run check:versions && node scripts/check-packages.mjs"
   },
   "devDependencies": {
     "@types/node": "^22.15.30",
