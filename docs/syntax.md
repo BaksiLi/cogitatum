@@ -7,7 +7,7 @@ order: 4
 
 # Complete syntax
 
-Public reference for **format 0.5.0**, implemented by the unpublished **0.5.0** source candidate.
+Public reference for **format 0.5.0**, implemented by Core/CLI **0.5.0**.
 Use the complete released compiler and schema set; earlier unpublished 0.4 candidates may report the same format identifier with different contracts.
 Examples, schemas, and conformance fixtures are checked against the implementation.
 
@@ -443,7 +443,10 @@ Read the whole subtree from AST: literal children do not receive separate Explai
 This also applies to a malformed reserved note, which retains its error and literal boundary.
 Direct notes in linked have `linkedMember` function `supplementary` and `eligible: false`.
 
-The `implicitAttachment` Explain effect records the successful typed `target`, its canonical `targetSpan` when available, the LOCAL selected `contextSpan` and ordered `crossedBodySpans`.
+Every successfully emitted structural Bearing has an `implicitAttachment` Explain effect recording the typed `target`, its canonical `targetSpan` when available, the selected occurrence's `contextSpan` and ordered `crossedBodySpans`.
+`crossedBodySpans` is empty for direct attachment; only a nonempty list produces the advisory diagnostic.
+This covers ordinary containment, Linked and local Bearing selectors, including selection through a Point or Bearing use.
+Explicit clauses and rejected Bearings do not receive this effect.
 The entry span identifies the responsible source occurrence.
 For a reused target, its remote declaration span and local context span may differ; neither substitutes for the other.
 Unavailable target spans are omitted, never manufactured.
@@ -466,7 +469,7 @@ It covers only its own line, so a child's diagnostics appear on the child's entr
 
 ## Compatibility and migration
 
-This edition documents candidate package 0.5.0 / format 0.5.0; it is not published.
+This edition documents package 0.5.0 / format 0.5.0.
 Published 0.4.12 / format 0.4.0 remains a separate contract.
 
 Format 0.5 unifies canonical `undercuts` into `challenges` while retaining each Bearing's identity, ordered sources and typed target.
@@ -491,6 +494,22 @@ A retired constructor retains its boundary and handle in AST but emits no Bearin
 `CHALLENGE_REQUIRES_BEARING_TARGET` replaces the old `UNDERCUT_REQUIRES_BEARING_TARGET` diagnostic; `CHALLENGE_REQUIRES_POINT_TARGET` still diagnoses `->` against a Bearing.
 The word undercut has no active core kind or spelling; a future theory-specific use requires its own explicit, versioned contract.
 
+For example, the 0.4 clause `[_ @objection undercuts @route; @challenge]` becomes `[_ @objection /> @route; @challenge]`.
+Keep the sources, their order, target name, handle and occurrence prose; change the retired operator only.
+The complete migrated document is executable under 0.5:
+
+```md cog-check require=supports,challenges points=4 bearings=2 diagnostics=0
+- [C @claim] The bridge is safe.
+- [G @inspection] Yesterday's inspection found no defects.
+- [G @record] The maintenance record reports no damage.
+- [edge @inspection, @record +> @claim; @route] Joint grounds for the claim.
+- [O @objection] Neither check covered the underside.
+- [_ @objection /> @route; @challenge] Challenge this joint step.
+```
+
+This migration applies to the operator in an active `edge` or `_` annotation.
+Do not replace ordinary prose, authored names or literal `[note]` descendants merely because they contain `undercuts`.
+
 Bare `O` continues to challenge the nearest Point; directly beneath `linked`, `edge` or a Bearing use, write `O/` or a complete target.
 This keeps local Bearing selection explicit and avoids adding a second indentation-default table.
 A malformed or failed constructor still prevents outward fallback, and invalid linked sources still reject the whole joint.
@@ -500,6 +519,22 @@ Existing symbolic negative forms retain their endpoints, source order and indivi
 The newly accepted case is named `challenges` targeting a Bearing; symbolic `->` still rejects that target.
 Consumers should replace canonical `undercuts` branches with `challenges` and inspect `target.kind` when the distinction matters.
 The format change does not add bare-O defaults, Serial sugar, hidden premises or transitive support.
+
+For a consumer upgrade:
+
+1. Retain the complete original input and its explicit `document` or `host` mode, alongside the producing package version and schemas.
+   Keep historical output with its original format identifier.
+2. Migrate active retired clauses, then recompile with the 0.5 compiler and load all four schemas from that compiler's bundle.
+   Use `explainSource` when retaining Explain or feeding Reading; otherwise `compileSource` suffices.
+   Regenerate every retained projection from that same source revision; review aggregate diagnostics even when surviving graphs are available.
+3. Update negative-kind consumers and diagnostic-code handling, then verify both Point- and Bearing-targeted challenges, ordered joint sources and distinct parallel Bearings.
+   Update stored-schema pins and test actual host integrations against that same compiler revision.
+4. Rebuild Reading and Map projections from the new compilation.
+   Discard old compilation keys, occurrence addresses and saved edit previews; authored names can be resolved again within the correct source unit.
+
+If only old Graph IR remains, the original source, local occurrence prose and authored target requirements cannot be recovered from it.
+Retain it as a historical snapshot for its matching consumer; changing `version` or renaming `undercuts` in JSON is not a supported upgrade.
+The [graph preservation limits](graph-inspection.md#what-structure-v1-preserves) explain why a graph migration alone cannot establish source or application compatibility.
 
 ### Earlier migrations
 
@@ -562,6 +597,11 @@ One span therefore need not select only one entity; inspect the typed emission r
 Point and Bearing occurrence spans map through focusPoint or focusBearing to the original entity key; canonical spans stay at declarations/constructions.
 Valid use block text holds the local note separately from shared entity text.
 Address an occurrence by source-unit index and Explain entry index; address its entity by source-unit index and (kind,key), scoped to that compilation.
+Within one compiler-produced source unit, each nonliteral AST block has exactly one Explain entry with the same full `sourceSpan`, in AST preorder.
+A note header has an entry; its literal descendants do not.
+An entry's span covers its own source line, not its subtree.
+Join AST and Explain only within that unit and compilation; neither spans, entry indexes nor generated keys identify an occurrence after editing.
+Retain the original source to display host prose, blank lines and malformed lines that are absent from the selected AST.
 Several occurrences may match one entity; return their distinct locations instead of silently choosing a single span.
 Optional missing canonical spans do not justify inventing source positions or extracting narrative from Graph IR.
 An occurrence can both focus a Point and emit an attached Bearing; neither operation creates a GraphIR occurrence entity.
@@ -579,17 +619,17 @@ Format 0.3.0 replaced generated Point IDs, optional Bearing IDs, ID-based graph 
 
 ### Schemas for integrations
 
-The source distribution's `spec/` directory contains JSON Schemas using draft 2020-12. This candidate includes AST, Graph IR, Explain, and source-envelope contracts through `@cogitatum/core/schemas/{ast,graph-ir,explain,source}`. The source-envelope schema refers to the other three by `$id`; load those sibling schemas too when validating it. The published npm `0.3.0-alpha.1` tarball includes only the first three exports. For example, in Node.js:
+The source distribution's `spec/` directory contains JSON Schemas using draft 2020-12. Core 0.5.0 includes AST, Graph IR, Explain, and source-envelope contracts through `@cogitatum/core/schemas/{ast,graph-ir,explain,source}`. The source-envelope schema refers to the other three by `$id`; load those sibling schemas too when validating it. The published npm `0.3.0-alpha.1` tarball includes only the first three exports. For example, in Node.js:
 
 ```js
 import graphSchema from '@cogitatum/core/schemas/graph-ir' with { type: 'json' };
 ```
 
-Candidate schema `$id` values use `/schemas/0.5.0/`.
-The published 0.4.12 bundle fixes format 0.4.0; this incompatible candidate uses a new identifier and schema URLs.
-Use the candidate schema files from this checkout to validate format 0.5; the 0.4 bundle cannot validate it.
+Schema `$id` values use `/schemas/0.5.0/`.
+The published 0.4.12 bundle fixes format 0.4.0; this incompatible release uses a new identifier and schema URLs.
+Use the schema files from this checkout to validate format 0.5; the 0.4 bundle cannot validate it.
 For reproducible or offline validation, use all four schema copies from the exact package or source commit; neither the format identifier nor an unchanged source-envelope schema identifies the complete contract.
-The 0.5 source build includes all four candidate schemas.
+The 0.5 package and source build include all four schemas.
 Deployment of the official schema URLs and production playground is separate; use the exact package copies for validation until the matching website release is deployed.
 
 The AST, Graph IR, and Explain schemas validate individual projections.

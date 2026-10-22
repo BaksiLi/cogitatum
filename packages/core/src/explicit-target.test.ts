@@ -12,6 +12,29 @@ function ready(preview: ExplicitTargetPreview) {
 }
 
 describe("explicit target previews", () => {
+  it.each(["\u2028", "\u2029"])("preserves %j in prose, literal boundaries and occurrence identity", separator => {
+    const source = [
+      "- [. @shared] Shared " + separator + " content.",
+      "- [C @claim] Claim.",
+      "  - [G use @shared; @step] Local " + separator + " qualification.",
+      "    - [note] Literal " + separator + " explanation.",
+      "      - [G @shared +> @missing] Inert duplicate and unresolved target.",
+      "    - [O/] Review this occurrence's attachment."
+    ].join("\n");
+    const before = explainSource(source);
+    expect(before.diagnostics).toEqual([]);
+    expect(before.graphs[0].points.map(point => point.id)).toEqual(["shared", "claim", undefined]);
+    expect(before.graphs[0].points[0].text).toBe("Shared " + separator + " content.");
+    expect(before.documents[0].blocks[1].children[0].text).toBe("Local " + separator + " qualification.");
+    expect(before.explanations[0].entries.map(entry => entry.sourceSpan.startLine)).toEqual([1, 2, 3, 4, 6]);
+    const preview = ready(previewExplicitTarget(source, { line: 3 }));
+    expect(preview.proposedSource).toBe(source.replace("[G use @shared;", "[G use @shared +> @claim;"));
+    expect(preview.edit.offset).toBe(source.indexOf("; @step"));
+    expect(preview.proposedDiagnostics).toEqual([]);
+    expect(formatGraph(explainSource(preview.proposedSource).graphs[0])).toBe(formatGraph(before.graphs[0]));
+    expect(previewExplicitTarget(source, { line: 5 })).toMatchObject({ status: "unavailable", reason: "no-attachment" });
+  });
+
   it.each([["G", "+>"], ["O", "->"], ["?", "~>"]])("makes %s explicit without changing its prose, mark, name or handle", (mark, symbol) => {
     const source = `- [C @claim] Claim.\n  - [ ${mark} @point   ; @step ] Reason [G] stays prose.\n    - [O/] Review this particular step.\n    - [note] Qualification.\n      - [G +> @missing] Inert syntax.`;
     const preview = ready(previewExplicitTarget(source, { line: 2 }));
@@ -59,6 +82,18 @@ describe("explicit target previews", () => {
     expect(second.units[0].source).toContain('[G +> @claim]');
   });
 
+  it.each(["\n", "\r\n", "\r", "mixed"])("preserves original host line endings %j when locating the edit", lineEnding => {
+    const lines = ["Host 🌧️ prose.", "  ```cog", "  - [C @claim] Claim.", "    - [G] Reason.", "  ```", "", "```cog", "- [C @other] Other unit.", "```"];
+    const source = lines.map((line, index) => line + (index === lines.length - 1 ? "" : lineEnding === "mixed" ? ["\r", "\n", "\r\n"][index % 3] : lineEnding)).join("");
+    const preview = ready(previewExplicitTarget(source, { line: 4, mode: "host" }));
+    expect(preview.edit.offset).toBe(source.indexOf("[G]") + 2);
+    expect(preview.proposedSource).toBe(source.replace("[G]", "[G +> @claim]"));
+    expect(preview.proposedDiagnostics).toEqual([]);
+    const before = explainSource(source, "host"), after = explainSource(preview.proposedSource, "host");
+    expect(formatGraph(after.graphs[0])).toBe(formatGraph(before.graphs[0]));
+    expect(after.graphs[1]).toEqual(before.graphs[1]);
+  });
+
   it("retains unrelated diagnostics and removes only the selected implicit advice", () => {
     const source = '- [. @alone] Isolated material.\n- [C @a] Claim.\n  - Group\n    - [G] One.\n    - [O] Two.';
     const preview = ready(previewExplicitTarget(source, { line: 4 }));
@@ -98,6 +133,28 @@ describe("explicit target previews", () => {
     expect(preview).toMatchObject({ status: 'unavailable', reason });
     expect(preview).not.toHaveProperty('edit');
     expect(preview).not.toHaveProperty('proposedSource');
+  });
+
+  it("explains why a joint target cannot be made explicit by editing a single member", () => {
+    const source = "- [C @claim] Claim.\n  - [linked; @joint] Joint route.\n    - [G @first] First source.\n    - [G @second] Second source.";
+    for (const [line, message] of [[2, "This linked header constructs one joint Bearing."], [3, "This Ground contributes to the enclosing joint Bearing."], [4, "This Ground contributes to the enclosing joint Bearing."]] as const) {
+      const preview = previewExplicitTarget(source, { line });
+      expect(preview).toMatchObject({ status: "unavailable", reason: "no-attachment", message: expect.stringContaining(message) });
+      expect(preview).not.toHaveProperty("edit");
+      expect(preview).not.toHaveProperty("proposedSource");
+    }
+  });
+
+  it("keeps errors, independent clauses, selectors and literal notes ahead of joint-member advice", () => {
+    const source = "- [C @claim] Claim.\n  - [linked; @joint] Joint route.\n    - [G @first] Source.\n    - [G +> @claim] Independent support.\n    - [O/] Review joint.\n    - [note] Literal.\n      - [G] Inert.";
+    expect(previewExplicitTarget(source + "\n- [G +> @missing] Broken.", { line: 2 })).toMatchObject({ reason: "source-errors" });
+    expect(previewExplicitTarget(source, { line: 4 })).toMatchObject({ reason: "already-explicit" });
+    expect(previewExplicitTarget(source, { line: 5 })).toMatchObject({ reason: "unsupported-attachment" });
+    for (const line of [6, 7]) {
+      const preview = previewExplicitTarget(source, { line });
+      expect(preview).toMatchObject({ reason: "no-attachment" });
+      if (preview.status === "unavailable") expect(preview.message).not.toContain("joint");
+    }
   });
 
   it.each([0, -1, 1.5, NaN, Infinity, Number.MAX_SAFE_INTEGER + 1])('rejects invalid source line %s', line => {

@@ -189,7 +189,7 @@
             "target": { "oneOf": [{ "$ref": "#/$defs/pointRef" }, { "$ref": "#/$defs/bearingRef" }] },
             "targetSpan": { "$ref": "#/$defs/sourceSpan" },
             "contextSpan": { "$ref": "#/$defs/sourceSpan" },
-            "crossedBodySpans": { "type": "array", "items": { "$ref": "#/$defs/sourceSpan" }, "minItems": 1 }
+            "crossedBodySpans": { "type": "array", "items": { "$ref": "#/$defs/sourceSpan" } }
           },
           "additionalProperties": false
         },

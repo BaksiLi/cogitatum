@@ -58,6 +58,12 @@ type RoleMark =
   | { role: "G" | "O"; status?: never; selector: "attachment"; operatorClause?: never }
   | { role: Role; status?: never; selector?: never };
 
+// A reused Point has its own local role; only G/ and O/ select an attachment.
+// AST and Explain must retain the same role/selector correlation.
+type PointUseMark =
+  | { role?: Role; selector?: never }
+  | { role: "G" | "O"; selector: "attachment"; operatorClause?: never };
+
 type PointAnnotationBase = AnnotationBase & {
   anchor?: string;
   operatorClause?: PointOperatorClause;
@@ -71,10 +77,7 @@ export type Annotation =
       kind: "use";
       ref?: Ref;
       operatorClause?: PointOperatorClause;
-    } & (
-      | { role?: Role; selector?: never }
-      | { role: "G" | "O"; selector: "attachment"; operatorClause?: never }
-    ))
+    } & PointUseMark)
   | (PointAnnotationBase & RoleMark & { kind: "role" })
   | (PointAnnotationBase & { kind: "gap"; status: "open" })
   | (PointAnnotationBase & { kind: "material" })
@@ -101,7 +104,9 @@ export type DocumentAst = {
 };
 
 export type ParseOptions = {
+  /** Lines preceding this source; nonnegative safe integer, default zero. */
   lineOffset?: number;
+  /** UTF-16 columns removed from each line; nonnegative safe integers, missing entries default to zero. */
   lineColumnOffsets?: number[];
 };
 
@@ -183,7 +188,7 @@ export type ExplainRecognition =
   | { kind: "edge" }
   | { kind: "linked" }
   | { kind: "bearingUse"; ref?: Ref }
-  | { kind: "use"; ref?: Ref; role?: Role; selector?: "attachment" };
+  | ({ kind: "use"; ref?: Ref } & PointUseMark);
 
 export type ExplainBearingRef = {
   kind: "bearing";
@@ -208,6 +213,7 @@ export type ExplainEmittedBearingSummary = Omit<BearingBase, "text" | "sourceSpa
 
 export type ExplainEffect =
   | { kind: "preserveNote"; parentSpan?: SourceSpan }
+  // Successful structural selection, even with no intervening body. Not emitted for rejected Bearings.
   | { kind: "implicitAttachment"; target: BearingTarget; targetSpan?: SourceSpan; contextSpan: SourceSpan; crossedBodySpans: SourceSpan[] }
   | { kind: "linkedMember"; linkedSpan: SourceSpan; eligible: boolean; function: LinkedChildFunction }
   | { kind: "focusPoint"; ref: PointRef; operand: Ref }

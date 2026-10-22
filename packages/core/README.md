@@ -2,7 +2,7 @@
 
 Cogitatum is a lightweight markup language for making selected reasoning structure explicit inside ordinary prose. This package provides its deterministic parser and compiler for Node.js and browsers.
 
-Source candidate: **0.5.0**, format **0.5.0** (unpublished), with unified `challenges` and explicit authored target constraints.
+Version **0.5.0**, format **0.5.0**, with unified `challenges` and explicit authored target constraints.
 `->` requires a Point and `/>` requires a Bearing; both emit `challenges` with a typed target.
 Named `challenges` accepts either target; named `undercuts` is rejected with migration guidance to `/>`.
 Explicit `edge` clauses can use any canonical kind name; Point-attached clauses retain the four symbolic operators.
@@ -14,13 +14,19 @@ G/ and O/ select only the nearest constructor's exposed Bearing: its local attac
 Occurrence prose, local marks and original UTF-16 spans remain in AST/Explain; focusPoint maps each use to a typed Point ref, and rejectFocus explains lookup failure.
 focusBearing similarly maps Bearing occurrences; selectBearing identifies a referenced context without claiming attachment ownership.
 Canonical spans remain declaration/construction spans; several uses may map to the same entity.
+Every successfully emitted structural Bearing has an `implicitAttachment` effect whose `contextSpan` identifies the local selected occurrence.
+Its `targetSpan` identifies the canonical target and may differ when a Point or Bearing is reused.
+`crossedBodySpans` is empty for direct containment; only a nonempty list triggers the existing through-body suggestion.
+Failed relations and explicit target clauses have no successful implicit-attachment effect.
+Within a source unit, each nonliteral AST block has one Explain entry with the same full block `sourceSpan`, in preorder.
+The note header has an entry; its literal descendants do not.
+These line spans identify occurrences only within the current compilation; retain the exact original source and rebuild the projections after an edit.
 Keep shared content, occurrence notes, quoted source context and proposed reconstructions separate; retained original source plus AST/Explain is required for reading, not Graph IR alone.
 The historical npm `alpha` tag provides **0.3.0-alpha.1** without linked.
-Build this checkout to use the 0.5 candidate API and syntax.
-The published 0.4.12 install command below selects the earlier contract.
+Install the matching package to use the 0.5 API and syntax.
 
 ```sh
-npm install @cogitatum/core@0.4.12
+npm install @cogitatum/core@0.5.0
 ```
 
 ```js
@@ -43,6 +49,13 @@ Pass `host` explicitly for Markdown: actual document-level `cog`/`cogitatum` fen
 Nested active fences are diagnosed and omitted; a host with no active regions returns empty projections without parsing host prose as an outline.
 `auto` is retired and explicit JavaScript uses receive a `TypeError` with migration guidance.
 Keep the original host and pair selected units with AST/Graph/Explain by array index; source spans refer to original one-based UTF-16 positions.
+
+For an already extracted outline, `parseDocument(source, { lineOffset, lineColumnOffsets })` maps spans back to its original location.
+`lineOffset` counts preceding lines; `lineColumnOffsets` counts removed UTF-16 code units for each source line.
+Offsets must be nonnegative safe integers; omitted options and missing per-line entries default to zero.
+Invalid offsets or resulting coordinates beyond JavaScript's safe integer range throw `RangeError` instead of returning malformed spans.
+These are caller errors, separate from source diagnostics.
+
 ESM; Node.js 22.12 or newer for development and CLI use.
 
 Experimental debugging APIs, `compileGraphWithExplain` and `explainSource`, add a compiler trace of recognition, emitted or rejected entities, and diagnostics. This trace explains compilation decisions; it does not assess reasoning or record inquiry history. Use AST and Graph IR for integrations that do not need it.
@@ -94,7 +107,7 @@ No existing AST, Graph IR, Explain or Source schema is extended.
 
 ## Graph inspection
 
-The candidate exports `formatGraph(graph: GraphIR): string` and `GRAPH_TEXT_VERSION` (`"1"`).
+Core exports `formatGraph(graph: GraphIR): string` and `GRAPH_TEXT_VERSION` (`"1"`).
 The formatter reads one compiled graph and returns a deterministic plain-text entity table and relation list, preserving typed identities, declaration metadata, names, text and ordered sources.
 Error-bearing graphs are explicitly marked partial and include diagnostics.
 It does not reconstruct source, infer validity or mutate the input.
@@ -109,7 +122,13 @@ It also refuses an `edge` annotation that has neither an `operatorClause` nor a 
 
 `OperatorClause.op` holds the canonical selected `BearingKind`; edge sources are existing Point references, and self-sourced Point annotations admit only symbolic `BearingOp` kinds.
 Using a Point as an explicit source preserves its declaration metadata; indentation defaults do not add global role restrictions to explicit construction.
-Match the **0.5.0** candidate schemas and compiler; format 0.4.0 JSON must be recompiled from retained source, not relabelled.
+Match the **0.5.0** schemas and compiler; format 0.4.0 JSON must be recompiled from retained source, not relabelled.
+
+In 0.5, consumers branch on `bearing.kind === 'challenges'` and then `bearing.target.kind` to distinguish a Point challenge from a Bearing challenge.
+The resolved target does not recover the authored restriction: symbolic `/>` and named `challenges` can reach the same Bearing while only `/>` requires that target kind.
+Keep the AST for `operatorClause.targetKind`, and original source plus Explain for local occurrences.
+Replacing the named `undercuts` operator with `/>` preserves its authored restriction; replacing it with named `challenges` broadens it.
+Follow the [complete migration procedure](../../docs/syntax.md#compatibility-and-migration), including diagnostic-code changes and regenerating all projections.
 
 The package includes a draft 2020-12 JSON Schema bundle for offline integration:
 
@@ -122,7 +141,7 @@ import sourceSchema from '@cogitatum/core/schemas/source' with { type: 'json' };
 
 `sourceSchema` covers the `parseSource`, `compileSource`, and `explainSource` result envelopes and refers to the AST, Graph IR, and Explain schemas by their `$id`.
 Load those sibling schemas from the same compiler bundle into a validator before compiling it.
-This candidate's bundle describes format 0.5.0; the published 0.4.12 bundle describes format 0.4.0.
+This bundle describes format 0.5.0; the published 0.4.12 bundle describes format 0.4.0.
 The envelope keeps source units and projections in parallel arrays, paired by index.
 Schemas check data shapes; array alignment, reference integrity, and agreement with source remain compiler guarantees.
 Keys are opaque strings: their numbering is not an integration contract.
@@ -131,7 +150,7 @@ The source-envelope export is absent from the historical npm `0.3.0-alpha.1` tar
 
 Read the [introduction](https://cogitatum.baksili.codes/docs/introduction), [syntax](https://cogitatum.baksili.codes/docs/syntax), or try the [playground](https://cogitatum.baksili.codes/playground).
 
-## Explicit target preview (0.5 candidate)
+## Explicit target preview
 
 `previewExplicitTarget(source, { line, mode? })` prepares one checked source edit without writing a file.
 `line` is one-based in the complete source and `mode` is `document` (default) or `host`.

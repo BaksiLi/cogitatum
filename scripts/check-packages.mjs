@@ -27,7 +27,7 @@ for (const name of ["core", "cli", "view"]) {
   for (const path of paths) {
     const permitted = /^(package\.json|README\.md|LICENSE(?:\.md|\.txt)?|(?:dist|src)\/[a-z-]+\.(?:js|d\.ts|js\.map|ts))$/.test(path)
       || (name === "core" && /^dist\/schemas\/(ast|graph-ir|explain|source)\.schema\.json$/.test(path))
-      || (name === "view" && path === "dist/style.css");
+      || (name === "view" && /^(dist|src)\/style\.css$/.test(path));
     assert.ok(permitted && !path.includes(".test."), `Unexpected ${pkg.name} payload: ${path}`);
   }
   for (const required of ["package.json", "README.md", "dist/index.js", "dist/index.d.ts"]) {
@@ -147,15 +147,25 @@ const tsx = resolve(root, "node_modules/tsx/dist/loader.mjs");
 run(process.execPath, ["--conditions", "development", "--import", tsx, "--input-type=module", "-e", probe], temporary);
 const integrationProbe = `
 import assert from 'node:assert/strict';
-import { compileSource } from '@cogitatum/core';
-import { projectGraph, createGraphView } from '@cogitatum/view';
+import { compileSource, explainSource } from '@cogitatum/core';
+import { projectGraph, createGraphView, projectReading, createReadingView } from '@cogitatum/view';
+import { createBlockView } from '@cogitatum/view/block';
 const compiled = compileSource('- [C @claim] A claim.\\n  - [G] A reason.\\n', 'document');
 assert.equal(projectGraph(compiled.graphs[0]).nodes.length, 3);
 assert.equal(typeof createGraphView, 'function');
+assert.equal(typeof createReadingView, 'function');
+assert.equal(typeof createBlockView, 'function');
+const readingSource = '- [C @p] Original.\\n- [. use @p] Here.\\n  - [O] Local concern.';
+const reading = projectReading(readingSource, explainSource(readingSource));
+assert.equal(reading.rows.length, 3);
+assert.equal(reading.units[0].bearings[0].target.occurrenceId, reading.units[0].occurrences[1].id);
+assert.equal(reading.units[0].bearings[0].target.basis, 'context');
 `;
 run(process.execPath, ["--input-type=module", "-e", integrationProbe], temporary);
 run(process.execPath, ["--conditions", "development", "--import", tsx, "--input-type=module", "-e", integrationProbe], temporary);
-assert.ok(readFileSync(join(temporary, "node_modules/@cogitatum/view/dist/style.css"), "utf8").includes(".cog-graph"));
+for (const surface of [".cog-graph", ".cog-reading", ".cog-block"]) {
+  assert.ok(readFileSync(join(temporary, "node_modules/@cogitatum/view/dist/style.css"), "utf8").includes(surface));
+}
 const executable = join(temporary, "node_modules", ".bin", "cog");
 assert.match(run(executable, ["--version"], temporary), new RegExp(rootPackage.version.replaceAll(".", "\\.")));
 const explicitFile = join(temporary, "explicit.cog.md");
@@ -182,8 +192,17 @@ const apiReferences = JSON.parse(run(process.execPath, ["--input-type=module", "
 assert.deepEqual(cliReferences, apiReferences);
 assert.equal(cliReferences.references.status, "complete");
 
-writeFileSync(join(temporary, "consumer.mts"), `import {type Point, type PointDeclaration, type Bearing, type Annotation, type OperatorClause, type ExplainEmittedBearingSummary, type SourceReferenceAnalysis, type ReferencedName, type WrittenReference, type ExplicitTargetPreview, previewExplicitTarget, analyzeSourceReferences, formatGraph, GRAPH_TEXT_VERSION, compileGraph, parseDocument} from '@cogitatum/core';
-import { createGraphView, declarationMark } from '@cogitatum/view';
+writeFileSync(join(temporary, "consumer.mts"), `import {type Point, type PointDeclaration, type Bearing, type Annotation, type OperatorClause, type ExplainEmittedBearingSummary, type ExplainRecognition, type SourceReferenceAnalysis, type ReferencedName, type WrittenReference, type ExplicitTargetPreview, previewExplicitTarget, analyzeSourceReferences, formatGraph, GRAPH_TEXT_VERSION, compileGraph, parseDocument} from '@cogitatum/core';
+import { createGraphView, declarationMark, projectReading, createReadingView, type ReadingProjection } from '@cogitatum/view';
+import { createBlockView, type BlockEditRequest, type BlockView } from '@cogitatum/view/block';
+function mountHostBlock(container: HTMLElement): BlockView {
+  return createBlockView(container, { onEdit(request: BlockEditRequest) {
+    const source: string = request.source;
+    const line: number | undefined = request.sourceSpan?.startLine;
+    const canceled: boolean = request.signal.aborted;
+  } });
+}
+import { explainSource } from '@cogitatum/core';
 const preview: ExplicitTargetPreview = previewExplicitTarget('- [C @c] Claim.\\n  - [G] Reason.', {line: 2, mode: 'document'});
 if (preview.status === 'ready') {
   const original: string = preview.originalSource;
@@ -221,6 +240,27 @@ const mount = (container: HTMLElement) => {
   view.update(graph, 'host:source-unit');
   // @ts-expect-error A host must identify the source unit to retain selection safely.
   view.update(graph);
+  const reading = createReadingView(container, {
+    onSelect(selection) {
+      const unit: number = selection.unitIndex;
+      const occurrence: string = selection.occurrenceId;
+      if (selection.ref) view.select(selection.ref);
+    }
+  });
+  reading.selectOccurrence('current-occurrence', { kind: 'point', key: '_p1' });
+  // @ts-expect-error Occurrence selection requires its local id, not a graph entity.
+  reading.selectOccurrence({ kind: 'point', key: '_p1' });
+  const projected: ReadingProjection = projectReading('- [C] Claim.', explainSource('- [C] Claim.'));
+  reading.update(projected);
+  reading.select({kind: 'point', key: 'opaque'}, 0);
+  // @ts-expect-error Reading requires original source plus the complete Explain envelope.
+  projectReading(graph);
+  // @ts-expect-error A graph alone cannot reconstruct Reading.
+  reading.update(graph);
+  // @ts-expect-error Unit indices are numeric and local to the projection.
+  reading.select({kind: 'point', key: 'opaque'}, 'unit');
+  reading.clear();
+  reading.destroy();
   return view;
 };
 const graph = compileGraph(parseDocument('- [C] Claim.'));
@@ -307,6 +347,25 @@ const attachedBearingUse: Annotation = {kind: 'bearingUse', ref: {id: 'route'}, 
 // @ts-expect-error Neutral material is a Point variant, not a local role.
 const neutralRole: Annotation = {kind: 'material', role: 'G', raw: '.'};
 const selectorUse: Annotation = {kind: 'use', ref: {id: 'p'}, role: 'O', selector: 'attachment', raw: 'O/ use @p'};
+const neutralRecognition: ExplainRecognition = {kind: 'use', ref: {id: 'p'}};
+const questionRecognition: ExplainRecognition = {kind: 'use', role: 'Q', ref: {id: 'p'}};
+const groundSelectorRecognition: ExplainRecognition = {kind: 'use', role: 'G', selector: 'attachment', ref: {id: 'p'}};
+const objectionSelectorRecognition: ExplainRecognition = {kind: 'use', role: 'O', selector: 'attachment', ref: {id: 'p'}};
+// Rejected uses may retain the role and selector without a resolved operand.
+const unresolvedSelectorRecognition: ExplainRecognition = {kind: 'use', role: 'O', selector: 'attachment'};
+function selectedUseRole(recognition: ExplainRecognition): 'G' | 'O' | undefined {
+  if (recognition.kind === 'use' && recognition.selector) return recognition.role;
+}
+// @ts-expect-error An Explain selector requires its local G or O role.
+const neutralSelectorRecognition: ExplainRecognition = {kind: 'use', ref: {id: 'p'}, selector: 'attachment'};
+// @ts-expect-error A Question occurrence cannot select a local Bearing.
+const questionSelectorRecognition: ExplainRecognition = {kind: 'use', role: 'Q', ref: {id: 'p'}, selector: 'attachment'};
+// @ts-expect-error A Claim occurrence cannot select a local Bearing.
+const claimSelectorRecognition: ExplainRecognition = {kind: 'use', role: 'C', ref: {id: 'p'}, selector: 'attachment'};
+// @ts-expect-error A Reply occurrence cannot select a local Bearing.
+const replySelectorRecognition: ExplainRecognition = {kind: 'use', role: 'R', ref: {id: 'p'}, selector: 'attachment'};
+// @ts-expect-error A Distinction occurrence cannot select a local Bearing.
+const distinctionSelectorRecognition: ExplainRecognition = {kind: 'use', role: 'D', ref: {id: 'p'}, selector: 'attachment'};
 // @ts-expect-error A use operand is not a declaration anchor.
 const aliasedUse: Annotation = {kind: 'use', ref: {id: 'p'}, anchor: 'alias', raw: ''};
 // @ts-expect-error Occurrence status is excluded.

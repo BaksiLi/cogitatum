@@ -1,6 +1,7 @@
+import { layoutGraph } from "./layout.js";
 import { describe, expect, it } from "vitest";
 import { compileSource } from "@cogitatum/core";
-import { focusNeighborhood, layoutConstellation, layoutGraph, projectExploration, projectGraph, referenceKey } from "./projection.js";
+import { focusNeighborhood, projectExploration, projectGraph, referenceKey } from "./projection.js";
 
 describe("faithful graph projection", () => {
   it("keeps the typed endpoint when both content and route objections are challenges", () => {
@@ -38,34 +39,6 @@ describe("faithful graph projection", () => {
   it("rejects corrupt graph endpoints instead of drawing an invented connection", () => {
     const graph = compileSource('- [C] A.\n  - [G] B.','document').graphs[0];
     graph.points.pop(); expect(()=>projectGraph(graph)).toThrow('dangling');
-  });
-});
-
-
-describe("settled constellation layout", () => {
-  it("keeps every joint source and bearing target, with deterministic, separated positions", () => {
-    const source = '- [C @c] Claim.\n- [G @a] First.\n- [G @b] Second.\n- [edge @a, @b +> @c; @route]\n- [O /> @route] Route objection.';
-    const projection = projectGraph(compileSource(source, 'document').graphs[0]);
-    const before = structuredClone(projection);
-    const positioned = layoutConstellation(projection);
-    expect(positioned).toEqual(layoutConstellation(projection));
-    expect(positioned.map(({x, y, ...node}) => node)).toEqual(projection.nodes);
-    expect(projection).toEqual(before);
-    for (let i = 0; i < positioned.length; i++) for (let j = i + 1; j < positioned.length; j++) {
-      const a = positioned[i], b = positioned[j];
-      const width = 100;
-      const height = (a.ref.kind === 'point' ? 58 : 44) + (b.ref.kind === 'point' ? 58 : 44);
-      expect(Math.abs(a.x - b.x) >= width || Math.abs(a.y - b.y) >= height).toBe(true);
-    }
-  });
-  it("handles empty, disconnected and cyclic fragments without inventing connections", () => {
-    expect(layoutConstellation({nodes: [], links: []})).toEqual([]);
-    for (const source of ['- [C @a] A.\n- [Q @b] B.', '- [C @a +> @b] A.\n- [C @b +> @a] B.']) {
-      const projection = projectGraph(compileSource(source, 'document').graphs[0]);
-      const positioned = layoutConstellation(projection);
-      expect(positioned).toHaveLength(projection.nodes.length);
-      expect(positioned.every(node => Number.isFinite(node.x) && Number.isFinite(node.y) && node.x >= 0 && node.y >= 0)).toBe(true);
-    }
   });
 });
 
@@ -127,5 +100,62 @@ describe("focus neighborhood", () => {
     expect(focus.nodeIds).toEqual(projection.nodes.map(node => node.id));
     expect(focus.bearingKeys).toEqual(graph.bearings.map(b => b.key));
     expect(focusNeighborhood(projection, {kind: 'point', key: 'missing'})).toEqual({nodeIds: [], bearingKeys: []});
+  });
+});
+
+
+describe("Point focus includes direct context of its incident Bearings", () => {
+  const graphFor = (lines: string[]) => {
+    const compiled = compileSource(lines.join("\n"), "document");
+    expect(compiled.diagnostics).toEqual([]);
+    return compiled.graphs[0];
+  };
+
+  it.each(["challenges", "supports", "about"])("includes direct Point and step relations for %s", kind => {
+    const graph = graphFor([
+      "- [C @claim] Claim.", "  - [G @reason; @route] Reason.",
+      "- [O @content -> @claim; @content-attack] Content objection.",
+      "- [C @assessment] Assess the route.",
+      `- [_ @assessment ${kind} @route; @step-assessment]`
+    ]);
+    const projection = projectGraph(graph), before = structuredClone(projection);
+    const claim = graph.points.find(point => point.id === "claim")!;
+    expect(focusNeighborhood(projection, { kind: "point", key: claim.key })).toEqual({
+      nodeIds: projection.nodes.map(node => node.id),
+      bearingKeys: graph.bearings.map(bearing => bearing.key)
+    });
+    expect(projection).toEqual(before);
+  });
+
+  it("retains all Linked sources and one level of assessment without following neighbouring Points", () => {
+    const graph = graphFor([
+      "- [C @claim] Claim.", "  - [linked; @route]", "    - [G @a] First premise.", "    - [G @b] Second premise.",
+      "- [O @objection /> @route; @attack] Step objection.",
+      "- [O @reply /> @attack; @counterattack] A further objection.",
+      "- [C @next] Later claim.", "- [_ @claim supports @next; @onward]"
+    ]);
+    const projection = projectGraph(graph);
+    const point = graph.points.find(point => point.id === "a")!;
+    const focus = focusNeighborhood(projection, { kind: "point", key: point.key });
+    expect(focus.bearingKeys).toEqual(graph.bearings.filter(bearing => ["route", "attack"].includes(bearing.handle!)).map(bearing => bearing.key));
+    expect(focus.nodeIds).toEqual(projection.nodes.filter(node => ["claim", "a", "b", "objection", "route", "attack"].includes(node.name!)).map(node => node.id));
+    // Link ordering changes neither membership nor the projection's stable output order.
+    expect(focusNeighborhood({ nodes: projection.nodes, links: [...projection.links].reverse() }, { kind: "point", key: point.key })).toEqual(focus);
+    // Selecting a Bearing still includes only its own endpoints and immediate incoming relations.
+    const route = graph.bearings.find(bearing => bearing.handle === "route")!;
+    expect(focusNeighborhood(projection, { kind: "bearing", key: route.key })).toEqual(focus);
+  });
+
+  it("does not extend through a cycle or through newly included assessments", () => {
+    const graph = graphFor([
+      "- [C @a] First premise.", "- [C @b] Second premise.", "- [C @c] Assessment.", "- [C @d] Further assessment.",
+      "- [_ @a supports @second; @first]", "- [_ @b about @first; @second]",
+      "- [_ @c challenges @first; @assessment]", "- [_ @d about @assessment; @further]"
+    ]);
+    const projection = projectGraph(graph), point = graph.points.find(point => point.id === "a")!;
+    const focus = focusNeighborhood(projection, { kind: "point", key: point.key });
+    expect(focus.bearingKeys).toEqual(graph.bearings.filter(bearing => bearing.handle !== "further").map(bearing => bearing.key));
+    expect(focus.nodeIds).toEqual(projection.nodes.filter(node => !["d", "further"].includes(node.name!)).map(node => node.id));
+    expect(new Set(focus.nodeIds).size).toBe(focus.nodeIds.length);
   });
 });

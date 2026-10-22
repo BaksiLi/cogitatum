@@ -33,102 +33,20 @@ export function projectGraph(graph: GraphIR): GraphProjection {
   return { nodes, links };
 }
 
-export function layoutGraph(projection: GraphProjection, direction: "down" | "right" = "down"): PositionedNode[] {
-  const ranks = new Map(projection.nodes.map(n => [n.id, 0]));
-  const degrees = new Map(projection.nodes.map(n => [n.id, 0]));
-  const outgoing = new Map(projection.nodes.map(n => [n.id, [] as string[]]));
-  for (const link of projection.links) {
-    degrees.set(link.target, degrees.get(link.target)! + 1);
-    outgoing.get(link.source)!.push(link.target);
-  }
-  const queue = projection.nodes.filter(n => degrees.get(n.id) === 0).map(n => n.id);
-  for (let index = 0; index < queue.length; index++) {
-    const id = queue[index];
-    for (const target of outgoing.get(id)!) {
-      ranks.set(target, Math.max(ranks.get(target)!, ranks.get(id)! + 1));
-      degrees.set(target, degrees.get(target)! - 1);
-      if (degrees.get(target) === 0) queue.push(target);
-    }
-  }
-  // Cycles are allowed by the language. Lay out their remaining nodes without inventing an ordering claim.
-  let cyclic = 0;
-  for (const node of projection.nodes) if (degrees.get(node.id)! > 0) ranks.set(node.id, cyclic++ % 3);
-  const rowCounts = new Map<number, number>();
-  for (const rank of ranks.values()) rowCounts.set(rank, (rowCounts.get(rank) ?? 0) + 1);
-  const widest = Math.max(0, ...rowCounts.values());
-  const rows = new Map<number, number>();
-  return projection.nodes.map(node => {
-    const rank = ranks.get(node.id)!;
-    const row = rows.get(rank) ?? 0;
-    rows.set(rank, row + 1);
-    const centered = row + (widest - rowCounts.get(rank)!) / 2;
-    return { ...node, x: 130 + (direction === "down" ? centered : rank) * 270, y: 80 + (direction === "down" ? rank * 112 : centered * 140) };
-  });
-}
-
-/** A settled exploration layout. Geometry expresses proximity, never a new Bearing. */
-export function layoutConstellation(projection: GraphProjection): PositionedNode[] {
-  const count = projection.nodes.length;
-  const positioned = projection.nodes.map((node, index) => {
-    const angle = index * Math.PI * (3 - Math.sqrt(5));
-    const radius = 110 * Math.sqrt(index);
-    return { ...node, x: Math.cos(angle) * radius, y: Math.sin(angle) * radius };
-  });
-  const indices = new Map(positioned.map((node, index) => [node.id, index]));
-  const halfWidth = (_index: number) => 50;
-  const halfHeight = (index: number) => positioned[index].ref.kind === "point" ? 58 : 44;
-  // Run a bounded simulation before painting: no timer, jitter, or simulation to clean up.
-  for (let step = 0; step < 160; step++) {
-    const forces = positioned.map(node => ({ x: -node.x * .002, y: -node.y * .002 }));
-    for (let i = 0; i < count; i++) for (let j = i + 1; j < count; j++) {
-      const a = positioned[i], b = positioned[j];
-      const dx = b.x - a.x, dy = b.y - a.y, distance = Math.max(1, Math.hypot(dx, dy));
-      const repel = Math.min(12, 16000 / (distance * distance));
-      const fx = dx / distance * repel, fy = dy / distance * repel;
-      forces[i].x -= fx; forces[i].y -= fy; forces[j].x += fx; forces[j].y += fy;
-    }
-    for (const link of projection.links) {
-      const i = indices.get(link.source)!, j = indices.get(link.target)!;
-      if (i === j) continue;
-      const dx = positioned[j].x - positioned[i].x, dy = positioned[j].y - positioned[i].y;
-      const distance = Math.max(1, Math.hypot(dx, dy));
-      const force = (distance - 165) * .035;
-      const fx = dx / distance * force, fy = dy / distance * force;
-      forces[i].x += fx; forces[i].y += fy; forces[j].x -= fx; forces[j].y -= fy;
-    }
-    const cooling = 1 - step / 200;
-    positioned.forEach((node, index) => {
-      node.x += Math.max(-16, Math.min(16, forces[index].x)) * cooling;
-      node.y += Math.max(-16, Math.min(16, forces[index].y)) * cooling;
-    });
-    // Resolve card collisions separately so the settled result remains readable.
-    for (let i = 0; i < count; i++) for (let j = i + 1; j < count; j++) {
-      const a = positioned[i], b = positioned[j];
-      const dx = b.x - a.x, dy = b.y - a.y;
-      const overlapX = halfWidth(i) + halfWidth(j) + 24 - Math.abs(dx);
-      const overlapY = halfHeight(i) + halfHeight(j) + 24 - Math.abs(dy);
-      if (overlapX <= 0 || overlapY <= 0) continue;
-      if (overlapX < overlapY) {
-        const shift = (dx < 0 ? -1 : 1) * overlapX / 2;
-        a.x -= shift; b.x += shift;
-      } else {
-        const shift = (dy < 0 ? -1 : 1) * overlapY / 2;
-        a.y -= shift; b.y += shift;
-      }
-    }
-  }
-  const minX = Math.min(0, ...positioned.map(node => node.x - 90));
-  const minY = Math.min(0, ...positioned.map(node => node.y - 80));
-  return positioned.map(node => ({ ...node, x: node.x - minX, y: node.y - minY }));
-}
-
 export type GraphFocus = { nodeIds: string[]; bearingKeys: string[] };
 
-/** Reading assistance only: whole incident Bearings, with no transitive or inferential closure. */
+/** Whole incident Bearings; Point focus also includes their direct incoming relations. No transitive closure. */
 export function focusNeighborhood(projection: GraphProjection, ref?: BearingTarget): GraphFocus {
   const id = ref && referenceKey(ref);
   if (!id || !projection.nodes.some(node => node.id === id)) return { nodeIds: [], bearingKeys: [] };
   const bearings = new Set(projection.links.filter(link => link.source === id || link.target === id).map(link => link.bearingKey));
+  if (ref?.kind === "point") {
+    // Take a snapshot: following a growing set would make depth depend on link order.
+    const incidentIds = new Set([...bearings].map(key => referenceKey({ kind: "bearing", key })));
+    for (const link of projection.links) {
+      if (link.segment === "output" && incidentIds.has(link.target)) bearings.add(link.bearingKey);
+    }
+  }
   const related = new Set([id]);
   for (const link of projection.links) if (bearings.has(link.bearingKey)) { related.add(link.source); related.add(link.target); }
   return {

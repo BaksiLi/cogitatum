@@ -1,17 +1,58 @@
 # Changelog
 
-Core and CLI **0.4.12** are published under `latest`, with **format 0.4.0**.
+Core and CLI **0.5.0** use **format 0.5.0**.
 The historical `alpha` tag remains at **0.3.0-alpha.1**.
 Earlier 0.4 entries below are unpublished source milestones included in this first 0.4 npm release.
 Use the complete released schema set and [migrate retained source](docs/syntax.md#compatibility-and-migration) rather than relabelling old JSON.
 
-## 0.5.0 (unreleased)
+## 0.5.0 — 23 October 2026
+
+**Migration from published 0.4.12 / format 0.4.0:** replace active named `undercuts` clauses with `/>` to retain their Bearing-only requirement, then recompile original source with the complete 0.5 compiler and schema bundle.
+Do not rename kinds or relabel versions in saved JSON as an upgrade.
+Consumers now distinguish negative targets through `challenges` plus `target.kind`; update the renamed target diagnostic and rebuild source/Reading projections.
+See the [migration procedure and executable example](docs/syntax.md#compatibility-and-migration).
+
+The npm release comprises Core and CLI.
+View remains private and experimental; its inclusion below records source changes, not a published package, host adoption or website deployment.
+Interpretation research does not introduce a Cogitatio runtime or a public theory API.
+
+- Add the optional `@cogitatum/view/block` preview shell for native host adapters.
+  Share Reading/Map controls, diagnostics, expansion and cancellable Edit requests while native editors and storage remain host-owned.
+  Keep the Playground Lens independent of this code-block preview.
+- Preserve Unicode line and paragraph separators inside prose and fence metadata.
+  Keep literal note boundaries and exact edit-preview content intact, and project the same source in Reading.
+- Retain the selected reference and keyboard entry when refocusing or clearing Reading and Map.
+  Accept assistive Map activation without a pointer gesture, and discard hover addresses from older compilations.
+- Let unheld nodes in a dragged Map component settle with bounded damping, including through joint Bearings.
+  Keep held and unrelated nodes fixed; reduced motion and keyboard nudges move only the chosen mark.
+  Cancel settling and captured pointer gestures when the source revision changes.
+- Unify the private View package’s Flow and Constellation into one Map: deterministic reading order, direct movement with bounded neighbour adjustment, and reset to automatic placement.
+  Point wording, its line gaps and named Bearing labels share the node’s selection and drag behavior, with measured hit areas that disappear when wording is hidden.
+  Remove the pre-release layout selector and duplicate layout algorithms; geometry remains local and never changes source or Bearings.
+  Place shared sources among their targets, reserve room for named junctions, fit labels within the viewport, and route links around marks and wording.
+
+- Add source-aware Reading to the private View package, retaining every original line and distinguishing entity declarations, local uses and Bearing constructions.
+  Join source, AST, Explain and Graph IR from one compilation; derive local endpoints from compiler evidence instead of guessing from indentation.
+  Share Map's marks, first-class Bearing topology and neighborhood guidance, with silent programmatic Reading selection for host-owned synchronization.
+  Include direct relations targeting a Point's incident Bearings in its focus neighborhood, keeping step challenges visible without recursive expansion.
+  Nest margin connectors in compact lanes, retain same-line target loops, and keep first-render animation from shifting measured endpoints.
+  Enable the Reading entrance fade only when the system permits motion, including preference changes after mounting.
+- Record the selected occurrence for every successful structural Bearing in Explain's `implicitAttachment`, including direct containment with an empty `crossedBodySpans`.
+  Only crossings of ordinary body produce the existing advisory; explicit and rejected relations do not acquire implicit-selection evidence.
+  Formalize the per-unit AST / Explain occurrence correspondence for the 0.5 contract.
 
 - **Breaking:** unify canonical negative relations as `challenges`, with Point or Bearing targets.
   Preserve authored `->` and `/>` constraints in AST `operatorClause.targetKind` through validation.
   Named `challenges` accepts either target; named `undercuts` is retired with an error and migration guidance to `/>`.
   `CHALLENGE_REQUIRES_BEARING_TARGET` replaces the old undercut-specific target diagnostic.
   Align public AST TypeScript unions with schema target constraints, including Point declarations and uses.
+- Reject invalid or overflowing parser source offsets with `RangeError`, keeping malformed coordinates out of AST, Graph and Explain.
+  Document the public source-mapping options and retain zero defaults for missing offsets.
+- Explain why explicit-target previews decline Linked headers and source members while retaining their existing machine-readable refusal reasons.
+- Propagate failed Bearing targets through their dependents without repeatedly scanning the complete graph.
+  Preserve independent relations, valid cycles and the existing diagnostic order.
+- Align Explain's Point-use selector type with AST and schema: only local G and O roles may select a Bearing attachment.
+  Check both accepted and rejected combinations in the installed package's TypeScript contract.
 - Advance AST, Graph IR, Explain and source envelopes to format 0.5.0 with matching schemas and View marks.
   Recompile original source rather than relabelling 0.4 JSON; consumers distinguish negative targets through `target.kind`.
   See the [migration reference](docs/syntax.md#compatibility-and-migration) and [version policy](README.md#version-policy).
@@ -23,6 +64,7 @@ Use the complete released schema set and [migrate retained source](docs/syntax.m
 - Add `previewExplicitTarget` and `cog explicit-target --line` for one checked, source-preserving target-clause preview.
   The operation retains current relations and occurrence prose while explicitly changing future move/role-edit behavior.
   It refuses unsupported or erroneous input and never overwrites files.
+  Locate host edits using Markdown's LF, CRLF and CR line endings, preserving the original separators and UTF-16 offsets.
 - Clarify CLI input/output, exit status, the distinction between output formatting and source editing, and the boundary between deterministic tools and interpretation assistance.
   Expand executable tutorials for Point versus Bearing challenges, Linked, Serial, reused evidence and deliberate edits without inventing implicit premises.
 - Add a repository-only interpretation experiment that preserves original Bearings under two explicitly assumed readings.

@@ -7,20 +7,20 @@ order: 5
 
 # Graph inspection
 
-The unpublished 0.5 candidate provides a plain-text inspection view of one compiled graph.
+Cogitatum 0.5 provides a plain-text inspection view of one compiled graph.
 It exposes individual Points and Bearings without reconstructing the author's document or evaluating its reasoning.
-This page specifies the `structure-v1` projection and graph-text version 1 implemented by that candidate.
+This page specifies the `structure-v1` projection and graph-text version 1 implemented by Core/CLI 0.5.0.
 The projection is the bounded preservation contract for the first inspection view; broader source rewriting and theoretical interpretations require their own contracts.
 
 ## Inspect a document
 
-Build the candidate checkout, then run:
+Build the source checkout, then run:
 
 ```sh
 npm run cog:dist -- graph --format text inquiry.cog.md
 ```
 
-Installed candidate CLI packages expose the same operation as `cog graph --format text inquiry.cog.md`.
+Installed CLI packages expose the same operation as `cog graph --format text inquiry.cog.md`.
 `cog graph` reads source, parses it and compiles its Points and Bearings.
 Its name identifies the result to inspect, just as `cog ast` identifies the parsed source tree.
 `cog check` and `cog explain` also compile, returning diagnostics and a compilation trace respectively; there is no separate compilation step to run first.
@@ -156,5 +156,7 @@ The CLI deliberately rejects host text output until a batch representation is sp
 `GRAPH_TEXT_VERSION` is `"1"`; it identifies the notation independently of `FORMAT_VERSION`.
 The header records both versions.
 Changing the spelling/layout of records or the projection requires a new notation version; supporting a future Graph IR format requires an explicit preservation review.
-The 0.5.0 source candidate adds this API and CLI option without changing any existing JSON schema or default command output.
-LaTeX, source-aware reading, decoders and theoretical adapters remain separately scoped.
+The formatter adds no further JSON schema change beyond the breaking [0.5 format migration](syntax.md#compatibility-and-migration); default graph output remains JSON.
+The experimental View package's source-aware Reading consumes original input and a matching `explainSource` result; graph-text output is not its input or an intermediate source representation.
+Its Map geometry and selection do not change Graph IR or source.
+LaTeX, decoders and theoretical adapters remain separately scoped.

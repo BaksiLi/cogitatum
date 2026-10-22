@@ -6,6 +6,14 @@ const fence = String.fromCharCode(96).repeat(3);
 const active = [fence + "cog", "- [C @visible] Visible.", fence].join("\n");
 
 describe("explicit Markdown source selection", () => {
+  it.each(["\u2028", "\u2029"])("selects a Cog fence containing %j in its metadata", separator => {
+    const source = [fence + "cog title " + separator + " detail", "- [C @claim] Claim.", fence].join("\n");
+    const result = explainSource(source, "host");
+    expect(result.diagnostics).toEqual([]);
+    expect(result.units).toEqual([{ kind: "fence", source: "- [C @claim] Claim.", startLine: 2, endLine: 2, fenceInfo: "cog" }]);
+    expect(result.graphs[0].points[0]).toMatchObject({ id: "claim", sourceSpan: { startLine: 2 } });
+  });
+
   it.each(["document", "host"] as const)("maps variable bullet spacing to exact content columns in %s", mode => {
     const lines = ["-    [C @claim] 😀 Claim.", "  - \t [G] Reason.", "  -   [note] Literal.", "    -    [C @claim] Literal child.", "  -    [G +>] Failed clause."];
     const source = mode === "host" ? ["  " + fence + "cog", ...lines.map(line => "  " + line), fence].join("\r\n") : lines.join("\r\n");

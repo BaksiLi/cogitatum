@@ -18,29 +18,20 @@ Four marked points and three explicit connections. One objection questions the a
 
 ## Release status
 
-**Cogitatum 0.4 releases an inquiry markup language and a working compiler.**
+**Cogitatum 0.5 releases an inquiry markup language and a working compiler.**
 
-Source candidate: **0.5.0 / format 0.5.0**, not yet published.
-It unifies negative relations as `challenges` with typed targets, preserves `->` / `/>` target requirements, and keeps explicit `O/` local selection.
-See [migration](docs/syntax.md#compatibility-and-migration) before consuming candidate JSON.
-Use the local build commands below to try this candidate; the published install commands select the 0.4 contract.
+Release packages: **@cogitatum/core 0.5.0** and **@cogitatum/cli 0.5.0**, with **format 0.5.0**.
+This release unifies negative relations as `challenges` with typed targets, preserves `->` / `/>` target requirements, and keeps explicit `O/` local selection.
+It also adds text graph inspection and a source-preserving explicit-target preview.
+See [migration](docs/syntax.md#compatibility-and-migration) before upgrading from 0.4.12 / format 0.4.0.
+Recompile retained original source and regenerate projections with the complete 0.5 compiler and schemas.
 
-Published packages: **@cogitatum/core 0.4.12** and **@cogitatum/cli 0.4.12**, with **format 0.4.0**, under `latest`.
 Install with `npm install @cogitatum/core`, or run the CLI with `npx --package @cogitatum/cli cog check inquiry.cog.md`.
 The historical `alpha` tag remains at **0.3.0-alpha.1**, with **format 0.3.0**.
 Published schema contracts stay fixed; later incompatible contracts require a new format identifier.
 
-The **0.4.12** release adds:
-
-- literal `[note]` subtrees attached to source occurrences, nonblocking advice for actual implicit attachments through body, and explicit C? retirement;
-
-- Neutral Points, `[.]` or `[. @p]`, and reuse of one identity with `[. use @p]`, `[G use @p]` or `[_ use @route]`;
-- [`linked` joint support](docs/bearings.md#local-joint-reasons), and `G/` / `O/` for the Bearing exposed by the nearest constructor;
-- explicit Bearings written `[_ ...]` or `[edge ...]`, with every canonical kind name;
-- explicit source context: `document` by default, `host` for Markdown fences; content-dependent `auto` is retired.
-
 The production [playground](https://cogitatum.baksili.codes/playground) is deployed separately from npm packages.
-When upgrading from 0.3 or an earlier unpublished 0.4 candidate, use the complete schemas from **0.4.12** and [migrate retained source](docs/syntax.md#compatibility-and-migration).
+The experimental View remains private; publishing Core/CLI does not deploy the website or release host adapters.
 
 With Node.js 22.12 or newer, from a source checkout:
 
@@ -51,7 +42,7 @@ npm run cog:dist -- check examples/getting-started.cog.md
 npm run cog:dist -- graph examples/getting-started.cog.md
 ```
 
-The core provides a deterministic parser and compiler for Node.js and browser integrations. The CLI checks syntax and references, prints AST or graph JSON, and offers a text graph inspection view in the 0.5 candidate. An optional `explain` command shows compiler decisions for debugging a note. The hosted playground lets you try the language without installation.
+The core provides a deterministic parser and compiler for Node.js and browser integrations. The CLI checks syntax and references, prints AST or graph JSON, and offers a text graph inspection view. An optional `explain` command shows compiler decisions for debugging a note. The hosted playground lets you try the language without installation.
 
 ## Reference
 
@@ -118,6 +109,21 @@ The [changelog](CHANGELOG.md) distinguishes published releases from older unpubl
 Experimental interfaces are identified explicitly and still need a documented migration when they change.
 Website deployments and the private experimental View have separate readiness checks; a Core/CLI release does not establish their adoption.
 
+## Contract boundaries
+
+| Layer | Owns | Does not establish |
+| --- | --- | --- |
+| Language and Core | Authored constructors, target requirements, name resolution, diagnostics, versioned AST/Graph IR/Explain/source envelopes | Truth, defeat, acceptability or resolution of the inquiry |
+| Graph IR and graph-text inspection | Individual typed entities, ordered sources and resolved targets; the text view follows its bounded `structure-v1` projection | Original prose, literal notes, local use marks or the source constraint distinguishing `/>` from named `challenges` |
+| Experimental Reading and Map | Source occurrences projected from the exact input plus one `explainSource` result; visual topology, selection and local geometry | A new language or persisted inquiry model; moving a mark never edits source or a Bearing |
+| Host application | Input revision and mode, source navigation, native editing, storage, evidence and build provenance | Consumer compatibility merely because the public compiler's CI passed |
+| Future Cogitatio | Ongoing inquiry, revision, review and continuity require separate contracts | A runtime, resolution protocol or theory API delivered by this Core/CLI release |
+
+Reading needs original source, AST and Explain as well as Graph IR.
+Its occurrence addresses and Map's compilation keys belong to the current projection; neither is a durable application identity.
+The private View package and site-specific reading interfaces are separate consumers, even when their controls present the same compiled entities.
+See the [migration procedure](docs/syntax.md#compatibility-and-migration) and [graph preservation limits](docs/graph-inspection.md#what-structure-v1-preserves).
+
 ## Publish npm packages
 
 Releases use [npm trusted publishing](https://docs.npmjs.com/trusted-publishers/) from GitHub Actions.
@@ -126,7 +132,7 @@ A tag must match the package version and point to a commit on `main`.
 An already published version is skipped on retry; registry failures and attempts to replace a newer `latest` stop the release.
 The experimental View package stays private.
 
-Before the first release, add a GitHub Actions trusted publisher in the npm settings for both [`@cogitatum/core`](https://www.npmjs.com/package/@cogitatum/core/access) and [`@cogitatum/cli`](https://www.npmjs.com/package/@cogitatum/cli/access):
+Verify the GitHub Actions trusted publisher in the npm settings for both [`@cogitatum/core`](https://www.npmjs.com/package/@cogitatum/core/access) and [`@cogitatum/cli`](https://www.npmjs.com/package/@cogitatum/cli/access); create it if missing:
 
 | Field | Value |
 | --- | --- |
@@ -139,12 +145,20 @@ Before the first release, add a GitHub Actions trusted publisher in the npm sett
 No npm token or GitHub secret is needed.
 A new trusted publisher must complete its first successful publish within two days of creation.
 
+For the 0.5 release, review migration against published 0.4.12 / format 0.4.0, including retired `undercuts`, typed challenge targets and regenerated source projections.
+Run `npm run check` and `npm run check:publication` on the final integrated commit, with matching Core/CLI versions and the CLI's exact Core dependency.
+Passing stacked-PR checks applies to those checked commits and bases; it does not verify a later combined or retargeted head.
+Record downstream adoption against the exact public source pin and schema bundle, and rerun affected consumer checks when that pin changes.
+Packed-package checks verify the tested API/CLI consumer cases; local publication checks verify licensing and metadata.
+Neither establishes npm permissions, native-host readiness or deployed website compatibility.
+Core/CLI publication, private View adoption, host releases and website deployment remain separate decisions.
+
 Run `Publish npm` manually in the repository's Actions tab to verify and preview the packages without publishing.
 After the version and dependency changes pass CI and merge into `main`, create and push the matching tag:
 
 ```sh
-git tag v0.4.12 <verified-main-commit>
-git push origin v0.4.12
+git tag v0.5.0 <verified-main-commit>
+git push origin v0.5.0
 ```
 
 Use the actual package version for each subsequent release.
@@ -158,7 +172,7 @@ Project Cogitatum investigates how people and AI agents can learn this form of e
 
 Further work under the name **Cogitatio** concerns ongoing inquiry, revision, review, and continuity. Cogitatio and its runtime are not part of this release.
 
-The current development checkout also contains an experimental integration package, marked private and not published with Core/CLI: [`@cogitatum/view`](packages/view/README.md) provides an embeddable, source-linked graph renderer. It leaves evidence, persistence, review, and application UI with the host. This candidate compiler uses format 0.5.0.
+The current development checkout also contains an experimental integration package, marked private and not published with Core/CLI: [`@cogitatum/view`](packages/view/README.md) provides an embeddable, source-linked graph renderer. It leaves evidence, persistence, review, and application UI with the host. The compiler uses format 0.5.0.
 
 The public source covers the language, compiler, CLI, schemas, conformance fixtures, selected examples, and these usage documents. Website source and brand assets are maintained and deployed separately; the website renders the public documents and uses the compiler. Research essays, benchmarks, prompts, and runtime experiments are outside this source distribution.
 
