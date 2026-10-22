@@ -378,18 +378,15 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
   function focusShape(id: string): void { const shape = shapes.get(id); if (shape) { selected = id; paint(); shape.g.focus({ preventScroll: true }); } }
 
   let motion: ReturnType<typeof createDragMotion> | undefined;
-  let motionTime = 0;
   function stopMotion(): void {
     win?.cancelAnimationFrame(settleFrame);
     settleFrame = 0; motion = undefined;
   }
   function settle(now: number): void {
     if (!motion || reduced() || destroyed) { stopMotion(); return; }
-    const active = motion.step(now - motionTime);
-    motionTime = now;
-    for (const node of topology.nodes) {
-      const p = world.get(node.id);
-      if (p) arrangement.set(positionKey(node), { ...p });
+    const { active, moved } = motion.step(now);
+    for (const node of moved) {
+      arrangement.set(positionKey(node), { ...world.get(node.id)! });
     }
     paint();
     if (active) settleFrame = win!.requestAnimationFrame(settle);
@@ -406,10 +403,9 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
     if (!motion) {
       motion = createDragMotion(topology, world, node.id,
         new Set(topology.nodes.filter(n => held.has(positionKey(n))).map(n => n.id)), options.direction);
-      motionTime = win.performance.now();
       settleFrame = win.requestAnimationFrame(settle);
     }
-    motion.reheat();
+    motion.reheat(win.performance.now());
   }
 
   // ── pointer: drag a mark, pan the background, pinch to zoom; a click is a press that did not move ──
