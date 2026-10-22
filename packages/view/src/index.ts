@@ -522,6 +522,10 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
     update(graph, nextScope) {
       if (destroyed) throw new Error("This graph view has been destroyed.");
       stopMotion(); // a pending transition must not overwrite the new frame
+      // Host editors can replace this revision during a captured pointer gesture.
+      gesture = undefined; delete svg.dataset.dragging; hovered = undefined;
+      for (const id of pointers.keys()) if (svg.hasPointerCapture?.(id)) svg.releasePointerCapture(id);
+      pointers.clear();
       const previous = nodeById(selected), hadFocus = svg.contains(doc.activeElement);
       hovered = undefined;
       const sameScope = nextScope === scope;
