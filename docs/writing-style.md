@@ -111,7 +111,7 @@ These conventions are the first author-facing slice of [source style and checked
 There is no whole-document formatter or automatic style-fix command yet.
 
 
-## Preview an explicit target (0.5 candidate)
+## Preview an explicit target
 
 Use `cog explicit-target --line 3 inquiry.cog.md` to preview fixing the currently selected target of one occurrence.
 The line is one-based in the complete input file; add `--input host` for a selected Cogitatum fence in Markdown.

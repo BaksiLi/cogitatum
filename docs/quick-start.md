@@ -85,17 +85,16 @@ For habits that make a note easier to read and revise, see [writing style](writi
 With Node.js 22.12 or newer, run the current CLI on your saved note:
 
 ```sh
-npx --package @cogitatum/cli@0.4.12 cog check inquiry.cog.md
-npx --package @cogitatum/cli@0.4.12 cog graph inquiry.cog.md
+npx --package @cogitatum/cli@0.5.0 cog check inquiry.cog.md
+npx --package @cogitatum/cli@0.5.0 cog graph inquiry.cog.md
 ```
 
-This checkout is an unpublished **0.5.0 / format 0.5.0** candidate; use the local source build to try it.
-The published packages are `@cogitatum/core` and `@cogitatum/cli` at **0.4.12**, under `latest`.
+The release packages are `@cogitatum/core` and `@cogitatum/cli` at **0.5.0**, with **format 0.5.0**.
 Pin this exact version for a reproducible integration; the historical `alpha` tag remains at **0.3.0-alpha.1**.
 To work on the compiler itself, see the [public source](https://github.com/BaksiLi/cogitatum).
 
-The release includes Neutral Points (`[.]`), explicit Point reuse, `linked` and local attachment commentary.
-Use the complete **0.4.12** compiler and schema set, and review the [migration table](syntax.md#compatibility-and-migration) before upgrading saved source.
+The release includes Neutral Points (`[.]`), explicit Point reuse, `linked`, local attachment commentary and typed challenges.
+Use the complete **0.5.0** compiler and schema set, and review the [migration table](syntax.md#compatibility-and-migration) before upgrading saved source.
 
 Replace the path with your file. `check` reports syntax and reference problems; `graph` prints the marked connections as JSON. For a visual result, use the playground.
 
@@ -136,9 +135,9 @@ Each host fence has its own namespace.
 If any selected input has errors, including an omitted unclosed or nested fence, the inventory is explicitly unavailable rather than reporting zero references.
 Names with no written references generate no new warnings, and the command never edits the source.
 
-## Inspect a step before changing it (0.5 candidate)
+## Inspect a step before changing it
 
-Save this example as `inquiry.cog.md` in the candidate checkout:
+Save this example as `inquiry.cog.md` in the source checkout:
 
 ```md cog-check require=supports,challenges points=4 bearings=3 diagnostics=0
 - [C @sampling] Wait ten minutes before sampling.
