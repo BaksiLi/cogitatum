@@ -7,7 +7,7 @@ order: 4
 
 # Complete syntax
 
-Public reference for **format 0.5.0**, implemented by the unpublished **0.5.0** source candidate.
+Public reference for **format 0.5.0**, implemented by Core/CLI **0.5.0**.
 Use the complete released compiler and schema set; earlier unpublished 0.4 candidates may report the same format identifier with different contracts.
 Examples, schemas, and conformance fixtures are checked against the implementation.
 
@@ -469,7 +469,7 @@ It covers only its own line, so a child's diagnostics appear on the child's entr
 
 ## Compatibility and migration
 
-This edition documents candidate package 0.5.0 / format 0.5.0; it is not published.
+This edition documents package 0.5.0 / format 0.5.0.
 Published 0.4.12 / format 0.4.0 remains a separate contract.
 
 Format 0.5 unifies canonical `undercuts` into `challenges` while retaining each Bearing's identity, ordered sources and typed target.
@@ -619,17 +619,17 @@ Format 0.3.0 replaced generated Point IDs, optional Bearing IDs, ID-based graph 
 
 ### Schemas for integrations
 
-The source distribution's `spec/` directory contains JSON Schemas using draft 2020-12. This candidate includes AST, Graph IR, Explain, and source-envelope contracts through `@cogitatum/core/schemas/{ast,graph-ir,explain,source}`. The source-envelope schema refers to the other three by `$id`; load those sibling schemas too when validating it. The published npm `0.3.0-alpha.1` tarball includes only the first three exports. For example, in Node.js:
+The source distribution's `spec/` directory contains JSON Schemas using draft 2020-12. Core 0.5.0 includes AST, Graph IR, Explain, and source-envelope contracts through `@cogitatum/core/schemas/{ast,graph-ir,explain,source}`. The source-envelope schema refers to the other three by `$id`; load those sibling schemas too when validating it. The published npm `0.3.0-alpha.1` tarball includes only the first three exports. For example, in Node.js:
 
 ```js
 import graphSchema from '@cogitatum/core/schemas/graph-ir' with { type: 'json' };
 ```
 
-Candidate schema `$id` values use `/schemas/0.5.0/`.
-The published 0.4.12 bundle fixes format 0.4.0; this incompatible candidate uses a new identifier and schema URLs.
-Use the candidate schema files from this checkout to validate format 0.5; the 0.4 bundle cannot validate it.
+Schema `$id` values use `/schemas/0.5.0/`.
+The published 0.4.12 bundle fixes format 0.4.0; this incompatible release uses a new identifier and schema URLs.
+Use the schema files from this checkout to validate format 0.5; the 0.4 bundle cannot validate it.
 For reproducible or offline validation, use all four schema copies from the exact package or source commit; neither the format identifier nor an unchanged source-envelope schema identifies the complete contract.
-The 0.5 source build includes all four candidate schemas.
+The 0.5 package and source build include all four schemas.
 Deployment of the official schema URLs and production playground is separate; use the exact package copies for validation until the matching website release is deployed.
 
 The AST, Graph IR, and Explain schemas validate individual projections.

@@ -1,18 +1,18 @@
 # Changelog
 
-Core and CLI **0.4.12** are published under `latest`, with **format 0.4.0**.
+Core and CLI **0.5.0** use **format 0.5.0**.
 The historical `alpha` tag remains at **0.3.0-alpha.1**.
 Earlier 0.4 entries below are unpublished source milestones included in this first 0.4 npm release.
 Use the complete released schema set and [migrate retained source](docs/syntax.md#compatibility-and-migration) rather than relabelling old JSON.
 
-## 0.5.0 (unreleased)
+## 0.5.0 — 23 October 2026
 
 **Migration from published 0.4.12 / format 0.4.0:** replace active named `undercuts` clauses with `/>` to retain their Bearing-only requirement, then recompile original source with the complete 0.5 compiler and schema bundle.
 Do not rename kinds or relabel versions in saved JSON as an upgrade.
 Consumers now distinguish negative targets through `challenges` plus `target.kind`; update the renamed target diagnostic and rebuild source/Reading projections.
 See the [migration procedure and executable example](docs/syntax.md#compatibility-and-migration).
 
-The intended npm release comprises Core and CLI.
+The npm release comprises Core and CLI.
 View remains private and experimental; its inclusion below records source changes, not a published package, host adoption or website deployment.
 Interpretation research does not introduce a Cogitatio runtime or a public theory API.
 
@@ -39,7 +39,7 @@ Interpretation research does not introduce a Cogitatio runtime or a public theor
   Enable the Reading entrance fade only when the system permits motion, including preference changes after mounting.
 - Record the selected occurrence for every successful structural Bearing in Explain's `implicitAttachment`, including direct containment with an empty `crossedBodySpans`.
   Only crossings of ordinary body produce the existing advisory; explicit and rejected relations do not acquire implicit-selection evidence.
-  Formalize the per-unit AST / Explain occurrence correspondence for the unpublished 0.5 contract.
+  Formalize the per-unit AST / Explain occurrence correspondence for the 0.5 contract.
 
 - **Breaking:** unify canonical negative relations as `challenges`, with Point or Bearing targets.
   Preserve authored `->` and `/>` constraints in AST `operatorClause.targetKind` through validation.
