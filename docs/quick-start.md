@@ -169,7 +169,7 @@ It preserves today's relations, including the step-specific objection, while fix
 Moving the original Ground under another Claim can change its target; moving the proposed explicit form keeps `@sampling`.
 Choose which behavior you intend, compare the preview's `originalSource` with the current file, and review the proposed source before applying it.
 The command returns a preview; it never applies the edit.
-See [checked editing](writing-style.md#preview-an-explicit-target-05-candidate) for declined cases and preservation limits.
+See [checked editing](writing-style.md#preview-an-explicit-target) for declined cases and preservation limits.
 
 All these commands work without an LLM.
 A person or assistant can propose a different interpretation, but successful compilation only establishes the marked structure.
