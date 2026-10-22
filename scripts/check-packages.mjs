@@ -149,10 +149,12 @@ const integrationProbe = `
 import assert from 'node:assert/strict';
 import { compileSource, explainSource } from '@cogitatum/core';
 import { projectGraph, createGraphView, projectReading, createReadingView } from '@cogitatum/view';
+import { createBlockView } from '@cogitatum/view/block';
 const compiled = compileSource('- [C @claim] A claim.\\n  - [G] A reason.\\n', 'document');
 assert.equal(projectGraph(compiled.graphs[0]).nodes.length, 3);
 assert.equal(typeof createGraphView, 'function');
 assert.equal(typeof createReadingView, 'function');
+assert.equal(typeof createBlockView, 'function');
 const readingSource = '- [C @p] Original.\\n- [. use @p] Here.\\n  - [O] Local concern.';
 const reading = projectReading(readingSource, explainSource(readingSource));
 assert.equal(reading.rows.length, 3);
@@ -161,7 +163,7 @@ assert.equal(reading.units[0].bearings[0].target.basis, 'context');
 `;
 run(process.execPath, ["--input-type=module", "-e", integrationProbe], temporary);
 run(process.execPath, ["--conditions", "development", "--import", tsx, "--input-type=module", "-e", integrationProbe], temporary);
-for (const surface of [".cog-graph", ".cog-reading"]) {
+for (const surface of [".cog-graph", ".cog-reading", ".cog-block"]) {
   assert.ok(readFileSync(join(temporary, "node_modules/@cogitatum/view/dist/style.css"), "utf8").includes(surface));
 }
 const executable = join(temporary, "node_modules", ".bin", "cog");
@@ -192,6 +194,14 @@ assert.equal(cliReferences.references.status, "complete");
 
 writeFileSync(join(temporary, "consumer.mts"), `import {type Point, type PointDeclaration, type Bearing, type Annotation, type OperatorClause, type ExplainEmittedBearingSummary, type ExplainRecognition, type SourceReferenceAnalysis, type ReferencedName, type WrittenReference, type ExplicitTargetPreview, previewExplicitTarget, analyzeSourceReferences, formatGraph, GRAPH_TEXT_VERSION, compileGraph, parseDocument} from '@cogitatum/core';
 import { createGraphView, declarationMark, projectReading, createReadingView, type ReadingProjection } from '@cogitatum/view';
+import { createBlockView, type BlockEditRequest, type BlockView } from '@cogitatum/view/block';
+function mountHostBlock(container: HTMLElement): BlockView {
+  return createBlockView(container, { onEdit(request: BlockEditRequest) {
+    const source: string = request.source;
+    const line: number | undefined = request.sourceSpan?.startLine;
+    const canceled: boolean = request.signal.aborted;
+  } });
+}
 import { explainSource } from '@cogitatum/core';
 const preview: ExplicitTargetPreview = previewExplicitTarget('- [C @c] Claim.\\n  - [G] Reason.', {line: 2, mode: 'document'});
 if (preview.status === 'ready') {

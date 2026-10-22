@@ -1,5 +1,5 @@
 /* One visual vocabulary for every surface. Hosts theme it with the --cog-* properties only. */
-.cog-graph, .cog-chip, .cog-reading {
+.cog-graph, .cog-chip, .cog-reading, .cog-block {
   --cog-ink-resolved: var(--cog-ink, #18242a);
   --cog-surface-resolved: var(--cog-surface, #fbfcf8);
   --cog-canvas-resolved: var(--cog-canvas, #f1f2ee);
@@ -117,3 +117,67 @@
 .cog-reading[data-compact="true"] .cog-reading-content { padding-left: calc(min(var(--cog-reading-depth, 0), 2) * .9em); }
 .cog-reading[data-compact="true"] .cog-reading-content::before { left: calc(min(var(--cog-reading-depth, 0), 2) * .9em - .45em); }
 @media (prefers-reduced-motion: reduce) { .cog-reading-row { transition: none; } }
+
+/* Optional block shell: shared interaction and geometry; hosts map their theme tokens. */
+.cog-block {
+  container-type: inline-size;
+  display: block; min-width: 0; overflow: hidden; margin-block: .5rem;
+  border: 1px solid var(--cog-line-resolved); border-radius: 8px;
+  background: var(--cog-surface-resolved); color: var(--cog-ink-resolved);
+  font-family: inherit; cursor: auto; user-select: text;
+}
+.cog-block [hidden] { display: none !important; }
+.cog-block-toolbar, .cog-block-modes, .cog-block-actions, .cog-block-map-toolbar {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 3px;
+}
+.cog-block-toolbar { gap: 6px 10px; padding: 8px 10px; border-bottom: 1px solid var(--cog-line-resolved); }
+.cog-block-title { font-size: 12px; font-weight: 600; color: var(--cog-muted-resolved); }
+.cog-block-modes { padding: 2px; border-radius: 6px; background: var(--cog-canvas-resolved); }
+.cog-block-actions { margin-inline-start: auto; }
+.cog-block .cog-block-button {
+  appearance: none; display: inline-flex; align-items: center; justify-content: center;
+  height: auto; min-width: 30px; min-height: 30px; margin: 0; padding: 4px 8px;
+  border: 1px solid transparent; border-radius: 4px; box-shadow: none;
+  background: transparent; color: var(--cog-muted-resolved); font: inherit;
+  font-family: inherit; font-size: 12px; font-weight: 500; line-height: 1.4; cursor: pointer;
+}
+.cog-block .cog-block-button:hover { color: var(--cog-ink-resolved); background: color-mix(in srgb, var(--cog-ink-resolved) 7%, transparent); }
+.cog-block .cog-block-button[aria-pressed="true"] { background: var(--cog-surface-resolved); color: var(--cog-ink-resolved); box-shadow: 0 1px 3px #00000012; }
+.cog-block .cog-block-button:disabled { opacity: .4; cursor: default; }
+.cog-block .cog-block-button:focus-visible, .cog-block .cog-graph:focus-visible { outline: 2px solid var(--cog-focus-resolved); outline-offset: -2px; }
+.cog-block .cog-block-issues { color: var(--cog-error, #a8553d); }
+.cog-block-reading { padding: 16px 10px 18px; }
+/* A host's generic Markdown list reset must not displace the connector rail. */
+.cog-block .cog-reading-lines { margin: 0; padding: 0 0 0 var(--cog-reading-rail); }
+.cog-block .cog-reading-lines > .cog-reading-row { margin-inline-start: 0; padding: 3px 10px 3px 0; }
+.cog-block-map-panel { position: relative; background: var(--cog-canvas-resolved); }
+.cog-block-map-toolbar { position: absolute; top: 8px; right: 10px; z-index: 1; padding: 2px; border: 1px solid var(--cog-line-resolved); border-radius: 6px; background: var(--cog-surface-resolved); }
+.cog-block-map {
+  height: 390px; min-width: 0; overflow: hidden;
+  background-image: radial-gradient(circle, color-mix(in srgb, var(--cog-muted-resolved) 16%, transparent) .7px, transparent .8px);
+  background-size: 18px 18px;
+}
+/* Logseq's host stylesheet disables pointer events on every SVG. */
+.cog-block .cog-graph { pointer-events: auto; }
+.cog-block .cog-graph[data-dragging] .cog-node { cursor: grabbing; }
+.cog-block-detail { display: flex; align-items: start; gap: 12px; padding: 12px 16px; border-top: 1px solid var(--cog-line-resolved); background: var(--cog-surface-resolved); }
+.cog-block .cog-block-detail-text { flex: 1; min-width: 0; margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 14px; line-height: 1.6; }
+.cog-block-detail .cog-block-button { flex-shrink: 0; color: var(--cog-focus-resolved); }
+.cog-block .cog-block-hint { margin: 0; padding: 6px 12px 10px; color: var(--cog-muted-resolved); font-size: 11px; line-height: 1.5; }
+.cog-block .cog-block-status, .cog-block .cog-block-error { margin: 0; padding: 12px 16px; border-inline-start: 3px solid var(--cog-error, #a8553d); color: var(--cog-error, #a8553d); white-space: pre-wrap; font-size: 13px; line-height: 1.5; }
+.cog-block-dialog { width: min(1200px, calc(100vw - 32px)); max-width: none; height: min(850px, calc(100vh - 32px)); max-height: none; margin: auto; padding: 0; border: 0; border-radius: 10px; background: transparent; box-shadow: 0 24px 100px #00000040; }
+.cog-block-dialog::backdrop { background: #00000066; }
+.cog-block[data-expanded] { display: flex; flex-direction: column; box-sizing: border-box; height: 100%; margin: 0; }
+.cog-block[data-expanded] .cog-block-body { flex: 1; min-height: 0; overflow: auto; }
+.cog-block[data-expanded] .cog-block-map-panel { display: flex; flex-direction: column; height: 100%; }
+.cog-block[data-expanded] .cog-block-map { flex: 1; min-height: 320px; height: auto; }
+@container (max-width: 480px) {
+  .cog-block-title { display: none; }
+  .cog-block-toolbar { gap: 4px; padding: 6px; }
+  .cog-block .cog-block-button { padding-inline: 6px; }
+  .cog-block-reading { padding: 12px 4px; }
+  .cog-block-map { height: 340px; }
+  .cog-block-detail { flex-wrap: wrap; gap: 4px; padding: 10px; }
+  .cog-block-detail-text { flex-basis: 100%; }
+}
+@media (pointer: coarse) { .cog-block .cog-block-button { min-height: 36px; min-width: 36px; } }

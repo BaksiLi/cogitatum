@@ -6,7 +6,7 @@
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
-  "exports": { ".": { "development": "./src/index.ts", "types": "./dist/index.d.ts", "default": "./dist/index.js" }, "./style.css": { "development": "./src/style.css", "default": "./dist/style.css" } },
+  "exports": { ".": { "development": "./src/index.ts", "types": "./dist/index.d.ts", "default": "./dist/index.js" }, "./block": { "development": "./src/block.ts", "types": "./dist/block.d.ts", "default": "./dist/block.js" }, "./style.css": { "development": "./src/style.css", "default": "./dist/style.css" } },
   "files": ["dist/*.js", "dist/*.d.ts", "dist/*.js.map", "dist/style.css", "src/*.ts", "src/style.css", "!src/*.test.ts"],
   "scripts": { "build": "tsc -b && node -e \"require('node:fs').copyFileSync('src/style.css','dist/style.css')\"", "prepack": "npm run build" },
   "dependencies": { "@cogitatum/core": "0.5.0" },

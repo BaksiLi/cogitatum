@@ -4,6 +4,44 @@ Experimental, framework-neutral Map and Reading views of compiler-produced Cogit
 Core owns parsing and relation semantics; View owns presentation and temporary selection.
 Currently available from this checkout, not the published Core/CLI release.
 
+## Host code blocks
+
+`@cogitatum/view/block` composes Reading and Map into one optional code-block preview.
+It owns the toolbar, diagnostics, local-occurrence selection, lazy Map, full wording, expansion and cleanup.
+Use the lower-level views below for other workflows such as a full document editor.
+
+```ts
+import { createBlockView } from '@cogitatum/view/block';
+import '@cogitatum/view/style.css';
+
+const block = createBlockView(container, {
+  async onEdit({ source, sourceSpan, signal }) {
+    await openNativeEditor({ source, sourceSpan, signal });
+  }
+});
+block.element.classList.add('my-host-theme');
+block.update(source);
+// On unmount:
+block.destroy();
+```
+
+Supply one document-mode inquiry fragment, without its host Markdown fence.
+Each changed source is compiled once and clears selection and pending navigation from the old revision.
+Reading/Map mode and the live Map instance survive updates; an empty fragment returns to Reading.
+`initialMode` is resolved again after DOM attachment for hosts that construct previews off-DOM.
+`onMode` reports user choices so the host can remember a view preference across render-child replacement.
+
+Edit and Enter request native source navigation; omitting `onEdit` removes the edit action.
+The callback receives the exact source revision, its optional local occurrence span, and a cancellation signal.
+Check that signal after asynchronous work, then validate the live native buffer before selecting or focusing it.
+Repeated requests are ignored while the same block is opening; revisions and destruction abort that request.
+Expansion moves the existing views into a native dialog and returns them before invoking the editor callback.
+The shell never writes source, persists selection or creates an editor buffer.
+Hosts own native editor reuse, file identity, persistence, theme tokens and host-specific event boundaries.
+The shell uses the same `--cog-*` tokens as the views, plus optional `--cog-error`, and adapts to its container width.
+
+## Map
+
 ```ts
 import { createGraphView } from '@cogitatum/view';
 import '@cogitatum/view/style.css';
