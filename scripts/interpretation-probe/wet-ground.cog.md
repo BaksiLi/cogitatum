@@ -1,0 +1,6 @@
+- A reconstruction to inspect, not an established account of the weather.
+- [C @rain] It rained.
+  - [G @wet; @weather-route] The ground is wet.
+    - [O/ @sprinkler; @alternative] A sprinkler can also wet the ground.
+- [note] Scope of the reconstruction.
+  - Neither the presence of rain nor the operation of a sprinkler has been independently established.

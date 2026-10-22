@@ -12,6 +12,7 @@
   "scripts": {
     "build:public": "npm run build -w @cogitatum/core && npm run build -w @cogitatum/cli && npm run build -w @cogitatum/view",
     "test": "vitest run",
+    "probe:interpretation": "node --conditions development --import tsx scripts/interpretation-probe/run.mjs",
     "check:cli": "node scripts/check-cli.mjs",
     "check:docs": "node --conditions development --import tsx scripts/check-doc-examples.mjs",
     "check:json": "node scripts/check-json.mjs",
