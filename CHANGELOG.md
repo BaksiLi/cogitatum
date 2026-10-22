@@ -7,6 +7,9 @@ Use the complete released schema set and [migrate retained source](docs/syntax.m
 
 ## 0.5.0 (unreleased)
 
+- Add the optional `@cogitatum/view/block` preview shell for native host adapters.
+  Share Reading/Map controls, diagnostics, expansion and cancellable Edit requests while native editors and storage remain host-owned.
+  Keep the Playground Lens independent of this code-block preview.
 - Preserve Unicode line and paragraph separators inside prose and fence metadata.
   Keep literal note boundaries and exact edit-preview content intact, and project the same source in Reading.
 - Retain the selected reference and keyboard entry when refocusing or clearing Reading and Map.
