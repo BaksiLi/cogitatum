@@ -55,7 +55,8 @@ function parseRawOutline(
     if (!Number.isSafeInteger(rawLine.length + 1 + columnOffset)) {
       throw new RangeError(`lineColumnOffsets places source line ${index + 1} beyond the safe integer range.`);
     }
-    const match = /^([ \t]*)-(\s+)(.*)$/.exec(rawLine);
+    // Lines are already split; Unicode separators inside prose remain content.
+    const match = /^([ \t]*)-(\s+)(.*)$/s.exec(rawLine);
     if (!match) {
       diagnostics.push({
         severity: "error",
@@ -126,7 +127,7 @@ function parseRawOutline(
     const literal = Boolean(parent?.literal || parent?.noteBoundary);
     const noteBoundary = !literal && /^\[\s*note(?=$|[\s;@\]])/i.test(content);
     const retiredClaim = !literal && content.startsWith("[") && isRetiredClaimStart(content.slice(1).split("]")[0]);
-    const bracketMatch = !literal && (indentationValid || noteBoundary || retiredClaim) ? /^\[([^\]]+)\]\s*(.*)$/.exec(content) : undefined;
+    const bracketMatch = !literal && (indentationValid || noteBoundary || retiredClaim) ? /^\[([^\]]+)\]\s*(.*)$/s.exec(content) : undefined;
     // Closing a prose bracket must not turn ordinary text into an annotation.
     // Recognize misspelled case and retired spellings for diagnostics;
     // parseAnnotation still enforces the actual, case-sensitive grammar.

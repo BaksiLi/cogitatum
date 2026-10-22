@@ -273,9 +273,12 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
         shape.g.dataset.related = String(!guided || related.has(bearingId));
       }
     });
+    const focused = svg.contains(doc.activeElement) ?
+      doc.activeElement?.closest<SVGElement>("[data-node]")?.dataset.node : undefined;
+    const tabStop = selected ?? focused ?? order[0];
     for (const shape of shapes.values()) {
       shape.g.setAttribute("aria-pressed", String(shape.id === selected));
-      shape.g.setAttribute("tabindex", shape.id === (selected ?? order[0]) ? "0" : "-1");
+      shape.g.setAttribute("tabindex", shape.id === tabStop ? "0" : "-1");
     }
     // Measure after all text and selected font weights are applied. Batch reads before writes
     // so label hit areas include actual host fonts and line gaps without a layout flush per node.
@@ -449,7 +452,14 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
   svg.addEventListener("pointerup", end, on);
   svg.addEventListener("pointercancel", end, on);
   svg.addEventListener("pointerleave", () => { if (!gesture && hovered) { hovered = undefined; schedule(); } }, on);
-  svg.addEventListener("click", event => { if (suppressClick) { event.stopPropagation(); suppressClick = false; } }, { capture: true, signal: abort.signal });
+  svg.addEventListener("click", event => {
+    if (suppressClick) { event.stopPropagation(); suppressClick = false; return; }
+    // Assistive activation has no preceding pointerup; a pointer click is already handled there.
+    if (event.detail === 0) {
+      const id = (event.target as Element).closest<SVGElement>("[data-node]")?.dataset.node;
+      if (id && shapes.has(id)) select(id);
+    }
+  }, { capture: true, signal: abort.signal });
   svg.addEventListener("dblclick", event => {
     const target = (event.target as Element).closest<SVGElement>("[data-node]")?.dataset.node, node = nodeById(target);
     if (node) { select(node.id); options.onNavigate?.(node); }
@@ -498,6 +508,7 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
       if (destroyed) throw new Error("This graph view has been destroyed.");
       win?.cancelAnimationFrame(settleFrame); // a pending transition must not overwrite the new frame
       const previous = nodeById(selected), hadFocus = svg.contains(doc.activeElement);
+      hovered = undefined;
       const sameScope = nextScope === scope;
       if (!sameScope) { arrangement.clear(); held.clear(); world = new Map(); cameraTouched = false; }
       scope = nextScope;

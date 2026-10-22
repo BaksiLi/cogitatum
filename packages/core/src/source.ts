@@ -15,7 +15,7 @@ import type {
   SourceSpan
 } from "./types.js";
 
-const FENCE_RE = /^( {0,3})(`{3,}|~{3,})(.*)$/;
+const FENCE_RE = /^( {0,3})(`{3,}|~{3,})(.*)$/s;
 const markdownParser = unified().use(remarkParse);
 
 type SelectedSourceUnit = {

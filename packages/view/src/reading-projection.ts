@@ -122,7 +122,7 @@ export function projectReading(source: string, explained: ExplainedSource): Read
       const entry = entries.get(key);
       if (literal ? !!entry : !entry) mismatch("AST / Explain occurrence correspondence");
       const line = lines[span.startLine - 1];
-      const content = /^[ \t]*-\s+(.*)$/.exec(block.raw)?.[1];
+      const content = /^[ \t]*-\s+(.*)$/s.exec(block.raw)?.[1];
       if (span.startLine !== span.endLine || content === undefined ||
         line?.slice(span.startColumn - 1, span.endColumn - 1) !== content) mismatch("occurrence span or source changed");
       if (occurrencesByLine.has(span.startLine)) mismatch("duplicate occurrence line");

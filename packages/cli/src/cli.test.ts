@@ -30,6 +30,7 @@ afterAll(() => {
 describe("cog CLI", () => {
   it.each([
     ["document", "- [C @c] Claim.\r\n  - [G] Reason.", 2, 0],
+    ["document", "- [C @c] Claim.\n  - [G] Reason \u2028 with \u2029 separators.\n    - [note] Literal \u2028 note.\n      - [G +> @missing] Inert.", 2, 0],
     ["host", "Intro 🌧️\n  ```cog\n  - [C @c] Claim.\n    - [O] Concern.\n  ```", 4, 0],
     ["host", "Intro 🌧️\r  ```cog\r  - [C @c] Claim.\r    - [G] Reason.\r  ```", 4, 0],
     ["document", "- [C] Anonymous.\n  - [G] Reason.", 2, 1],

@@ -12,6 +12,41 @@ const lineOf = (reading: ReadingProjection, id: string) =>
   reading.units.flatMap(unit => unit.occurrences).find(item => item.id === id)!.line;
 
 describe("source-aware Reading projection", () => {
+  describe.each(["document", "host"] as const)("Unicode separators in %s input", mode => {
+    it.each(["\u2028", "\u2029"])("preserves %j inside a source occurrence", separator => {
+      const lines = [
+        `- [C @shared] Shared${separator}prose.`, "- [C @other] Other claim.",
+        `  - [G use @shared; @route] Local${separator}wording.`,
+        `  - [note] Quoted${separator}note.`, `    - [G @literal] Literal${separator}syntax.`,
+        `- Ordinary${separator}body.`
+      ];
+      const source = (mode === "host" ? ["  ```cog", ...lines.map(line => "  " + line), "  ```"] : lines).join("\r\n");
+      const compiled = explainSource(source, mode);
+      expect(compiled.diagnostics).toEqual([]);
+      expect(compiled.graphs[0].points).toHaveLength(2);
+      expect(compiled.graphs[0].bearings).toHaveLength(1);
+      const result = projectReading(source, compiled), offset = mode === "host" ? 1 : 0;
+      expect(result.source).toBe(source);
+      expect(result.rows.map(row => row.raw)).toEqual(source.split("\r\n"));
+      expect(result.units[0].occurrences.map(item => item.text)).toEqual([
+        `Shared${separator}prose.`, "Other claim.", `Local${separator}wording.`,
+        `Quoted${separator}note.`, `[G @literal] Literal${separator}syntax.`, `Ordinary${separator}body.`
+      ]);
+      const shared = occurrence(result, 1 + offset), local = occurrence(result, 3 + offset);
+      expect(local.references[0]).toMatchObject({ kind: "uses", ref: shared.references[0].ref });
+      expect(local.id).not.toBe(shared.id);
+      expect(route(result, 3 + offset).sources[0].occurrenceId).toBe(local.id);
+      expect(route(result, 3 + offset).target.occurrenceId).toBe(occurrence(result, 2 + offset).id);
+      expect(occurrence(result, 5 + offset)).toMatchObject({ recognition: { kind: "literal" }, references: [] });
+      for (const item of result.units[0].occurrences) {
+        expect(item.sourceSpan.startLine).toBe(item.sourceSpan.endLine);
+        const authored = lines[item.line - offset - 1].trimStart().slice(2);
+        expect(item.raw.slice(item.sourceSpan.startColumn - 1, item.sourceSpan.endColumn - 1)).toBe(authored);
+      }
+      expect(() => projectReading(source.replace(separator, "!"), compiled)).toThrow("source changed");
+    });
+  });
+
   it("retains body, blank lines, note subtrees and occurrence-local prose without inventing entities", () => {
     const source = [
       "- Ordinary body.", "", "- [C @p] Shared text.", "  - [note] A quotation.",

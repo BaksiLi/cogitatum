@@ -94,6 +94,9 @@ export function createReadingView(container: HTMLElement, options: ReadingViewOp
 
   function guide(): void {
     const active = hovered ?? selected;
+    const focused = root.contains(doc.activeElement) ?
+      doc.activeElement?.closest<HTMLElement>("[data-occurrence]")?.dataset.occurrence : undefined;
+    const tabStop = selected?.occurrenceId ?? focused ?? rows.keys().next().value;
     const focus = active?.ref ? focusNeighborhood(full[active.unitIndex], active.ref) : undefined;
     const bearingKeys = new Set(focus?.bearingKeys);
     const relevant = new Set(active ? [active.occurrenceId] : []);
@@ -111,7 +114,7 @@ export function createReadingView(container: HTMLElement, options: ReadingViewOp
       row.element.setAttribute("aria-pressed", String(id === selected?.occurrenceId));
       row.element.setAttribute("aria-label", `Line ${row.occurrence.line}: ${row.occurrence.raw.trim()}${id === selected?.occurrenceId && selected.ref ? ` (${selected.ref.kind} selected)` : ""}`);
       row.element.dataset.selectedReference = id === selected?.occurrenceId ? selected.ref?.kind ?? "text" : "";
-      row.element.tabIndex = id === (selected?.occurrenceId ?? rows.keys().next().value) ? 0 : -1;
+      row.element.tabIndex = id === tabStop ? 0 : -1;
     }
     for (const group of svg.querySelectorAll<SVGGElement>("[data-bearing]")) {
       group.dataset.active = String(!active || Number(group.dataset.unit) === active.unitIndex && bearingKeys.has(group.dataset.bearing!));
@@ -319,7 +322,8 @@ export function createReadingView(container: HTMLElement, options: ReadingViewOp
   const fromEvent = (event: Event): ReadingSelection | undefined => {
     const element = (event.target as Element).closest<HTMLElement | SVGElement>("[data-occurrence]");
     const row = element?.dataset.occurrence && rows.get(element.dataset.occurrence);
-    return row ? selectionFor(row.occurrence, element?.dataset.ref ? { kind: "bearing", key: element.dataset.ref } : undefined) : undefined;
+    return row ? selectionFor(row.occurrence, element?.dataset.ref ? { kind: "bearing", key: element.dataset.ref } :
+      selected?.occurrenceId === row.occurrence.id ? selected.ref : undefined) : undefined;
   };
   root.addEventListener("click", event => {
     if (doc.getSelection()?.type === "Range") return;

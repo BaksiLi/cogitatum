@@ -12,6 +12,29 @@ function ready(preview: ExplicitTargetPreview) {
 }
 
 describe("explicit target previews", () => {
+  it.each(["\u2028", "\u2029"])("preserves %j in prose, literal boundaries and occurrence identity", separator => {
+    const source = [
+      "- [. @shared] Shared " + separator + " content.",
+      "- [C @claim] Claim.",
+      "  - [G use @shared; @step] Local " + separator + " qualification.",
+      "    - [note] Literal " + separator + " explanation.",
+      "      - [G @shared +> @missing] Inert duplicate and unresolved target.",
+      "    - [O/] Review this occurrence's attachment."
+    ].join("\n");
+    const before = explainSource(source);
+    expect(before.diagnostics).toEqual([]);
+    expect(before.graphs[0].points.map(point => point.id)).toEqual(["shared", "claim", undefined]);
+    expect(before.graphs[0].points[0].text).toBe("Shared " + separator + " content.");
+    expect(before.documents[0].blocks[1].children[0].text).toBe("Local " + separator + " qualification.");
+    expect(before.explanations[0].entries.map(entry => entry.sourceSpan.startLine)).toEqual([1, 2, 3, 4, 6]);
+    const preview = ready(previewExplicitTarget(source, { line: 3 }));
+    expect(preview.proposedSource).toBe(source.replace("[G use @shared;", "[G use @shared +> @claim;"));
+    expect(preview.edit.offset).toBe(source.indexOf("; @step"));
+    expect(preview.proposedDiagnostics).toEqual([]);
+    expect(formatGraph(explainSource(preview.proposedSource).graphs[0])).toBe(formatGraph(before.graphs[0]));
+    expect(previewExplicitTarget(source, { line: 5 })).toMatchObject({ status: "unavailable", reason: "no-attachment" });
+  });
+
   it.each([["G", "+>"], ["O", "->"], ["?", "~>"]])("makes %s explicit without changing its prose, mark, name or handle", (mark, symbol) => {
     const source = `- [C @claim] Claim.\n  - [ ${mark} @point   ; @step ] Reason [G] stays prose.\n    - [O/] Review this particular step.\n    - [note] Qualification.\n      - [G +> @missing] Inert syntax.`;
     const preview = ready(previewExplicitTarget(source, { line: 2 }));
