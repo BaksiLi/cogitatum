@@ -54,8 +54,11 @@ for (const name of ["ast", "graph-ir", "explain", "source"]) {
 }
 const probe = `
 import assert from 'node:assert/strict';
-import { analyzeSourceReferences, compileGraph, compileGraphWithExplain, compileSource, parseDocument } from '@cogitatum/core';
+import { analyzeSourceReferences, compileGraph, compileGraphWithExplain, compileSource, formatGraph, GRAPH_TEXT_VERSION, parseDocument } from '@cogitatum/core';
 const { graph, explain } = compileGraphWithExplain(parseDocument('- Ordinary context.\\n  - [C @claim] A claim.\\n    - [G; @route] A reason.\\n- [O /> @route] A route objection.\\n'));
+assert.equal(GRAPH_TEXT_VERSION, '1');
+assert.ok(formatGraph(graph).includes('b2: challenges([p3], b1)'));
+assert.ok(formatGraph(graph).includes('status: no-errors'));
 assert.equal(graph.points.length, 3);
 assert.equal(graph.points[1].id, undefined);
 assert.equal(graph.bearings[0].handle, 'route');
@@ -152,6 +155,8 @@ const graph = JSON.parse(run(executable, ["graph", join(root, "examples/getting-
 assert.equal(graph.points.length, 4);
 assert.equal(graph.bearings.length, 3);
 assert.equal(graph.diagnostics.length, 0);
+const inspectFile = join(root, "fixtures/core/local-linked.cog.md");
+assert.equal(run(executable, ["graph", "--format", "text", inspectFile], temporary), readFileSync(join(root, "fixtures/text/local-linked.expected.txt"), "utf8"));
 const reused = JSON.parse(run(executable, ["explain", join(root, "fixtures/core/narrative-reference-reuse.cog.md")], temporary));
 assert.deepEqual(reused.diagnostics, []);
 assert.equal(reused.entries.filter(entry => entry.effects.some(effect => effect.kind === "focusPoint")).length, 6);
@@ -163,7 +168,7 @@ const apiReferences = JSON.parse(run(process.execPath, ["--input-type=module", "
 assert.deepEqual(cliReferences, apiReferences);
 assert.equal(cliReferences.references.status, "complete");
 
-writeFileSync(join(temporary, "consumer.mts"), `import {type Point, type PointDeclaration, type Bearing, type Annotation, type OperatorClause, type ExplainEmittedBearingSummary, type SourceReferenceAnalysis, type ReferencedName, type WrittenReference, analyzeSourceReferences, compileGraph, parseDocument} from '@cogitatum/core';
+writeFileSync(join(temporary, "consumer.mts"), `import {type Point, type PointDeclaration, type Bearing, type Annotation, type OperatorClause, type ExplainEmittedBearingSummary, type SourceReferenceAnalysis, type ReferencedName, type WrittenReference, analyzeSourceReferences, formatGraph, GRAPH_TEXT_VERSION, compileGraph, parseDocument} from '@cogitatum/core';
 import { createGraphView, declarationMark } from '@cogitatum/view';
 const inventory: SourceReferenceAnalysis = analyzeSourceReferences('- [C @claim] Claim.');
 if (inventory.references.status === 'complete') {
@@ -187,6 +192,10 @@ const mount = (container: HTMLElement) => {
   return view;
 };
 const graph = compileGraph(parseDocument('- [C] Claim.'));
+const inspection: string = formatGraph(graph);
+const notationVersion: string = GRAPH_TEXT_VERSION;
+// @ts-expect-error The text formatter accepts a graph, not source text.
+formatGraph('source');
 const points: Point[] = graph.points;
 const bearings: Bearing[] = graph.bearings;
 const identity: string | undefined = points[0]?.id;

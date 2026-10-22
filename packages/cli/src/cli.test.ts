@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { analyzeSourceReferences, explainSource } from "../../core/src/index.js";
+import { analyzeSourceReferences, compileGraph, formatGraph, parseDocument, explainSource } from "../../core/src/index.js";
 import type { SourceParseMode } from "../../core/src/index.js";
 
 const repoRoot = fileURLToPath(new URL("../../../", import.meta.url));
@@ -27,6 +27,47 @@ afterAll(() => {
 });
 
 describe("cog CLI", () => {
+  it.each([
+    '- [C @c] Claim.\n  - [G; @step] Reason.\n- [O /> @step] Objection.',
+    '- [C] Survives.\n- [G +> @missing] Fails.',
+    ''
+  ])("prints single-graph text with unchanged exit status and source", source => {
+    const path = join(workingDirectory, "inspect.cog.md");
+    writeFileSync(path, source);
+    const graph = compileGraph(parseDocument(source));
+    const result = runCli("graph", "--format", "text", path);
+    expect(result.stdout).toBe(formatGraph(graph));
+    expect(result.stderr).toBe("");
+    expect(result.status).toBe(graph.diagnostics.some(d => d.severity === "error") ? 1 : 0);
+    expect(runCli("graph", path).stdout).toBe(JSON.stringify(graph, null, 2) + "\n");
+    expect(readFileSync(path, "utf8")).toBe(source);
+  });
+
+  it.each(["document", "host"])("keeps explicit and default JSON identical in %s mode", mode => {
+    const file = mode === "host" ? "host.md" : "valid.cog.md";
+    expect(runCli("graph", "--input", mode, "--format", "json", file)).toEqual(runCli("graph", "--input", mode, file));
+  });
+
+  it.each([
+    ["graph", "--format"],
+    ["graph", "--format", "html", "valid.cog.md"],
+    ["check", "--format", "text", "valid.cog.md"],
+    ["ast", "--format", "json", "valid.cog.md"],
+    ["explain", "--format", "text", "valid.cog.md"],
+    ["graph", "--input", "host", "--format", "text", "host.md"],
+    ["graph", "--format", "text", "--input", "host", "host.md"]
+  ])("rejects unsupported text scopes/options: %j", (...args) => {
+    const result = runCli(...args);
+    expect(result.status).toBe(2);
+    expect(result.stderr).toBe("");
+    expect(JSON.parse(result.stdout).diagnostics).toContainEqual(expect.objectContaining({ code: "INVALID_OUTPUT_FORMAT" }));
+  });
+
+  it("treats --format as a filename after the option terminator", () => {
+    writeFileSync(join(workingDirectory, "--format"), "- [C] Claim.");
+    expect(runCli("graph", "--format", "text", "--", "--format").stdout).toContain('p1: role(C) text="Claim."');
+  });
+
   it.each([
     ["document", "- [. use @record] Review.\r\n- [. @record] Calibration record.\r\n"],
     ["host", "```cog\n- [C @record] First.\n```\n```cog\n- [. use @record] Review.\n- [C @record] Second.\n```"],

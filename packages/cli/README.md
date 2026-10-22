@@ -57,3 +57,12 @@ Without the option, all command output remains unchanged; using it with `ast`, `
 The inventory is an additional analysis projection, not an extension to any of the four existing JSON Schemas.
 
 Read the [quick start](https://cogitatum.baksili.codes/docs/quick-start), browse [examples](https://cogitatum.baksili.codes/examples), or try the [playground](https://cogitatum.baksili.codes/playground).
+
+## Text inspection (0.5 candidate)
+
+`cog graph --format text inquiry.cog.md` prints one document's compiled structure as an entity table and relation list.
+`p1` and `b1` are output-local labels; authored names remain separate fields.
+Partial graphs are marked and all graph diagnostics are displayed, retaining the normal 0/1 exit status.
+`--format json` is explicit default behavior; existing JSON output is unchanged.
+Text output is not a source formatter or interchange decoder.
+Host text output is an argument error (exit 2); use host JSON to retain all units and aggregate diagnostics.

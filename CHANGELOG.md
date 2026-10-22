@@ -7,6 +7,10 @@ Use the complete released schema set and [migrate retained source](docs/syntax.m
 
 ## 0.5.0 (unreleased)
 
+- Add Core `formatGraph` and opt-in `cog graph --format text` for single-document structural inspection.
+  The versioned structure-v1 projection preserves individual entities, declaration metadata, names, text, ordered sources and typed targets, and visibly marks partial graphs with diagnostics.
+  Existing JSON output and schemas are unchanged by this formatter; host text, source reconstruction and rewriting remain outside its scope.
+
 - Unify canonical negative relations as `challenges`, with Point or Bearing targets.
   Preserve authored `->` and `/>` constraints in AST `operatorClause.targetKind` through validation.
   Named `challenges` accepts either target; named `undercuts` is retired with an error and migration guidance to `/>`.

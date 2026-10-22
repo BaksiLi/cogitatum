@@ -7,6 +7,7 @@ import {
   compileSource,
   explainSource,
   FORMAT_VERSION,
+  formatGraph,
   parseDocument,
   parseSource
 } from "@cogitatum/core";
@@ -21,6 +22,7 @@ type CliArgs = {
   file?: string;
   inputMode: SourceParseMode;
   references: boolean;
+  format: "json" | "text";
   diagnostics: Diagnostic[];
 };
 
@@ -96,7 +98,8 @@ async function main(): Promise<void> {
   const graph = compilation.graph;
 
   if (args.command === "graph") {
-    printJson(graph);
+    if (args.format === "text") process.stdout.write(formatGraph(graph));
+    else printJson(graph);
     process.exitCode = hasErrors(graph.diagnostics) ? 1 : 0;
     return;
   }
@@ -123,6 +126,7 @@ function parseArgs(argv: string[]): CliArgs {
     command: isCommand(commandArg) ? commandArg : undefined,
     inputMode: "document",
     references: false,
+    format: "json",
     diagnostics
   };
 
@@ -150,6 +154,16 @@ function parseArgs(argv: string[]): CliArgs {
       index += 1;
       continue;
     }
+    if (!optionsEnded && arg === "--format") {
+      const value = argv[index + 1];
+      if (args.command !== "graph" || (value !== "json" && value !== "text")) {
+        diagnostics.push({ severity: "error", code: "INVALID_OUTPUT_FORMAT", message: "--format requires json or text and is available only with graph." });
+        break;
+      }
+      args.format = value;
+      index += 1;
+      continue;
+    }
     if (!optionsEnded && arg === "--references") {
       if (args.command !== "check") {
         diagnostics.push({ severity: "error", code: "INVALID_OPTION", message: "--references is only available with check." });
@@ -168,6 +182,9 @@ function parseArgs(argv: string[]): CliArgs {
     args.file = arg;
   }
 
+  if (args.format === "text" && args.inputMode === "host") {
+    diagnostics.push({ severity: "error", code: "INVALID_OUTPUT_FORMAT", message: "Text inspection accepts one document graph. Use JSON for host input to retain every source unit and source-selection diagnostic." });
+  }
   return args;
 }
 
@@ -193,6 +210,7 @@ function printUsage(stream: NodeJS.WritableStream = process.stderr): void {
   stream.write("  explain  Print an Alpha compiler trace as JSON (optional debugging)\n\n");
   stream.write("Options:\n");
   stream.write("  --input <mode>  document (default) or host\n");
+  stream.write("  --format <kind> json (default) or text (graph, document only)\n");
   stream.write("  --references    Include written name references (check only)\n");
   stream.write("  -h, --help      Show this help\n");
   stream.write("  -v, --version   Show CLI and format version\n\n");
@@ -200,6 +218,7 @@ function printUsage(stream: NodeJS.WritableStream = process.stderr): void {
   stream.write("  cog check inquiry.cog.md\n");
   stream.write("  cog check --references inquiry.cog.md\n");
   stream.write("  cog graph inquiry.cog.md\n");
+  stream.write("  cog graph --format text inquiry.cog.md\n");
   stream.write("  cog explain inquiry.cog.md\n");
   stream.write("  cog check --input host notes.md\n");
 }
