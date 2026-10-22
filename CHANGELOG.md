@@ -11,6 +11,9 @@ Use the complete released schema set and [migrate retained source](docs/syntax.m
   Keep literal note boundaries and exact edit-preview content intact, and project the same source in Reading.
 - Retain the selected reference and keyboard entry when refocusing or clearing Reading and Map.
   Accept assistive Map activation without a pointer gesture, and discard hover addresses from older compilations.
+- Let unheld nodes in a dragged Map component settle with bounded damping, including through joint Bearings.
+  Keep held and unrelated nodes fixed; reduced motion and keyboard nudges move only the chosen mark.
+  Cancel settling and captured pointer gestures when the source revision changes.
 - Unify the private View package’s Flow and Constellation into one Map: deterministic reading order, direct movement with bounded neighbour adjustment, and reset to automatic placement.
   Point wording, its line gaps and named Bearing labels share the node’s selection and drag behavior, with measured hit areas that disappear when wording is hidden.
   Remove the pre-release layout selector and duplicate layout algorithms; geometry remains local and never changes source or Bearings.

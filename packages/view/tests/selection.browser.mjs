@@ -106,6 +106,27 @@ try {
     await mark.focus(); await page.keyboard.press('Escape'); await flush();
     assert.equal(await mark.getAttribute('tabindex'), '0', 'Map clearing retains the focused keyboard entry');
 
+    // A source revision retires the captured gesture before compilation keys can be reused.
+    const drag = page.locator('#map [data-node="point:_p1"]');
+    await drag.evaluate(node => node.ownerSVGElement.addEventListener('pointerdown', event => {
+      window.dragPointer = event.pointerId;
+    }, { once: true }));
+    const box = await drag.boundingBox();
+    const x = box.x + box.width / 2, y = box.y + box.height / 2;
+    await page.mouse.move(x, y); await page.mouse.down();
+    await page.mouse.move(x + 35, y + 15, { steps: 3 });
+    assert.equal(await page.locator('#map svg').getAttribute('data-dragging'), 'node');
+    await page.evaluate(() => {
+      window.views.map.update(window.views.projection.units[0].graph, 'replacement');
+    });
+    const replacement = await drag.getAttribute('transform');
+    assert.equal(await page.locator('#map svg').getAttribute('data-dragging'), null);
+    assert.equal(await page.locator('#map svg').evaluate(svg => svg.hasPointerCapture(window.dragPointer)), false);
+    await page.mouse.move(x + 70, y + 30); await page.mouse.up(); await flush();
+    assert.equal(await drag.getAttribute('transform'), replacement, 'retired pointer movement cannot move the replacement node');
+    await drag.dispatchEvent('click', { detail: 0 });
+    assert.equal(await drag.getAttribute('aria-pressed'), 'true', 'assistive activation still works after gesture cancellation');
+
     await mount('- [C @same] First.\n  - [G] Reason.\n- [. @alone] Unrelated.');
     await page.locator('#map [data-node="point:_p3"]').dispatchEvent('pointermove');
     await flush();

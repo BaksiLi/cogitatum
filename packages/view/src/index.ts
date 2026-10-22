@@ -527,7 +527,6 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
       for (const id of pointers.keys()) if (svg.hasPointerCapture?.(id)) svg.releasePointerCapture(id);
       pointers.clear();
       const previous = nodeById(selected), hadFocus = svg.contains(doc.activeElement);
-      hovered = undefined;
       const sameScope = nextScope === scope;
       if (!sameScope) { arrangement.clear(); held.clear(); world = new Map(); cameraTouched = false; }
       scope = nextScope;
