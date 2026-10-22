@@ -9,11 +9,12 @@ import {
   FORMAT_VERSION,
   formatGraph,
   parseDocument,
-  parseSource
+  parseSource,
+  previewExplicitTarget
 } from "@cogitatum/core";
 import type { Diagnostic, SourceParseMode } from "@cogitatum/core";
 
-type Command = "ast" | "graph" | "explain" | "check";
+type Command = "ast" | "graph" | "explain" | "check" | "explicit-target";
 
 const PACKAGE_VERSION: string = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
 
@@ -22,6 +23,7 @@ type CliArgs = {
   file?: string;
   inputMode: SourceParseMode;
   references: boolean;
+  line?: number;
   format: "json" | "text";
   diagnostics: Diagnostic[];
 };
@@ -54,6 +56,13 @@ async function main(): Promise<void> {
   }
 
   const source = await readFile(args.file, "utf8");
+
+  if (args.command === "explicit-target") {
+    const preview = previewExplicitTarget(source, { line: args.line!, mode: args.inputMode });
+    printJson(preview);
+    process.exitCode = preview.status === "ready" ? 0 : 1;
+    return;
+  }
 
   if (args.references) {
     const analysis = analyzeSourceReferences(source, args.inputMode);
@@ -115,7 +124,7 @@ async function main(): Promise<void> {
 }
 
 function isCommand(value: string | undefined): value is Command {
-  return value === "ast" || value === "graph" || value === "explain" || value === "check";
+  return value === "ast" || value === "graph" || value === "explain" || value === "check" || value === "explicit-target";
 }
 
 function parseArgs(argv: string[]): CliArgs {
@@ -138,6 +147,16 @@ function parseArgs(argv: string[]): CliArgs {
     const arg = argv[index];
     if (!optionsEnded && arg === "--") {
       optionsEnded = true;
+      continue;
+    }
+    if (!optionsEnded && arg === "--line") {
+      const value = argv[index + 1];
+      if (args.command !== "explicit-target" || args.line !== undefined || !value || !/^[1-9][0-9]*$/.test(value) || !Number.isSafeInteger(Number(value))) {
+        diagnostics.push({ severity: "error", code: "INVALID_LINE_OPTION", message: "--line requires one positive integer and is available only with explicit-target." });
+        break;
+      }
+      args.line = Number(value);
+      index += 1;
       continue;
     }
     if (!optionsEnded && arg === "--input") {
@@ -182,6 +201,9 @@ function parseArgs(argv: string[]): CliArgs {
     args.file = arg;
   }
 
+  if (args.command === "explicit-target" && args.line === undefined && !diagnostics.length) {
+    diagnostics.push({ severity: "error", code: "INVALID_LINE_OPTION", message: "explicit-target requires --line with a one-based line in the complete input file." });
+  }
   if (args.format === "text" && args.inputMode === "host") {
     diagnostics.push({ severity: "error", code: "INVALID_OUTPUT_FORMAT", message: "Text inspection accepts one document graph. Use JSON for host input to retain every source unit and source-selection diagnostic." });
   }
@@ -201,26 +223,52 @@ function printJson(value: unknown): void {
 }
 
 function printUsage(stream: NodeJS.WritableStream = process.stderr): void {
-  stream.write(`Cogitatum ${PACKAGE_VERSION} (format ${FORMAT_VERSION})\n\n`);
-  stream.write("Usage: cog <command> [--input document|host] <file>\n\n");
-  stream.write("Commands:\n");
-  stream.write("  check    Report deterministic syntax and reference diagnostics\n");
-  stream.write("  ast      Print the ordered source AST as JSON\n");
-  stream.write("  graph    Print compiled Point-Bearing Graph IR as JSON\n");
-  stream.write("  explain  Print an Alpha compiler trace as JSON (optional debugging)\n\n");
-  stream.write("Options:\n");
-  stream.write("  --input <mode>  document (default) or host\n");
-  stream.write("  --format <kind> json (default) or text (graph, document only)\n");
-  stream.write("  --references    Include written name references (check only)\n");
-  stream.write("  -h, --help      Show this help\n");
-  stream.write("  -v, --version   Show CLI and format version\n\n");
-  stream.write("Examples:\n");
-  stream.write("  cog check inquiry.cog.md\n");
-  stream.write("  cog check --references inquiry.cog.md\n");
-  stream.write("  cog graph inquiry.cog.md\n");
-  stream.write("  cog graph --format text inquiry.cog.md\n");
-  stream.write("  cog explain inquiry.cog.md\n");
-  stream.write("  cog check --input host notes.md\n");
+  stream.write(`Cogitatum ${PACKAGE_VERSION} (format ${FORMAT_VERSION})
+
+Usage: cog <command> [options] <file>
+
+Commands:
+  check            Check syntax and references; print diagnostics as JSON
+  ast              Parse source to an ordered AST as JSON; no reference validation
+  graph            Compile source to Point-Bearing Graph IR; JSON by default
+  explain          Print an experimental compiler trace as JSON
+  explicit-target  Preview one explicit target clause as JSON; never write it
+
+Options:
+  --input <mode>   document (default) or host (Markdown Cogitatum fences)
+  --format <kind>  json or text (graph only; text requires document input)
+  --line <number>  Required for explicit-target; one-based line in the full file
+  --references     Include written-name references (check only)
+  --               End options before an option-like filename
+  -h, --help       Show this help
+  -v, --version    Show CLI and format version
+
+graph reads Cogitatum source, not saved Graph IR JSON.
+--format selects output notation; it does not format or rewrite source.
+All commands run locally without an LLM and leave input files unchanged.
+check, graph and explain all compile; ast stops at parsing.
+check validates markup; explain traces compilation. Neither evaluates reasoning.
+
+Output:
+  Results and source/option diagnostics go to stdout; I/O failures go to stderr.
+  Host JSON preserves source units; graph text accepts one document only.
+  Error-bearing graphs are partial; inspect diagnostics and the exit status.
+
+Exit status:
+  0  Successful inspection/check, or a ready explicit-target preview
+  1  Source/I/O error, or an unavailable explicit-target preview
+  2  Invalid or missing arguments
+An unavailable preview can have valid source; read its reason and message.
+
+Examples:
+  cog check inquiry.cog.md
+  cog check --references inquiry.cog.md
+  cog graph inquiry.cog.md
+  cog graph --format text inquiry.cog.md
+  cog graph --input host --format json notes.md
+  cog explain inquiry.cog.md
+  cog explicit-target --line 3 inquiry.cog.md
+`);
 }
 
 main().catch((error: unknown) => {

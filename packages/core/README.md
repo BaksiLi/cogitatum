@@ -45,7 +45,7 @@ Nested active fences are diagnosed and omitted; a host with no active regions re
 Keep the original host and pair selected units with AST/Graph/Explain by array index; source spans refer to original one-based UTF-16 positions.
 ESM; Node.js 22.12 or newer for development and CLI use.
 
-Optional Alpha debugging APIs, `compileGraphWithExplain` and `explainSource`, add a compiler trace of recognition, emitted or rejected entities, and diagnostics. This trace explains compilation decisions; it does not assess reasoning or record inquiry history. Use AST and Graph IR for integrations that do not need it.
+Experimental debugging APIs, `compileGraphWithExplain` and `explainSource`, add a compiler trace of recognition, emitted or rejected entities, and diagnostics. This trace explains compilation decisions; it does not assess reasoning or record inquiry history. Use AST and Graph IR for integrations that do not need it.
 
 ## Written name references
 
@@ -102,14 +102,16 @@ See [Graph inspection](../../docs/graph-inspection.md) for the versioned preserv
 
 ## Compiler contracts
 
-AST blocks keep their semantic fields only in `annotation`; source `raw` and block text are retained separately. Reparse older source to migrate from format 0.2.0. The compiler rejects ASTs with a different format version.
+AST blocks keep their semantic fields only in `annotation`; source `raw` and block text are retained separately.
+To migrate an older format, apply the [source migration](../../docs/syntax.md#compatibility-and-migration) and reparse retained source.
+The compiler rejects ASTs with a different format version.
 It also refuses an `edge` annotation that has neither an `operatorClause` nor a recorded syntax error, instead of deriving a relation; validate imported AST JSON against the AST schema first.
 
 `OperatorClause.op` holds the canonical selected `BearingKind`; edge sources are existing Point references, and self-sourced Point annotations admit only symbolic `BearingOp` kinds.
 Using a Point as an explicit source preserves its declaration metadata; indentation defaults do not add global role restrictions to explicit construction.
 Match the **0.5.0** candidate schemas and compiler; format 0.4.0 JSON must be recompiled from retained source, not relabelled.
 
-The package includes self-contained draft 2020-12 JSON Schemas for offline integration:
+The package includes a draft 2020-12 JSON Schema bundle for offline integration:
 
 ```js
 import astSchema from '@cogitatum/core/schemas/ast' with { type: 'json' };
@@ -118,6 +120,36 @@ import explainSchema from '@cogitatum/core/schemas/explain' with { type: 'json' 
 import sourceSchema from '@cogitatum/core/schemas/source' with { type: 'json' };
 ```
 
-Package 0.4.12 includes `sourceSchema`, which covers the `parseSource`, `compileSource`, and `explainSource` result envelopes and refers to the AST, Graph IR, and Explain schemas by their `$id`; load those sibling schemas into a validator before compiling it. The envelope keeps source units and projections in parallel arrays, paired by index. Schemas check data shapes; array alignment, reference integrity, and agreement with source remain compiler guarantees. Keys are opaque strings: their numbering is not an integration contract. Store application metadata separately from canonical compiler output. This envelope export is not in the historical npm `0.3.0-alpha.1` tarball.
+`sourceSchema` covers the `parseSource`, `compileSource`, and `explainSource` result envelopes and refers to the AST, Graph IR, and Explain schemas by their `$id`.
+Load those sibling schemas from the same compiler bundle into a validator before compiling it.
+This candidate's bundle describes format 0.5.0; the published 0.4.12 bundle describes format 0.4.0.
+The envelope keeps source units and projections in parallel arrays, paired by index.
+Schemas check data shapes; array alignment, reference integrity, and agreement with source remain compiler guarantees.
+Keys are opaque strings: their numbering is not an integration contract.
+Store application metadata separately from canonical compiler output.
+The source-envelope export is absent from the historical npm `0.3.0-alpha.1` tarball.
 
 Read the [introduction](https://cogitatum.baksili.codes/docs/introduction), [syntax](https://cogitatum.baksili.codes/docs/syntax), or try the [playground](https://cogitatum.baksili.codes/playground).
+
+## Explicit target preview (0.5 candidate)
+
+`previewExplicitTarget(source, { line, mode? })` prepares one checked source edit without writing a file.
+`line` is one-based in the complete source and `mode` is `document` (default) or `host`.
+The operation inserts a symbolic target clause for an ordinary implicit support, challenge or relevance attachment to an already named Point.
+It preserves source prose and occurrence ownership as well as graph structure, while deliberately making future moves retain the explicit target.
+
+```js
+import { previewExplicitTarget } from '@cogitatum/core';
+const source = '- [C @claim] Claim.\n  - [G] Reason.';
+const preview = previewExplicitTarget(source, { line: 2 });
+if (preview.status === 'ready') {
+  console.log(preview.proposedSource); // Contains [G +> @claim].
+}
+```
+
+Ready results include the original/proposed source, a single insertion (`edit.offset` in UTF-16 code units and `edit.insert`), both diagnostic lists and the consequence for future edits.
+Before applying a saved preview, compare the complete current source with `originalSource`; recompute if it changed.
+Unavailable results contain only the common version/mode/diagnostics and a reason/message, with no edit payload.
+Errors anywhere in the complete input prevent an edit; anonymous targets, selectors, Linked constructions and dialogical relations require separate authoring decisions.
+The public types are `ExplicitTargetOptions`, `ExplicitTargetPreview` and `ExplicitTargetUnavailableReason`.
+This API does not add fields to AST, Graph IR, Explain or source schemas, and it is not a general formatter or patch application service.

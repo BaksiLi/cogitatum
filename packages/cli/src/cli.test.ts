@@ -5,12 +5,13 @@ import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { analyzeSourceReferences, compileGraph, formatGraph, parseDocument, explainSource } from "../../core/src/index.js";
+import { analyzeSourceReferences, compileGraph, formatGraph, parseDocument, explainSource, previewExplicitTarget } from "../../core/src/index.js";
 import type { SourceParseMode } from "../../core/src/index.js";
 
 const repoRoot = fileURLToPath(new URL("../../../", import.meta.url));
 const cliPath = join(repoRoot, "packages", "cli", "src", "index.ts");
 const tsxImport = createRequire(import.meta.url).resolve("tsx");
+const packageVersion = JSON.parse(readFileSync(join(repoRoot, "packages/cli/package.json"), "utf8")).version as string;
 let workingDirectory: string;
 
 beforeAll(() => {
@@ -27,6 +28,45 @@ afterAll(() => {
 });
 
 describe("cog CLI", () => {
+  it.each([
+    ["document", "- [C @c] Claim.\r\n  - [G] Reason.", 2, 0],
+    ["host", "Intro 🌧️\n  ```cog\n  - [C @c] Claim.\n    - [O] Concern.\n  ```", 4, 0],
+    ["document", "- [C] Anonymous.\n  - [G] Reason.", 2, 1],
+    ["document", "- [C @c] Claim.\n  - [G] Reason.\n- [O /> @c] Invalid.", 2, 1]
+  ] as const)("previews explicit targets in %s mode with API parity and no file writes", (mode, source, line, status) => {
+    const file = join(workingDirectory, "edit-preview.md");
+    writeFileSync(file, source);
+    const result = runCli("explicit-target", "--input", mode, "--line", String(line), file);
+    expect(result.status).toBe(status);
+    expect(result.stderr).toBe("");
+    expect(JSON.parse(result.stdout)).toEqual(previewExplicitTarget(source, { line, mode }));
+    expect(readFileSync(file, "utf8")).toBe(source);
+  });
+
+  it.each([
+    ["explicit-target", "valid.cog.md"],
+    ["explicit-target", "--line", "0", "valid.cog.md"],
+    ["explicit-target", "--line", "1.2", "valid.cog.md"],
+    ["explicit-target", "--line", "-1", "valid.cog.md"],
+    ["explicit-target", "--line", "9007199254740992", "valid.cog.md"],
+    ["explicit-target", "--line", "1", "--line", "2", "valid.cog.md"],
+    ["explicit-target", "--line"],
+    ["graph", "--line", "1", "valid.cog.md"]
+  ])("rejects invalid line options: %j", (...args) => {
+    const result = runCli(...args);
+    expect(result.status).toBe(2);
+    expect(JSON.parse(result.stdout).diagnostics).toContainEqual(expect.objectContaining({ code: "INVALID_LINE_OPTION" }));
+  });
+
+  it("keeps option-like filenames available after -- and rejects unrelated options", () => {
+    const source = "- [C @c] Claim.\n  - [G] Reason.";
+    writeFileSync(join(workingDirectory, "--line"), source);
+    expect(runCli("explicit-target", "--line", "2", "--", "--line").status).toBe(0);
+    expect(readFileSync(join(workingDirectory, "--line"), "utf8")).toBe(source);
+    expect(runCli("explicit-target", "--line", "2", "--format", "text", "valid.cog.md").status).toBe(2);
+    expect(runCli("explicit-target", "--line", "2", "--references", "valid.cog.md").status).toBe(2);
+  });
+
   it.each([
     '- [C @c] Claim.\n  - [G; @step] Reason.\n- [O /> @step] Objection.',
     '- [C] Survives.\n- [G +> @missing] Fails.',
@@ -145,15 +185,34 @@ describe("cog CLI", () => {
     expect(JSON.parse(result.stdout)).toMatchObject({ mode: "host", units: [], documents: [], graphs: [], diagnostics: [] });
   });
 
-  it("prints Alpha help and version information", () => {
+  it("prints package and format version information", () => {
     const help = runCli("--help");
     const version = runCli("--version");
 
     expect(help.status).toBe(0);
-    expect(help.stdout).toContain("Cogitatum 0.5.0 (format 0.5.0)");
+    expect(help.stdout).toContain(`Cogitatum ${packageVersion} (format 0.5.0)`);
     expect(help.stdout).toContain("cog <command>");
     expect(version.status).toBe(0);
-    expect(version.stdout).toContain("cog 0.5.0 (format 0.5.0)");
+    expect(version.stdout).toContain(`cog ${packageVersion} (format 0.5.0)`);
+  });
+
+  it.each(["document", "host"])("keeps parsing separate from reference validation in %s mode", mode => {
+    const source = '- [C @claim] Claim.\n  - [G +> @missing] Reason.';
+    const input = mode === "host" ? ["Context.", "", "```cog", source, "```"].join("\n") : source;
+    const file = join(workingDirectory, "unresolved-target.md");
+    writeFileSync(file, input);
+    const ast = runCli("ast", "--input", mode, file);
+    expect(ast.status).toBe(0);
+    const parsed = JSON.parse(ast.stdout);
+    expect(parsed.diagnostics).toEqual([]);
+    const document = mode === "host" ? parsed.documents[0] : parsed;
+    expect(document.blocks[0].children[0].annotation.operatorClause.target).toEqual({ id: "missing" });
+    for (const command of ["check", "graph", "explain"]) {
+      const result = runCli(command, "--input", mode, file);
+      expect(result.status).toBe(1);
+      expect(JSON.parse(result.stdout).diagnostics.map((d: { code: string }) => d.code)).toEqual(["UNKNOWN_TARGET"]);
+    }
+    expect(readFileSync(file, "utf8")).toBe(input);
   });
 
   it("checks valid source and preserves compiler diagnostics", () => {

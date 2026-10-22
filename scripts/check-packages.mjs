@@ -54,7 +54,7 @@ for (const name of ["ast", "graph-ir", "explain", "source"]) {
 }
 const probe = `
 import assert from 'node:assert/strict';
-import { analyzeSourceReferences, compileGraph, compileGraphWithExplain, compileSource, formatGraph, GRAPH_TEXT_VERSION, parseDocument } from '@cogitatum/core';
+import { analyzeSourceReferences, compileGraph, compileGraphWithExplain, compileSource, formatGraph, GRAPH_TEXT_VERSION, parseDocument, previewExplicitTarget } from '@cogitatum/core';
 const { graph, explain } = compileGraphWithExplain(parseDocument('- Ordinary context.\\n  - [C @claim] A claim.\\n    - [G; @route] A reason.\\n- [O /> @route] A route objection.\\n'));
 assert.equal(GRAPH_TEXT_VERSION, '1');
 assert.ok(formatGraph(graph).includes('b2: challenges([p3], b1)'));
@@ -105,6 +105,13 @@ assert.ok(notes.explain.entries[3].effects.some(effect => effect.kind === 'impli
 const retired = compileGraph(parseDocument('- [C? @old] Retired.'));
 assert.deepEqual(retired.points, []);
 assert.equal(retired.diagnostics[0].code, 'RETIRED_CLAIM_OPENNESS');
+const explicitSource = '- [C @claim] Claim.\\n  - [G; @route] Reason.\\n    - [O/] Local objection.';
+const explicitPreview = previewExplicitTarget(explicitSource, {line: 2});
+assert.equal(explicitPreview.status, 'ready');
+assert.equal(explicitPreview.originalSource, explicitSource);
+assert.equal(explicitPreview.proposedSource, explicitSource.replace('[G;', '[G +> @claim;'));
+assert.equal(formatGraph(compileGraph(parseDocument(explicitSource))), formatGraph(compileGraph(parseDocument(explicitPreview.proposedSource))));
+assert.equal(previewExplicitTarget('- [C] Anonymous.\\n  - [G] Reason.', {line: 2}).reason, 'unnamed-target');
 const retiredKind = compileGraphWithExplain(parseDocument('- [C @claim] Claim.\\n- [G @reason] Reason.\\n- [edge @reason +> @claim; @route]\\n- [edge @reason undercuts @route; @failed]\\n  - [O/] No fallback.'));
 assert.deepEqual(retiredKind.graph.bearings.map(bearing => bearing.handle), ['route']);
 assert.ok(retiredKind.graph.diagnostics.some(diagnostic => diagnostic.code === 'RETIRED_BEARING_KIND'));
@@ -151,6 +158,13 @@ run(process.execPath, ["--conditions", "development", "--import", tsx, "--input-
 assert.ok(readFileSync(join(temporary, "node_modules/@cogitatum/view/dist/style.css"), "utf8").includes(".cog-graph"));
 const executable = join(temporary, "node_modules", ".bin", "cog");
 assert.match(run(executable, ["--version"], temporary), new RegExp(rootPackage.version.replaceAll(".", "\\.")));
+const explicitFile = join(temporary, "explicit.cog.md");
+const explicitText = "- [C @claim] Claim.\n  - [G] Reason.";
+writeFileSync(explicitFile, explicitText);
+const explicitCli = JSON.parse(run(executable, ["explicit-target", "--line", "2", explicitFile], temporary));
+assert.equal(explicitCli.status, "ready");
+assert.equal(explicitCli.proposedSource, explicitText.replace("[G]", "[G +> @claim]"));
+assert.equal(readFileSync(explicitFile, "utf8"), explicitText);
 const graph = JSON.parse(run(executable, ["graph", join(root, "examples/getting-started.cog.md")], temporary));
 assert.equal(graph.points.length, 4);
 assert.equal(graph.bearings.length, 3);
@@ -168,8 +182,26 @@ const apiReferences = JSON.parse(run(process.execPath, ["--input-type=module", "
 assert.deepEqual(cliReferences, apiReferences);
 assert.equal(cliReferences.references.status, "complete");
 
-writeFileSync(join(temporary, "consumer.mts"), `import {type Point, type PointDeclaration, type Bearing, type Annotation, type OperatorClause, type ExplainEmittedBearingSummary, type SourceReferenceAnalysis, type ReferencedName, type WrittenReference, analyzeSourceReferences, formatGraph, GRAPH_TEXT_VERSION, compileGraph, parseDocument} from '@cogitatum/core';
+writeFileSync(join(temporary, "consumer.mts"), `import {type Point, type PointDeclaration, type Bearing, type Annotation, type OperatorClause, type ExplainEmittedBearingSummary, type SourceReferenceAnalysis, type ReferencedName, type WrittenReference, type ExplicitTargetPreview, previewExplicitTarget, analyzeSourceReferences, formatGraph, GRAPH_TEXT_VERSION, compileGraph, parseDocument} from '@cogitatum/core';
 import { createGraphView, declarationMark } from '@cogitatum/view';
+const preview: ExplicitTargetPreview = previewExplicitTarget('- [C @c] Claim.\\n  - [G] Reason.', {line: 2, mode: 'document'});
+if (preview.status === 'ready') {
+  const original: string = preview.originalSource;
+  const updated: string = preview.proposedSource;
+  const offset: number = preview.edit.offset;
+} else {
+  const message: string = preview.message;
+  // @ts-expect-error A refused preview provides no applicable edit.
+  preview.edit;
+  // @ts-expect-error A refused preview cannot supply replacement source.
+  preview.proposedSource;
+}
+// @ts-expect-error The selected source line must be numeric.
+previewExplicitTarget('source', {line: '2'});
+// @ts-expect-error An explicit selection is required.
+previewExplicitTarget('source');
+// @ts-expect-error Auto source mode remains retired.
+previewExplicitTarget('source', {line: 2, mode: 'auto'});
 const inventory: SourceReferenceAnalysis = analyzeSourceReferences('- [C @claim] Claim.');
 if (inventory.references.status === 'complete') {
   const names: ReferencedName[] = inventory.references.units[0];

@@ -423,7 +423,7 @@ rejectFocus also records failed Bearing uses; inspect recognition to distinguish
 Point uses emit no Point; a constructed attachment still emits its own Bearing.
 Bearing uses emit neither entity.
 The header emits with `linked-containment` or rejects with `invalid-linked`; later name/reference rejection uses `validation-error`.
-Membership eligibility does not certify that the whole linked survived validation. It explains compilation decisions, not the truth of the prose, the strength of a reason, or a history of the author's thinking. The trace is an optional Alpha interface; ordinary integrations can use AST and Graph IR alone.
+Membership eligibility does not certify that the whole linked survived validation. It explains compilation decisions, not the truth of the prose, the strength of a reason, or a history of the author's thinking. The trace is an experimental interface with a versioned schema; ordinary integrations can use AST and Graph IR alone.
 
 A Graph IR Point holds `key`, optional `id`, shared `text`, its canonical declaration `sourceSpan`, and `declaration`.
 `declaration` records how the Point was introduced: `form` (`role`, `gap` or `material`), `role` only for the role form, and `status: "open"` only for Gap.

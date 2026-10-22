@@ -135,3 +135,43 @@ Point uses, Bearing uses, explicit ordered sources and explicit targets appear s
 Each host fence has its own namespace.
 If any selected input has errors, including an omitted unclosed or nested fence, the inventory is explicitly unavailable rather than reporting zero references.
 Names with no written references generate no new warnings, and the command never edits the source.
+
+## Inspect a step before changing it (0.5 candidate)
+
+Save this example as `inquiry.cog.md` in the candidate checkout:
+
+```md cog-check require=supports,challenges points=4 bearings=3 diagnostics=0
+- [C @sampling] Wait ten minutes before sampling.
+  - [G @measurement; @route] Drift was below 0.1% after ten minutes.
+    - [O] The log records drift of 1%, not 0.1%.
+    - [O/] One stable run may not justify the waiting rule.
+```
+
+The first objection questions the measurement; the second questions its use as a reason for waiting.
+Both are `challenges`, with different typed targets.
+The semicolon names the supporting Bearing `route`; it does not join the two objections or introduce another premise.
+
+After `npm ci` and `npm run build:public`, inspect and preview the same saved source:
+
+```sh
+npm run cog:dist -- check inquiry.cog.md
+npm run cog:dist -- graph --format text inquiry.cog.md
+npm run cog:dist -- explicit-target --line 2 inquiry.cog.md
+```
+
+The text view lists four Points and three Bearings, retaining the challenge to the measurement separately from the challenge to its supporting step.
+It is an inspection view of compiled structure; ordinary context, notes and use-occurrence prose still need the source.
+`cog graph` without `--format text` returns the machine JSON representation of the compilation.
+Both commands compile the same source and leave the file unchanged.
+The [graph inspection reference](graph-inspection.md) shows a complete output and the information retained by each representation.
+
+The preview proposes `[G @measurement +> @sampling; @route]` on line 2.
+It preserves today's relations, including the step-specific objection, while fixing the target for later moves.
+Moving the original Ground under another Claim can change its target; moving the proposed explicit form keeps `@sampling`.
+Choose which behavior you intend, compare the preview's `originalSource` with the current file, and review the proposed source before applying it.
+The command returns a preview; it never applies the edit.
+See [checked editing](writing-style.md#preview-an-explicit-target-05-candidate) for declined cases and preservation limits.
+
+All these commands work without an LLM.
+A person or assistant can propose a different interpretation, but successful compilation only establishes the marked structure.
+For a shared writing workflow, see [work with an assistant](writing-style.md#work-with-an-assistant).

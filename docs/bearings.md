@@ -272,6 +272,23 @@ The former named `undercuts` spelling is rejected; use `/>` to retain its Bearin
 Challenging a Bearing does not by itself classify a theory-specific undercut.
 Bare `O` keeps its Point-context default; use `O/` to select a local Bearing.
 
+### Why keep O/ in a Bearing context?
+
+An ordinary Ground occurrence exposes two different objects: the Point's content and the step by which it supports something else.
+`O` beneath it questions the content; `O/` questions that particular step.
+In a `linked` block, direct `G` children supply the joint premises, while `G/` and `O/` comment on the joint Bearing.
+The slash makes the choice of object visible across these constructions, including an explicit `edge` and a Bearing use.
+It is a selector, not a claim that the objection is a theory-specific undercut.
+
+Letting bare `O` automatically select a Bearing beneath `linked`, `edge` or a Bearing use would be a possible alternative language design, and would save one character in those contexts.
+It would also make the unsuffixed mark select a different kind of object according to the enclosing constructor, while direct `G` under `linked` would still mean a premise rather than support for the Bearing.
+The current language chooses an explicit selector for relation commentary.
+Bare `O` under a Bearing constructor is diagnosed, not redirected to an outer Point; changing that rule would be a language change requiring its own examples and migration decision.
+
+The semicolon in `[linked; @step]` has a separate purpose: it introduces an optional handle naming the joint Bearing.
+`[linked]` already creates a joint step; `[linked] Applying the sampling rule.` also gives it a description without naming it.
+Use a handle when something elsewhere must refer to the step, and `O/` when the local context already identifies it.
+
 ## Argument structures
 
 Linked, Convergent, and Serial describe composable argument structures.

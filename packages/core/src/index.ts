@@ -6,3 +6,5 @@ export { compileSource, explainSource, extractCogitatumSourceUnits, parseSource 
 export { analyzeSourceReferences } from "./source-references.js";
 export type { WrittenReference, ReferencedName, SourceReferenceAnalysis } from "./source-references.js";
 export { formatGraph, GRAPH_TEXT_VERSION } from "./graph-text.js";
+export { previewExplicitTarget } from "./explicit-target.js";
+export type { ExplicitTargetOptions, ExplicitTargetPreview, ExplicitTargetUnavailableReason } from "./explicit-target.js";

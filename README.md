@@ -16,7 +16,7 @@ Four marked points and three explicit connections. One objection questions the a
 
 [Try the playground](https://cogitatum.baksili.codes/playground) · [One-minute introduction](docs/introduction.md) · [Ten-minute quick start](docs/quick-start.md) · [Examples](https://cogitatum.baksili.codes/examples)
 
-## Public Alpha
+## Release status
 
 **Cogitatum 0.4 releases an inquiry markup language and a working compiler.**
 
@@ -97,6 +97,27 @@ For a compiler fix, add a small regression case and run `npx vitest run packages
 
 Keep proposals concrete: include the source, the behavior you expected, and the effect on existing notes or integrations. Tests should demonstrate that behavior. Describe any syntax or JSON contract change explicitly; compatibility changes need a format-version decision, while implementation-only fixes can keep the format.
 
+## Version policy
+
+During 0.x, an incompatible change to a published language, Core API or CLI contract advances the minor package version, for example 0.4.x to 0.5.0.
+Compatible additions and fixes may advance the patch within that line.
+This is the project's compatibility policy for initial development; it does not claim the post-1.0 SemVer rule that patches contain only fixes.
+Assess compatibility against the last published contract, including source interpretation, exported types, machine output, diagnostic codes and exit behavior.
+Correcting behavior that violates that contract is a fix; changing the contract itself requires a new compatibility boundary.
+Publish Core and CLI together with matching versions and an exact Core dependency.
+
+The format identifier versions the language and AST, Graph IR, Explain and source-envelope contracts.
+An incompatible change to those published contracts needs a new identifier and matching schema set.
+Package releases that preserve them retain the format version.
+Graph-text notation has its own version; changing CLI help or adding a checked edit does not by itself change the graph format.
+New API and command results remain public contracts even when they are not instances of the four schema families.
+
+Never overwrite a published package or relabel stored JSON to cross a format boundary.
+Migrate retained source, recompile it, and review the diagnostics with the matching compiler and schemas.
+The [changelog](CHANGELOG.md) distinguishes published releases from older unpublished development milestones; those milestones are not a precedent for changing an already published contract in place.
+Experimental interfaces are identified explicitly and still need a documented migration when they change.
+Website deployments and the private experimental View have separate readiness checks; a Core/CLI release does not establish their adoption.
+
 ## Publish npm packages
 
 Releases use [npm trusted publishing](https://docs.npmjs.com/trusted-publishers/) from GitHub Actions.
@@ -137,7 +158,7 @@ Project Cogitatum investigates how people and AI agents can learn this form of e
 
 Further work under the name **Cogitatio** concerns ongoing inquiry, revision, review, and continuity. Cogitatio and its runtime are not part of this release.
 
-The current development checkout also contains an experimental integration package, marked private and not published with the Alpha: [`@cogitatum/view`](packages/view/README.md) provides an embeddable, source-linked graph renderer. It leaves evidence, persistence, review, and application UI with the host. This candidate compiler uses format 0.5.0.
+The current development checkout also contains an experimental integration package, marked private and not published with Core/CLI: [`@cogitatum/view`](packages/view/README.md) provides an embeddable, source-linked graph renderer. It leaves evidence, persistence, review, and application UI with the host. This candidate compiler uses format 0.5.0.
 
 The public source covers the language, compiler, CLI, schemas, conformance fixtures, selected examples, and these usage documents. Website source and brand assets are maintained and deployed separately; the website renders the public documents and uses the compiler. Research essays, benchmarks, prompts, and runtime experiments are outside this source distribution.
 

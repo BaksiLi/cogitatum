@@ -7,19 +7,26 @@ Use the complete released schema set and [migrate retained source](docs/syntax.m
 
 ## 0.5.0 (unreleased)
 
-- Add Core `formatGraph` and opt-in `cog graph --format text` for single-document structural inspection.
-  The versioned structure-v1 projection preserves individual entities, declaration metadata, names, text, ordered sources and typed targets, and visibly marks partial graphs with diagnostics.
-  Existing JSON output and schemas are unchanged by this formatter; host text, source reconstruction and rewriting remain outside its scope.
-
-- Unify canonical negative relations as `challenges`, with Point or Bearing targets.
+- **Breaking:** unify canonical negative relations as `challenges`, with Point or Bearing targets.
   Preserve authored `->` and `/>` constraints in AST `operatorClause.targetKind` through validation.
   Named `challenges` accepts either target; named `undercuts` is retired with an error and migration guidance to `/>`.
   `CHALLENGE_REQUIRES_BEARING_TARGET` replaces the old undercut-specific target diagnostic.
   Align public AST TypeScript unions with schema target constraints, including Point declarations and uses.
-- Keep suffix-only local Bearing commentary through `O/`; bare `O` retains its Point-context default.
 - Advance AST, Graph IR, Explain and source envelopes to format 0.5.0 with matching schemas and View marks.
-  Recompile original source rather than relabelling 0.4 JSON.
-- Clarify Linked, Serial and reused evidence with executable examples that preserve intermediate Points and do not invent implicit premises.
+  Recompile original source rather than relabelling 0.4 JSON; consumers distinguish negative targets through `target.kind`.
+  See the [migration reference](docs/syntax.md#compatibility-and-migration) and [version policy](README.md#version-policy).
+- Keep suffix-only local Bearing commentary through `O/`; bare `O` retains its Point-context default.
+- Align release checks with independent package and format versions, retaining schema identity, dependency and lockfile consistency checks.
+- Add Core `formatGraph` and opt-in `cog graph --format text` for single-document structural inspection.
+  The versioned structure-v1 projection preserves individual entities, declaration metadata, names, text, ordered sources and typed targets, and visibly marks partial graphs with diagnostics.
+  This formatter adds no further JSON/schema change; host text, source reconstruction and rewriting remain outside its scope.
+- Add `previewExplicitTarget` and `cog explicit-target --line` for one checked, source-preserving target-clause preview.
+  The operation retains current relations and occurrence prose while explicitly changing future move/role-edit behavior.
+  It refuses unsupported or erroneous input and never overwrites files.
+- Clarify CLI input/output, exit status, the distinction between output formatting and source editing, and the boundary between deterministic tools and interpretation assistance.
+  Expand executable tutorials for Point versus Bearing challenges, Linked, Serial, reused evidence and deliberate edits without inventing implicit premises.
+- Add a repository-only interpretation experiment that preserves original Bearings under two explicitly assumed readings.
+  It is research evidence, not a public theory API, an LLM command or a general reasoning validator.
 
 ## 0.4.12 — 13 October 2026 · published
 
