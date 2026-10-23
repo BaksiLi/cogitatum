@@ -8,6 +8,7 @@ export * from "./layout.js";
 export * from "./marks.js";
 export * from "./reading-projection.js";
 export * from "./reading.js";
+export type { ProseRenderer, ProseRenderRequest } from "./prose.js";
 
 export type GraphViewOptions = {
   direction?: "down" | "right";

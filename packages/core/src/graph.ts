@@ -260,7 +260,7 @@ function compileBlock(
     diagnostics.push({ severity: "error", code: "BEARING_USE_REQUIRES_EXPLICIT_TARGET", message: "Bearing use exposes no Point target; use G/, O/ or an explicit target for the first Point beneath it.", sourceSpan: block.sourceSpan });
   } else if (context?.kind === "point" && !context.focus && annotation.kind !== "edge" && !annotation.operatorClause && !("selector" in annotation && annotation.selector) && !bearingSyntaxFailed) {
     draft.bearing = { outcome: "rejected", reason: "failed-context-requires-explicit-target" };
-    diagnostics.push({ severity: "error", code: "FAILED_CONTEXT_REQUIRES_EXPLICIT_TARGET", message: "This Point is beneath a failed constructor; use an explicit target rather than falling back to an outer Point.", sourceSpan: block.sourceSpan });
+    diagnostics.push({ severity: "error", code: "FAILED_CONTEXT_REQUIRES_EXPLICIT_TARGET", message: "This Point is beneath a failed constructor, so no implicit attachment to an outer Point is derived. Fix any layout or annotation errors in the enclosing constructor first; use an explicit target only if this Point is intended to attach independently.", sourceSpan: block.sourceSpan });
   } else if (bearingSyntaxFailed) {
     draft.bearing = { outcome: "rejected", reason: "annotation-syntax-error" };
   } else if ((annotation.kind === "role" || annotation.kind === "use") && annotation.selector) {
@@ -314,7 +314,7 @@ function compileBlock(
     diagnostics.push({
       severity: "error",
       code: "BEARING_HANDLE_WITHOUT_BEARING",
-      message: `Bearing handle @${annotation.handle} appears on an annotation that produces no Bearing.`,
+      message: `Bearing handle @${annotation.handle} appears on an annotation that produces no Bearing. Resolve any layout or constructor errors first, then check that this annotation defines a Bearing before naming it.`,
       sourceSpan: block.sourceSpan
     });
   }

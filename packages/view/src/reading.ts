@@ -2,6 +2,7 @@ import type { BearingTarget, SourceSpan } from "@cogitatum/core";
 import { bearingMark, createBearingChip, createMarkChip, drawBearingGlyph } from "./marks.js";
 import { focusNeighborhood, projectExploration, projectGraph, referenceKey, type GraphProjection } from "./projection.js";
 import type { ReadingEndpoint, ReadingOccurrence, ReadingProjection } from "./reading-projection.js";
+import { createProseScope, type ProseRenderer } from "./prose.js";
 
 export type ReadingSelection = {
   unitIndex: number;
@@ -10,6 +11,8 @@ export type ReadingSelection = {
   ref?: BearingTarget;
 };
 export type ReadingViewOptions = {
+  /** Only compiler-selected prose is passed to this host renderer. */
+  renderProse?: ProseRenderer;
   reducedMotion?: () => boolean;
   onSelect?: (selection: ReadingSelection) => void;
   onClear?: () => void;
@@ -27,7 +30,7 @@ export type ReadingView = {
 };
 
 type Position = { x: number; y: number };
-type Row = { occurrence: ReadingOccurrence; element: HTMLLIElement; mark: HTMLElement };
+type Row = { occurrence: ReadingOccurrence; element: HTMLLIElement; mark: HTMLElement; control: HTMLButtonElement };
 const NS = "http://www.w3.org/2000/svg";
 const sameRef = (a?: BearingTarget, b?: BearingTarget) => !!a && !!b && referenceKey(a) === referenceKey(b);
 /** Gap between the text column and the innermost lane, corner radius, and the narrowest useful rail. */
@@ -91,6 +94,7 @@ export function createReadingView(container: HTMLElement, options: ReadingViewOp
   });
   const reduced = () => !!options.reducedMotion?.() || !!win?.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
   const reveal = (row: Row) => row.element.scrollIntoView?.({ block: "nearest", behavior: reduced() ? "instant" : "smooth" });
+  const prose = createProseScope(options.renderProse, () => schedule());
 
   function guide(): void {
     const active = hovered ?? selected;
@@ -111,8 +115,11 @@ export function createReadingView(container: HTMLElement, options: ReadingViewOp
         row.occurrence.references.some(reference => sameRef(reference.ref, active?.ref));
       row.element.dataset.related = String(!active || same || relevant.has(id));
       row.element.dataset.same = String(same && id !== active?.occurrenceId);
-      row.element.setAttribute("aria-pressed", String(id === selected?.occurrenceId));
-      row.element.setAttribute("aria-label", `Line ${row.occurrence.line}: ${row.occurrence.raw.trim()}${id === selected?.occurrenceId && selected.ref ? ` (${selected.ref.kind} selected)` : ""}`);
+      row.element.dataset.selected = String(id === selected?.occurrenceId);
+      const label = `Line ${row.occurrence.line}: ${row.occurrence.raw.trim()}${id === selected?.occurrenceId && selected.ref ? ` (${selected.ref.kind} selected)` : ""}`;
+      row.element.setAttribute("aria-label", label);
+      row.control.setAttribute("aria-label", `Select ${label}`);
+      row.control.setAttribute("aria-pressed", String(id === selected?.occurrenceId));
       row.element.dataset.selectedReference = id === selected?.occurrenceId ? selected.ref?.kind ?? "text" : "";
       row.element.tabIndex = id === tabStop ? 0 : -1;
     }
@@ -139,7 +146,45 @@ export function createReadingView(container: HTMLElement, options: ReadingViewOp
       if (bearing) parent.append(createBearingChip(doc, bearing.kind, 16, !inline[occurrence.unitIndex].has(bearing.key)));
     }
   }
+  function reference(parent: HTMLElement, unitIndex: number, endpoint: ReadingEndpoint, authoredName?: string): void {
+    const unit = projection!.units[unitIndex], ref = endpoint.ref;
+    const entity = ref.kind === "point" ? unit.graph.points.find(point => point.key === ref.key) :
+      unit.graph.bearings.find(bearing => bearing.key === ref.key);
+    const name = authoredName ?? (entity && ("id" in entity ? entity.id : "handle" in entity ? entity.handle : undefined));
+    const occurrence = unit.occurrences.find(item => item.id === endpoint.occurrenceId)!;
+    const excerpt = Array.from(entity?.text ?? occurrence.text).slice(0, 42).join("");
+    const label = name ? `@${name}` : `L${occurrence.line}${excerpt ? ` · ${excerpt}` : ""}`;
+    const control = html("button", "cog-reading-reference", parent);
+    control.type = "button";
+    control.dataset.readingReference = endpoint.occurrenceId;
+    control.dataset.ref = ref.key; control.dataset.refKind = ref.kind;
+    control.textContent = label;
+    control.title = `${ref.kind === "point" ? "Point" : "Bearing"} ${label}; select passage at line ${occurrence.line}. Enter ${options.onNavigate ? "opens source" : "selects"}.`;
+    control.setAttribute("aria-label", `${ref.kind === "point" ? "Point" : "Bearing"} ${label}, line ${occurrence.line}`);
+  }
+  function relation(source: ReadingOccurrence, parent: HTMLElement, bearingKey?: string): void {
+    const unit = projection!.units[source.unitIndex];
+    for (const route of unit.bearings.filter(route => bearingKey ? route.bearing.key === bearingKey : route.occurrenceId === source.id)) {
+      const summary = html("div", "cog-reading-relation", parent);
+      summary.dataset.kind = route.bearing.kind;
+      html("span", "cog-reading-relation-kind", summary).textContent =
+        `${route.sources.length > 1 ? "jointly " : ""}${bearingMark(route.bearing.kind).name}`;
+      if (route.bearing.handle) {
+        reference(summary, source.unitIndex, {
+          occurrenceId: source.id, ref: { kind: "bearing", key: route.bearing.key }, basis: "self"
+        }, route.bearing.handle);
+      }
+      const endpoints = html("span", "cog-reading-endpoints", summary);
+      route.sources.forEach((endpoint, index) => {
+        if (index) endpoints.append(doc.createTextNode(" + "));
+        reference(endpoints, source.unitIndex, endpoint);
+      });
+      endpoints.append(doc.createTextNode(" → "));
+      reference(endpoints, source.unitIndex, route.target);
+    }
+  }
   function build(): void {
+    prose.reset();
     lines.replaceChildren(); svg.replaceChildren(); diagnostics.replaceChildren(); rows = new Map(); order = [];
     if (!projection) return;
     diagnostics.hidden = projection.diagnostics.length === 0;
@@ -162,40 +207,50 @@ export function createReadingView(container: HTMLElement, options: ReadingViewOp
       row.dataset.kind = source.kind === "source" ? "source" : source.recognition.kind;
       const number = html("span", "cog-reading-number", row); number.textContent = String(source.line); number.setAttribute("aria-hidden", "true");
       const glyph = html("span", "cog-reading-mark", row);
-      const content = html("span", "cog-reading-content", row);
+      const content = html("div", "cog-reading-content", row);
       if (source.kind === "occurrence") {
         row.dataset.occurrence = source.id; row.dataset.unit = String(source.unitIndex);
         if ((source.recognition.kind === "role" || source.recognition.kind === "use") && source.recognition.role) row.dataset.role = source.recognition.role;
         row.style.setProperty("--cog-reading-depth", String(source.depth));
-        row.setAttribute("role", "button"); row.setAttribute("aria-pressed", "false");
+        row.setAttribute("role", "group");
         row.title = source.raw;
-        mark(source, glyph);
+        const control = html("button", "cog-reading-select", glyph);
+        control.type = "button"; control.tabIndex = -1;
+        mark(source, control);
         const authored = source.raw.slice(source.sourceSpan.startColumn - 1, source.sourceSpan.endColumn - 1);
         const failed = source.diagnostics.some(diagnostic => diagnostic.severity === "error");
-        if (["linked", "edge", "note"].includes(source.recognition.kind)) {
-          html("span", "cog-reading-tag", content).textContent = source.recognition.kind === "edge" ? "bearing" : source.recognition.kind;
+        if (source.recognition.kind === "note") html("span", "cog-reading-tag", content).textContent = "note";
+        if (!failed) {
+          const declarations = source.references.filter(reference => reference.kind === "declares" && reference.name);
+          if (declarations.length) {
+            const names = html("div", "cog-reading-names", content);
+            for (const declared of declarations) reference(names, source.unitIndex, {
+              occurrenceId: source.id, ref: declared.ref, basis: "self"
+            }, declared.name);
+          }
+          if (["edge", "linked"].includes(source.recognition.kind)) relation(source, content);
         }
         // Reading presents prose and authored names; raw syntax remains available for inspection.
         // Failed lines keep their complete annotation so the defect is never hidden by presentation.
-        html("span", "cog-reading-text", content).textContent = failed ? authored : source.text;
-        if (!failed) for (const reference of source.references) {
-          if (reference.kind !== "uses" && reference.name) {
-            html("span", "cog-reading-name", content).textContent = `${reference.kind === "constructs" ? ";" : ""}@${reference.name}`;
-          }
-        }
-        for (const reference of source.references) if (reference.kind === "uses") {
+        const text = html("div", "cog-reading-text", content);
+        if (failed) text.textContent = authored;
+        else prose.render(text, source.text);
+        if (!failed && !["edge", "linked"].includes(source.recognition.kind)) relation(source, content);
+        for (const used of source.references) if (!failed && used.kind === "uses") {
           const graph = projection.units[source.unitIndex].graph;
-          const entity = reference.ref.kind === "point" ? graph.points.find(point => point.key === reference.ref.key) :
-            graph.bearings.find(bearing => bearing.key === reference.ref.key);
-          const citation = html("span", "cog-reading-use", content);
-          citation.textContent = `↗ @${reference.name}${entity?.text ? ` · ${entity.text}` : ""}`;
-          citation.title = `Referenced ${reference.ref.kind}; the local note above does not replace its content.`;
+          const entity = used.ref.kind === "point" ? graph.points.find(point => point.key === used.ref.key) :
+            graph.bearings.find(bearing => bearing.key === used.ref.key);
+          const citation = html("div", "cog-reading-use", content);
+          if (used.ref.kind === "bearing") relation(source, citation, used.ref.key);
+          else reference(citation, source.unitIndex, { occurrenceId: source.id, ref: used.ref, basis: "self" }, used.name);
+          citation.title = `Referenced ${used.ref.kind}; the local note above does not replace its content.`;
+          if (entity?.text) prose.render(html("div", "cog-reading-shared-text", citation), entity.text);
         }
         if ((source.recognition.kind === "use" || source.recognition.kind === "bearingUse") &&
           !source.references.some(reference => reference.kind === "uses")) {
           html("span", "cog-reading-use", content).textContent = `@${source.recognition.ref?.id ?? "?"} unresolved`;
         }
-        rows.set(source.id, { occurrence: source, element: row, mark: glyph }); order.push(source.id);
+        rows.set(source.id, { occurrence: source, element: row, mark: glyph, control }); order.push(source.id);
       } else content.textContent = source.raw || "\u00a0";
       if (source.diagnostics.length) {
         row.dataset.error = String(source.diagnostics.some(diagnostic => diagnostic.severity === "error"));
@@ -204,6 +259,9 @@ export function createReadingView(container: HTMLElement, options: ReadingViewOp
         badge.title = source.diagnostics.map(diagnostic => diagnostic.message).join("\n");
       }
     }
+    observer?.disconnect();
+    observer?.observe(page);
+    for (const row of lines.children) observer?.observe(row);
   }
 
   /** One drawn connector between two rows; `junction` ends meet at the Bearing's diamond on its own row. */
@@ -320,21 +378,37 @@ export function createReadingView(container: HTMLElement, options: ReadingViewOp
   }
   const schedule = () => { if (!destroyed && !frame) { if (win) frame = win.requestAnimationFrame(paint); else paint(); } };
   const fromEvent = (event: Event): ReadingSelection | undefined => {
+    const reference = (event.target as Element).closest<HTMLElement>("[data-reading-reference]");
+    if (reference) {
+      const row = rows.get(reference.dataset.readingReference!);
+      return row && selectionFor(row.occurrence, { kind: reference.dataset.refKind as BearingTarget["kind"], key: reference.dataset.ref! });
+    }
     const element = (event.target as Element).closest<HTMLElement | SVGElement>("[data-occurrence]");
     const row = element?.dataset.occurrence && rows.get(element.dataset.occurrence);
     return row ? selectionFor(row.occurrence, element?.dataset.ref ? { kind: "bearing", key: element.dataset.ref } :
       selected?.occurrenceId === row.occurrence.id ? selected.ref : undefined) : undefined;
   };
+  // Native prose links and controls keep their own mouse and keyboard behavior.
+  const proseInteraction = (event: Event) => {
+    const control = (event.target as Element).closest("a, button, input, select, textarea, summary, [contenteditable], [role='button'], [role='link']");
+    return !!control && !control.matches(".cog-reading-select, [data-reading-reference]");
+  };
   root.addEventListener("click", event => {
-    if (doc.getSelection()?.type === "Range") return;
-    const next = fromEvent(event); if (next) choose(next);
+    if (proseInteraction(event)) return;
+    if (!(event.target as Element).closest(".cog-reading-select, [data-reading-reference]") && doc.getSelection()?.type === "Range") return;
+    const next = fromEvent(event);
+    if (next) {
+      choose(next);
+      if ((event.target as Element).closest("[data-reading-reference]")) reveal(rows.get(next.occurrenceId)!);
+    }
   }, on);
-  root.addEventListener("dblclick", event => { const next = fromEvent(event); if (next) { choose(next); options.onNavigate?.(next); } }, on);
+  root.addEventListener("dblclick", event => { if (proseInteraction(event)) return; const next = fromEvent(event); if (next) { choose(next); options.onNavigate?.(next); } }, on);
   root.addEventListener("pointerover", event => { hovered = fromEvent(event); guide(); }, on);
   root.addEventListener("pointerleave", () => { hovered = undefined; guide(); }, on);
   root.addEventListener("focusin", event => { hovered = fromEvent(event); guide(); }, on);
   root.addEventListener("focusout", () => { hovered = undefined; guide(); }, on);
   root.addEventListener("keydown", event => {
+    if (proseInteraction(event)) return;
     const current = fromEvent(event);
     if (event.key === "Escape" && selected) { event.preventDefault(); choose(); return; }
     if (!current) return;
@@ -352,7 +426,8 @@ export function createReadingView(container: HTMLElement, options: ReadingViewOp
       choose(selectionFor(row.occurrence, refs[(at + (event.key === "ArrowRight" ? 1 : -1) + refs.length) % refs.length].ref));
     } else if (event.key === " " || event.key === "Enter") {
       event.preventDefault();
-      const next = selected?.occurrenceId === current.occurrenceId ? selected : current;
+      const reference = (event.target as Element).closest("[data-reading-reference]");
+      const next = !reference && selected?.occurrenceId === current.occurrenceId ? selected : current;
       choose(next); if (event.key === "Enter") options.onNavigate?.(next);
     }
   }, on);
@@ -390,6 +465,7 @@ export function createReadingView(container: HTMLElement, options: ReadingViewOp
     destroy() {
       if (destroyed) return;
       destroyed = true; abort.abort(); observer?.disconnect(); if (frame) win?.cancelAnimationFrame(frame);
+      prose.destroy();
       root.remove(); rows.clear(); projection = undefined; full = []; inline = []; selected = undefined; hovered = undefined;
     }
   };

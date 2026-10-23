@@ -5,6 +5,16 @@ The historical `alpha` tag remains at **0.3.0-alpha.1**.
 Earlier 0.4 entries below are unpublished source milestones included in this first 0.4 npm release.
 Use the complete released schema set and [migrate retained source](docs/syntax.md#compatibility-and-migration) rather than relabelling old JSON.
 
+## Unreleased
+
+- Explain invalid outline levels before suggesting an independent explicit attachment.
+  Preserve diagnostic codes, spans, partial graphs and failed-constructor boundaries.
+- Present typed Point references and Bearing summaries separately from prose in the private View.
+  Retain joint sources, Bearing targets and local reference occurrences without leaking constructor punctuation into reading text.
+- Add an optional host prose renderer for Reading and full Map passages, with plain-text fallback, cancellation and cleanup.
+  Keep native prose interactions separate from Cogitatum selection; raw source, diagnostics and compact Map labels remain plain text.
+  These presentation changes preserve the published 0.5 language and format contracts.
+
 ## 0.5.0 — 23 October 2026
 
 **Migration from published 0.4.12 / format 0.4.0:** replace active named `undercuts` clauses with `/>` to retain their Bearing-only requirement, then recompile original source with the complete 0.5 compiler and schema bundle.

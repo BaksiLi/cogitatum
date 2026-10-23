@@ -128,12 +128,24 @@ A local Bearing use remains a local row; a target at the Bearing's construction 
 These display locations do not create extra graph entities, independent evidence or inferred relations.
 Repeated names and keys in different source units remain separate.
 
-Rendering uses plain text, without interpreting host or occurrence prose as rich Markdown or HTML.
+Rendering uses safe plain text by default.
+An optional `renderProse` hook on Reading and Block lets a host render the compiler-selected prose with its Markdown engine.
+It receives `{ text, container, signal }`; `container` is a block-compatible `div`, initially detached.
+It may return a cleanup function, synchronously or asynchronously.
+The rendered container is installed only while its revision remains current; updates and destruction abort the signal and release completed renderers.
+An asynchronous renderer must observe cancellation and release its host resources; a late result is discarded and its cleanup is still called.
+Rendering failure keeps the original plain text.
+The host owns supported inline Markdown, link safety and any extensions such as math; backticks remain code and do not imply math.
+Raw source, malformed annotations, compiler diagnostics, marks and names never enter this renderer.
+Ordinary body prose and note prose may be rendered, including literal note descendants; rendering them cannot create Cogitatum entities.
 The complete `raw` line and original source remain in the projection and raw lines are available on occurrence tooltips.
-The reading surface presents prose with authored names; a separate reference line quotes shared Point/Bearing content without replacing local wording.
+The reading surface presents authored Point names and structured Bearing summaries separately from prose.
+A summary names the relationship, its complete source set and its target; multi-source Bearings remain one joint relationship.
+Named references are typed controls, with source line and excerpt fallbacks for anonymous endpoints.
+A separate reference line quotes shared Point/Bearing content without replacing local wording.
 Rejected lines retain their annotation for inspection.
 Ordinary structural arcs are faint until selected, and reference-free prose does not dim the document on hover.
-This is a reading surface, not a source editor, Markdown renderer or reconstruction of prose from Graph IR.
+This is a reading surface, not a source editor or reconstruction of prose from Graph IR.
 There is no drag-to-edit or source-writing operation.
 
 `select(ref, unitIndex = 0)` and `clear()` are silent programmatic operations.
@@ -141,6 +153,7 @@ User selection invokes `onSelect` with `{ unitIndex, occurrenceId, sourceSpan, r
 `onNavigate` receives the same shape.
 Up/Down and Home/End move through occurrences in source order; Left/Right choose among the Point and Bearing references at one occurrence.
 Space selects, Enter or double-click navigates to source, and Escape clears.
+Each row is a focusable group with a separate selection control; prose links and native controls retain their own mouse and keyboard behavior.
 Hover/focus guides the same immediate neighborhood as Map; it does not infer a chain or hide the remaining source.
 An occurrence ID, unit index and typed key address only the current projection.
 `update` clears occurrence selection and calls `onClear`; it never carries a local occurrence across edits by line number or generated key.
