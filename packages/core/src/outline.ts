@@ -91,7 +91,7 @@ function parseRawOutline(
         indentationDiagnostic = {
           severity: "error",
           code: "INDENTED_ROOT_UNSUPPORTED",
-          message: "A root block must begin at indentation column 0 inside its Cogitatum source unit.",
+          message: "A root block must begin at indentation column 0 inside its Cogitatum source unit. Fix the outline layout first: if the fragment has a common left margin, remove it from every line while preserving relative indentation; if a parent bullet was omitted, restore it at column 0.",
           sourceSpan: spanForLine(index + 1 + lineOffset, 1 + columnOffset, rawLine.length + 1 + columnOffset)
         };
       }
@@ -180,7 +180,7 @@ function unmatchedDedentDiagnostic(
   return {
     severity: "error",
     code: "UNMATCHED_DEDENT",
-    message: `Dedent to ${indent} spaces does not match an active ancestor indentation level.`,
+    message: `Indentation of ${indent} spaces does not match a valid active outline level. Fix any earlier layout errors first, then align this block with an established level (or column 0 for a root).`,
     sourceSpan: spanForLine(line, 1 + columnOffset, lineLength + 1 + columnOffset)
   };
 }

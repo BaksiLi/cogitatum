@@ -93,8 +93,8 @@ try {
       await assertRequest(0, 3);
       await settleRequest(0);
       await button('Read passage').click();
-      assert.equal(await row(3).getAttribute('aria-pressed'), 'true', 'Map echo retains the local use');
-      assert.equal(await row(1).getAttribute('aria-pressed'), 'false');
+      assert.equal(await row(3).getAttribute('data-selected'), 'true', 'Map echo retains the local use');
+      assert.equal(await row(1).getAttribute('data-selected'), 'false');
       assert.equal(await row(3).evaluate(node => node === document.activeElement), true);
 
       await page.keyboard.press('ArrowRight');
@@ -113,7 +113,7 @@ try {
       await target.dispatchEvent('click', { detail: 0 });
       await button('Edit').click(); await assertRequest(2, 2); await settleRequest(2);
       await button('Read passage').click();
-      assert.equal(await row(2).getAttribute('aria-pressed'), 'true', 'a different Map target selects its own passage');
+      assert.equal(await row(2).getAttribute('data-selected'), 'true', 'a different Map target selects its own passage');
       await row(4).focus(); await page.keyboard.press('Space');
       await button('Map').click();
       assert.equal(await root.locator('.cog-node[aria-pressed="true"]').count(), 0, 'body prose clears the graph selection');

@@ -60,8 +60,8 @@ try {
       const { reading, projection } = window.views;
       reading.select({ kind: 'point', key: projection.units[0].graph.points[0].key });
     });
-    assert.equal(await row(3).getAttribute('aria-pressed'), 'true', 'a Map echo retains the local use');
-    assert.equal(await row(1).getAttribute('aria-pressed'), 'false');
+    assert.equal(await row(3).getAttribute('data-selected'), 'true', 'a Map echo retains the local use');
+    assert.equal(await row(1).getAttribute('data-selected'), 'false');
     await page.keyboard.press('ArrowRight');
     assert.equal(await row(3).getAttribute('data-selected-reference'), 'bearing');
     await page.locator('#before').focus();
@@ -82,12 +82,12 @@ try {
     assert.equal(await row(3).getAttribute('tabindex'), '0', 'clearing selection retains the focused keyboard entry');
     assert.equal(await page.locator('#reading [aria-pressed="true"]').count(), 0);
     await page.keyboard.press('ArrowDown');
-    assert.equal(await row(4).getAttribute('aria-pressed'), 'true');
+    assert.equal(await row(4).getAttribute('data-selected'), 'true');
     assert.equal(await row(4).getAttribute('data-selected-reference'), 'text');
     await page.keyboard.press('End');
-    assert.equal(await row(7).getAttribute('aria-pressed'), 'true');
+    assert.equal(await row(7).getAttribute('data-selected'), 'true');
     await page.keyboard.press('ArrowUp');
-    assert.equal(await row(6).getAttribute('aria-pressed'), 'true');
+    assert.equal(await row(6).getAttribute('data-selected'), 'true');
     assert.equal(await row(6).locator('.cog-reading-text').textContent(), '[C @literal] Literal syntax.');
     await page.keyboard.press('Enter');
     assert.equal(await page.evaluate(() => window.views.events.navigate.at(-1).ref), undefined);
@@ -152,11 +152,64 @@ try {
     assert.equal(await page.locator('#reading path[d*="NaN"], #map path[d*="NaN"]').count(), 0);
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
 
+    await mount([
+      '- [G @p1] First reason.', '- [G @p2] Second reason.',
+      '- [G @s] Third reason.', '- [C @g] The conclusion.',
+      '- [edge @p1, @p2, @s +> @g; @route] **Authored description**.',
+      '- [O @reservation /> @route] A reservation about this step.',
+      '- [edge @p1 clarifies @g; @exposition]',
+    ].join('\n'));
+    const summary = row(5).locator('.cog-reading-relation');
+    assert.equal(await summary.locator('.cog-reading-relation-kind').textContent(), 'jointly supports');
+    assert.deepEqual(await summary.locator('[data-ref-kind="point"]').allTextContents(), ['@p1', '@p2', '@s', '@g']);
+    assert.equal(await summary.locator('[data-ref-kind="bearing"]').textContent(), '@route');
+    assert.equal(await row(5).locator('.cog-reading-text').textContent(), '**Authored description**.', 'without a renderer prose remains safe plain text');
+    assert.doesNotMatch(await row(5).textContent(), /;@route|\bBEARING\b/);
+    assert.match(await row(7).locator('.cog-reading-relation').textContent(), /clarifies.*@exposition.*@p1.*@g/);
+    assert.equal(await row(7).locator('.cog-reading-text').textContent(), '');
+    assert.equal(await page.evaluate(() => window.views.projection.units[0].graph.bearings[0].sources.length), 3, 'one joint Bearing retains all three sources');
+    assert.equal(await row(5).getAttribute('role'), 'group', 'prose and its controls are outside button semantics');
+    await summary.getByRole('button', { name: 'Point @g, line 4', exact: true }).click();
+    assert.equal(await row(4).getAttribute('data-selected'), 'true');
+    const handle = summary.getByRole('button', { name: 'Bearing @route, line 5', exact: true });
+    await handle.click(); await page.keyboard.press('Enter');
+    assert.equal(await page.evaluate(() => window.views.events.navigate.at(-1).sourceSpan.startLine), 5);
+    assert.equal(await row(5).getAttribute('data-selected-reference'), 'bearing');
+    await row(6).locator('.cog-reading-relation [data-ref-kind="bearing"]').click();
+    assert.equal(await row(5).getAttribute('data-selected-reference'), 'bearing', 'a Bearing target selects its own construction');
+    assert.equal(await row(5).getAttribute('data-selected'), 'true');
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+
+    await mount('- [C] Anonymous conclusion.\n  - [G] Anonymous reason.');
+    assert.deepEqual(await row(2).locator('.cog-reading-relation [data-ref-kind="point"]').allTextContents(), [
+      'L2 · Anonymous reason.', 'L1 · Anonymous conclusion.'
+    ]);
+
+    await mount('- [C @p] Evidence.\n- [C @q] Conclusion.\n- [edge @p +> @q; @route]\n- [_ use @route] Local note about the same step.');
+    assert.match(await row(4).locator('.cog-reading-use').textContent(), /supports.*@route.*@p.*@q/);
+    assert.equal(await row(4).locator('.cog-reading-text').textContent(), 'Local note about the same step.');
+    await row(4).locator('[data-ref-kind="bearing"]').click();
+    await page.evaluate(() => window.views.reading.select(window.views.projection.units[0].occurrences[3].references[0].ref));
+    assert.equal(await row(4).getAttribute('data-selected'), 'true', 'a Map echo retains the local Bearing use');
+    assert.equal(await row(3).getAttribute('data-selected'), 'false');
+
+    await mount('- [C @target] Conclusion.\n  - [G @reason; @route] A reason and its support.');
+    await row(2).focus(); await page.keyboard.press('Space');
+    assert.equal(await row(2).getAttribute('data-selected-reference'), 'point');
+    const sameRowHandle = row(2).locator('[data-ref-kind="bearing"]');
+    await sameRowHandle.focus(); await page.keyboard.press('Enter');
+    assert.equal(await row(2).getAttribute('data-selected-reference'), 'bearing', 'keyboard activation uses the focused typed reference');
+    assert.equal(await page.evaluate(() => window.views.events.navigate.at(-1).ref.kind), 'bearing');
+    await row(2).focus(); await page.keyboard.press('ArrowLeft');
+    assert.equal(await row(2).getAttribute('data-selected-reference'), 'point');
+    await sameRowHandle.focus(); await page.keyboard.press('Space');
+    assert.equal(await row(2).getAttribute('data-selected-reference'), 'bearing');
+
     await mount('```cog\n- [C @same] First unit.\n```\n```cog\n- [C @same] Second unit.\n```', 'host');
     await row(5).focus(); await page.keyboard.press('Space');
     await page.evaluate(() => window.views.reading.select({ kind: 'point', key: '_p1' }, 1));
-    assert.equal(await row(5).getAttribute('aria-pressed'), 'true');
-    assert.equal(await row(2).getAttribute('aria-pressed'), 'false');
+    assert.equal(await row(5).getAttribute('data-selected'), 'true');
+    assert.equal(await row(2).getAttribute('data-selected'), 'false');
     const contract = await page.evaluate(() => {
       const { reading, events, projection } = window.views;
       const count = events.reading.length;

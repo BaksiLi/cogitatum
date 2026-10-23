@@ -4,6 +4,9 @@ import { createReadingView } from "./reading.js";
 import { projectReading } from "./reading-projection.js";
 import { bearingMark, pointMark } from "./marks.js";
 import type { GraphNode } from "./projection.js";
+import { createProseScope, type ProseRenderer } from "./prose.js";
+
+export type { ProseRenderer } from "./prose.js";
 
 export type BlockMode = "reading" | "map";
 export type BlockEditRequest = {
@@ -13,6 +16,7 @@ export type BlockEditRequest = {
   signal: AbortSignal;
 };
 export type BlockViewOptions = {
+  renderProse?: ProseRenderer;
   onEdit?: (request: BlockEditRequest) => void | Promise<void>;
   /** Build provenance supplied by the host, rendered as plain text. */
   version?: { label: string; detail: string };
@@ -79,11 +83,15 @@ export function createBlockView(container: HTMLElement, options: BlockViewOption
   const mapSurface = element("div", "map", mapPanel);
   const detail = element("div", "detail", mapPanel);
   detail.hidden = true;
-  const detailText = element("p", "detail-text", detail);
-  detailText.setAttribute("aria-live", "polite");
+  detail.setAttribute("aria-live", "polite");
+  const detailContent = element("div", "detail-content", detail);
+  const detailHeading = element("p", "detail-heading", detailContent);
+  const detailText = element("div", "detail-text", detailContent);
+  const detailProse = createProseScope(options.renderProse);
+  const clearDetail = () => { detailProse.reset(); detailText.replaceChildren(); detail.hidden = true; };
   button(detail, "Read passage", () => {
     showMode("reading");
-    readingSurface.querySelector<HTMLElement>('[aria-pressed="true"]')?.focus({ preventScroll: true });
+    readingSurface.querySelector<HTMLElement>('.cog-reading-row[data-selected="true"]')?.focus({ preventScroll: true });
   });
   element("p", "hint", mapPanel).textContent = "Drag marks to arrange; drag the canvas to pan. Ctrl / Cmd + scroll to zoom." + (edit ? " Enter to edit the selected passage." : "");
   if (options.version) {
@@ -95,6 +103,7 @@ export function createBlockView(container: HTMLElement, options: BlockViewOption
   }
 
   let mode: BlockMode = "reading", source: string | undefined, graph: GraphIR | undefined, map: GraphView | undefined;
+  let projection: ReturnType<typeof projectReading> | undefined;
   let selected: BearingTarget | undefined, selectedSpan: SourceSpan | undefined;
   let syncing = false, destroyed = false, interacted = false;
   let dialog: HTMLDialogElement | undefined, reservedHeight = "", editing: AbortController | undefined;
@@ -103,12 +112,13 @@ export function createBlockView(container: HTMLElement, options: BlockViewOption
     if (edit) edit.title = selectedSpan ? `Edit selected passage at line ${selectedSpan.startLine}` : "Edit source beside this preview";
   };
   const reading = createReadingView(readingSurface, {
+    renderProse: options.renderProse,
     onSelect(selection) {
       selected = selection.ref; selectedSpan = selection.sourceSpan; updateEditTitle();
       if (!syncing) sync(() => { if (selected) map?.select(selected); else map?.clear(); });
     },
     onClear() {
-      selected = undefined; selectedSpan = undefined; detail.hidden = true; updateEditTitle();
+      selected = undefined; selectedSpan = undefined; clearDetail(); updateEditTitle();
       if (!syncing) sync(() => map?.clear());
     },
     onNavigate: options.onEdit ? selection => { void revealSource(selection.sourceSpan); } : undefined
@@ -117,7 +127,15 @@ export function createBlockView(container: HTMLElement, options: BlockViewOption
     if (!selected || selected.kind !== node.ref.kind || selected.key !== node.ref.key) selectedSpan = node.sourceSpan;
     selected = node.ref; updateEditTitle();
     const name = node.ref.kind === "point" ? pointMark(node.label).name : bearingMark(node.label).name;
-    detailText.textContent = `${name}${node.name ? ` @${node.name}` : ""}${node.text !== node.label ? `: ${node.text}` : ""}`;
+    detailHeading.textContent = `${name}${node.name ? ` @${node.name}` : ""}`;
+    clearDetail();
+    const prose = node.ref.kind === "point" ? node.text : graph?.bearings.find(bearing => bearing.key === node.ref.key)?.text;
+    const occurrence = projection?.units[0]?.occurrences.find(row => row.references.some(reference =>
+      reference.kind !== "uses" && reference.ref.kind === node.ref.kind && reference.ref.key === node.ref.key));
+    if (prose !== undefined) {
+      if (!occurrence || occurrence.diagnostics.some(diagnostic => diagnostic.severity === "error")) detailText.textContent = prose;
+      else detailProse.render(detailText, prose);
+    }
     detail.hidden = false;
     if (!syncing) sync(() => reading.select(node.ref));
   }
@@ -154,7 +172,7 @@ export function createBlockView(container: HTMLElement, options: BlockViewOption
       map = createGraphView(mapSurface, {
         onSelect: selectNode,
         onClear() {
-          detail.hidden = true;
+          clearDetail();
           if (!syncing) { selected = undefined; selectedSpan = undefined; updateEditTitle(); sync(() => reading.clear()); }
         },
         onNavigate: options.onEdit ? () => { void revealSource(selectedSpan); } : undefined
@@ -195,19 +213,20 @@ export function createBlockView(container: HTMLElement, options: BlockViewOption
       if (source === next) return;
       const first = source === undefined;
       source = next; cancelEdit();
-      selected = undefined; selectedSpan = undefined; detail.hidden = true; updateEditTitle();
+      selected = undefined; selectedSpan = undefined; clearDetail(); updateEditTitle();
       try {
         const explained = explainSource(next, "document");
         graph = explained.graphs[0];
+        projection = projectReading(next, explained);
         if (!graph) { map?.destroy(); map = undefined; }
-        sync(() => { reading.update(projectReading(next, explained)); map?.clear(); if (graph) map?.update(graph, "code-block"); });
+        sync(() => { reading.update(projection!); map?.clear(); if (graph) map?.update(graph, "code-block"); });
         modeButtons.get("map")!.disabled = !graph || (!graph.points.length && !graph.bearings.length);
         issues.textContent = `${explained.diagnostics.length} issue${explained.diagnostics.length === 1 ? "" : "s"}`;
         issues.hidden = !explained.diagnostics.length;
         failure.hidden = true; body.hidden = false;
         if (first) restoreMode(); else showMode(mode, false);
       } catch (error) {
-        graph = undefined; map?.destroy(); map = undefined;
+        graph = undefined; projection = undefined; map?.destroy(); map = undefined;
         modeButtons.get("map")!.disabled = true; issues.hidden = true; showMode("reading", false);
         failure.textContent = `Could not render this block: ${error instanceof Error ? error.message : String(error)}`;
         failure.hidden = false; body.hidden = true;
@@ -216,7 +235,7 @@ export function createBlockView(container: HTMLElement, options: BlockViewOption
     destroy() {
       if (destroyed) return;
       destroyed = true; cancelEdit(); abort.abort(); win.cancelAnimationFrame(readyFrame);
-      closeExpanded(false); map?.destroy(); reading.destroy(); root.remove();
+      closeExpanded(false); detailProse.destroy(); map?.destroy(); reading.destroy(); root.remove();
     }
   };
 }
