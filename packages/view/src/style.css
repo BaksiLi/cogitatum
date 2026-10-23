@@ -131,6 +131,10 @@
 .cog-reading-diagnostics { margin-bottom: 16px; padding: 0 0 10px; border-bottom: 1px solid color-mix(in srgb, var(--cog-line-resolved) 40%, transparent); font: 12px/1.55 system-ui, sans-serif; color: var(--cog-muted-resolved); }
 .cog-reading-diagnostics summary { cursor: pointer; }
 .cog-reading-diagnostics ul { padding-left: 18px; overflow-wrap: anywhere; }
+.cog-reading-diagnostic-explanation { margin: 2px 0; font-style: italic; }
+.cog-reading-diagnostic-source { appearance: none; border: 0; border-radius: 0; background: transparent; margin-left: .6em; padding: 2px 4px; font: inherit; color: var(--cog-focus-resolved); text-decoration: underline; cursor: pointer; }
+.cog-reading-diagnostic-source:focus-visible { outline: 2px solid var(--cog-focus-resolved); outline-offset: 2px; }
+@media (pointer: coarse) { .cog-reading-diagnostic-source { min-height: 44px; min-width: 44px; } }
 .cog-reading-diagnostic { display: inline-block; margin-left: .6em; font: 600 10px/1.4 system-ui, sans-serif; letter-spacing: .04em; color: var(--cog-muted-resolved); background: color-mix(in srgb, var(--cog-muted-resolved) 9%, transparent); border-radius: 3px; padding: 1px 5px; vertical-align: .2em; }
 .cog-reading-row[data-error="true"] .cog-reading-diagnostic { color: var(--cog-negative); background: color-mix(in srgb, var(--cog-negative) 10%, transparent); }
 .cog-reading[data-compact="true"] .cog-reading-row { grid-template-columns: 1.6em 1.5em minmax(0, 1fr); }

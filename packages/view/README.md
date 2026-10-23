@@ -100,7 +100,8 @@ import '@cogitatum/view/style.css';
 const reading = createReadingView(container, {
   onSelect(selection) { showOccurrence(selection.unitIndex, selection.sourceSpan, selection.ref); },
   onClear() { clearDetails(); },
-  onNavigate(selection) { openSource(selection.sourceSpan); }
+  onNavigate(selection) { openSource(selection.sourceSpan); },
+  onNavigateDiagnostic(diagnostic) { openSource(diagnostic.sourceSpan); }
 });
 const projection = projectReading(originalSource, explainSource(originalSource, 'host'));
 reading.update(projection);
@@ -118,6 +119,9 @@ It retains every source line, including blank lines, host prose, fences, literal
 Occurrences expose their local text, recognition, diagnostics and typed `declares`, `uses` or `constructs` references.
 A rejected summary never becomes a selectable graph identity.
 Every compiler diagnostic remains available even when it belongs to an omitted host region.
+The diagnostic disclosure includes compiler explanations.
+Supplying `onNavigateDiagnostic` adds a Source button for each diagnostic with a source span;
+updates and destruction retire navigation from the previous projection.
 Source and compiler mismatches detectable from the supplied evidence throw; this is not a revision authentication mechanism.
 The host must pair the exact input and output, including host text outside selected units.
 

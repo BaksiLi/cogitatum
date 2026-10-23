@@ -14,6 +14,8 @@ Use the complete released schema set and [migrate retained source](docs/syntax.m
 - Add an optional host prose renderer for Reading and full Map passages, with plain-text fallback, cancellation and cleanup.
   Keep native prose interactions separate from Cogitatum selection; raw source, diagnostics and compact Map labels remain plain text.
   These presentation changes preserve the published 0.5 language and format contracts.
+- Show compiler explanations in Reading's diagnostic disclosure, with optional source navigation.
+  Retire diagnostic navigation when the source projection changes or the view is destroyed.
 
 ## 0.5.0 — 23 October 2026
 

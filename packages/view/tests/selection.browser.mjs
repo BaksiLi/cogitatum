@@ -11,17 +11,21 @@ const bundle = await build({
     contents: `
       import { explainSource } from '../../core/src/index.ts';
       import { createReadingView, createGraphView, projectReading, referenceKey } from './index.ts';
-      window.mount = (source, mode = 'document') => {
+      window.mount = (source, mode = 'document', navigateDiagnostics = true) => {
         window.views?.reading.destroy(); window.views?.map.destroy();
-        const events = { reading: [], map: [], clear: 0, navigate: [] };
+        const events = { reading: [], map: [], clear: 0, navigate: [], diagnostic: [] };
         const compiled = explainSource(source, mode);
         const projection = projectReading(source, compiled);
-        const reading = createReadingView(document.querySelector('#reading'), {
+        const readingOptions = {
           reducedMotion: () => true,
           onSelect: selection => events.reading.push(selection),
           onClear: () => events.clear++,
           onNavigate: selection => events.navigate.push(selection)
-        });
+        };
+        if (navigateDiagnostics) {
+          readingOptions.onNavigateDiagnostic = diagnostic => events.diagnostic.push(diagnostic);
+        }
+        const reading = createReadingView(document.querySelector('#reading'), readingOptions);
         const map = createGraphView(document.querySelector('#map'), {
           reducedMotion: () => true, onSelect: node => events.map.push(node)
         });
@@ -44,7 +48,10 @@ try {
     await page.addStyleTag({ path: fileURLToPath(new URL('../src/style.css', import.meta.url)) });
     await page.addScriptTag({ content: bundle.outputFiles[0].text });
     const flush = () => page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
-    const mount = async (source, mode) => { await page.evaluate(([source, mode]) => window.mount(source, mode), [source, mode]); await flush(); };
+    const mount = async (source, mode = 'document', navigateDiagnostics = true) => {
+      await page.evaluate(([source, mode, navigateDiagnostics]) => window.mount(source, mode, navigateDiagnostics), [source, mode, navigateDiagnostics]);
+      await flush();
+    };
     const row = line => page.locator(`#reading [data-occurrence][data-line="${line}"]`);
 
     await mount([
@@ -136,6 +143,56 @@ try {
     });
     await flush();
     assert.equal(await page.locator('#map svg').getAttribute('data-guided'), 'false', 'update discards hover keys from the previous projection');
+
+    // Shared Reading diagnostics expose compiler explanations and host-owned source navigation.
+    await mount('- [C @same] First.\n- [C @same] Second.');
+    const diagnosticButton = page.locator('.cog-reading-diagnostics .cog-reading-diagnostic-source');
+    assert.equal(await diagnosticButton.count(), 1);
+    assert.match(
+      await page.locator('.cog-reading-diagnostics .cog-reading-diagnostic-explanation').textContent(),
+      /If this line means the existing Point/
+    );
+    await page.locator('.cog-reading-diagnostics summary').click();
+    await diagnosticButton.click();
+    assert.deepEqual(await page.evaluate(() => {
+      const { events, projection } = window.views;
+      const received = events.diagnostic.at(-1);
+      const original = projection.diagnostics.find(diagnostic => diagnostic.code === 'DUPLICATE_ID');
+      return { identity: received === original, span: received.sourceSpan, code: received.code };
+    }), {
+      identity: true,
+      span: { startLine: 2, startColumn: 3, endLine: 2, endColumn: 20 },
+      code: 'DUPLICATE_ID'
+    });
+
+    const oldButton = await diagnosticButton.elementHandle();
+    await page.evaluate(() => window.views.reading.update(window.views.projection));
+    await oldButton.evaluate(node => node.click());
+    assert.equal(await page.evaluate(() => window.views.events.diagnostic.length), 1, 'updating Reading retires the old diagnostic control');
+    await diagnosticButton.click();
+    assert.equal(await page.evaluate(() => window.views.events.diagnostic.length), 2, 'the replacement control still navigates');
+
+    await page.evaluate(() => {
+      const { reading, projection } = window.views;
+      const original = projection.diagnostics.find(diagnostic => diagnostic.code === 'DUPLICATE_ID');
+      reading.update({ ...projection, diagnostics: [{ ...original, sourceSpan: undefined }] });
+    });
+    await flush();
+    assert.equal(await diagnosticButton.count(), 0, 'a diagnostic without a source span has no navigation button');
+    assert.equal(
+      await page.locator('.cog-reading-diagnostics .cog-reading-diagnostic-explanation').count(), 1
+    );
+
+    await mount('- [C @same] First.\n- [C @same] Second.');
+    const currentButton = await diagnosticButton.elementHandle();
+    await page.locator('.cog-reading-diagnostics summary').click();
+    await page.evaluate(() => window.views.reading.destroy());
+    await currentButton.evaluate(node => node.click());
+    assert.equal(await page.evaluate(() => window.views.events.diagnostic.length), 0, 'destroying Reading retires diagnostic controls');
+
+    await mount('- [C @same] First.\n- [C @same] Second.', 'document', false);
+    assert.equal(await diagnosticButton.count(), 0, 'without a host callback Reading stays static');
+    await page.evaluate(() => { window.views.reading.destroy(); window.views.map.destroy(); });
 
     await mount('- [C @c] First.\n  - [G +> @missing] Preserved prose.\n- [C @c] Duplicate.\n- [_ use @unknown] Local unresolved wording.');
     assert.match(await row(2).locator('.cog-reading-text').textContent(), /^\[G \+> @missing\] Preserved prose\.$/);
