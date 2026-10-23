@@ -1,4 +1,4 @@
-import type { BearingTarget, SourceSpan } from "@cogitatum/core";
+import type { BearingTarget, Diagnostic, SourceSpan } from "@cogitatum/core";
 import { bearingMark, createBearingChip, createMarkChip, drawBearingGlyph } from "./marks.js";
 import { focusNeighborhood, projectExploration, projectGraph, referenceKey, type GraphProjection } from "./projection.js";
 import type { ReadingEndpoint, ReadingOccurrence, ReadingProjection } from "./reading-projection.js";
@@ -17,6 +17,7 @@ export type ReadingViewOptions = {
   onSelect?: (selection: ReadingSelection) => void;
   onClear?: () => void;
   onNavigate?: (selection: ReadingSelection) => void;
+  onNavigateDiagnostic?: (diagnostic: Diagnostic) => void;
 };
 export type ReadingView = {
   update(projection: ReadingProjection): void;
@@ -87,6 +88,7 @@ export function createReadingView(container: HTMLElement, options: ReadingViewOp
   let selected: ReadingSelection | undefined, hovered: ReadingSelection | undefined;
   let destroyed = false, frame = 0;
   const abort = new AbortController(), on = { signal: abort.signal };
+  let diagnosticControls = new AbortController();
   const alive = () => { if (destroyed) throw new Error("This reading view has been destroyed."); };
   const selectionFor = (occurrence: ReadingOccurrence, ref?: BearingTarget): ReadingSelection => ({
     unitIndex: occurrence.unitIndex, occurrenceId: occurrence.id, sourceSpan: occurrence.sourceSpan,
@@ -185,6 +187,7 @@ export function createReadingView(container: HTMLElement, options: ReadingViewOp
   }
   function build(): void {
     prose.reset();
+    diagnosticControls.abort(); diagnosticControls = new AbortController();
     lines.replaceChildren(); svg.replaceChildren(); diagnostics.replaceChildren(); rows = new Map(); order = [];
     if (!projection) return;
     diagnostics.hidden = projection.diagnostics.length === 0;
@@ -196,6 +199,18 @@ export function createReadingView(container: HTMLElement, options: ReadingViewOp
     for (const diagnostic of projection.diagnostics) {
       const item = html("li", "", diagnosticList);
       item.textContent = `${diagnostic.severity} · ${diagnostic.code}${diagnostic.sourceSpan ? ` · L${diagnostic.sourceSpan.startLine}` : ""}: ${diagnostic.message}`;
+      if (diagnostic.explanation) {
+        const explanation = html("p", "cog-reading-diagnostic-explanation", item);
+        explanation.textContent = diagnostic.explanation;
+      }
+      if (options.onNavigateDiagnostic && diagnostic.sourceSpan) {
+        const source = html("button", "cog-reading-diagnostic-source", item);
+        source.type = "button";
+        source.textContent = "Source";
+        source.addEventListener("click", () => options.onNavigateDiagnostic?.(diagnostic), {
+          signal: diagnosticControls.signal
+        });
+      }
     }
     const last = projection.rows.at(-1);
     for (const source of projection.rows) {
@@ -464,7 +479,7 @@ export function createReadingView(container: HTMLElement, options: ReadingViewOp
     clear() { if (!destroyed) choose(undefined, false); },
     destroy() {
       if (destroyed) return;
-      destroyed = true; abort.abort(); observer?.disconnect(); if (frame) win?.cancelAnimationFrame(frame);
+      destroyed = true; abort.abort(); diagnosticControls.abort(); observer?.disconnect(); if (frame) win?.cancelAnimationFrame(frame);
       prose.destroy();
       root.remove(); rows.clear(); projection = undefined; full = []; inline = []; selected = undefined; hovered = undefined;
     }
