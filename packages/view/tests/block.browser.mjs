@@ -12,12 +12,12 @@ const bundle = await build({
       import { explainSource } from '@cogitatum/core';
       import { projectReading, referenceKey } from '@cogitatum/view';
       import { createBlockView } from '@cogitatum/view/block';
-      window.mount = (source, editable = true, version) => {
+      window.mount = (source, editable = true, version, logo) => {
         window.block?.destroy();
         window.requests = []; window.modes = [];
         window.projection = projectReading(source, explainSource(source, 'document'));
         window.block = createBlockView(document.querySelector('#host'), {
-          version,
+          version, logo,
           onMode: mode => window.modes.push(mode),
           ...(editable ? { onEdit: request => new Promise((resolve, reject) => {
             window.requests.push({ ...request, resolve, reject, observed: {
@@ -130,6 +130,49 @@ try {
       assert.equal(await shared.getAttribute('aria-pressed'), 'true');
       assert.equal(await page.evaluate(() => window.requests.length), 0);
       assert.doesNotMatch(await root.locator('.cog-block-hint').textContent(), /edit/i);
+    });
+
+    await check('diagnostic Source uses exact current span and retires stale controls', async () => {
+      const invalid = '- [C @claim] Claim.\n  - [G -> @missing] Reason.';
+      await page.evaluate(source => window.mount(source), invalid);
+      await root.locator('.cog-block-issues').click();
+      const sourceButton = root.getByRole('button', { name: 'Source', exact: true }).first();
+      assert.equal(await sourceButton.isVisible(), true);
+      const expected = await page.evaluate(() => window.projection.diagnostics.find(item => item.sourceSpan).sourceSpan);
+      await button('Expand').click();
+      await sourceButton.click();
+      assert.deepEqual(await page.evaluate(() => {
+        const request = window.requests[0];
+        window.retiredDiagnosticSource = document.querySelector('.cog-reading-diagnostic-source');
+        return { source: request.source, span: request.sourceSpan, modal: request.observed.modal };
+      }), { source: invalid, span: expected, modal: 0 });
+      await settleRequest(0);
+      await page.evaluate(source => {
+        window.block.update(source);
+        window.retiredDiagnosticSource.click();
+      }, source);
+      assert.equal(await page.evaluate(() => window.requests.length), 1);
+      await page.evaluate(source => window.mount(source, false), invalid);
+      assert.equal(await root.getByRole('button', { name: 'Source', exact: true }).count(), 0);
+      assert.equal(await root.locator('.cog-block-issues').isVisible(), true);
+    });
+
+    await check('host logo inherits ink and remains visible in a narrow preview', async () => {
+      const logo = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 8 8"><circle cx="4" cy="4" r="4"/></svg>');
+      await page.evaluate(([source, logo]) => window.mount(source, true, undefined, logo), [source, logo]);
+      await page.locator('#host').evaluate(node => {
+        node.style.width = '280px';
+        node.style.setProperty('--cog-ink', 'rgb(210, 220, 230)');
+      });
+      await flush();
+      const mark = root.locator('.cog-block-logo');
+      assert.equal(await mark.isVisible(), true);
+      assert.equal(await mark.getAttribute('aria-hidden'), 'true');
+      assert.deepEqual(await mark.evaluate(node => {
+        const style = getComputedStyle(node);
+        return { ink: style.color, fill: style.backgroundColor, masked: style.maskImage.includes('data:image/svg+xml') };
+      }), { ink: 'rgb(210, 220, 230)', fill: 'rgb(210, 220, 230)', masked: true });
+      assert.equal(await root.evaluate(node => node.scrollWidth <= node.clientWidth + 1), true);
     });
 
     await check('pending edits suppress duplicates and abort by revision', async () => {

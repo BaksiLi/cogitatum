@@ -18,6 +18,8 @@ export type BlockEditRequest = {
 export type BlockViewOptions = {
   renderProse?: ProseRenderer;
   onEdit?: (request: BlockEditRequest) => void | Promise<void>;
+  /** Host-owned image URL, used as a decorative mask in the host's ink colour. */
+  logo?: string;
   /** Build provenance supplied by the host, rendered as plain text. */
   version?: { label: string; detail: string };
   /** May be resolved after attachment when a host constructs previews off-DOM. */
@@ -50,6 +52,11 @@ export function createBlockView(container: HTMLElement, options: BlockViewOption
   const root = element("section", "root", container);
   root.className = "cog-block"; root.setAttribute("aria-label", "Cogitatum");
   const toolbar = element("header", "toolbar", root);
+  if (options.logo) {
+    const logo = element("span", "logo", toolbar);
+    logo.setAttribute("aria-hidden", "true");
+    logo.style.maskImage = `url(${JSON.stringify(options.logo)})`;
+  }
   element("span", "title", toolbar).textContent = "Cogitatum";
   const modes = element("div", "modes", toolbar);
   modes.setAttribute("role", "group"); modes.setAttribute("aria-label", "View");
@@ -121,7 +128,8 @@ export function createBlockView(container: HTMLElement, options: BlockViewOption
       selected = undefined; selectedSpan = undefined; clearDetail(); updateEditTitle();
       if (!syncing) sync(() => map?.clear());
     },
-    onNavigate: options.onEdit ? selection => { void revealSource(selection.sourceSpan); } : undefined
+    onNavigate: options.onEdit ? selection => { void revealSource(selection.sourceSpan); } : undefined,
+    onNavigateDiagnostic: options.onEdit ? diagnostic => { void revealSource(diagnostic.sourceSpan); } : undefined
   });
   function selectNode(node: GraphNode) {
     if (!selected || selected.kind !== node.ref.kind || selected.key !== node.ref.key) selectedSpan = node.sourceSpan;
