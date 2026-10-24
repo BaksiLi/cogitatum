@@ -1,4 +1,6 @@
-# Cogitatum
+# <a href="https://cogitatum.onesimos.net"><img src="https://cogitatum.onesimos.net/mark.svg" alt="" width="32" height="32"> Cogitatum</a>
+
+**Keep the prose. See the reasoning.**
 
 Cogitatum is a lightweight markup language for making selected reasoning structure explicit inside ordinary prose.
 
@@ -14,7 +16,7 @@ Use it while reading, developing or revising an argument: in reading notes, inve
 
 Four marked points and three explicit connections. One objection questions the attendance count; the other grants the count and questions what it tells us about ordinary evenings. The opening prose remains in the source. The compiler exposes these distinctions without deciding the case.
 
-[Try the playground](https://cogitatum.baksili.codes/playground) · [One-minute introduction](docs/introduction.md) · [Ten-minute quick start](docs/quick-start.md) · [Examples](https://cogitatum.baksili.codes/examples)
+[Try the playground](https://cogitatum.onesimos.net/playground) · [One-minute introduction](docs/introduction.md) · [Ten-minute quick start](docs/quick-start.md) · [Examples](https://cogitatum.onesimos.net/examples)
 
 ## Release status
 
@@ -30,7 +32,7 @@ Install with `npm install @cogitatum/core`, or run the CLI with `npx --package @
 The historical `alpha` tag remains at **0.3.0-alpha.1**, with **format 0.3.0**.
 Published schema contracts stay fixed; later incompatible contracts require a new format identifier.
 
-The production [playground](https://cogitatum.baksili.codes/playground) is deployed separately from npm packages.
+The production [playground](https://cogitatum.onesimos.net/playground) is deployed separately from npm packages.
 The experimental View remains private; publishing Core/CLI does not deploy the website or release host adapters.
 
 With Node.js 22.12 or newer, from a source checkout:

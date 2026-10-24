@@ -8,7 +8,7 @@ audience: Ten minutes
 
 # Try a note in ten minutes
 
-Open the [playground](https://cogitatum.baksili.codes/playground). Work there without installing anything, or save your source in a file such as `inquiry.cog.md`.
+Open the [playground](https://cogitatum.onesimos.net/playground). Work there without installing anything, or save your source in a file such as `inquiry.cog.md`.
 
 ## Start with ordinary writing
 
