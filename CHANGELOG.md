@@ -16,6 +16,8 @@ Use the complete released schema set and [migrate retained source](docs/syntax.m
   These presentation changes preserve the published 0.5 language and format contracts.
 - Show compiler explanations in Reading's diagnostic disclosure, with optional source navigation.
   Retire diagnostic navigation when the source projection changes or the view is destroyed.
+- Connect code-block diagnostic Source actions to the host's cancellable editor callback.
+  Allow hosts to supply a decorative logo mask that follows their theme ink.
 
 ## 0.5.0 — 23 October 2026
 

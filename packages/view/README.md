@@ -41,6 +41,10 @@ Expansion moves the existing views into a native dialog and returns them before 
 The shell never writes source, persists selection or creates an editor buffer.
 Hosts own native editor reuse, file identity, persistence, theme tokens and host-specific event boundaries.
 The shell uses the same `--cog-*` tokens as the views, plus optional `--cog-error`, and adapts to its container width.
+An optional `logo` image URL adds a decorative mark that inherits the host's ink through an alpha mask.
+Hosts supply and bundle their own approved brand asset.
+With `onEdit`, each diagnostic that has a source span also offers Source navigation through the same cancellable editor callback.
+Opening source from an expanded preview closes its modal before handing focus to the native editor.
 
 ## Map
 
