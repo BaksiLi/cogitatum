@@ -148,7 +148,7 @@ Keys are opaque strings: their numbering is not an integration contract.
 Store application metadata separately from canonical compiler output.
 The source-envelope export is absent from the historical npm `0.3.0-alpha.1` tarball.
 
-Read the [introduction](https://cogitatum.baksili.codes/docs/introduction), [syntax](https://cogitatum.baksili.codes/docs/syntax), or try the [playground](https://cogitatum.baksili.codes/playground).
+Read the [introduction](https://cogitatum.onesimos.net/docs/introduction), [syntax](https://cogitatum.onesimos.net/docs/syntax), or try the [playground](https://cogitatum.onesimos.net/playground).
 
 ## Explicit target preview
 

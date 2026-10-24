@@ -659,4 +659,4 @@ With `--input host`, `ast` and `graph` print the `parseSource` and `compileSourc
 Host `explain` prints `{ version, mode, units, explanations, diagnostics }`, a command-specific projection without `documents` or `graphs` that is not a source-envelope schema instance; validate each `explanations[i]` with the Explain schema, or call `explainSource` for the complete envelope.
 Exit status is `0` without error diagnostics, `1` for source or I/O errors, and `2` for invalid arguments. `--` ends option parsing for a filename starting with `-`. Warnings and suggestions do not fail a command. Diagnostics provide compiler evidence, not substantive review.
 
-Native editor adapters, execution semantics, collaboration state, and Cogitatio runtime are outside this prerelease. For a working note, return to the [quick start](quick-start.md) or [examples](https://cogitatum.baksili.codes/examples).
+Native editor adapters, execution semantics, collaboration state, and Cogitatio runtime are outside this prerelease. For a working note, return to the [quick start](quick-start.md) or [examples](https://cogitatum.onesimos.net/examples).

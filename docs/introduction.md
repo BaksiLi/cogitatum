@@ -22,9 +22,9 @@ Use it while reading, developing or revising an argument: in a reading note, an 
 
 The opening prose remains body. One objection questions the attendance count; the other grants it and asks what it tells us about ordinary evenings. Four marked points and three explicit connections make that distinction inspectable. The markup does not decide whether the library should open later.
 
-Paste the note into the [playground](https://cogitatum.baksili.codes/playground), edit a sentence, and inspect the map. Compilation happens in your browser; no account is needed.
+Paste the note into the [playground](https://cogitatum.onesimos.net/playground), edit a sentence, and inspect the map. Compilation happens in your browser; no account is needed.
 
-That is enough to begin. The [quick start](quick-start.md) adds naming and explicit connections when needed. The [examples](https://cogitatum.baksili.codes/examples) offer notes you can adapt.
+That is enough to begin. The [quick start](quick-start.md) adds naming and explicit connections when needed. The [examples](https://cogitatum.onesimos.net/examples) offer notes you can adapt.
 
 Cogitatum is semi-formal: the marks have precise structural effects; the prose remains open to interpretation.
 The historical 0.3 Alpha packages and the published 0.4 packages have different language and compiler contracts.
