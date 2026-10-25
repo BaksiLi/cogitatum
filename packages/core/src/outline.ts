@@ -41,6 +41,9 @@ function parseRawOutline(
   }
   const roots: RawNode[] = [];
   const stack: RawNode[] = [];
+  // As in Python 3, a unit indents with either tabs or spaces; the first
+  // indented line chooses, and mixing within the unit fails closed.
+  let unitIndentation: "\t" | " " | undefined;
   const lines = source.replace(/\r\n/g, "\n").split("\n");
   if (!Number.isSafeInteger(lineOffset + lines.length)) {
     throw new RangeError("lineOffset places source lines beyond the safe integer range.");
@@ -74,12 +77,20 @@ function parseRawOutline(
     let indentationValid = true;
     let indentationDiagnostic: Diagnostic | undefined;
 
-    if (indentText.includes("\t")) {
+    const lineIndentation = indentText === "" ? undefined
+      : indentText.includes("\t") && indentText.includes(" ") ? "mixed"
+      : indentText[0] as "\t" | " ";
+    if (lineIndentation && lineIndentation !== "mixed" && !unitIndentation) {
+      unitIndentation = lineIndentation;
+    }
+    if (lineIndentation && lineIndentation !== unitIndentation) {
       indentationValid = false;
       indentationDiagnostic = {
         severity: "error",
-        code: "TAB_INDENTATION_UNSUPPORTED",
-        message: "Cogitatum source-unit indentation must use spaces, not tabs.",
+        code: "MIXED_INDENTATION",
+        message: lineIndentation === "mixed"
+          ? "This line's indentation mixes tabs and spaces. Indent a Cogitatum source unit with either tabs or spaces throughout."
+          : `This source unit indents with ${indentationName(unitIndentation!)}, but this line uses ${indentationName(lineIndentation)}. Indent a Cogitatum source unit with either tabs or spaces throughout.`,
         sourceSpan: spanForLine(index + 1 + lineOffset, 1 + columnOffset, rawLine.length + 1 + columnOffset)
       };
     }
@@ -109,13 +120,14 @@ function parseRawOutline(
           indentationDiagnostic = unmatchedDedentDiagnostic(
             index + 1 + lineOffset,
             indent,
+            unitIndentation,
             rawLine.length,
             columnOffset
           );
         }
       } else if (indent !== 0 && !indentationDiagnostic) {
         indentationValid = false;
-        indentationDiagnostic = unmatchedDedentDiagnostic(index + 1 + lineOffset, indent, rawLine.length, columnOffset);
+        indentationDiagnostic = unmatchedDedentDiagnostic(index + 1 + lineOffset, indent, unitIndentation, rawLine.length, columnOffset);
       }
       parent = stack[stack.length - 1];
     }
@@ -174,15 +186,20 @@ function parseRawOutline(
 function unmatchedDedentDiagnostic(
   line: number,
   indent: number,
+  unitIndentation: "\t" | " " | undefined,
   lineLength: number,
   columnOffset: number
 ): Diagnostic {
   return {
     severity: "error",
     code: "UNMATCHED_DEDENT",
-    message: `Indentation of ${indent} spaces does not match a valid active outline level. Fix any earlier layout errors first, then align this block with an established level (or column 0 for a root).`,
+    message: `Indentation of ${indent} ${indentationName(unitIndentation ?? " ", indent)} does not match a valid active outline level. Fix any earlier layout errors first, then align this block with an established level (or column 0 for a root).`,
     sourceSpan: spanForLine(line, 1 + columnOffset, lineLength + 1 + columnOffset)
   };
+}
+
+function indentationName(indentation: "\t" | " ", count = 2): string {
+  return (indentation === "\t" ? "tab" : "space") + (count === 1 ? "" : "s");
 }
 
 function classifyMalformedAnnotationPrefix(content: string): "empty" | "unclosed" | undefined {

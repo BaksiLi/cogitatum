@@ -7,6 +7,11 @@ Use the complete released schema set and [migrate retained source](docs/syntax.m
 
 ## Unreleased
 
+- Accept hard-tab indentation, Python 3 style: a source unit indents with either tabs or spaces, and each tab is one outline level.
+  Tab-only units compile to the same graph as their space-indented equivalents; space-indented units are unchanged.
+  Retire `TAB_INDENTATION_UNSUPPORTED`; mixing tabs and spaces within one unit now fails closed with `MIXED_INDENTATION`, keeping the same failed-boundary recovery.
+  The first indented line sets the unit's indentation, so in a mixed unit the diagnosed line can differ from the one the old rule reported.
+  Format 0.5.0 and its schemas are unchanged; verified against Core, CLI and the packed-package checks, not external hosts.
 - Explain invalid outline levels before suggesting an independent explicit attachment.
   Preserve diagnostic codes, spans, partial graphs and failed-constructor boundaries.
 - Present typed Point references and Bearing summaries separately from prose in the private View.

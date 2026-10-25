@@ -223,6 +223,12 @@
       "expected": "diagnostics/malformed-bearing-target.expected.json"
     },
     {
+      "file": "diagnostics/mixed-indentation.cog.md",
+      "input": "document",
+      "purpose": "Once a unit indents with tabs, a space-indented line is rejected as mixed indentation; later tab-indented siblings still attach.",
+      "expected": "diagnostics/mixed-indentation.expected.json"
+    },
+    {
       "file": "diagnostics/multiple-targets.cog.md",
       "input": "document",
       "purpose": "Multiple targets reject the attached Bearing; all source and target Points survive.",
@@ -329,6 +335,12 @@
       "input": "document",
       "purpose": "Variable space widths are valid when dedents match active levels.",
       "expected": "syntax/variable-indentation.expected.json"
+    },
+    {
+      "file": "syntax/tab-indentation.cog.md",
+      "input": "document",
+      "purpose": "A unit indented only with hard tabs nests one level per tab, as space indentation does.",
+      "expected": "syntax/tab-indentation.expected.json"
     },
     {
       "file": "core/local-linked.cog.md",

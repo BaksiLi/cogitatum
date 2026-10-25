@@ -220,7 +220,20 @@ describe("Cogitatum language contracts", () => {
     expect(graph.diagnostics).toEqual([]);
   });
 
-  it("fails closed on tabs, indented roots, and unmatched dedents in every text input mode", () => {
+  it("nests tab-indented outlines exactly as their space-indented equivalents", () => {
+    const tabbed = fixture("syntax/tab-indentation.cog.md");
+    const withoutSpans = (graph: GraphIR) => JSON.parse(JSON.stringify(graph, (key, value) => key === "sourceSpan" ? undefined : value));
+    const expected = withoutSpans(compileGraph(parseDocument(tabbed)));
+    expect(expected.diagnostics).toEqual([]);
+    for (const width of [2, 4]) {
+      const spaced = tabbed.replace(/^\t+/gm, tabs => " ".repeat(tabs.length * width));
+      expect(withoutSpans(compileGraph(parseDocument(spaced)))).toEqual(expected);
+    }
+    const ast = parseDocument(tabbed);
+    expect(ast.blocks[0].children[0].children[0].sourceSpan).toMatchObject({ startLine: 3, startColumn: 5 });
+  });
+
+  it("fails closed on mixed indentation, indented roots, and unmatched dedents in every text input mode", () => {
     const source = fixture("diagnostics/invalid-indentation.cog.md");
     const document = compileSource(source, "document");
     const host = compileSource(`# Host\n\n\`\`\`cog\n${source}\`\`\`\n`, "host");
@@ -244,13 +257,24 @@ describe("Cogitatum language contracts", () => {
       });
     }
 
-    const tabbed = compileSource("- [C @root] Root.\n\t- [G @tabbed] Tabbed ground.\n", "document");
-    expect(tabbed.graphs[0].points.map((point) => point.id)).toEqual(["root"]);
-    expect(tabbed.diagnostics).toEqual([expect.objectContaining({ code: "TAB_INDENTATION_UNSUPPORTED" })]);
-    expect(tabbed.documents[0].blocks[0].children[0]).toMatchObject({
+    const mixed = compileSource("- [C @root] Root.\n  - [G @spaced] Spaced ground.\n\t- [G @tabbed] Tabbed ground.\n", "document");
+    expect(mixed.graphs[0].points.map((point) => point.id)).toEqual(["root", "spaced"]);
+    expect(mixed.diagnostics).toEqual([expect.objectContaining({
+      code: "MIXED_INDENTATION",
+      message: expect.stringContaining("indents with spaces, but this line uses tabs"),
+      sourceSpan: expect.objectContaining({ startLine: 3, startColumn: 1 })
+    })]);
+    expect(mixed.documents[0].blocks[0].children[1]).toMatchObject({
       annotation: { kind: "invalid", raw: "G @tabbed" },
       text: "[G @tabbed] Tabbed ground."
     });
+    for (const [source, message] of [
+      ["- [C @root] Root.\n\t- [G @tabbed] Tabbed.\n  - [G @spaced] Spaced.\n", "indents with tabs, but this line uses spaces"],
+      ["- [C @root] Root.\n\t  - [G @both] Both.\n", "mixes tabs and spaces"]
+    ]) {
+      const result = compileSource(source, "document");
+      expect(result.diagnostics).toEqual([expect.objectContaining({ code: "MIXED_INDENTATION", message: expect.stringContaining(message) })]);
+    }
 
     const indentedRoot = compileSource("  - [C @indented] Indented root.\n", "document");
     expect(indentedRoot.graphs[0].points).toEqual([]);

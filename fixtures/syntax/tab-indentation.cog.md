@@ -1,0 +1,5 @@
+- [C @claim] A claim.
+	- [G @ground] A ground, one tab deep.
+		- [G @detail] A ground for the ground, two tabs deep.
+	- [O @objection] An objection back at one tab.
+- [C @after] Another root.

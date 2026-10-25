@@ -13,7 +13,7 @@ Examples, schemas, and conformance fixtures are checked against the implementati
 
 ## Outline and body
 
-Write a Markdown-style outline. Root blocks start at column one. Indent with spaces; a child can use any greater width, but a dedent must match an active ancestor level. Tabs, indented roots, and unmatched dedents are diagnosed and their apparent annotations are not compiled.
+Write a Markdown-style outline. Root blocks start at column one. Indent each source unit with spaces or with hard tabs, never both. With spaces, a child can use any greater width; with tabs, each tab is one level. A dedent must match an active ancestor level. The first indented line chooses the unit's indentation; a later line that uses the other character, or mixes tabs and spaces in its own indentation, produces `MIXED_INDENTATION`. Mixed indentation, indented roots, and unmatched dedents are diagnosed and their apparent annotations are not compiled.
 Recognised annotations on those lines remain failed boundaries: implicit descendants cannot attach past them to an outer Point, while independent explicit relations and valid inner subtrees survive.
 
 Every nonblank source line must be a bullet block beginning with `- ` after indentation. An annotation starts the block's content after that marker. Unmarked content remains body. Other line forms produce `UNSUPPORTED_LINE` and are not represented as blocks. Blank lines do not produce blocks. The AST preserves supported block order, raw block lines, body, and source spans; byte-for-byte whitespace round trips are not promised. This is a restricted outline parser, not a complete Markdown parser.
@@ -23,6 +23,14 @@ Every nonblank source line must be a bullet block beginning with `- ` after inde
   - [C @claim] A claim.
     - An unmarked explanation.
       - [G] A selected reason.
+```
+
+Outlines copied from tools that indent with tabs, such as Logseq or Obsidian, compile to the same graph as their space-indented form:
+
+```md cog-check require=supports,challenges points=3 bearings=2 diagnostics=0
+- [C @claim] A claim.
+	- [G] A reason, one tab deep.
+	- [O] An objection at the same level.
 ```
 
 ## Annotation grammar
@@ -535,6 +543,15 @@ For a consumer upgrade:
 If only old Graph IR remains, the original source, local occurrence prose and authored target requirements cannot be recovered from it.
 Retain it as a historical snapshot for its matching consumer; changing `version` or renaming `undercuts` in JSON is not a supported upgrade.
 The [graph preservation limits](graph-inspection.md#what-structure-v1-preserves) explain why a graph migration alone cannot establish source or application compatibility.
+
+### Tab indentation after 0.5.0
+
+The next 0.5 patch accepts hard-tab indentation without changing the format identifier or any schema.
+A source unit indented only with tabs, previously rejected line by line with `TAB_INDENTATION_UNSUPPORTED`, now compiles; each tab is one outline level.
+Space-indented units are unchanged.
+`TAB_INDENTATION_UNSUPPORTED` is retired and no longer emitted.
+A unit that mixes the two still fails closed at each offending line, with the same failed-boundary recovery, but reports `MIXED_INDENTATION`; consumers that match the old code should match the new one.
+Because the first indented line now sets the unit's indentation, the diagnosed line in a mixed unit can differ from the line the old rule reported.
 
 ### Earlier migrations
 

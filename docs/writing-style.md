@@ -18,6 +18,7 @@ Start with the situation, source and purpose in ordinary body.
 Mark the parts whose role or connection helps the reader; leave other prose unmarked.
 Within a Cogitatum source unit, both marked material and body use outline bullets.
 Two spaces per level is a readable convention, not a language requirement.
+Hard tabs also work, one per level, so outlines pasted from Logseq or Obsidian compile unchanged; keep one kind of indentation within a source unit.
 
 Keep a Point focused enough that another passage can refer to it without ambiguity.
 Do not split every sentence into a Point, or delete qualifications to make a diagram smaller.

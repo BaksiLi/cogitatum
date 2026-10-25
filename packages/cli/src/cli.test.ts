@@ -150,7 +150,7 @@ describe("cog CLI", () => {
   });
 
   it("prints valid partial output and exits with failure after a misindented annotation", () => {
-    writeFileSync(join(workingDirectory, "misindented.cog.md"), "-    [C @outer] Outer.\n\t- [C @failed] Failed.\n    - [G @inner] Inner.\n      - [G @detail] Detail.");
+    writeFileSync(join(workingDirectory, "misindented.cog.md"), "-    [C @outer] Outer.\n  - Spaced.\n\t- [C @failed] Failed.\n    - [G @inner] Inner.\n      - [G @detail] Detail.");
     const result = runCli("graph", "misindented.cog.md");
     expect(result.status).toBe(1);
     expect(result.stderr).toBe("");
@@ -158,7 +158,7 @@ describe("cog CLI", () => {
     expect(graph.points.map((point: { id: string }) => point.id)).toEqual(["outer", "inner", "detail"]);
     expect(graph.points[0].sourceSpan.startColumn).toBe(6);
     expect(graph.bearings).toEqual([expect.objectContaining({ sources: [{ key: graph.points[2].key, kind: "point" }], target: { key: graph.points[1].key, kind: "point" } })]);
-    expect(graph.diagnostics.map((diagnostic: { code: string }) => diagnostic.code)).toEqual(["TAB_INDENTATION_UNSUPPORTED", "FAILED_CONTEXT_REQUIRES_EXPLICIT_TARGET"]);
+    expect(graph.diagnostics.map((diagnostic: { code: string }) => diagnostic.code)).toEqual(["MIXED_INDENTATION", "FAILED_CONTEXT_REQUIRES_EXPLICIT_TARGET"]);
   });
 
   it("keeps note literals inert and advice nonblocking while retired claims fail", () => {
