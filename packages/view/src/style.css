@@ -18,6 +18,7 @@
 .cog-shape-gap .cog-glyph-shape, .cog-shape-material .cog-glyph-shape { fill: var(--cog-surface-resolved); }
 .cog-shape-gap .cog-glyph-letter { fill: var(--cog-ink-resolved); }
 .cog-shape-gap .cog-glyph-shape { stroke-dasharray: 2.4 2.2; }
+.cog-glyph-halo { fill: none; stroke: var(--cog-ink-resolved); stroke-width: .7; opacity: .55; }
 
 /* Bearing glyphs: a circle marks one Bearing on its line; a diamond is a junction (joint or addressed Bearing). */
 .cog-bearing-glyph-shape { fill: var(--cog-surface-resolved); stroke: currentColor; stroke-width: 1.1; }

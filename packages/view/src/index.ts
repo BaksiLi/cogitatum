@@ -32,7 +32,7 @@ export type GraphView = {
 };
 
 const NS = "http://www.w3.org/2000/svg";
-const POINT_R = 9, JUNCTION_R = 10, LABEL_K = .6, DRAG_SLOP = 4, MIN_K = .3, MAX_K = 2.2;
+const POINT_R = 9, RING_GAP = 3.2, JUNCTION_R = 10, LABEL_K = .6, DRAG_SLOP = 4, MIN_K = .3, MAX_K = 2.2;
 type Camera = { k: number; tx: number; ty: number };
 type Shape = { id: string; node: GraphNode; g: SVGGElement; glyph?: SVGGElement; label?: SVGTextElement; labelHit?: SVGRectElement; inline: boolean };
 
@@ -76,7 +76,8 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
     !entrance ? 1 : entrance.pending ? 0 : entranceEase(Math.max(0, Math.min(1, ((win?.performance.now() ?? 0) - entrance.began - delay) / length)));
 
   // ── text measurement (fixed CSS pixel sizes from the shared mark type scale) ──
-  let measure: CanvasRenderingContext2D | null | undefined, font = "";
+  // Line height follows the host's label type, so a host may set the wording larger than the shared scale.
+  let measure: CanvasRenderingContext2D | null | undefined, font = "", lineHeight: number = MARK_TYPE.lineHeight;
   const wrapCache = new Map<string, string[]>();
   function textWidth(s: string): number {
     measure ??= doc.createElement("canvas").getContext?.("2d") ?? null;
@@ -111,6 +112,7 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
     // Measure with the host's resolved text style so wrapping matches what is painted.
     const probe = element("text", { class: "cog-text" }, nodeLayer), style = win?.getComputedStyle(probe);
     font = `${style?.fontSize || `${MARK_TYPE.text}px`} ${style?.fontFamily || "serif"}`; probe.remove(); wrapCache.clear();
+    lineHeight = Math.max(MARK_TYPE.lineHeight, Math.round((parseFloat(style?.fontSize ?? "") || MARK_TYPE.text) * 1.28));
     for (const node of topology.nodes) {
       const isPoint = node.ref.kind === "point";
       const g = element("g", { class: `cog-node ${isPoint ? "point" : "bearing cog-junction-node"} cog-${node.label.replace("?", "-open")}`, role: "button", tabindex: "-1", "data-node": node.id }, nodeLayer);
@@ -118,7 +120,8 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
       const ring = element("circle", { class: "cog-focus-ring", r: isPoint ? "15" : "16" }, g);
       // A point's glyph and focus ring scale together with the drawing; see pointScale.
       const glyph = isPoint ? element("g", { class: "cog-point-scale" }, g) : undefined;
-      if (glyph) { glyph.append(ring); drawPointGlyph(glyph, node.label, POINT_R); } else drawBearingGlyph(g, node.label, true, JUNCTION_R - 2.5);
+      // A marked point is drawn as a star on an engraved chart: the disc, and a hairline ring a little apart.
+      if (glyph) { glyph.append(ring); if (pointMark(node.label).shape === "filled") element("circle", { class: "cog-glyph-halo", r: String(POINT_R + RING_GAP) }, glyph); drawPointGlyph(glyph, node.label, POINT_R); } else drawBearingGlyph(g, node.label, true, JUNCTION_R - 2.5);
       // A junction's name sits beside its diamond, so links may enter it from below without detouring.
       const labelHit = element("rect", { class: "cog-hit cog-label-hit", width: "0", height: "0", "aria-hidden": "true" }, g);
       const label = element("text", { class: isPoint ? "cog-text" : "cog-label", "text-anchor": isPoint ? "middle" : "start" }, g);
@@ -162,6 +165,8 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
   // wording keeps its reading size. Every point is the same size at any one zoom.
   const pointScale = (k = camera.k) => Math.max(.85, Math.min(1.45, k));
   const pointR = (k = camera.k) => POINT_R * pointScale(k);
+  /** Links stop at a marked point's ring, not its disc, so arrowheads touch the ring. */
+  const ringR = (k = camera.k) => (POINT_R + RING_GAP) * pointScale(k);
   const pointLabelWidth = (k: number) => roomy(k) ? Math.min(200, 200 * k - 14) : Math.max(96, Math.min(150, 168 * k - 14));
   function labelLines(shape: Shape, k = camera.k, focused = shape.id === selected || shape.id === hovered): string[] {
     const node = shape.node;
@@ -185,10 +190,10 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
    */
   function anchor(id: string, toward: Point2, port = 0): Point2 {
     const p = screen(world.get(id)!), shape = shapes.get(id);
-    const isPoint = shape?.node.ref.kind === "point", r = isPoint ? pointR() + 2 : JUNCTION_R + 1;
+    const isPoint = shape?.node.ref.kind === "point", r = isPoint ? ringR() + 1.5 : JUNCTION_R + 1;
     if (isPoint && shape?.label && toward.y > p.y + r) {
       const lines = shape.label.childNodes.length;
-      return { x: p.x + port, y: p.y + (lines ? pointR() + 5 + lines * MARK_TYPE.lineHeight : Math.sqrt(r * r - port * port)) };
+      return { x: p.x + port, y: p.y + (lines ? pointR() + 5 + lines * lineHeight : Math.sqrt(r * r - port * port)) };
     }
     if (port && Math.abs(toward.y - p.y) > r) return { x: p.x + port, y: p.y + Math.sign(toward.y - p.y) * Math.sqrt(r * r - port * port) };
     const dx = toward.x - p.x, dy = toward.y - p.y, d = Math.hypot(dx, dy) || 1;
@@ -216,7 +221,7 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
       const isPoint = shape.node.ref.kind === "point";
       shape.glyph?.setAttribute("transform", `scale(${pointScale().toFixed(3)})`);
       const top = pointR() + 18;
-      lines.forEach((text, i) => { const t = element("tspan", isPoint ? { x: "0", y: String(top + i * MARK_TYPE.lineHeight) } : { x: String(JUNCTION_R + 5), y: "4" }, label); t.textContent = text; });
+      lines.forEach((text, i) => { const t = element("tspan", isPoint ? { x: "0", y: String(top + i * lineHeight) } : { x: String(JUNCTION_R + 5), y: "4" }, label); t.textContent = text; });
       shape.g.dataset.related = String(!guided || related.has(shape.id));
     }
     edgeLayer.replaceChildren();
@@ -229,7 +234,7 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
         return { id: shape.id, x0: p.x - 13, x1: p.x + right, y0: p.y - 13, y1: p.y + 13 };
       }
       const half = lines ? Math.max(14, ...[...shape.label!.childNodes].map(t => textWidth(t.textContent ?? "") / 2 + 4)) : 13;
-      return { id: shape.id, x0: p.x - half, x1: p.x + half, y0: p.y - pointR() - 4, y1: p.y + pointR() + 5 + lines * MARK_TYPE.lineHeight };
+      return { id: shape.id, x0: p.x - half, x1: p.x + half, y0: p.y - pointR() - 4, y1: p.y + pointR() + 5 + lines * lineHeight };
     });
     const at = (a: Point2, c1: Point2, c2: Point2, t: Point2, s: number) => {
       const u = 1 - s;
@@ -298,8 +303,9 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
       }
       if (link.segment === "output") {
         const hx = t.x - c2.x, hy = t.y - c2.y, hl = Math.hypot(hx, hy) || 1, ux = hx / hl, uy = hy / hl;
+        // A slim engraved barb: long and narrow, notched at the back where the line enters it.
         const head = element("path", { class: `cog-arrow cog-tone-${mark.tone}`, "data-active": String(on), "aria-hidden": "true",
-          d: `M${t.x} ${t.y}L${t.x - ux * 7 - uy * 3.4} ${t.y - uy * 7 + ux * 3.4}L${t.x - ux * 7 + uy * 3.4} ${t.y - uy * 7 - ux * 3.4}Z` }, edgeLayer);
+          d: `M${t.x} ${t.y}L${t.x - ux * 9 - uy * 3.2} ${t.y - uy * 9 + ux * 3.2}L${t.x - ux * 6.4} ${t.y - uy * 6.4}L${t.x - ux * 9 + uy * 3.2} ${t.y - uy * 9 - ux * 3.2}Z` }, edgeLayer);
         if (entrance) head.style.opacity = String(Math.max(0, traced * 4 - 3));
       }
       if (isInline) {
