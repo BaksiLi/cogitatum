@@ -64,7 +64,7 @@ b5: challenges([p1], b5) handle="self"`);
 
   it("labels by typed identity, never by authored name, prose or key spelling", () => {
     const graph: GraphIR = {
-      version: "0.5.0", diagnostics: [],
+      version: "0.6.0", diagnostics: [], notes: [],
       points: [{ key: "shared-key", id: "b1", text: "Same", declaration: { form: "material" } }],
       bearings: [{ key: "shared-key", handle: "p1", kind: "supports", sources: [{ kind: "point", key: "shared-key" }], target: { kind: "point", key: "shared-key" }, derivedBy: "operator" }]
     };
@@ -156,7 +156,7 @@ b5: challenges([p1], b5) handle="self"`);
   });
 
   it("reports an empty graph without implying completeness", () => {
-    expect(formatGraph(compile(""))).toBe(`cogitatum-graph-text ${GRAPH_TEXT_VERSION}\nformat: "0.5.0"\nprojection: structure-v1\nstatus: no-errors\n\npoints (0):\n\nbearings (0):\n\ndiagnostics (0):\n`);
+    expect(formatGraph(compile(""))).toBe(`cogitatum-graph-text ${GRAPH_TEXT_VERSION}\nformat: "0.6.0"\nprojection: structure-v1\nstatus: no-errors\n\npoints (0):\n\nbearings (0):\n\ndiagnostics (0):\n`);
   });
 
   it("rejects unsupported versions and corrupt identities/references rather than guessing", () => {

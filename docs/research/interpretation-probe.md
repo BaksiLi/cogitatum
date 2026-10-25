@@ -5,6 +5,9 @@ It is a runnable example, not a public interpretation API or a new core syntax.
 Run `npm run probe:interpretation` from the checkout; use `npm run --silent probe:interpretation` for JSON without npm's command banner.
 The implementation lives in `scripts/interpretation-probe/run.mjs` and runs under the existing Node 22+ toolchain.
 Its tests participate in `npm run check`.
+The unchanged fixture has been rechecked with the 0.6 compiler against published 0.5:
+only version fields and the empty object-note projection differ.
+This does not expand the experiment's interpretation or assessment scope.
 
 ## The recorded inquiry
 

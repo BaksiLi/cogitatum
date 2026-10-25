@@ -217,3 +217,6 @@
   .cog-block-detail-content { flex-basis: 100%; }
 }
 @media (pointer: coarse) { .cog-block .cog-block-button { min-height: 36px; min-width: 36px; } }
+.cog-note-count { fill: currentColor; font-size: 10px; font-weight: 600; }
+.cog-block-note { margin-block-start: .7em; }
+.cog-block-note-text { margin-block-start: .3em; }

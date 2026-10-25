@@ -2,13 +2,16 @@
 
 Check Cogitatum inquiry markup and inspect the reasoning connections marked in ordinary prose.
 
-Version **0.5.0**, format **0.5.0**, with local `linked` support and optional linked header descriptions.
+Checkout version **0.6.0**, format **0.6.0**, not yet published, with equivalent Point/Bearing family spellings and local object notes.
+Build the checkout below to use the new syntax.
+`export` retains note prose and literal subtrees through the complete `explainSource` envelope.
+`graph` retains note target/origin records but omits note prose; graph-text `structure-v1` also omits those records.
 Explicit `edge` clauses accept all canonical kind names, including `answers`, `repliesTo`, and `clarifies`.
 The historical npm `alpha` tag provides **0.3.0-alpha.1** without linked.
 Requires Node.js 22.12 or newer.
-Use the matching Core/CLI and schema versions when upgrading from 0.4.12.
+Use the matching Core/CLI and schema versions when upgrading from 0.5.0.
 
-Run without a global installation:
+The published 0.5 compiler remains available without a global installation for 0.5 source:
 
 ```sh
 npx --package @cogitatum/cli@0.5.0 cog check inquiry.cog.md
@@ -37,9 +40,12 @@ An agent can call the same commands as a person; no model account, API key or mo
 | `graph` | Compile source and return its Point-Bearing structure as JSON |
 | `graph --format text` | Present one compiled document as readable entity and relation tables |
 | `explain` | Inspect why the compiler emitted or rejected a construction |
+| `export` | Preserve selected source units, AST, graph, notes and Explain together |
 | `explicit-target --line N` | Preview one checked source edit, including its consequences |
 
 Choose the command for the result you need: `ast` for parsed source, `graph` for compiled connections, `check` for diagnostics, and `explain` for the compilation trace.
+Use `export` for a source-backed artifact containing all four projections, in both document and host modes.
+Host exports retain selected Cogitatum units; keep the original file for surrounding Markdown outside those fences.
 `graph`, `check` and `explain` all perform compilation; it is not a prerequisite command you must run separately.
 `ast` stops at parsing: a syntactically valid `+> @missing` can appear in its output without an error, while the other three commands report `UNKNOWN_TARGET`.
 Use `check` when you need complete syntax and reference validation.
@@ -73,6 +79,7 @@ This command explains how the markup was compiled, without interpreting the pros
 | `check` | `{ version, diagnostics }` | `{ version, mode, diagnostics }` |
 | `ast` | One AST | `parseSource` envelope with units and documents |
 | `graph` | One Graph IR | `compileSource` envelope with units, documents and graphs |
+| `export` | Complete `explainSource` envelope | Complete `explainSource` envelope |
 | `explain` | One Explain trace | `{ version, mode, units, explanations, diagnostics }` |
 | `check --references` | Reference-analysis result | Reference-analysis result, with independent units |
 | `explicit-target` | Ready/unavailable preview | Ready/unavailable preview, using complete-file line numbers |

@@ -1,4 +1,4 @@
-export const FORMAT_VERSION = "0.5.0";
+export const FORMAT_VERSION = "0.6.0";
 
 export type Role = "Q" | "C" | "G" | "O" | "R" | "D";
 export type BearingOp = "supports" | "challenges" | "about";
@@ -70,7 +70,7 @@ type PointAnnotationBase = AnnotationBase & {
 };
 
 export type Annotation =
-  | { kind: "note"; raw: string; syntaxErrors?: "note"[] }
+  | { kind: "note"; targetKind?: "point" | "bearing"; raw: string; syntaxErrors?: "note"[] }
   | { kind: "invalid"; raw: string; selector?: "attachment" }
   | { kind: "bearingUse"; ref?: Ref; raw: string; syntaxErrors?: "reference"[] }
   | (AnnotationBase<"reference" | "operator" | "selector" | "handle" | "retired"> & {
@@ -152,6 +152,7 @@ type BearingBase = {
   key: string;
   handle?: string;
   sources: PointRef[];
+  /** Derived only from this Bearing's constructor description, never object notes. */
   text?: string;
   derivedBy: BearingDerivedBy;
   sourceSpan?: SourceSpan;
@@ -171,15 +172,27 @@ export type Diagnostic = {
   sourceSpan?: SourceSpan;
 };
 
+/** One authored occurrence, identified within this source unit by sourceSpan.
+ * The AST at that span owns the text (and, for a note, its literal subtree).
+ * Graph-only exports preserve the link, not that prose. Equal text is not identity.
+ */
+export type ObjectNote = {
+  sourceSpan: SourceSpan;
+} & (
+  | { origin: "note"; target: BearingTarget }
+  | { origin: "constructor-description"; target: BearingRef }
+);
+
 export type GraphIR = {
   version: string;
   points: Point[];
   bearings: Bearing[];
+  notes: ObjectNote[];
   diagnostics: Diagnostic[];
 };
 
 export type ExplainRecognition =
-  | { kind: "note" }
+  | { kind: "note"; targetKind?: "point" | "bearing" }
   | { kind: "body" }
   | { kind: "invalid"; selector?: "attachment" }
   | ({ kind: "role" } & RoleMark)
@@ -213,6 +226,15 @@ export type ExplainEmittedBearingSummary = Omit<BearingBase, "text" | "sourceSpa
 
 export type ExplainEffect =
   | { kind: "preserveNote"; parentSpan?: SourceSpan }
+  | { kind: "attachNote"; note: ObjectNote }
+  | ({
+      kind: "selectNoteTarget";
+      contextSpan?: SourceSpan;
+      crossedBodySpans: SourceSpan[];
+    } & (
+      | { targetKind: "point"; target?: PointRef }
+      | { targetKind: "bearing"; target?: BearingRef }
+    ))
   // Successful structural selection, even with no intervening body. Not emitted for rejected Bearings.
   | { kind: "implicitAttachment"; target: BearingTarget; targetSpan?: SourceSpan; contextSpan: SourceSpan; crossedBodySpans: SourceSpan[] }
   | { kind: "linkedMember"; linkedSpan: SourceSpan; eligible: boolean; function: LinkedChildFunction }

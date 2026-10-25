@@ -33,7 +33,9 @@ export function runProbe(source = readFileSync(fixture, "utf8")) {
   // Pin the whole document, including occurrence prose and literal notes that a
   // graph-only comparison would discard. Never silently rebind a saved reading.
   if (digest(source) !== sourceSha256) throw new Error("STALE_INTERPRETATION: source changed; review the translation and assumptions before rebinding this probe.");
-  if (compilerVersion !== "0.5.0" || FORMAT_VERSION !== "0.5.0") throw new Error("UNSUPPORTED_COMPILER: review this probe against the new compiler and format.");
+  // Rechecked against published 0.5: this fixed source has identical AST/Explain
+  // and topology, apart from the format and the empty object-note projection.
+  if (compilerVersion !== "0.6.0" || FORMAT_VERSION !== "0.6.0") throw new Error("UNSUPPORTED_COMPILER: review this probe against the new compiler and format.");
   const recorded = explainSource(source, "document");
   if (recorded.diagnostics.some(d => d.severity === "error") || recorded.graphs.length !== 1) throw new Error("INVALID_SOURCE: the probe requires one successfully compiled document.");
   const graph = recorded.graphs[0];

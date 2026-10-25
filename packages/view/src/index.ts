@@ -130,8 +130,12 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
     const sources = node.ref.kind === "bearing" ? full.links.filter(link => link.target === node.id && link.segment === "input").length : 0;
     const shape = node.ref.kind === "bearing" ? (sources > 1 ? `joint, ${sources} sources` : "one source") : "";
     const text = node.text === node.label ? "" : `: ${node.text}`;
-    g.setAttribute("aria-label", `${name}${shape ? ` (${shape})` : ""}${node.name ? ` @${node.name}` : ""}${text}`);
-    const title = element("title", {}, g); title.textContent = `${name}${node.name ? ` @${node.name}` : ""}${text}`;
+    const notes = node.noteCount ? `; ${node.noteCount} source note${node.noteCount === 1 ? "" : "s"}` : "";
+    g.setAttribute("aria-label", `${name}${shape ? ` (${shape})` : ""}${node.name ? ` @${node.name}` : ""}${text}${notes}`);
+    const title = element("title", {}, g); title.textContent = `${name}${node.name ? ` @${node.name}` : ""}${text}${notes}`;
+    if (node.noteCount) {
+      element("text", { class: "cog-note-count", x: "11", y: "-10", "aria-hidden": "true" }, g).textContent = String(node.noteCount);
+    }
   }
 
   // ── geometry ──

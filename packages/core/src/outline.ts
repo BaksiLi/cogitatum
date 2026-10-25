@@ -1,4 +1,4 @@
-import { isAnnotationStart, isRetiredClaimStart, parseAnnotation } from "./annotation.js";
+import { isAnnotationStart, isRetiredClaimStart, parseAnnotation, recognizeAnnotationHead } from "./annotation.js";
 import { FORMAT_VERSION } from "./types.js";
 import type { Annotation, AstBlock, Diagnostic, DocumentAst, ParsedLine, ParseOptions, SourceSpan } from "./types.js";
 
@@ -125,7 +125,8 @@ function parseRawOutline(
     }
 
     const literal = Boolean(parent?.literal || parent?.noteBoundary);
-    const noteBoundary = !literal && /^\[\s*note(?=$|[\s;@\]])/i.test(content);
+    const noteBoundary = !literal && content.startsWith("[") &&
+      recognizeAnnotationHead(content.slice(1).split("]")[0]).operation === "note";
     const retiredClaim = !literal && content.startsWith("[") && isRetiredClaimStart(content.slice(1).split("]")[0]);
     const bracketMatch = !literal && (indentationValid || noteBoundary || retiredClaim) ? /^\[([^\]]+)\]\s*(.*)$/s.exec(content) : undefined;
     // Closing a prose bracket must not turn ordinary text into an annotation.
@@ -203,7 +204,7 @@ function toAstBlock(node: RawNode, diagnostics: Diagnostic[]): AstBlock {
     if (parsed) diagnostics.push(...parsed.diagnostics);
     if (annotation?.kind === "note" && (!node.annotationRaw || !node.indentationValid)) {
       annotation.syntaxErrors = ["note"];
-      if (!parsed?.diagnostics.length) diagnostics.push({ severity: "error", code: "MALFORMED_NOTE", message: "A note requires a closed [note] header and valid outline indentation.", sourceSpan: node.sourceSpan });
+      if (!parsed?.diagnostics.length) diagnostics.push({ severity: "error", code: "MALFORMED_NOTE", message: "A note requires a closed header and valid outline indentation.", sourceSpan: node.sourceSpan });
     }
     return {
       kind: "block",
@@ -215,14 +216,15 @@ function toAstBlock(node: RawNode, diagnostics: Diagnostic[]): AstBlock {
     };
   }
   // Failed constructors retain their context boundary even without a closing bracket.
-  const unclosedConstructor = node.indentationValid && !node.annotationRaw && !node.text.includes("]")
-    ? /^\[\s*(linked|join|edge|_)(?=$|[\s;])/i.exec(node.text)?.[1].toLowerCase()
+  const head = recognizeAnnotationHead(node.text.slice(1));
+  const unclosedConstructor = node.indentationValid && !node.annotationRaw && node.text.startsWith("[") && !node.text.includes("]")
+    ? head.family === "bearing" ? "_" : /^\[\s*(linked|join)(?=$|[\s;])/i.exec(node.text)?.[1].toLowerCase()
     : undefined;
   const retiredClaimRaw = !node.annotationRaw && node.text.startsWith("[") && isRetiredClaimStart(node.text.slice(1)) ? node.text.slice(1) : undefined;
   const annotationRaw = node.annotationRaw ?? retiredClaimRaw ?? (unclosedConstructor === "join" ? node.text.slice(1) : undefined);
   const unclosedSelector = node.indentationValid && !node.annotationRaw && !node.text.includes("]") && /^\[\s*[GO][_/](?=$|[\s;@])/i.test(node.text);
-  const unclosedUse = node.indentationValid && !node.annotationRaw && !node.text.includes("]") && /^\[\s*(?:(?:[QCGORD](?:\?|[_/])?|\.)\s+)?use(?=$|;|\s+@)/i.test(node.text);
-  const unclosedBearingUse = unclosedConstructor === "_" && /^\[\s*_\s+use(?=$|[\s;])/i.test(node.text);
+  const unclosedUse = node.indentationValid && !node.annotationRaw && node.text.startsWith("[") && !node.text.includes("]") && head.operation === "use";
+  const unclosedBearingUse = unclosedConstructor === "_" && head.operation === "use";
   const parsed = annotationRaw ? parseAnnotation(annotationRaw, node.sourceSpan) : undefined;
   if (parsed) {
     diagnostics.push(...parsed.diagnostics);

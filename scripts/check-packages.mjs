@@ -160,6 +160,14 @@ const reading = projectReading(readingSource, explainSource(readingSource));
 assert.equal(reading.rows.length, 3);
 assert.equal(reading.units[0].bearings[0].target.occurrenceId, reading.units[0].occurrences[1].id);
 assert.equal(reading.units[0].bearings[0].target.basis, 'context');
+const noteSource = '- [point @p] Main.\\n- [C @q] Claim.\\n  - [G use @p; @r]\\n    - [node note] Point note.\\n    - [bearing note] Here yesterday.\\n      - [point @literal] Quoted.\\n- [edge use @r]\\n- [bearing use @r]';
+const noteEnvelope = JSON.parse(JSON.stringify(explainSource(noteSource)));
+const noteReading = projectReading(noteSource, noteEnvelope);
+assert.equal(noteEnvelope.graphs[0].notes.length, 2);
+assert.equal(noteEnvelope.graphs[0].bearings.length, 1);
+assert.equal(noteReading.units[0].notes[1].content[1].text, '[point @literal] Quoted.');
+assert.equal(noteReading.units[0].notes[1].content[1].recognition.kind, 'literal');
+assert.equal(projectGraph(noteEnvelope.graphs[0]).nodes.find(node => node.name === 'r').noteCount, 1);
 `;
 run(process.execPath, ["--input-type=module", "-e", integrationProbe], temporary);
 run(process.execPath, ["--conditions", "development", "--import", tsx, "--input-type=module", "-e", integrationProbe], temporary);
@@ -186,13 +194,18 @@ assert.deepEqual(reused.diagnostics, []);
 assert.equal(reused.entries.filter(entry => entry.effects.some(effect => effect.kind === "focusPoint")).length, 6);
 const referenceFile = join(root, "fixtures/core/bearing-reference-reading.cog.md");
 const cliReferences = JSON.parse(run(executable, ["check", "--references", referenceFile], temporary));
+const objectNoteFile = join(root, "fixtures/core/object-note-ownership.cog.md");
+const exportedNotes = JSON.parse(run(executable, ["export", objectNoteFile], temporary));
+assert.equal(exportedNotes.graphs[0].notes.length, 7);
+assert.equal(exportedNotes.units[0].source, readFileSync(objectNoteFile, "utf8"));
+assert.equal(exportedNotes.documents[0].blocks[1].children[0].children[1].children[0].text, "[point @ignored] Literal source.");
 const apiReferences = JSON.parse(run(process.execPath, ["--input-type=module", "-e",
   "import {readFileSync} from 'node:fs'; import {analyzeSourceReferences} from '@cogitatum/core'; console.log(JSON.stringify(analyzeSourceReferences(readFileSync(process.argv[1], 'utf8'))));", referenceFile
 ], temporary));
 assert.deepEqual(cliReferences, apiReferences);
 assert.equal(cliReferences.references.status, "complete");
 
-writeFileSync(join(temporary, "consumer.mts"), `import {type Point, type PointDeclaration, type Bearing, type Annotation, type OperatorClause, type ExplainEmittedBearingSummary, type ExplainRecognition, type SourceReferenceAnalysis, type ReferencedName, type WrittenReference, type ExplicitTargetPreview, previewExplicitTarget, analyzeSourceReferences, formatGraph, GRAPH_TEXT_VERSION, compileGraph, parseDocument} from '@cogitatum/core';
+writeFileSync(join(temporary, "consumer.mts"), `import {type Point, type PointDeclaration, type Bearing, type Annotation, type ObjectNote, type OperatorClause, type ExplainEmittedBearingSummary, type ExplainRecognition, type SourceReferenceAnalysis, type ReferencedName, type WrittenReference, type ExplicitTargetPreview, previewExplicitTarget, analyzeSourceReferences, formatGraph, GRAPH_TEXT_VERSION, compileGraph, parseDocument} from '@cogitatum/core';
 import { createGraphView, declarationMark, projectReading, createReadingView, type ReadingProjection } from '@cogitatum/view';
 import { createBlockView, type BlockEditRequest, type BlockView } from '@cogitatum/view/block';
 function mountHostBlock(container: HTMLElement): BlockView {
@@ -270,6 +283,16 @@ const notationVersion: string = GRAPH_TEXT_VERSION;
 formatGraph('source');
 const points: Point[] = graph.points;
 const bearings: Bearing[] = graph.bearings;
+const notes: ObjectNote[] = graph.notes;
+for (const note of notes) {
+  const line: number = note.sourceSpan.startLine;
+  if (note.origin === 'constructor-description') { const kind: 'bearing' = note.target.kind; }
+  // @ts-expect-error The source AST owns note text; there is no competing prose store.
+  note.text;
+}
+const typedNote: Annotation = { kind: 'note', targetKind: 'point', raw: 'node note' };
+// @ts-expect-error A typed note cannot accept an authored explicit target.
+const explicitNote: Annotation = { kind: 'note', targetKind: 'point', ref: {id: 'p'}, raw: '. note @p' };
 const identity: string | undefined = points[0]?.id;
 const declared: PointDeclaration | undefined = points[0]?.declaration;
 const declaredName: string | undefined = points[0] && declarationMark(points[0].declaration).name;

@@ -12,6 +12,9 @@ Each case specifies observable behavior of the current language: an input, its m
 | `host/` | Fence selection, unit isolation, and locations in the host document |
 
 Expected results compare the selected input mode, the full ordered diagnostics list, and every graph's complete ordered Point and Bearing lists. Points retain their form, role, authored name, and open status. Bearings retain their kind, source list, target kind, derivation mechanism, and authored handle. An empty list means no such output is permitted; a diagnostic alone is not enough to pass a rejection case.
+Cases marked `notes: true` also compare every source-backed note record in order,
+including origin, resolved target, source text and complete literal subtree.
+This joins Graph IR records to their owning AST blocks; it does not infer note text from the graph.
 
 The `line` fields identify the start line in the input file, including host-file line numbers. Bearing `sources` are Point line numbers. A target is `{ "kind": "point" | "bearing", "line": number }`. This fixture-only notation makes topology reviewable without freezing generated keys, prefixes, or numbering. It is not another public compiler format. References are resolved through each actual graph before comparison. Diagnostic messages, full spans, text preservation, and raw compiler output are checked by focused tests where relevant rather than copied into every expectation.
 

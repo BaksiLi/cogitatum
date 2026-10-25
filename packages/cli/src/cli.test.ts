@@ -28,6 +28,26 @@ afterAll(() => {
 });
 
 describe("cog CLI", () => {
+  it.each(["document", "host"] as const)("exports complete note ownership and literal content in %s mode", mode => {
+    const inquiry = "- [C @c] Claim.\n  - [G; @r] Reason.\n    - [bearing note] Here yesterday.\n      - [point @ignored] Literal.\n- [edge use @r]";
+    const source = mode === "host" ? "Prose.\n  ```cog\n" + inquiry.split("\n").map(line => "  " + line).join("\n") + "\n  ```" : inquiry;
+    const file = join(workingDirectory, "notes-export.md");
+    writeFileSync(file, source);
+    const result = runCli("export", "--input", mode, file);
+    expect(result.status).toBe(0);
+    expect(result.stderr).toBe("");
+    expect(JSON.parse(result.stdout)).toEqual(JSON.parse(JSON.stringify(explainSource(source, mode))));
+    expect(JSON.parse(result.stdout).graphs[0].notes).toHaveLength(1);
+    expect(readFileSync(file, "utf8")).toBe(source);
+    expect(runCli("export", "--format", "text", file).status).toBe(2);
+    expect(runCli("export", "--references", file).status).toBe(2);
+    writeFileSync(file, source.replace("[bearing note]", "[bearing note @bad]"));
+    const failed = runCli("export", "--input", mode, file);
+    expect(failed.status).toBe(1);
+    expect(JSON.parse(failed.stdout).graphs[0].notes).toEqual([]);
+    expect(JSON.parse(failed.stdout).diagnostics.map((d: { code: string }) => d.code)).toContain("MALFORMED_NOTE");
+  });
+
   it.each([
     ["document", "- [C @c] Claim.\r\n  - [G] Reason.", 2, 0],
     ["document", "- [C @c] Claim.\n  - [G] Reason \u2028 with \u2029 separators.\n    - [note] Literal \u2028 note.\n      - [G +> @missing] Inert.", 2, 0],
@@ -146,7 +166,7 @@ describe("cog CLI", () => {
     writeFileSync(join(workingDirectory, "--references"), "- [C @claim] A claim.");
     const result = runCli("check", "--", "--references");
     expect(result.status).toBe(0);
-    expect(JSON.parse(result.stdout)).toEqual({ version: "0.5.0", diagnostics: [] });
+    expect(JSON.parse(result.stdout)).toEqual({ version: "0.6.0", diagnostics: [] });
   });
 
   it("prints valid partial output and exits with failure after a misindented annotation", () => {
@@ -192,10 +212,10 @@ describe("cog CLI", () => {
     const version = runCli("--version");
 
     expect(help.status).toBe(0);
-    expect(help.stdout).toContain(`Cogitatum ${packageVersion} (format 0.5.0)`);
+    expect(help.stdout).toContain(`Cogitatum ${packageVersion} (format 0.6.0)`);
     expect(help.stdout).toContain("cog <command>");
     expect(version.status).toBe(0);
-    expect(version.stdout).toContain(`cog ${packageVersion} (format 0.5.0)`);
+    expect(version.stdout).toContain(`cog ${packageVersion} (format 0.6.0)`);
   });
 
   it.each(["document", "host"])("keeps parsing separate from reference validation in %s mode", mode => {
@@ -225,7 +245,7 @@ describe("cog CLI", () => {
     );
 
     expect(valid.status).toBe(0);
-    expect(JSON.parse(valid.stdout)).toMatchObject({ version: "0.5.0", diagnostics: [] });
+    expect(JSON.parse(valid.stdout)).toMatchObject({ version: "0.6.0", diagnostics: [] });
     expect(invalid.status).toBe(1);
     expect(JSON.parse(invalid.stdout).diagnostics).toEqual(
       expect.arrayContaining([expect.objectContaining({ code: "BEARING_HANDLE_WITHOUT_BEARING" })])

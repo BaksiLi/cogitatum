@@ -82,7 +82,11 @@ For habits that make a note easier to read and revise, see [writing style](writi
 
 ## Optional: use files and the CLI
 
-With Node.js 22.12 or newer, run the current CLI on your saved note:
+This checkout adds Point/Bearing aliases and `[. note]` / `[_ note]` in **0.6.0 / format 0.6.0**, not yet published.
+Use `npm ci`, `npm run build:public`, then `npm run cog:dist -- check inquiry.cog.md` to try the new syntax.
+Review the [0.5 migration](syntax.md#from-published-05) before upgrading saved source.
+
+With Node.js 22.12 or newer, the published 0.5 CLI remains available for 0.5 source:
 
 ```sh
 npx --package @cogitatum/cli@0.5.0 cog check inquiry.cog.md

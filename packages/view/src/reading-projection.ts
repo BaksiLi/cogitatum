@@ -1,13 +1,14 @@
 import { FORMAT_VERSION } from "@cogitatum/core";
 import type {
   AstBlock, Bearing, BearingRef, BearingTarget, Diagnostic, ExplainedSource,
-  ExplainEntry, ExplainRecognition, GraphIR, PointRef, SourceParseMode, SourceSpan
+  ExplainEntry, ExplainRecognition, GraphIR, ObjectNote, PointRef, SourceParseMode, SourceSpan
 } from "@cogitatum/core";
 import { referenceKey } from "./projection.js";
 
 export type ReadingReference =
   | { kind: "declares"; ref: PointRef; name?: string }
   | { kind: "uses"; ref: BearingTarget; name: string }
+  | { kind: "annotates"; ref: BearingTarget }
   | { kind: "constructs"; ref: BearingRef; name?: string };
 
 export type ReadingOccurrence = {
@@ -52,6 +53,14 @@ export type ReadingUnit = {
   graph: GraphIR;
   occurrences: ReadingOccurrence[];
   bearings: ReadingBearing[];
+  notes: ReadingNote[];
+};
+
+export type ReadingNote = {
+  record: ObjectNote;
+  occurrenceId: string;
+  /** Existing source occurrences, in source order; never relocated to a use. */
+  content: ReadingOccurrence[];
 };
 
 export type ReadingProjection = {
@@ -142,11 +151,14 @@ export function projectReading(source: string, explained: ExplainedSource): Read
           if (graph.bearings[effect.ref.graphIndex]?.key !== effect.ref.key) mismatch("Bearing index");
           reference = { kind: "constructs", ref: { kind: "bearing", key: effect.ref.key }, name: effect.ref.handle };
         }
+        if (effect.kind === "attachNote" && effect.note.origin === "note") {
+          reference = { kind: "annotates", ref: effect.note.target };
+        }
         if (reference) {
           const identity = referenceKey(reference.ref);
           if (!graphRefs.has(identity)) mismatch("emitted or focused entity missing from graph");
           occurrence.references.push(reference);
-          if (reference.kind !== "uses") {
+          if (reference.kind === "declares" || reference.kind === "constructs") {
             if (origins.has(identity)) mismatch("multiple entity origins");
             origins.set(identity, occurrence);
           }
@@ -203,7 +215,27 @@ export function projectReading(source: string, explained: ExplainedSource): Read
       } else target = endpoint(origin(bearing.target), bearing.target, "declaration");
       return { bearing, occurrenceId: occurrence.id, sources, target };
     });
-    return { graph, occurrences, bearings };
+    const noteOrigins = new Set(graph.notes.map(record => spanKey(record.sourceSpan)));
+    const attachedNotes = [...entryByOccurrence.values()].flatMap(entry => entry.effects.filter(effect => effect.kind === "attachNote"));
+    if (noteOrigins.size !== graph.notes.length || attachedNotes.length !== graph.notes.length) mismatch("incomplete or duplicate note evidence");
+    const notes = graph.notes.map((record): ReadingNote => {
+      const occurrence = bySpan.get(spanKey(record.sourceSpan));
+      if (!occurrence || !graphRefs.has(referenceKey(record.target))) mismatch("note source or target missing");
+      const effects = entryByOccurrence.get(occurrence!.id)?.effects;
+      if (!effects?.some(effect => effect.kind === "attachNote" &&
+        effect.note.origin === record.origin && sameRef(effect.note.target, record.target) &&
+        spanKey(effect.note.sourceSpan) === spanKey(record.sourceSpan))) mismatch("note / Explain disagreement");
+      const content = [occurrence!];
+      if (record.origin === "note") {
+        const index = occurrences.indexOf(occurrence!);
+        for (let i = index + 1; i < occurrences.length && occurrences[i].depth > occurrence!.depth; i++) {
+          if (occurrences[i].recognition.kind !== "literal") mismatch("active note descendant");
+          content.push(occurrences[i]);
+        }
+      }
+      return { record, occurrenceId: occurrence!.id, content };
+    });
+    return { graph, occurrences, bearings, notes };
   });
   const rows = lines.map((raw, index): ReadingOccurrence | ReadingSourceLine => occurrencesByLine.get(index + 1) ?? {
     kind: "source", line: index + 1, raw, unitIndex: unitByLine.get(index + 1), diagnostics: diagnosticsAt.get(index + 1) ?? []

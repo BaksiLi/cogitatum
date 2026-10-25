@@ -1,12 +1,12 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://cogitatum.baksili.codes/schemas/0.5.0/graph-ir.schema.json",
+  "$id": "https://cogitatum.baksili.codes/schemas/0.6.0/graph-ir.schema.json",
   "title": "Cogitatum Point-Bearing Graph IR",
-  "description": "Structural contract for a Graph IR projection. Cross-entity uniqueness, reference integrity, and agreement with source require compiler-level checks.",
+  "description": "Bounded graph projection. Notes link targets to source AST blocks; note prose and literal subtrees require the complete source envelope. Cross-entity uniqueness, reference integrity, and agreement with source require compiler-level checks.",
   "type": "object",
-  "required": ["version", "points", "bearings", "diagnostics"],
+  "required": ["version", "points", "bearings", "notes", "diagnostics"],
   "properties": {
-    "version": { "const": "0.5.0" },
+    "version": { "const": "0.6.0" },
     "points": {
       "type": "array",
       "items": { "$ref": "#/$defs/point" }
@@ -15,6 +15,10 @@
       "type": "array",
       "items": { "$ref": "#/$defs/bearing" }
     },
+    "notes": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/objectNote" }
+    },
     "diagnostics": {
       "type": "array",
       "items": { "$ref": "#/$defs/diagnostic" }
@@ -22,6 +26,21 @@
   },
   "additionalProperties": false,
   "$defs": {
+    "objectNote": {
+      "description": "A source-backed record, never a new graph entity. The sourceSpan locates the AST block owning the prose. Only note origins own a literal subtree; constructor-description origins own the header prose alone.",
+      "type": "object",
+      "required": ["origin", "target", "sourceSpan"],
+      "properties": {
+        "origin": { "enum": ["note", "constructor-description"] },
+        "target": { "oneOf": [{ "$ref": "#/$defs/pointRef" }, { "$ref": "#/$defs/bearingRef" }] },
+        "sourceSpan": { "$ref": "#/$defs/sourceSpan" }
+      },
+      "allOf": [{
+        "if": { "properties": { "origin": { "const": "constructor-description" } } },
+        "then": { "properties": { "target": { "$ref": "#/$defs/bearingRef" } } }
+      }],
+      "additionalProperties": false
+    },
     "sourceSpan": {
       "type": "object",
       "required": ["startLine", "startColumn", "endLine", "endColumn"],
@@ -131,7 +150,7 @@
             { "$ref": "#/$defs/bearingRef" }
           ]
         },
-        "text": { "type": "string", "minLength": 1 },
+        "text": { "type": "string", "minLength": 1, "description": "Derived only from this Bearing's accepted edge/linked constructor-description record, never from object-note prose." },
         "derivedBy": { "enum": ["operator", "structural"] },
         "sourceSpan": { "$ref": "#/$defs/sourceSpan" }
       },

@@ -2,7 +2,12 @@
 
 Cogitatum is a lightweight markup language for making selected reasoning structure explicit inside ordinary prose. This package provides its deterministic parser and compiler for Node.js and browsers.
 
-Version **0.5.0**, format **0.5.0**, with unified `challenges` and explicit authored target constraints.
+Checkout version **0.6.0**, format **0.6.0**, not yet published.
+`point` / `node` / `.` and `bearing` / `edge` / `_` share construction, use and local note operations.
+`[. note]` and `[_ note]` select the nearest context's Point or Bearing, with literal subtrees and no outward fallback.
+`GraphIR.notes` links each authored record to its resolved target and owning AST block.
+Complete `compileSource` / `explainSource` envelopes preserve the text and subtree; Graph IR alone omits note prose.
+Existing edge/linked descriptions use the same source ownership; `Bearing.text` derives only from the constructor's tail prose.
 `->` requires a Point and `/>` requires a Bearing; both emit `challenges` with a typed target.
 Named `challenges` accepts either target; named `undercuts` is rejected with migration guidance to `/>`.
 Explicit `edge` clauses can use any canonical kind name; Point-attached clauses retain the four symbolic operators.
@@ -23,7 +28,8 @@ The note header has an entry; its literal descendants do not.
 These line spans identify occurrences only within the current compilation; retain the exact original source and rebuild the projections after an edit.
 Keep shared content, occurrence notes, quoted source context and proposed reconstructions separate; retained original source plus AST/Explain is required for reading, not Graph IR alone.
 The historical npm `alpha` tag provides **0.3.0-alpha.1** without linked.
-Install the matching package to use the 0.5 API and syntax.
+The published package below uses the 0.5 API and syntax.
+Build this source checkout to try 0.6; do not send 0.6 notes to a 0.5 compiler.
 
 ```sh
 npm install @cogitatum/core@0.5.0
@@ -122,7 +128,7 @@ It also refuses an `edge` annotation that has neither an `operatorClause` nor a 
 
 `OperatorClause.op` holds the canonical selected `BearingKind`; edge sources are existing Point references, and self-sourced Point annotations admit only symbolic `BearingOp` kinds.
 Using a Point as an explicit source preserves its declaration metadata; indentation defaults do not add global role restrictions to explicit construction.
-Match the **0.5.0** schemas and compiler; format 0.4.0 JSON must be recompiled from retained source, not relabelled.
+Match the **0.6.0** schemas and compiler; older JSON must be recompiled from retained source, not relabelled.
 
 In 0.5, consumers branch on `bearing.kind === 'challenges'` and then `bearing.target.kind` to distinguish a Point challenge from a Bearing challenge.
 The resolved target does not recover the authored restriction: symbolic `/>` and named `challenges` can reach the same Bearing while only `/>` requires that target kind.
@@ -141,7 +147,8 @@ import sourceSchema from '@cogitatum/core/schemas/source' with { type: 'json' };
 
 `sourceSchema` covers the `parseSource`, `compileSource`, and `explainSource` result envelopes and refers to the AST, Graph IR, and Explain schemas by their `$id`.
 Load those sibling schemas from the same compiler bundle into a validator before compiling it.
-This bundle describes format 0.5.0; the published 0.4.12 bundle describes format 0.4.0.
+This bundle describes format 0.6.0; the published 0.5.0 bundle describes format 0.5.0.
+Published schemas are preserved in the source repository's `spec/0.5.0/`.
 The envelope keeps source units and projections in parallel arrays, paired by index.
 Schemas check data shapes; array alignment, reference integrity, and agreement with source remain compiler guarantees.
 Keys are opaque strings: their numbering is not an integration contract.
@@ -156,6 +163,7 @@ Read the [introduction](https://cogitatum.onesimos.net/docs/introduction), [synt
 `line` is one-based in the complete source and `mode` is `document` (default) or `host`.
 The operation inserts a symbolic target clause for an ordinary implicit support, challenge or relevance attachment to an already named Point.
 It preserves source prose and occurrence ownership as well as graph structure, while deliberately making future moves retain the explicit target.
+It also verifies that every object note retains its exact origin and resolved target.
 
 ```js
 import { previewExplicitTarget } from '@cogitatum/core';

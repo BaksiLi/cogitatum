@@ -3,6 +3,12 @@
 Experimental, framework-neutral Map and Reading views of compiler-produced Cogitatum structure.
 Core owns parsing and relation semantics; View owns presentation and temporary selection.
 Currently available from this checkout, not the published Core/CLI release.
+The 0.6 checkout requires matching Core/format 0.6 projections.
+Reading retains typed notes in source order and provides links to their original passages from declarations and uses.
+`ReadingUnit.notes` joins each Core note record to existing source occurrences; reuse creates no copied note.
+Map marks show typed note counts, and the block preview's details include their full content and source navigation.
+`Point.text` remains the primary content; constructor descriptions remain distinct from typed notes.
+Hosts using only `createGraphView` receive `GraphNode.noteCount` and must use the complete source/Reading projection to display note prose.
 
 ## Host code blocks
 

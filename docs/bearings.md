@@ -32,6 +32,13 @@ These are useful distinctions in reading, not new mutually exclusive families in
 
 Describe the method in ordinary prose or an `edge` description when it matters. This version has no inference-method annotation or subtype taxonomy. Future typed methods would need explicit definitions and a versioned contract; tools must not silently infer them from `supports`.
 
+For an indented Ground's attachment, put `[_ note]` beneath that Ground to explain the connection without naming or reconstructing it.
+`[. note]` at the same location annotates the Ground's Point; `[note]` stays local to the written occurrence.
+All three have literal subtrees.
+Use `[_ use @route]` to bring an existing route into context, then `[_ note]` to add a source-backed note on it.
+The full family spellings are `bearing` / `edge` / `_` and `point` / `node` / `.`, with the same construction, use and note grammar.
+See [local object notes](syntax.md#local-object-notes) for selection, provenance and failure boundaries.
+
 ```md cog-check require=supports points=2 bearings=1 diagnostics=0
 - [C @reading] The passage presents the speaker as uncertain.
 - [G @hesitation] The speaker interrupts and revises the same sentence twice.

@@ -181,6 +181,37 @@ try {
   assert.equal(await page.locator('.cog-block-detail-text').textContent(), '', 'A Bearing without prose clears an earlier plain fallback');
   assert.equal(await page.evaluate(() => window.renders.length), beforeInvalid);
   await page.evaluate(() => window.block.destroy());
+  for (const failMain of [false, true]) {
+    await page.evaluate(() => {
+      window.renders = [];
+      window.block = window.createBlockView(document.querySelector('#host'), {
+        renderProse: request => new Promise((resolve, reject) => { window.renders.push({ ...request, resolve, reject }); }),
+      });
+      window.block.update('- [C @p] Main.\n  - [. note] Note.\n    - [bearing @literal] Quoted.');
+    });
+    await page.getByRole('button', { name: 'Map', exact: true }).click();
+    const start = await page.evaluate(() => window.renders.length);
+    await page.locator('.cog-node.point').dispatchEvent('click', { detail: 0 });
+    assert.equal(await page.evaluate(() => window.renders.length), start + 3);
+    assert.equal(await page.locator('.cog-block-note-source').count(), 1);
+    await page.evaluate(async ([start, failMain]) => {
+      const [main, note, literal] = window.renders.slice(start);
+      note.container.textContent = 'Rendered note'; note.resolve(); await Promise.resolve();
+      if (failMain) main.reject(Error('Main renderer failed'));
+      else { main.container.textContent = 'Rendered main'; main.resolve(); }
+      await Promise.resolve();
+      literal.container.textContent = 'Rendered quotation'; literal.resolve(); await Promise.resolve();
+    }, [start, failMain]);
+    assert.equal(await page.locator('.cog-block-detail-prose').textContent(), failMain ? 'Main.' : 'Rendered main');
+    assert.equal(await page.locator('.cog-block-note-source').count(), 1, 'late main completion/fallback must not replace note controls');
+    assert.deepEqual(await page.locator('.cog-block-note-text').allTextContents(), ['Rendered note', 'Rendered quotation']);
+    await page.locator('.cog-block-note-source').click();
+    assert.equal(await page.locator('.cog-reading-row[data-line="2"]').getAttribute('data-selected'), 'true');
+    await page.evaluate(() => window.block.update('- [C] Fresh.'));
+    assert.equal(await page.evaluate(start => window.renders.slice(start, start + 3).every(request => request.signal.aborted), start), true);
+    assert.equal(await page.locator('.cog-block-note-source').count(), 0);
+    await page.evaluate(() => window.block.destroy());
+  }
   assert.deepEqual(errors, [], 'browser runtime errors');
-  console.log(`Prose browser checks passed: ${Object.keys(result).length} scope invariants; Map detail lifecycle, block markup and compact labels.`);
+  console.log(`Prose browser checks passed: ${Object.keys(result).length} scope invariants; Map detail lifecycle, asynchronous note isolation, block markup and compact labels.`);
 } finally { await browser.close(); }

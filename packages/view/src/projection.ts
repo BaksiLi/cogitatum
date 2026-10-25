@@ -1,4 +1,5 @@
 import type { BearingTarget, GraphIR, SourceSpan } from "@cogitatum/core";
+import { FORMAT_VERSION } from "@cogitatum/core";
 import { declarationMark } from "./marks.js";
 
 export type GraphNode = {
@@ -8,6 +9,7 @@ export type GraphNode = {
   label: string;
   text: string;
   sourceSpan?: SourceSpan;
+  noteCount?: number;
 };
 export type GraphLink = { source: string; target: string; bearingKey: string; segment: "input" | "output" };
 export type GraphProjection = { nodes: GraphNode[]; links: GraphLink[] };
@@ -16,6 +18,7 @@ export const referenceKey = (ref: BearingTarget): string => `${ref.kind}:${ref.k
 
 /** Incidence projection: a Bearing stays an addressable node, including joint sources. */
 export function projectGraph(graph: GraphIR): GraphProjection {
+  if (graph.version !== FORMAT_VERSION) throw new Error(`Unsupported graph format ${graph.version}; expected ${FORMAT_VERSION}. Recompile retained source.`);
   const nodes: GraphNode[] = [
     ...graph.points.map(p => ({ id: referenceKey({ kind: "point", key: p.key }), ref: { kind: "point" as const, key: p.key },
       name: p.id, label: declarationMark(p.declaration).label,
@@ -25,6 +28,13 @@ export function projectGraph(graph: GraphIR): GraphProjection {
   ];
   const ids = new Set(nodes.map(n => n.id));
   if (ids.size !== nodes.length) throw new Error("Graph has duplicate compilation keys.");
+  const noteCounts = new Map<string, number>();
+  for (const note of graph.notes) {
+    const id = referenceKey(note.target);
+    if (!ids.has(id)) throw new Error("Graph contains a dangling note target.");
+    if (note.origin === "note") noteCounts.set(id, (noteCounts.get(id) ?? 0) + 1);
+  }
+  for (const node of nodes) if (noteCounts.has(node.id)) node.noteCount = noteCounts.get(node.id);
   const links: GraphLink[] = graph.bearings.flatMap(b => [
     ...b.sources.map(p => ({ source: referenceKey(p), target: referenceKey({ kind: "bearing", key: b.key }), bearingKey: b.key, segment: "input" as const })),
     { source: referenceKey({ kind: "bearing", key: b.key }), target: referenceKey(b.target), bearingKey: b.key, segment: "output" as const }

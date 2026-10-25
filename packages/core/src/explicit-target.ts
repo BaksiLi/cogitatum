@@ -118,6 +118,9 @@ function preserves(before: ExplainedSource, after: ExplainedSource, unitIndex: n
   const changed = expectedGraphs[unitIndex].bearings.find(b => b.key === bearingKey);
   if (!changed) return false;
   changed.derivedBy = "operator";
+  // The supported insertion changes a Point header only. Every note origin and
+  // target must remain exact, even though that header's end column changes.
+  if (!same(before.graphs.map(graph => graph.notes), after.graphs.map(graph => graph.notes))) return false;
   if (!same(expectedGraphs.map(({ diagnostics: _d, ...graph }) => graph), after.graphs.map(({ diagnostics: _d, ...graph }) => graph), ["sourceSpan"])) return false;
   // Compiler messages can embed changed source columns. Retain their severity,
   // code and start location; expose both full diagnostic lists in the preview.

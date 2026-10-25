@@ -1,6 +1,13 @@
 {
   "fixtures": [
     {
+      "file": "core/object-note-ownership.cog.md",
+      "input": "document",
+      "purpose": "Typed notes retain source prose and literal subtrees, select local Point/attachment or reused Bearing, preserve equal-text records, and share constructor-description provenance without copying on use.",
+      "expected": "core/object-note-ownership.expected.json",
+      "notes": true
+    },
+    {
       "file": "core/bearing-reference-reading.cog.md",
       "input": "document",
       "purpose": "Point and Bearing reuse preserve shared content, source context, separate occurrence notes and recursive route discussion without replay or duplicate entities.",

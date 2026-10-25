@@ -4,6 +4,17 @@ import { compileSource } from "@cogitatum/core";
 import { focusNeighborhood, projectExploration, projectGraph, referenceKey } from "./projection.js";
 
 describe("faithful graph projection", () => {
+  it("makes object notes discoverable without changing graph topology or main content", () => {
+    const graph = compileSource("- [C @c] Claim.\n  - [. note] First.\n  - [. note] Same.\n  - [G; @r] Reason.\n    - [_ note] Route.\n- [_ use @r]").graphs[0];
+    const projected = projectGraph(graph);
+    expect(projected.nodes).toHaveLength(3);
+    expect(projected.links).toHaveLength(2);
+    expect(projected.nodes.find(node => node.name === "c")).toMatchObject({ text: "Claim.", noteCount: 2 });
+    expect(projectExploration(projected).inlineBearings[0]).toMatchObject({ name: "r", noteCount: 1 });
+    graph.notes[0].target.key = "missing";
+    expect(() => projectGraph(graph)).toThrow("dangling note target");
+  });
+
   it("keeps the typed endpoint when both content and route objections are challenges", () => {
     const graph = compileSource('- [C @c] Claim.\n  - [G; @route] Reason.\n- [O -> @c; @content] Content objection.\n- [O /> @route; @step] Step objection.', 'document').graphs[0];
     const topology = projectGraph(graph);
@@ -39,6 +50,10 @@ describe("faithful graph projection", () => {
   it("rejects corrupt graph endpoints instead of drawing an invented connection", () => {
     const graph = compileSource('- [C] A.\n  - [G] B.','document').graphs[0];
     graph.points.pop(); expect(()=>projectGraph(graph)).toThrow('dangling');
+  });
+  it("requires source recompilation across the published format boundary", () => {
+    const graph = compileSource("- [C] Claim.").graphs[0];
+    expect(() => projectGraph({ ...graph, version: "0.5.0" })).toThrow("Recompile retained source");
   });
 });
 
