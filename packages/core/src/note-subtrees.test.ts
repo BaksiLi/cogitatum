@@ -89,6 +89,6 @@ describe("literal note subtrees", () => {
   });
 
   it("retains layout errors inside literal notes", () => {
-    expect(compile("- [note]\n\t- [G] Literal.").graph.diagnostics.map(diagnostic => diagnostic.code)).toEqual(["TAB_INDENTATION_UNSUPPORTED"]);
+    expect(compile("- [note]\n  - Literal.\n\t- [G] Literal.").graph.diagnostics.map(diagnostic => diagnostic.code)).toEqual(["MIXED_INDENTATION"]);
   });
 });

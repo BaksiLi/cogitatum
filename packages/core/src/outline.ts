@@ -6,7 +6,7 @@ type RawNode = {
   line: ParsedLine;
   header: string;
   rawLines: string[];
-  continuationIndent: number;
+  continuationPrefix: string;
   text: string;
   annotationRaw?: string;
   indentationValid: boolean;
@@ -46,6 +46,9 @@ function parseRawOutline(
   const stack: RawNode[] = [];
   let continuation: RawNode | undefined;
   let blankLines: string[] = [];
+  // Only bullet indentation chooses the unit's style. Continuation padding
+  // belongs to the current block and does not introduce another outline level.
+  let unitIndentation: "\t" | " " | undefined;
   const lines = source.replace(/\r\n/g, "\n").split("\n");
   if (!Number.isSafeInteger(lineOffset + lines.length)) {
     throw new RangeError("lineOffset places source lines beyond the safe integer range.");
@@ -64,11 +67,10 @@ function parseRawOutline(
     // Lines are already split; Unicode separators inside prose remain content.
     const match = /^([ \t]*)-(\s+)(.*)$/s.exec(rawLine);
     if (!match) {
-      const indentation = /^[ \t]*/.exec(rawLine)![0];
-      if (continuation && !indentation.includes("\t") && indentation.length >= continuation.continuationIndent) {
+      if (continuation && rawLine.startsWith(continuation.continuationPrefix)) {
         // Only the most recent block can continue. Never reopen an ancestor
         // after a child: its prose would otherwise move ahead of that child.
-        continuation.text += "\n".repeat(blankLines.length + 1) + rawLine.slice(continuation.continuationIndent);
+        continuation.text += "\n".repeat(blankLines.length + 1) + rawLine.slice(continuation.continuationPrefix.length);
         continuation.rawLines.push(...blankLines, rawLine);
         continuation.sourceSpan.endLine = index + 1 + lineOffset;
         continuation.sourceSpan.endColumn = rawLine.length + 1 + columnOffset;
@@ -77,10 +79,8 @@ function parseRawOutline(
       }
       diagnostics.push({
         severity: "error",
-        code: indentation.includes("\t") ? "TAB_INDENTATION_UNSUPPORTED" : "UNSUPPORTED_LINE",
-        message: indentation.includes("\t")
-          ? "Cogitatum source-unit indentation must use spaces, not tabs."
-          : "Start a block with '- ', or indent a continuation to the preceding block's content column. A continuation cannot reopen an ancestor after a child.",
+        code: "UNSUPPORTED_LINE",
+        message: "Start a block with '- ', or continue the preceding block using its exact bullet indentation followed by spaces replacing the bullet marker and separator. A continuation cannot reopen an ancestor after a child.",
         sourceSpan: spanForLine(index + 1 + lineOffset, 1 + columnOffset, rawLine.length + 1 + columnOffset)
       });
       continuation = undefined;
@@ -95,12 +95,20 @@ function parseRawOutline(
     let indentationValid = true;
     let indentationDiagnostic: Diagnostic | undefined;
 
-    if (indentText.includes("\t")) {
+    const lineIndentation = indentText === "" ? undefined
+      : indentText.includes("\t") && indentText.includes(" ") ? "mixed"
+      : indentText[0] as "\t" | " ";
+    if (lineIndentation && lineIndentation !== "mixed" && !unitIndentation) {
+      unitIndentation = lineIndentation;
+    }
+    if (lineIndentation && lineIndentation !== unitIndentation) {
       indentationValid = false;
       indentationDiagnostic = {
         severity: "error",
-        code: "TAB_INDENTATION_UNSUPPORTED",
-        message: "Cogitatum source-unit indentation must use spaces, not tabs.",
+        code: "MIXED_INDENTATION",
+        message: lineIndentation === "mixed"
+          ? "This bullet's indentation mixes tabs and spaces. Use either tabs or spaces for bullet indentation throughout a Cogitatum source unit."
+          : `This source unit indents bullets with ${indentationName(unitIndentation!)}, but this bullet uses ${indentationName(lineIndentation)}. Use either tabs or spaces for bullet indentation throughout.`,
         sourceSpan: spanForLine(index + 1 + lineOffset, 1 + columnOffset, rawLine.length + 1 + columnOffset)
       };
     }
@@ -130,13 +138,14 @@ function parseRawOutline(
           indentationDiagnostic = unmatchedDedentDiagnostic(
             index + 1 + lineOffset,
             indent,
+            unitIndentation,
             rawLine.length,
             columnOffset
           );
         }
       } else if (indent !== 0 && !indentationDiagnostic) {
         indentationValid = false;
-        indentationDiagnostic = unmatchedDedentDiagnostic(index + 1 + lineOffset, indent, rawLine.length, columnOffset);
+        indentationDiagnostic = unmatchedDedentDiagnostic(index + 1 + lineOffset, indent, unitIndentation, rawLine.length, columnOffset);
       }
       parent = stack[stack.length - 1];
     }
@@ -175,7 +184,7 @@ function parseRawOutline(
       },
       header: content,
       rawLines: [rawLine],
-      continuationIndent: indent + 1 + match[2].length,
+      continuationPrefix: indentText + " ".repeat(1 + match[2].length),
       annotationRaw: annotationMatch?.[1],
       text: annotationMatch ? annotationMatch[2] : content,
       indentationValid,
@@ -201,15 +210,20 @@ function parseRawOutline(
 function unmatchedDedentDiagnostic(
   line: number,
   indent: number,
+  unitIndentation: "\t" | " " | undefined,
   lineLength: number,
   columnOffset: number
 ): Diagnostic {
   return {
     severity: "error",
     code: "UNMATCHED_DEDENT",
-    message: `Indentation of ${indent} spaces does not match a valid active outline level. Fix any earlier layout errors first, then align this block with an established level (or column 0 for a root).`,
+    message: `Indentation of ${indent} ${indentationName(unitIndentation ?? " ", indent)} does not match a valid active outline level. Fix any earlier layout errors first, then align this block with an established level (or column 0 for a root).`,
     sourceSpan: spanForLine(line, 1 + columnOffset, lineLength + 1 + columnOffset)
   };
+}
+
+function indentationName(indentation: "\t" | " ", count = 2): string {
+  return (indentation === "\t" ? "tab" : "space") + (count === 1 ? "" : "s");
 }
 
 function classifyMalformedAnnotationPrefix(content: string): "empty" | "unclosed" | undefined {

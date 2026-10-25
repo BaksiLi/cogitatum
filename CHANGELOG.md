@@ -40,6 +40,14 @@ The original published schemas remain unchanged in `spec/0.5.0/`.
   Selecting one of several alternative Bearings to a target shows that route, its sources and only the relations addressed to it, by Bearing identity.
   Keep the complete literal content of its object notes in focus along with their headers.
   Emphasis marks only what is being examined, adds no confidence or outcome state, and leaves source, Graph IR and the published contracts unchanged.
+- Accept hard tabs for bullet indentation, using one indentation character per source unit.
+  Continuations repeat their owning bullet's indentation and replace its marker and separator with spaces.
+  This content padding does not choose or change the outline's indentation style.
+  Retire `TAB_INDENTATION_UNSUPPORTED`; mixed bullet indentation fails closed with `MIXED_INDENTATION`.
+  The first indented bullet sets the style, so the diagnosed line and partial graph in a mixed unit can differ from 0.5.
+  This diagnostic and interpretation change is part of the 0.6 compatibility boundary.
+- Give the private Map ringed Point marks, host-sized captions and an optional traced entrance.
+  Tall maps open at reading scale; explicit Fit includes the whole drawing, and keyboard navigation reveals focused wording without scrolling the host.
 - Explain invalid outline levels before suggesting an independent explicit attachment.
   Preserve diagnostic codes, spans, partial graphs and failed-constructor boundaries.
 - Present typed Point references and Bearing summaries separately from prose in the private View.

@@ -27,6 +27,8 @@ Within a source unit, each nonliteral AST block has one Explain entry with the s
 The note header has an entry; its literal descendants do not.
 These line spans identify occurrences only within the current compilation; retain the exact original source and rebuild the projections after an edit.
 Indented nonbullet continuation lines extend the same block's content, including blank paragraphs.
+Bullet indentation uses one character per source unit, spaces or hard tabs.
+Continuations repeat the owning bullet's indentation and add spaces in place of its marker and separator; this padding does not choose the unit's indentation style.
 The complete Point content is shared at uses; use prose remains local, and note subtrees remain literal.
 AST text/raw use LF and spans include continuations but exclude children; annotation recognition is confined to the bullet header.
 Keep shared content, occurrence notes, quoted source context and proposed reconstructions separate; retained original source plus AST/Explain is required for reading, not Graph IR alone.

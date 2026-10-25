@@ -27,25 +27,26 @@ const bundle = await build({
   },
   bundle: true, write: false, format: 'iife', platform: 'browser', conditions: ['development'],
 });
-const source = [
+const sourceFor = indent => [
   '- [C @p] The method may work',
   '  only under the stated conditions.',
   '- [C @q] Check the method.',
-  '  - [G use @p; @r] This local use',
-  '    has a second line.',
-  '    - [_ note] A route explanation',
-  '      with another line.',
+  `${indent}- [G use @p; @r] This local use`,
+  `${indent}  has a second line.`,
+  `${indent.repeat(2)}- [_ note] A route explanation`,
+  `${indent.repeat(2)}  with another line.`,
   '',
-  '      And another paragraph.',
-  '      - [O @hidden] Literal syntax',
-  '        remains literal.',
-  '    - [O/] Check the conditions.'
+  `${indent.repeat(2)}  And another paragraph.`,
+  `${indent.repeat(3)}- [O @hidden] Literal syntax`,
+  `${indent.repeat(3)}  remains literal.`,
+  `${indent.repeat(2)}- [O/] Check the conditions.`
 ].join('\n');
 const browser = await chromium.launch();
 const errors = [];
 let checks = 0;
 try {
-  for (const width of [1280, 390]) {
+  for (const width of [1280, 390]) for (const indent of ['  ', '\t']) {
+    const source = sourceFor(indent);
     const page = await browser.newPage({ viewport: { width, height: 900 }, reducedMotion: 'reduce' });
     page.setDefaultTimeout(3000);
     page.on('pageerror', error => errors.push(`${width}px: ${error.message}`));
@@ -73,7 +74,7 @@ try {
     assert.equal(await row(10).getAttribute('data-related'), 'true', 'a selected note keeps its complete literal subtree in focus');
     assert.equal(await row(1).getAttribute('data-related'), 'false', 'note focus does not import the source Point declaration');
     assert.deepEqual(await page.evaluate(() => window.requests[0].sourceSpan), {
-      startLine: 6, startColumn: 7, endLine: 9, endColumn: source.split('\n')[8].length + 1
+      startLine: 6, startColumn: indent.length * 2 + 3, endLine: 9, endColumn: source.split('\n')[8].length + 1
     });
     await button('Map').click();
     const ref = await page.evaluate(() => window.refAt(4, 'bearing'));
@@ -87,7 +88,7 @@ try {
     assert.equal(await row(10).getAttribute('data-related'), 'true', 'Map note navigation retains the same complete annotation focus');
     await button('Edit').click();
     assert.deepEqual(await page.evaluate(() => window.requests.at(-1).sourceSpan), {
-      startLine: 6, startColumn: 7, endLine: 9, endColumn: source.split('\n')[8].length + 1
+      startLine: 6, startColumn: indent.length * 2 + 3, endLine: 9, endColumn: source.split('\n')[8].length + 1
     });
     checks++;
 
@@ -101,7 +102,7 @@ try {
     await page.close();
   }
   assert.deepEqual(errors, []);
-  console.log(`Multiline browser checks passed: ${checks} (desktop and mobile).`);
+  console.log(`Multiline browser checks passed: ${checks} (desktop and mobile, spaces and tabs).`);
 } finally {
   await browser.close();
 }

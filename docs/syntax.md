@@ -14,13 +14,24 @@ Examples, schemas, and conformance fixtures are checked against the implementati
 
 ## Outline and body
 
-Write a Markdown-style outline. Root blocks start at column one. Indent with spaces; a child can use any greater width, but a dedent must match an active ancestor level. Tabs, indented roots, and unmatched dedents are diagnosed and their apparent annotations are not compiled.
+Write a Markdown-style outline.
+Root blocks start at column one.
+Use spaces or hard tabs for bullet indentation, keeping one kind per source unit.
+With spaces, a child can use any greater width; with tabs, each tab counts as one indentation unit.
+A dedent must match an active ancestor level.
+The first indented bullet chooses the unit's indentation character.
+A later bullet using the other character, or mixing both in its own indentation, produces `MIXED_INDENTATION`.
+Mixed indentation, indented roots, and unmatched dedents are diagnosed and their apparent annotations are not compiled.
 Recognised annotations on those lines remain failed boundaries: implicit descendants cannot attach past them to an outer Point, while independent explicit relations and valid inner subtrees survive.
 
 Start each block with `- ` after its indentation.
 An annotation starts the block's content on that first line; unmarked content remains body.
-Continue a block on subsequent nonbullet lines indented at least to its content column, immediately after the bullet's separating spaces.
-That required indentation is removed from the content; additional spaces remain.
+Continue a block on subsequent nonbullet lines by repeating its exact bullet indentation,
+then replacing the marker and its separating whitespace with the same number of spaces.
+For the usual `- `, this means two spaces after the bullet's original indentation.
+This continuation prefix is removed from the content; additional whitespace remains as prose.
+Continuation padding never chooses or changes the unit's bullet indentation character.
+Source columns count UTF-16 code units, including one per tab, regardless of an editor's visual tab width.
 Blank lines between continuation lines separate paragraphs in the same block.
 A newline does not create a note, Point, or Bearing.
 
@@ -38,7 +49,7 @@ A newline does not create a note, Point, or Bearing.
 A new bullet starts a new block.
 Only the most recent block can continue; after a child bullet, prose cannot resume its ancestor's content.
 Use a new body bullet to continue the reading after children.
-Unindented or insufficiently indented nonbullet lines produce `UNSUPPORTED_LINE`; tabs in indentation are also rejected.
+Nonbullet lines without the required continuation prefix produce `UNSUPPORTED_LINE`.
 Annotations are recognised only on bullet headers: `[G]` on a continuation is prose, and a later `]` cannot close a broken header.
 Blank lines outside continued content do not produce blocks.
 The AST preserves block order, multiline content, raw block lines, body, and source spans; retain the original input for exact line endings.
@@ -49,6 +60,18 @@ This is a restricted outline parser, without Markdown lazy continuation or arbit
   - [C @claim] A claim.
     - An unmarked explanation.
       - [G] A selected reason.
+```
+
+Outlines copied from tools that indent with tabs, such as Logseq or Obsidian, compile to the same graph as their space-indented form:
+
+```md cog-check require=supports,challenges points=3 bearings=2 diagnostics=0
+- [C @claim] A claim.
+  This root continuation does not set the bullet indentation style.
+	- [G; @route] A reason, one tab deep.
+	  Its continuation repeats the tab, then two spaces.
+		- [_ note] A note on the supporting step.
+		  Its continuation repeats two tabs, then two spaces.
+	- [O] An objection at the same level.
 ```
 
 ## Annotation grammar
@@ -669,6 +692,18 @@ For a consumer upgrade:
 If only old Graph IR remains, the original source, local occurrence prose and authored target requirements cannot be recovered from it.
 Retain it as a historical snapshot for its matching consumer; changing `version` or renaming `undercuts` in JSON is not a supported upgrade.
 The [graph preservation limits](graph-inspection.md#what-structure-v1-preserves) explain why a graph migration alone cannot establish source or application compatibility.
+
+### Tab indentation in 0.6
+
+The 0.6 candidate accepts hard tabs for bullet indentation alongside multiline content.
+A source unit whose bullet indentation uses only tabs, previously rejected line by line with `TAB_INDENTATION_UNSUPPORTED`, now compiles.
+Space-only bullet indentation retains its rules.
+`TAB_INDENTATION_UNSUPPORTED` is retired and no longer emitted.
+A unit that mixes both characters in bullet indentation still fails closed at offending bullets,
+but reports `MIXED_INDENTATION`; consumers matching the old code must handle the new one.
+The first indented bullet chooses the style, so the diagnosed lines and surviving partial graph may differ from 0.5.
+Continuation padding is checked against its owning block, not against this unit-wide bullet rule.
+These diagnostic and source-interpretation changes are included in package and format 0.6.0; they are not a 0.5 patch.
 
 ### Earlier migrations
 
