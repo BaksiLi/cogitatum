@@ -14,6 +14,8 @@ export type GraphViewOptions = {
   direction?: "down" | "right";
   /** The host may additionally disable motion; system reduced-motion is always respected. */
   reducedMotion?: () => boolean;
+  /** Draw the first drawing in when it comes into view: points in reading order, then each line traced to its mark. */
+  entrance?: boolean;
   onSelect?: (node: GraphNode) => void;
   onClear?: () => void;
   onNavigate?: (node: GraphNode) => void;
@@ -32,7 +34,7 @@ export type GraphView = {
 const NS = "http://www.w3.org/2000/svg";
 const POINT_R = 9, JUNCTION_R = 10, LABEL_K = .6, DRAG_SLOP = 4, MIN_K = .3, MAX_K = 2.2;
 type Camera = { k: number; tx: number; ty: number };
-type Shape = { id: string; node: GraphNode; g: SVGGElement; label?: SVGTextElement; labelHit?: SVGRectElement; inline: boolean };
+type Shape = { id: string; node: GraphNode; g: SVGGElement; glyph?: SVGGElement; label?: SVGTextElement; labelHit?: SVGRectElement; inline: boolean };
 
 /**
  * Framework-neutral mount/update/destroy lifecycle. Positions live in a world space; the camera maps
@@ -53,7 +55,6 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
 
   let full: GraphProjection = { nodes: [], links: [] }, topology: GraphProjection = { nodes: [], links: [] };
   let inline = new Map<string, GraphLink>(), shapes = new Map<string, Shape>(), order: string[] = [];
-  let radii = new Map<string, number>();
   let world = new Map<string, Point2>(), camera: Camera = { k: 1, tx: 0, ty: 0 }, size = { w: 0, h: 0 };
   let scope = "", selected: string | undefined, hovered: string | undefined;
   let destroyed = false, cameraTouched = false, frame = 0, settleFrame = 0;
@@ -65,6 +66,14 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
   const reduced = () => !!options.reducedMotion?.() || !!win?.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
   const nodeById = (id?: string) => id ? full.nodes.find(node => node.id === id) : undefined;
   const screen = (p: Point2) => ({ x: p.x * camera.k + camera.tx, y: p.y * camera.k + camera.ty });
+
+  // ── entrance: once, the first time a drawing is seen, like a constellation being traced ──
+  // `pending` waits for the drawing to come into view; `began` is when tracing started.
+  const POINT_DELAY = 90, POINT_IN = 380, LINE_IN = 460;
+  let entrance: { pending: boolean; began: number } | undefined = options.entrance ? { pending: true, began: 0 } : undefined;
+  const entranceEase = (t: number) => t * t * t * (t * (6 * t - 15) + 10);
+  const entranceAt = (delay: number, length: number) =>
+    !entrance ? 1 : entrance.pending ? 0 : entranceEase(Math.max(0, Math.min(1, ((win?.performance.now() ?? 0) - entrance.began - delay) / length)));
 
   // ── text measurement (fixed CSS pixel sizes from the shared mark type scale) ──
   let measure: CanvasRenderingContext2D | null | undefined, font = "";
@@ -102,29 +111,19 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
     // Measure with the host's resolved text style so wrapping matches what is painted.
     const probe = element("text", { class: "cog-text" }, nodeLayer), style = win?.getComputedStyle(probe);
     font = `${style?.fontSize || `${MARK_TYPE.text}px`} ${style?.fontFamily || "serif"}`; probe.remove(); wrapCache.clear();
-    // A point's size is its magnitude, as a star's brightness is: the more of the argument flows into it
-    // (every point whose reasoning reaches it, through any route), the larger it is drawn. The scale is a square
-    // root, so a claim stands out without dwarfing its grounds; a leaf keeps a size its letter can sit in.
-    const into = new Map<string, string[]>();
-    for (const link of topology.links) into.set(link.target, [...into.get(link.target) ?? [], link.source]);
-    const isPointId = (id: string) => nodeById(id)?.ref.kind === "point";
-    const upstream = (id: string) => {
-      const seen = new Set<string>([id]), queue = [id];
-      for (let next = queue.pop(); next !== undefined; next = queue.pop()) for (const source of into.get(next) ?? []) if (!seen.has(source)) { seen.add(source); queue.push(source); }
-      return [...seen].filter(other => other !== id && isPointId(other)).length;
-    };
-    radii = new Map(topology.nodes.map(node => [node.id, Math.min(15, 8 + 2.2 * Math.sqrt(upstream(node.id)))]));
     for (const node of topology.nodes) {
-      const isPoint = node.ref.kind === "point", radius = radii.get(node.id) ?? POINT_R;
+      const isPoint = node.ref.kind === "point";
       const g = element("g", { class: `cog-node ${isPoint ? "point" : "bearing cog-junction-node"} cog-${node.label.replace("?", "-open")}`, role: "button", tabindex: "-1", "data-node": node.id }, nodeLayer);
       element("circle", { class: "cog-hit", r: isPoint ? "22" : "16" }, g);
-      element("circle", { class: "cog-focus-ring", r: isPoint ? String(radius + 6) : "16" }, g);
-      if (isPoint) drawPointGlyph(g, node.label, radius); else drawBearingGlyph(g, node.label, true, JUNCTION_R - 2.5);
+      const ring = element("circle", { class: "cog-focus-ring", r: isPoint ? "15" : "16" }, g);
+      // A point's glyph and focus ring scale together with the drawing; see pointScale.
+      const glyph = isPoint ? element("g", { class: "cog-point-scale" }, g) : undefined;
+      if (glyph) { glyph.append(ring); drawPointGlyph(glyph, node.label, POINT_R); } else drawBearingGlyph(g, node.label, true, JUNCTION_R - 2.5);
       // A junction's name sits beside its diamond, so links may enter it from below without detouring.
       const labelHit = element("rect", { class: "cog-hit cog-label-hit", width: "0", height: "0", "aria-hidden": "true" }, g);
       const label = element("text", { class: isPoint ? "cog-text" : "cog-label", "text-anchor": isPoint ? "middle" : "start" }, g);
       describe(g, node);
-      shapes.set(node.id, { id: node.id, node, g, label, labelHit, inline: false });
+      shapes.set(node.id, { id: node.id, node, g, glyph, label, labelHit, inline: false });
     }
     for (const [id] of inline) {
       const node = nodeById(id)!;
@@ -159,6 +158,10 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
   // At full scale or larger there is room between layers, so wording gets a reading measure: three lines at
   // up to 200px. A dense inquiry drawn smaller keeps the caption measure of two lines, so wording never meets a junction.
   const roomy = (k: number) => k >= .95;
+  // Points grow and shrink with the drawing, within bounds, so zooming in brings them closer as a whole;
+  // wording keeps its reading size. Every point is the same size at any one zoom.
+  const pointScale = (k = camera.k) => Math.max(.85, Math.min(1.45, k));
+  const pointR = (k = camera.k) => POINT_R * pointScale(k);
   const pointLabelWidth = (k: number) => roomy(k) ? Math.min(200, 200 * k - 14) : Math.max(96, Math.min(150, 168 * k - 14));
   function labelLines(shape: Shape, k = camera.k, focused = shape.id === selected || shape.id === hovered): string[] {
     const node = shape.node;
@@ -182,10 +185,10 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
    */
   function anchor(id: string, toward: Point2, port = 0): Point2 {
     const p = screen(world.get(id)!), shape = shapes.get(id);
-    const isPoint = shape?.node.ref.kind === "point", r = isPoint ? (radii.get(id) ?? POINT_R) + 2 : JUNCTION_R + 1;
+    const isPoint = shape?.node.ref.kind === "point", r = isPoint ? pointR() + 2 : JUNCTION_R + 1;
     if (isPoint && shape?.label && toward.y > p.y + r) {
       const lines = shape.label.childNodes.length;
-      return { x: p.x + port, y: p.y + (lines ? 14 + lines * MARK_TYPE.lineHeight : Math.sqrt(r * r - port * port)) };
+      return { x: p.x + port, y: p.y + (lines ? pointR() + 5 + lines * MARK_TYPE.lineHeight : Math.sqrt(r * r - port * port)) };
     }
     if (port && Math.abs(toward.y - p.y) > r) return { x: p.x + port, y: p.y + Math.sign(toward.y - p.y) * Math.sqrt(r * r - port * port) };
     const dx = toward.x - p.x, dy = toward.y - p.y, d = Math.hypot(dx, dy) || 1;
@@ -198,14 +201,22 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
     const focus = focusNeighborhood(full, nodeById(hovered ?? selected)?.ref);
     const related = new Set(focus.nodeIds), active = new Set(focus.bearingKeys), guided = related.size > 0;
     svg.dataset.guided = String(guided);
+    const rank = new Map(order.filter(id => !shapes.get(id)?.inline).map((id, index) => [id, index]));
+    const pointIn = (id: string) => entranceAt((rank.get(id) ?? 0) * POINT_DELAY, POINT_IN);
+    const lineIn = (source: string, target: string) => entranceAt(Math.max(rank.get(source) ?? 0, rank.get(target) ?? 0) * POINT_DELAY + POINT_IN * .6, LINE_IN);
     for (const shape of shapes.values()) {
       if (shape.inline) continue;
       const p = screen(world.get(shape.id)!);
+      const shown = pointIn(shape.id);
+      shape.g.style.opacity = entrance ? String(shown) : "";
+      if (shape.glyph) shape.glyph.style.scale = entrance ? String(.4 + .6 * shown) : "";
       shape.g.setAttribute("transform", `translate(${p.x.toFixed(1)} ${p.y.toFixed(1)})`);
       const lines = labelLines(shape), label = shape.label!;
       label.replaceChildren();
       const isPoint = shape.node.ref.kind === "point";
-      lines.forEach((text, i) => { const t = element("tspan", isPoint ? { x: "0", y: String(27 + i * MARK_TYPE.lineHeight) } : { x: String(JUNCTION_R + 5), y: "4" }, label); t.textContent = text; });
+      shape.glyph?.setAttribute("transform", `scale(${pointScale().toFixed(3)})`);
+      const top = pointR() + 18;
+      lines.forEach((text, i) => { const t = element("tspan", isPoint ? { x: "0", y: String(top + i * MARK_TYPE.lineHeight) } : { x: String(JUNCTION_R + 5), y: "4" }, label); t.textContent = text; });
       shape.g.dataset.related = String(!guided || related.has(shape.id));
     }
     edgeLayer.replaceChildren();
@@ -218,7 +229,7 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
         return { id: shape.id, x0: p.x - 13, x1: p.x + right, y0: p.y - 13, y1: p.y + 13 };
       }
       const half = lines ? Math.max(14, ...[...shape.label!.childNodes].map(t => textWidth(t.textContent ?? "") / 2 + 4)) : 13;
-      return { id: shape.id, x0: p.x - half, x1: p.x + half, y0: p.y - 13, y1: p.y + 14 + lines * MARK_TYPE.lineHeight };
+      return { id: shape.id, x0: p.x - half, x1: p.x + half, y0: p.y - pointR() - 4, y1: p.y + pointR() + 5 + lines * MARK_TYPE.lineHeight };
     });
     const at = (a: Point2, c1: Point2, c2: Point2, t: Point2, s: number) => {
       const u = 1 - s;
@@ -244,8 +255,7 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
     }));
     for (const [side, list] of sides) {
       if (list.length < 2) continue;
-      const sideId = side.split("|")[0];
-      const r = nodeById(sideId)?.ref.kind === "point" ? radii.get(sideId) ?? POINT_R : JUNCTION_R - 2;
+      const r = nodeById(side.split("|")[0])?.ref.kind === "point" ? pointR() : JUNCTION_R - 2;
       const spacing = Math.min(4, (r * 1.4) / (list.length - 1));
       list.sort((a, b) => a.x - b.x).forEach((item, i) => ports.set(item.key, (i - (list.length - 1) / 2) * spacing));
     }
@@ -262,7 +272,8 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
         if (!bend && Math.abs(dy) > 24) {
           const h = Math.sign(dy) * Math.max(Math.abs(dy) * .5, Math.min(60, Math.abs(dx) * .3));
           // Fanned ends splay along their port so neighbouring tails part at once instead of running parallel.
-          return [{ x: a.x + tail * 4, y: a.y + h }, { x: t.x + head * 4, y: t.y - h }];
+          // The head end arrives straight, so every arrowhead sits square to its mark.
+          return [{ x: a.x + tail * 4, y: a.y + h }, { x: t.x, y: t.y - h }];
         }
         const c = { x: (a.x + t.x) / 2 - dy / len * bend * len, y: (a.y + t.y) / 2 + dx / len * bend * len };
         return [c, c];
@@ -278,17 +289,25 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
       }
       const d = `M${a.x.toFixed(1)} ${a.y.toFixed(1)}C${c1.x.toFixed(1)} ${c1.y.toFixed(1)} ${c2.x.toFixed(1)} ${c2.y.toFixed(1)} ${t.x.toFixed(1)} ${t.y.toFixed(1)}`;
       const on = !guided || active.has(link.bearingKey);
-      element("path", { d, class: `cog-link ${link.segment} cog-tone-${mark.tone}${mark.dashed ? " cog-dashed" : ""}`, "data-active": String(on), "data-bearing": link.bearingKey, "aria-hidden": "true" }, edgeLayer);
+      const path = element("path", { d, class: `cog-link ${link.segment} cog-tone-${mark.tone}${mark.dashed ? " cog-dashed" : ""}`, "data-active": String(on), "data-bearing": link.bearingKey, "aria-hidden": "true" }, edgeLayer);
+      const traced = lineIn(link.source, link.target);
+      if (entrance && traced < 1) {
+        // Traced from its source to its mark; a dashed relation simply fades in, keeping its dashes.
+        if (mark.dashed) path.style.opacity = String(traced);
+        else { path.setAttribute("pathLength", "1"); path.style.strokeDasharray = "1 1"; path.style.strokeDashoffset = String(1 - traced); }
+      }
       if (link.segment === "output") {
         const hx = t.x - c2.x, hy = t.y - c2.y, hl = Math.hypot(hx, hy) || 1, ux = hx / hl, uy = hy / hl;
-        element("path", { class: `cog-arrow cog-tone-${mark.tone}`, "data-active": String(on), "aria-hidden": "true",
+        const head = element("path", { class: `cog-arrow cog-tone-${mark.tone}`, "data-active": String(on), "aria-hidden": "true",
           d: `M${t.x} ${t.y}L${t.x - ux * 7 - uy * 3.4} ${t.y - uy * 7 + ux * 3.4}L${t.x - ux * 7 + uy * 3.4} ${t.y - uy * 7 - ux * 3.4}Z` }, edgeLayer);
+        if (entrance) head.style.opacity = String(Math.max(0, traced * 4 - 3));
       }
       if (isInline) {
         element("path", { d, class: "cog-link-hit", "data-node": bearingId, "aria-hidden": "true" }, edgeLayer);
         const m = { x: .125 * a.x + .375 * c1.x + .375 * c2.x + .125 * t.x, y: .125 * a.y + .375 * c1.y + .375 * c2.y + .125 * t.y };
         const shape = shapes.get(bearingId)!;
         shape.g.setAttribute("transform", `translate(${m.x.toFixed(1)} ${m.y.toFixed(1)})`);
+        shape.g.style.opacity = entrance ? String(traced) : "";
         shape.g.dataset.related = String(!guided || related.has(bearingId));
       }
     });
@@ -311,6 +330,11 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
         ? { x: bounds.x - 4, y: bounds.y - 4, width: bounds.width + 8, height: bounds.height + 8 }
         : { x: 0, y: 0, width: 0, height: 0 };
       for (const [name, value] of Object.entries(box)) hit.setAttribute(name, String(value));
+    }
+    if (entrance && !entrance.pending) {
+      const last = Math.max(0, rank.size - 1) * POINT_DELAY + POINT_IN * .6 + LINE_IN;
+      if ((win?.performance.now() ?? Infinity) - entrance.began >= last) { entrance = undefined; schedule(); }
+      else schedule();
     }
   }
   const schedule = () => { if (!frame && !destroyed) frame = win?.requestAnimationFrame(paint) ?? (paint(), 0); };
@@ -533,6 +557,22 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
   observer?.observe(svg);
   const measureSize = () => { const r = svg.getBoundingClientRect(); if (r.width && r.height) size = { w: r.width, h: r.height }; };
 
+  // The entrance starts the first time the drawing is on screen with something in it; reduced motion skips it.
+  let sighted = false;
+  const beginEntrance = () => {
+    if (!entrance?.pending || !sighted || !shapes.size) return;
+    sighting?.disconnect();
+    if (reduced()) { entrance = undefined; schedule(); return; }
+    entrance = { pending: false, began: win?.performance.now() ?? 0 };
+    schedule();
+  };
+  const sighting = entrance && win && "IntersectionObserver" in win
+    ? new win.IntersectionObserver(entries => { sighted = entries.some(entry => entry.isIntersecting); beginEntrance(); }, { threshold: .35 })
+    : undefined;
+  if (entrance && !sighting) entrance = undefined;
+  sighting?.observe(svg);
+  abort.signal.addEventListener("abort", () => sighting?.disconnect());
+
   const view: GraphView = {
     update(graph, nextScope) {
       if (destroyed) throw new Error("This graph view has been destroyed.");
@@ -564,6 +604,7 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
         world = new Map(topology.nodes.map(node => [node.id, { ...(carried.get(positionKey(node)) ?? next.get(node.id)!) }]));
         moveTo(next, needsRefit(next));
       }
+      beginEntrance();
       if (retained) options.onSelect?.(retained); else options.onClear?.();
       if (hadFocus) (svg.querySelector<SVGGElement>('[tabindex="0"]'))?.focus({ preventScroll: true });
     },
