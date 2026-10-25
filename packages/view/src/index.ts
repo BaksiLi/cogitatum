@@ -112,8 +112,10 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
     nodeLayer.replaceChildren(); glyphLayer.replaceChildren(); shapes = new Map();
     // Measure with the host's resolved text style so wrapping matches what is painted.
     const probe = element("text", { class: "cog-text" }, nodeLayer), style = win?.getComputedStyle(probe);
-    font = `${style?.fontSize || `${MARK_TYPE.text}px`} ${style?.fontFamily || "serif"}`; probe.remove(); wrapCache.clear();
-    lineHeight = Math.max(MARK_TYPE.lineHeight, Math.round((parseFloat(style?.fontSize ?? "") || MARK_TYPE.text) * 1.28));
+    const fontSize = style?.fontSize || `${MARK_TYPE.text}px`;
+    font = `${fontSize} ${style?.fontFamily || "serif"}`;
+    lineHeight = Math.max(MARK_TYPE.lineHeight, Math.round(parseFloat(fontSize) * 1.28));
+    probe.remove(); wrapCache.clear();
     for (const node of topology.nodes) {
       const isPoint = node.ref.kind === "point";
       const g = element("g", { class: `cog-node ${isPoint ? "point" : "bearing cog-junction-node"} cog-${node.label.replace("?", "-open")}`, role: "button", tabindex: "-1", "data-node": node.id }, nodeLayer);
@@ -353,7 +355,7 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
     const xs = ps.map(p => p.x), ys = ps.map(p => p.y);
     return { x: Math.min(...xs), y: Math.min(...ys), w: Math.max(1, Math.max(...xs) - Math.min(...xs)), h: Math.max(1, Math.max(...ys) - Math.min(...ys)) };
   }
-  function fitCamera(): Camera {
+  function fitCamera(readingScale = true): Camera {
     // Wording keeps its pixel size while the drawing scales, so the fit must include it:
     // the widest scale at which every mark keeps `room` for links bowing around it and its wording stays inside.
     // Below LABEL_K the wording disappears, so a wide inquiry falls back to an unlabelled overview.
@@ -370,21 +372,34 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
     const fits = (k: number) => { const s = span(k); return s.x1 - s.x0 <= size.w; };
     // A small inquiry may be drawn larger than life so it fills its frame; text keeps its size.
     // A tall one in a full panel is not shrunk past reading: it opens on its conclusion at the top, worded,
-    // and pans down. A small frame keeps the whole drawing in view.
-    const floor = size.w >= 600 && size.h >= 480 ? READ_K : MIN_K;
+    // and pans down. Explicit Fit instead includes the whole map, even below the manual zoom limit.
+    const floor = readingScale ? (size.w >= 600 && size.h >= 480 ? READ_K : MIN_K) : 0;
     let k = Math.max(floor, Math.min(1.6, (size.h - padTop - padBottom) / b.h));
     if (!fits(k)) {
-      let lo = MIN_K, hi = k;
+      let lo = readingScale ? MIN_K : 0, hi = k;
       for (let i = 0; i < 14; i++) { const mid = (lo + hi) / 2; if (fits(mid)) lo = mid; else hi = mid; }
       k = lo;
     }
     const s = span(k);
     return { k, tx: (size.w - (s.x1 - s.x0)) / 2 - s.x0, ty: Math.max(padTop, (size.h - padBottom + padTop - b.h * k) / 2) - b.y * k };
   }
-  function fit(): void { cameraTouched = false; camera = fitCamera(); schedule(); }
+  function fit(): void { stopMotion(); cameraTouched = true; camera = fitCamera(false); schedule(); }
   function zoomAt(factor: number, x: number, y: number): void {
-    const k = Math.max(MIN_K, Math.min(MAX_K, camera.k * factor));
+    // Fit may use a smaller scale than manual zoom; zooming out must never jump inward from it.
+    const k = Math.max(Math.min(MIN_K, camera.k), Math.min(MAX_K, camera.k * factor));
     camera = { k, tx: x - (x - camera.tx) * (k / camera.k), ty: y - (y - camera.ty) * (k / camera.k) };
+    cameraTouched = true; schedule();
+  }
+  /** Keep the focused mark and its wording visible without changing zoom or scrolling the host. */
+  function revealShape(shape: Shape): void {
+    const box = shape.g.getBoundingClientRect(), viewport = svg.getBoundingClientRect(), margin = 16;
+    if (!viewport.width || !viewport.height) return;
+    const shift = (start: number, end: number, low: number, high: number) =>
+      end - start > high - low ? (low + high - start - end) / 2 : start < low ? low - start : end > high ? high - end : 0;
+    const dx = shift(box.left, box.right, viewport.left + margin, viewport.right - margin);
+    const dy = shift(box.top, box.bottom, viewport.top + margin, viewport.bottom - margin);
+    if (!dx && !dy) return;
+    camera = { ...camera, tx: camera.tx + dx, ty: camera.ty + dy };
     cameraTouched = true; schedule();
   }
   /** Re-frame when new content would no longer read inside the current view. */
@@ -532,7 +547,13 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
     if (!(event.ctrlKey || event.metaKey)) return; // ordinary wheel scrolls the host page
     event.preventDefault(); const p = local(event); zoomAt(Math.exp(-event.deltaY * .01), p.x, p.y);
   }, { passive: false, signal: abort.signal });
-  svg.addEventListener("focusin", event => { const id = (event.target as Element).closest<SVGElement>("[data-node]")?.dataset.node; if (id !== hovered) { hovered = id; schedule(); } }, on);
+  svg.addEventListener("focusin", event => {
+    const id = (event.target as Element).closest<SVGElement>("[data-node]")?.dataset.node, shape = id && shapes.get(id);
+    if (!shape) return;
+    stopMotion(); hovered = id;
+    if (frame) { win?.cancelAnimationFrame(frame); frame = 0; }
+    paint(); revealShape(shape);
+  }, on);
   svg.addEventListener("focusout", () => { hovered = undefined; schedule(); }, on);
   svg.addEventListener("keydown", event => {
     const id = (event.target as Element).closest<SVGElement>("[data-node]")?.dataset.node;
@@ -542,7 +563,7 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
       event.preventDefault();
       const p = world.get(id)!, step = 20 / camera.k;
       const next = { x: p.x + (event.key === "ArrowLeft" ? -step : event.key === "ArrowRight" ? step : 0), y: p.y + (event.key === "ArrowUp" ? -step : event.key === "ArrowDown" ? step : 0) };
-      moveNode(node, next, false); select(id); return;
+      moveNode(node, next, false); select(id); revealShape(shape); return;
     }
     if (event.key === "Enter") { event.preventDefault(); select(id); options.onNavigate?.(node); }
     else if (event.key === " ") { event.preventDefault(); select(id); }

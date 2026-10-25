@@ -278,12 +278,87 @@ try {
     });
     assert.deepEqual(contract, { rejected: true, silent: true });
     assert.equal(await page.locator('#reading [aria-pressed="true"]').count(), 0, 'an unknown occurrence clears rather than guessing');
+
+    const chain = count => Array.from({ length: count }, (_, i) =>
+      `${'  '.repeat(i)}- [${i ? 'G' : 'C'}] Point ${i + 1} has wording that wraps over several lines.`).join('\n');
+    const mapGeometry = () => page.locator('#map svg').evaluate(svg => {
+      const box = svg.getBoundingClientRect();
+      const rect = node => {
+        const r = node.getBoundingClientRect();
+        return { left: r.left - box.left, right: r.right - box.left, top: r.top - box.top, bottom: r.bottom - box.top };
+      };
+      const points = [...svg.querySelectorAll('.cog-node.point')];
+      return {
+        width: box.width, height: box.height,
+        points: points.map(rect),
+        positions: points.map(node => node.getAttribute('transform')),
+        nodes: [...svg.querySelectorAll('.cog-node')].map(rect),
+        spacing: points[1]?.transform.baseVal.consolidate().matrix.f - points[0]?.transform.baseVal.consolidate().matrix.f,
+        focused: svg.contains(document.activeElement) ? rect(document.activeElement) : undefined,
+      };
+    });
+    const assertInside = (rect, map, message) => assert.ok(
+      rect.left >= -1 && rect.right <= map.width + 1 && rect.top >= -1 && rect.bottom <= map.height + 1,
+      `${message}: ${JSON.stringify(rect)} inside ${map.width} × ${map.height}`
+    );
+    await mount(chain(10));
+    const opening = await mapGeometry();
+    if (width > 600) {
+      assert.ok(opening.spacing > 100, 'a tall Map initially retains reading scale');
+      assert.ok(opening.points.at(-1).bottom > opening.height, 'the opening is a readable crop, not the overview');
+    }
+    await page.locator('#map .cog-node.point').first().focus(); await flush();
+    assert.deepEqual((await mapGeometry()).positions, opening.positions, 'focusing a visible mark leaves the camera in place');
+    const scroll = await page.evaluate(() => scrollY);
+    const steps = await page.locator('#map .cog-node').count();
+    // Include the wrap back to the first mark, revealing both ends of the tall drawing.
+    for (let i = 0; i < steps; i++) {
+      await page.keyboard.press('ArrowDown'); await flush();
+      const map = await mapGeometry();
+      assertInside(map.focused, map, 'keyboard focus and its wording stay in the Map');
+      assert.ok(Math.abs(map.spacing - opening.spacing) < .2, 'keyboard reveal pans without changing zoom');
+      assert.equal(await page.evaluate(() => scrollY), scroll, 'keyboard reveal does not scroll the host');
+    }
+    await page.keyboard.press('Alt+ArrowUp'); await flush();
+    const moved = await mapGeometry();
+    assertInside(moved.focused, moved, 'keyboard arrangement also reveals the moved mark');
+
+    await page.locator('#before').focus();
+    // This chain needs a scale below the manual zoom minimum to fit in either viewport.
+    await mount(chain(30));
+    await page.evaluate(() => window.views.map.fit()); await flush();
+    const overview = await mapGeometry();
+    for (const node of overview.nodes) assertInside(node, overview, 'explicit Fit includes every Point and Bearing');
+    await page.evaluate(() => window.views.map.zoom(.8)); await flush();
+    const zoomedOut = await mapGeometry();
+    assert.ok(zoomedOut.spacing <= overview.spacing + .1, 'Zoom out never zooms in from a fitted overview');
+    await page.evaluate(() => window.views.map.zoom(1.25)); await flush();
+    const zoomedIn = await mapGeometry();
+    assert.ok(zoomedIn.spacing > zoomedOut.spacing + .1, 'Zoom in increases scale from a fitted overview');
+    await page.evaluate(() => window.views.map.resetLayout()); await flush();
+    const reset = await mapGeometry();
+    assert.ok(reset.spacing > overview.spacing * 2, 'Arrange restores the reading-scale opening');
+
+    for (const fontSize of [16, 24]) {
+      const style = await page.addStyleTag({ content: `#map .cog-text { font-size: ${fontSize}px; }` });
+      await mount('- [C] A long passage with enough wording to occupy three lines in the graph caption, so the host font determines their spacing.');
+      const lines = await page.locator('#map .cog-text tspan').evaluateAll(nodes => nodes.map(node => ({
+        baseline: Number(node.getAttribute('y')), top: node.getBoundingClientRect().top, bottom: node.getBoundingClientRect().bottom,
+      })));
+      assert.equal(lines.length, 3);
+      for (let i = 1; i < lines.length; i++) {
+        assert.ok(Math.abs(lines[i].baseline - lines[i - 1].baseline - Math.round(fontSize * 1.28)) < .01,
+          'label baselines use the attached probe’s host font size');
+        assert.ok(lines[i].top >= lines[i - 1].bottom, 'larger host fonts do not overlap adjacent caption lines');
+      }
+      await style.evaluate(node => node.remove());
+    }
     await page.evaluate(() => { window.views.reading.destroy(); window.views.map.destroy(); });
     assert.equal(await page.locator('.cog-reading, .cog-graph').count(), 0);
     await page.close(); runs++;
   }
   assert.deepEqual(errors, []);
-  console.log(`View selection browser checks passed: ${runs} viewports; occurrence echoes, keyboard refs, focus, assistive clicks, partial compilation, cycles, duplicate Bearings, unit scope and cleanup.`);
+  console.log(`View selection browser checks passed: ${runs} viewports; occurrence echoes, keyboard refs, Map Fit and focus reveal, host typography, assistive clicks, partial compilation, cycles, duplicate Bearings, unit scope and cleanup.`);
 } finally {
   await browser.close();
 }
