@@ -69,6 +69,9 @@ try {
 
     await row(6).focus();
     await page.keyboard.press('Enter');
+    assert.equal(await row(6).getAttribute('data-related'), 'true');
+    assert.equal(await row(10).getAttribute('data-related'), 'true', 'a selected note keeps its complete literal subtree in focus');
+    assert.equal(await row(1).getAttribute('data-related'), 'false', 'note focus does not import the source Point declaration');
     assert.deepEqual(await page.evaluate(() => window.requests[0].sourceSpan), {
       startLine: 6, startColumn: 7, endLine: 9, endColumn: source.split('\n')[8].length + 1
     });
@@ -81,6 +84,7 @@ try {
     assert.match(await details.textContent(), /\[O @hidden\] Literal syntax\nremains literal\./);
     await details.getByRole('button', { name: 'Note · line 6', exact: true }).click();
     assert.equal(await row(6).getAttribute('data-selected'), 'true');
+    assert.equal(await row(10).getAttribute('data-related'), 'true', 'Map note navigation retains the same complete annotation focus');
     await button('Edit').click();
     assert.deepEqual(await page.evaluate(() => window.requests.at(-1).sourceSpan), {
       startLine: 6, startColumn: 7, endLine: 9, endColumn: source.split('\n')[8].length + 1

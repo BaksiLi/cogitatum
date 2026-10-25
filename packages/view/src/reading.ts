@@ -111,6 +111,9 @@ export function createReadingView(container: HTMLElement, options: ReadingViewOp
       relevant.add(bearing.occurrenceId); relevant.add(bearing.target.occurrenceId);
       bearing.sources.forEach(source => relevant.add(source.occurrenceId));
     }
+    if (active?.ref) for (const note of projection?.units[active.unitIndex].notes ?? []) {
+      if (sameRef(note.record.target, active.ref)) note.content.forEach(content => relevant.add(content.id));
+    }
     root.dataset.guided = String(!!active?.ref);
     for (const [id, row] of rows) {
       const same = row.occurrence.unitIndex === active?.unitIndex &&

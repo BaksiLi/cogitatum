@@ -181,6 +181,7 @@ Up/Down and Home/End move through occurrences in source order; Left/Right choose
 Space selects, Enter or double-click navigates to source, and Escape clears.
 Each row is a focusable group with a separate selection control; prose links and native controls retain their own mouse and keyboard behavior.
 Selection guides the same immediate neighborhood as Map, and hover/focus preview it only while nothing with a graph reference is selected; it does not infer a chain or hide the remaining source.
+Object notes on the focused Point or Bearing keep their complete literal subtrees in that emphasis, without creating extra graph references.
 An occurrence ID, unit index and typed key address only the current projection.
 `update` clears occurrence selection and calls `onClear`; it never carries a local occurrence across edits by line number or generated key.
 Call `update` on Reading before updating the Map if the host then wants to restore a named Map selection.
