@@ -69,9 +69,10 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
 
   // ── entrance: once, the first time a drawing is seen, like a constellation being traced ──
   // `pending` waits for the drawing to come into view; `began` is when tracing started.
-  const POINT_DELAY = 90, POINT_IN = 380, LINE_IN = 460;
+  const POINT_DELAY = 110, POINT_IN = 520, LINE_IN = 640;
   let entrance: { pending: boolean; began: number } | undefined = options.entrance ? { pending: true, began: 0 } : undefined;
-  const entranceEase = (t: number) => t * t * t * (t * (6 * t - 15) + 10);
+  // Each point and line starts at once and settles slowly, as a pen sets down and a star steadies (quartic ease-out).
+  const entranceEase = (t: number) => 1 - (1 - t) ** 4;
   const entranceAt = (delay: number, length: number) =>
     !entrance ? 1 : entrance.pending ? 0 : entranceEase(Math.max(0, Math.min(1, ((win?.performance.now() ?? 0) - entrance.began - delay) / length)));
 
