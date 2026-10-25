@@ -10,7 +10,7 @@
   "files": ["dist/*.js", "dist/*.d.ts", "dist/*.js.map", "dist/style.css", "src/*.ts", "src/style.css", "!src/*.test.ts"],
   "scripts": {
     "build": "tsc -b && node -e \"require('node:fs').copyFileSync('src/style.css','dist/style.css')\"",
-    "test:browser": "node tests/selection.browser.mjs && node tests/block.browser.mjs && node tests/prose.browser.mjs",
+    "test:browser": "node tests/selection.browser.mjs && node tests/block.browser.mjs && node tests/prose.browser.mjs && node tests/multiline.browser.mjs",
     "prepack": "npm run build"
   },
   "dependencies": { "@cogitatum/core": "0.6.0" },

@@ -19,6 +19,7 @@ export type ReadingOccurrence = {
   line: number;
   depth: number;
   sourceSpan: SourceSpan;
+  /** Original physical lines for this occurrence, joined with LF. */
   raw: string;
   text: string;
   recognition: ExplainRecognition | { kind: "literal" };
@@ -95,6 +96,7 @@ export function projectReading(source: string, explained: ExplainedSource): Read
     if (line !== undefined) diagnosticsAt.set(line, [...diagnosticsAt.get(line) ?? [], diagnostic]);
   }
   const occurrencesByLine = new Map<number, ReadingOccurrence>();
+  const continuationLines = new Set<number>();
   const unitByLine = new Map<number, number>();
   const units = explained.units.map((unit, unitIndex): ReadingUnit => {
     const document = explained.documents[unitIndex], graph = explained.graphs[unitIndex];
@@ -126,20 +128,30 @@ export function projectReading(source: string, explained: ExplainedSource): Read
     if (graphRefs.size !== graph.points.length + graph.bearings.length) mismatch("duplicate graph identities");
     const origins = new Map<string, ReadingOccurrence>();
     const bySpan = new Map<string, ReadingOccurrence>();
+    const unitLines = unit.source.replace(/\r\n/g, "\n").split("\n");
     function visit(block: AstBlock, depth: number, literal: boolean): void {
       const span = block.sourceSpan, key = spanKey(span);
       const entry = entries.get(key);
       if (literal ? !!entry : !entry) mismatch("AST / Explain occurrence correspondence");
-      const line = lines[span.startLine - 1];
-      const content = /^[ \t]*-\s+(.*)$/s.exec(block.raw)?.[1];
-      if (span.startLine !== span.endLine || content === undefined ||
-        line?.slice(span.startColumn - 1, span.endColumn - 1) !== content) mismatch("occurrence span or source changed");
-      if (occurrencesByLine.has(span.startLine)) mismatch("duplicate occurrence line");
+      const original = lines.slice(span.startLine - 1, span.endLine);
+      const rawLines = block.raw.split("\n");
+      const content = /^[ \t]*-\s+(.*)$/s.exec(rawLines[0])?.[1];
+      if (span.startLine < unit.startLine || span.endLine > unit.endLine || span.endLine < span.startLine ||
+        rawLines.length !== original.length || content === undefined ||
+        original[0]?.slice(span.startColumn - 1) !== content ||
+        span.endColumn !== original.at(-1)!.length + 1 ||
+        unitLines.slice(span.startLine - unit.startLine, span.endLine - unit.startLine + 1).join("\n") !== block.raw) {
+        mismatch("occurrence span or source changed");
+      }
+      for (let line = span.startLine; line <= span.endLine; line++) {
+        if (occurrencesByLine.has(line) || continuationLines.has(line)) mismatch("overlapping occurrence lines");
+        if (line !== span.startLine) continuationLines.add(line);
+      }
       const occurrence: ReadingOccurrence = {
         kind: "occurrence", id: `u${unitIndex}:${key}`, unitIndex, line: span.startLine,
-        depth, sourceSpan: span, raw: line, text: block.text,
+        depth, sourceSpan: span, raw: original.join("\n"), text: block.text,
         recognition: literal ? { kind: "literal" } : entry!.recognition,
-        references: [], diagnostics: diagnosticsAt.get(span.startLine) ?? []
+        references: [], diagnostics: original.flatMap((_line, i) => diagnosticsAt.get(span.startLine + i) ?? [])
       };
       for (const effect of entry?.effects ?? []) {
         let reference: ReadingReference | undefined;
@@ -237,8 +249,9 @@ export function projectReading(source: string, explained: ExplainedSource): Read
     });
     return { graph, occurrences, bearings, notes };
   });
-  const rows = lines.map((raw, index): ReadingOccurrence | ReadingSourceLine => occurrencesByLine.get(index + 1) ?? {
-    kind: "source", line: index + 1, raw, unitIndex: unitByLine.get(index + 1), diagnostics: diagnosticsAt.get(index + 1) ?? []
-  });
+  const rows = lines.flatMap((raw, index): (ReadingOccurrence | ReadingSourceLine)[] =>
+    continuationLines.has(index + 1) ? [] : [occurrencesByLine.get(index + 1) ?? {
+      kind: "source", line: index + 1, raw, unitIndex: unitByLine.get(index + 1), diagnostics: diagnosticsAt.get(index + 1) ?? []
+    }]);
   return { version: explained.version, mode: explained.mode, source, rows, units, diagnostics: explained.diagnostics };
 }

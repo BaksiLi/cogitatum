@@ -26,6 +26,12 @@ The original published schemas remain unchanged in `spec/0.5.0/`.
 - Keep source order in private View Reading, with links to original notes from declarations and uses.
   Show note counts on Map marks and note content/source navigation in block details.
   Explicit-target previews preserve exact note origins and targets; written-reference analysis ignores literal descendants.
+- Accept contiguous indented continuation lines and paragraphs in Points, body, use prose, Bearing descriptions and notes.
+  Newlines preserve existing content ownership and never create an implicit note.
+  Parse annotations only on bullet headers, keep note subtrees literal, and reject continuation that would reopen an ancestor after a child.
+  Extend block spans through their own continuations; Reading presents one complete occurrence without duplicate lines.
+  Explicit-target previews selected from a continuation edit the owning header.
+  Recompile retained drafts and adapt consumers that assume one physical line per occurrence.
 - Consumer verification is scoped to the checkout Core/CLI, packed packages and private View.
   No npm publication, website deployment or installed Obsidian migration is included.
   The finite interpretation fixture is rechecked against 0.6 without extending its theory or changing its source.

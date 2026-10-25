@@ -17,7 +17,32 @@ Examples, schemas, and conformance fixtures are checked against the implementati
 Write a Markdown-style outline. Root blocks start at column one. Indent with spaces; a child can use any greater width, but a dedent must match an active ancestor level. Tabs, indented roots, and unmatched dedents are diagnosed and their apparent annotations are not compiled.
 Recognised annotations on those lines remain failed boundaries: implicit descendants cannot attach past them to an outer Point, while independent explicit relations and valid inner subtrees survive.
 
-Every nonblank source line must be a bullet block beginning with `- ` after indentation. An annotation starts the block's content after that marker. Unmarked content remains body. Other line forms produce `UNSUPPORTED_LINE` and are not represented as blocks. Blank lines do not produce blocks. The AST preserves supported block order, raw block lines, body, and source spans; byte-for-byte whitespace round trips are not promised. This is a restricted outline parser, not a complete Markdown parser.
+Start each block with `- ` after its indentation.
+An annotation starts the block's content on that first line; unmarked content remains body.
+Continue a block on subsequent nonbullet lines indented at least to its content column, immediately after the bullet's separating spaces.
+That required indentation is removed from the content; additional spaces remain.
+Blank lines between continuation lines separate paragraphs in the same block.
+A newline does not create a note, Point, or Bearing.
+
+```md cog-check require=supports points=2 bearings=1 diagnostics=0
+- [C @claim] The method may work
+  under the stated conditions.
+  - [G; @route] Two trials agreed.
+    Both used the same temperature.
+    - [_ note] This describes the route.
+      It adds no extra premise.
+
+      A second paragraph belongs to the same note.
+```
+
+A new bullet starts a new block.
+Only the most recent block can continue; after a child bullet, prose cannot resume its ancestor's content.
+Use a new body bullet to continue the reading after children.
+Unindented or insufficiently indented nonbullet lines produce `UNSUPPORTED_LINE`; tabs in indentation are also rejected.
+Annotations are recognised only on bullet headers: `[G]` on a continuation is prose, and a later `]` cannot close a broken header.
+Blank lines outside continued content do not produce blocks.
+The AST preserves block order, multiline content, raw block lines, body, and source spans; retain the original input for exact line endings.
+This is a restricted outline parser, without Markdown lazy continuation or arbitrary block parsing.
 
 ```md cog-check require=supports points=2 bearings=1 diagnostics=1
 - Ordinary context.
@@ -56,7 +81,7 @@ Token order and case matter; role marks are uppercase and words are lowercase.
 Whitespace separates words and reference lists use commas.
 Each operator has exactly one target; a Bearing constructor has one or more unique sources.
 A selector and an operator are mutually exclusive, including on a use.
-Optional prose follows the closing bracket.
+Optional prose follows the closing bracket and may continue on indented lines.
 The `neutral` form declares a Neutral Point; the AST records it as annotation kind `material` and Graph IR as `declaration.form: "material"`.
 The Point family (`point`, `node`, `.`) and Bearing family (`bearing`, `edge`, `_`) share all construction, use and note grammar.
 Aliases change only written spelling and source coordinates, including failed and unclosed headers.
@@ -232,8 +257,8 @@ Its target is the nearest enclosing Point, possibly through ordinary body but ne
 Its sources are direct bare G declarations or G-labelled uses without an operator, selector, handle, or annotation error.
 Classify direct children before lowering any selector: G/ and O/ are commentary, and complete explicit Point clauses or edges are independent relations, never joint sources.
 Their roles, content, optional anchors, and individual spans remain intact.
-The linked block has no Point or operator clause of its own, and its Bearing uses `derivedBy: "structural"` and the header's span.
-Optional prose after the header becomes that Bearing's `text`, exactly as prose after an `edge` does.
+The linked block has no Point or operator clause of its own, and its Bearing uses `derivedBy: "structural"` and the block's own span, including continuations but excluding children.
+Optional prose after the header, including continuations, becomes that Bearing's `text`, exactly as prose after an `edge` does.
 It is a description of the connection, not a new Point, member, or parsed argument.
 An empty description leaves `text` absent.
 
@@ -289,7 +314,9 @@ Duplicate Point anchors invalidate all Points with that anchor and dependent Bea
 `[G @p]` and `[. @p]` always declare; repeating them never silently becomes a use.
 `[G use @p]` supplies a local G mark without changing p's declaration role, status, text or identity.
 The same rule applies to Q/C/O/R/D; occurrence status such as `[C? use @p]` is unsupported.
-Trailing prose stays on the occurrence's AST block, never on the original Point or the constructed Bearing.
+The complete declared Point text, including its continuations and paragraphs, is shared at each use.
+Child body and notes are separate source blocks, not part of that shared text.
+Prose following the use header, including its continuations, stays on the occurrence's AST block, never on the original Point or the constructed Bearing.
 Uses do not copy subtrees, inherit remote roles or status, create aliases, or enter a declaration's surrounding context.
 
 `[. use @p]` owns no default attachment, even when p has relations elsewhere.
@@ -485,6 +512,9 @@ Marks written at uses, including neutral and selector marks, live only in the AS
 An attachment created at an occurrence is an ordinary Bearing.
 
 An AST block holds its text, raw source, children, span, and optional `annotation`. Role, anchor, status, operator, handle, and annotation errors live only inside `annotation`; there are no mirrored block-level semantic fields. A Point name appears as `annotation.anchor` in the AST and `id` in Graph IR. Ordinary body has no annotation. An `operatorClause` contains `op`, an authored `targetKind` requirement (`point`, `bearing` or `either`), `sources`, and one authored `target: { id }`. Point annotations use `sources: "self"`; an `edge` uses a nonempty array of authored source references.
+Block `text` joins header prose and continuation content with LF, preserving intervening blank paragraphs.
+Block `raw` joins those physical source lines with LF, retaining the bullet and indentation but excluding child blocks.
+For exact original line endings and surrounding content, retain the original input.
 The distinct use annotation holds ref: {id}, never a declaration anchor.
 The separate bearingUse annotation also holds ref: {id}, with no role, handle, anchor or operatorClause.
 Its operand can be absent only on a diagnosed malformed use; original raw text and occurrence prose remain inspectable.
@@ -500,7 +530,7 @@ Direct notes in linked have `linkedMember` function `supplementary` and `eligibl
 Graph IR has a required `notes` array in authored source order.
 Each record contains `origin: "note" | "constructor-description"`, a typed resolved `target`, and `sourceSpan`.
 Within its source unit, that span addresses the AST block that owns the text.
-For a typed note it also owns the entire literal subtree; for an edge/linked description it owns only the constructor's header prose, not its active children.
+For a typed note it also owns the entire literal subtree; for an edge/linked description it owns the constructor's prose and continuations, not its active children.
 Plain `[note]`, use tail prose, malformed notes and unresolved typed notes produce no object-note record.
 Explain emits `selectNoteTarget` with the requested type, nearest `contextSpan` when present, `crossedBodySpans`, and a `target` only on success.
 Successful typed notes and constructor descriptions emit `attachNote` with the corresponding record.
@@ -537,13 +567,19 @@ Graph references use `{ key, kind }`; AST references remain `{ id }`. Keys are o
 Explain emission references use graph keys; Bearing emissions also have a graph index and optional handle. The index addresses this compilation's Bearing array only. Emitted summaries obey the same kind/target restrictions as canonical Bearings. Rejected candidates can retain unresolved authored `{ id }` references or a resolved target of the wrong kind: that mismatch can explain the rejection. They can also retain repeated sources when explaining a rejected joint; emitted summaries and Graph IR still require unique sources.
 They are not graph entities. An entry's `diagnosticCodes` lists, once each, the codes of diagnostics whose span shares a line with the entry's span.
 A block span starts at the content after the bullet and its separating whitespace, using the actual separator width.
-It covers only its own line, so a child's diagnostics appear on the child's entry, not on its parent's; diagnostics without a span, or on a line that forms no block, appear only in the top-level list, which retains their actual spans.
+It ends after the block's last continuation, excluding children and any trailing blank lines.
+A child's diagnostics therefore appear on the child's entry, not on its parent's.
+Diagnostics without a span, or on a line that forms no block, appear only in the top-level list, which retains their actual spans.
 
 ## Compatibility and migration
 
 This edition documents the unreleased package 0.6.0 / format 0.6.0.
 Published 0.5.0 / format 0.5.0 schemas remain byte-for-byte in `spec/0.5.0/`.
 Published 0.4.12 / format 0.4.0 remains a separate contract.
+
+Indented nonbullet continuation lines, previously rejected, now belong to the preceding block.
+Review retained drafts with `UNSUPPORTED_LINE` errors before recompiling: their complete Point text or Bearing description may now include that prose.
+Consumers must handle multiline block spans and raw text, while annotation recognition still uses the first line only.
 
 ### From published 0.5
 

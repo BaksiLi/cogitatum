@@ -15,6 +15,7 @@ Expected results compare the selected input mode, the full ordered diagnostics l
 Cases marked `notes: true` also compare every source-backed note record in order,
 including origin, resolved target, source text and complete literal subtree.
 This joins Graph IR records to their owning AST blocks; it does not infer note text from the graph.
+`core/multiline-content` covers continued Point content, Bearing notes with paragraphs and literal children, and occurrence-local use prose.
 
 The `line` fields identify the start line in the input file, including host-file line numbers. Bearing `sources` are Point line numbers. A target is `{ "kind": "point" | "bearing", "line": number }`. This fixture-only notation makes topology reviewable without freezing generated keys, prefixes, or numbering. It is not another public compiler format. References are resolved through each actual graph before comparison. Diagnostic messages, full spans, text preservation, and raw compiler output are checked by focused tests where relevant rather than copied into every expectation.
 

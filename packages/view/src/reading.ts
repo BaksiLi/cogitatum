@@ -232,7 +232,7 @@ export function createReadingView(container: HTMLElement, options: ReadingViewOp
         const control = html("button", "cog-reading-select", glyph);
         control.type = "button"; control.tabIndex = -1;
         mark(source, control);
-        const authored = source.raw.slice(source.sourceSpan.startColumn - 1, source.sourceSpan.endColumn - 1);
+        const authored = source.raw.slice(source.sourceSpan.startColumn - 1);
         const failed = source.diagnostics.some(diagnostic => diagnostic.severity === "error");
         if (source.recognition.kind === "note") html("span", "cog-reading-tag", content).textContent =
           source.recognition.targetKind ? `${source.recognition.targetKind === "point" ? "Point" : "Bearing"} note` : "note";

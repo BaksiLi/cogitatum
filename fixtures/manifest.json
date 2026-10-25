@@ -1,6 +1,13 @@
 {
   "fixtures": [
     {
+      "file": "core/multiline-content.cog.md",
+      "input": "document",
+      "purpose": "Indented continuations preserve complete Point content, local use prose, multiline object notes and their literal children without introducing new entities or changing route targets.",
+      "expected": "core/multiline-content.expected.json",
+      "notes": true
+    },
+    {
       "file": "core/object-note-ownership.cog.md",
       "input": "document",
       "purpose": "Typed notes retain source prose and literal subtrees, select local Point/attachment or reused Bearing, preserve equal-text records, and share constructor-description provenance without copying on use.",

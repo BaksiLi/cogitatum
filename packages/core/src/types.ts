@@ -89,9 +89,12 @@ export type Annotation =
 
 export type AstBlock = {
   kind: "block";
+  /** Header prose and contiguous indented continuations, joined with LF. */
   text: string;
+  /** This block's physical lines, including its bullet, excluding child blocks. */
   raw: string;
   children: AstBlock[];
+  /** From header content through the last continuation, excluding children. */
   sourceSpan: SourceSpan;
   // Annotation is the only semantic representation; raw is retained source text.
   annotation?: Annotation;

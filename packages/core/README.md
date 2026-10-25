@@ -26,6 +26,9 @@ Failed relations and explicit target clauses have no successful implicit-attachm
 Within a source unit, each nonliteral AST block has one Explain entry with the same full block `sourceSpan`, in preorder.
 The note header has an entry; its literal descendants do not.
 These line spans identify occurrences only within the current compilation; retain the exact original source and rebuild the projections after an edit.
+Indented nonbullet continuation lines extend the same block's content, including blank paragraphs.
+The complete Point content is shared at uses; use prose remains local, and note subtrees remain literal.
+AST text/raw use LF and spans include continuations but exclude children; annotation recognition is confined to the bullet header.
 Keep shared content, occurrence notes, quoted source context and proposed reconstructions separate; retained original source plus AST/Explain is required for reading, not Graph IR alone.
 The historical npm `alpha` tag provides **0.3.0-alpha.1** without linked.
 The published package below uses the 0.5 API and syntax.

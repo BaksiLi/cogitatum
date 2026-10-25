@@ -28,16 +28,41 @@ afterAll(() => {
 });
 
 describe("cog CLI", () => {
-  it.each(["document", "host"] as const)("exports complete note ownership and literal content in %s mode", mode => {
-    const inquiry = "- [C @c] Claim.\n  - [G; @r] Reason.\n    - [bearing note] Here yesterday.\n      - [point @ignored] Literal.\n- [edge use @r]";
-    const source = mode === "host" ? "Prose.\n  ```cog\n" + inquiry.split("\n").map(line => "  " + line).join("\n") + "\n  ```" : inquiry;
+  it.each(["document", "host"] as const)("exports complete multiline note ownership and literal content in %s mode", mode => {
+    const inquiry = [
+      "- [C @c] Claim",
+      "  with a qualification.",
+      "  - [G; @r] Reason.",
+      "    - [bearing note] Here yesterday.",
+      "      Continued here.",
+      "",
+      "      Another paragraph.",
+      "      - [point @ignored] Literal",
+      "        continuation.",
+      "- [edge use @r] This occurrence",
+      "  has its own prose."
+    ].join("\n");
+    const source = (mode === "host" ? "Prose.\n  ```cog\n" + inquiry.split("\n").map(line => "  " + line).join("\n") + "\n  ```" : inquiry).replace(/\n/g, "\r\n");
     const file = join(workingDirectory, "notes-export.md");
     writeFileSync(file, source);
     const result = runCli("export", "--input", mode, file);
     expect(result.status).toBe(0);
     expect(result.stderr).toBe("");
-    expect(JSON.parse(result.stdout)).toEqual(JSON.parse(JSON.stringify(explainSource(source, mode))));
-    expect(JSON.parse(result.stdout).graphs[0].notes).toHaveLength(1);
+    const exported = JSON.parse(result.stdout);
+    expect(exported).toEqual(JSON.parse(JSON.stringify(explainSource(source, mode))));
+    expect(exported.graphs[0].notes).toHaveLength(1);
+    expect(exported.graphs[0].points.map((point: { text: string }) => point.text)).toEqual(["Claim\nwith a qualification.", "Reason."]);
+    const note = exported.documents[0].blocks[0].children[0].children[0];
+    expect(note.text).toBe("Here yesterday.\nContinued here.\n\nAnother paragraph.");
+    expect(note.children[0].text).toBe("[point @ignored] Literal\ncontinuation.");
+    expect(note.sourceSpan).toEqual({
+      startLine: mode === "host" ? 6 : 4,
+      startColumn: mode === "host" ? 9 : 7,
+      endLine: mode === "host" ? 9 : 7,
+      endColumn: (mode === "host" ? 2 : 0) + inquiry.split("\n")[6].length + 1
+    });
+    expect(exported.graphs[0].notes[0].sourceSpan).toEqual(note.sourceSpan);
+    expect(exported.documents[0].blocks[1].text).toBe("This occurrence\nhas its own prose.");
     expect(readFileSync(file, "utf8")).toBe(source);
     expect(runCli("export", "--format", "text", file).status).toBe(2);
     expect(runCli("export", "--references", file).status).toBe(2);
@@ -50,9 +75,11 @@ describe("cog CLI", () => {
 
   it.each([
     ["document", "- [C @c] Claim.\r\n  - [G] Reason.", 2, 0],
+    ["document", "- [C @c] Claim.\r\n  - [G] Reason\r\n    continued here.", 3, 0],
     ["document", "- [C @c] Claim.\n  - [G] Reason \u2028 with \u2029 separators.\n    - [note] Literal \u2028 note.\n      - [G +> @missing] Inert.", 2, 0],
     ["host", "Intro 🌧️\n  ```cog\n  - [C @c] Claim.\n    - [O] Concern.\n  ```", 4, 0],
     ["host", "Intro 🌧️\r  ```cog\r  - [C @c] Claim.\r    - [G] Reason.\r  ```", 4, 0],
+    ["host", "Intro.\r\n  ```cog\r\n  - [C @c] Claim.\r\n    - [G] Reason\r\n      continued here.\r\n  ```", 5, 0],
     ["document", "- [C] Anonymous.\n  - [G] Reason.", 2, 1],
     ["document", "- [C @c] Claim.\n  - [G] Reason.\n- [O /> @c] Invalid.", 2, 1]
   ] as const)("previews explicit targets in %s mode with API parity and no file writes", (mode, source, line, status) => {

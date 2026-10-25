@@ -126,6 +126,10 @@ Do not retain occurrence IDs across updates.
 
 `projectReading` is a pure projection, with no DOM access or additional parsing.
 It retains every source line, including blank lines, host prose, fences, literal note descendants and malformed lines, alongside the original string.
+One multiline block occupies one occurrence row, with a span from header content through its last continuation.
+Its `raw` contains the complete original physical lines joined with LF; continuation lines are not repeated as separate rows.
+Flattening each row's `raw.split("\n")` recovers the input's physical lines, while the original source retains exact line endings.
+Selection, Edit and note-source navigation use the full occurrence span.
 Occurrences expose their local text, recognition, diagnostics and typed `declares`, `uses` or `constructs` references.
 A rejected summary never becomes a selectable graph identity.
 Every compiler diagnostic remains available even when it belongs to an omitted host region.
@@ -152,7 +156,7 @@ Rendering failure keeps the original plain text.
 The host owns supported inline Markdown, link safety and any extensions such as math; backticks remain code and do not imply math.
 Raw source, malformed annotations, compiler diagnostics, marks and names never enter this renderer.
 Ordinary body prose and note prose may be rendered, including literal note descendants; rendering them cannot create Cogitatum entities.
-The complete `raw` line and original source remain in the projection and raw lines are available on occurrence tooltips.
+The complete `raw` block and original source remain in the projection and raw lines are available on occurrence tooltips.
 The reading surface presents authored Point names and structured Bearing summaries separately from prose.
 A summary names the relationship, its complete source set and its target; multi-source Bearings remain one joint relationship.
 Named references are typed controls, with source line and excerpt fallbacks for anonymous endpoints.

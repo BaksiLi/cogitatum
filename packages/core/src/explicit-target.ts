@@ -48,7 +48,8 @@ export function previewExplicitTarget(source: string, options: ExplicitTargetOpt
   }
   if (annotation.operatorClause) return unavailable("already-explicit", "This occurrence already has an explicit target.");
   if ("selector" in annotation && annotation.selector) return unavailable("unsupported-attachment", "Local Bearing selectors require a separate edit; this operation handles ordinary Point attachments only.");
-  const entry = before.explanations[unitIndex].entries.find(e => e.sourceSpan.startLine === options.line);
+  const headerLine = block.sourceSpan.startLine;
+  const entry = before.explanations[unitIndex].entries.find(e => e.sourceSpan.startLine === headerLine);
   const emission = entry?.effects.find(effect => effect.kind === "emitBearing");
   if (!emission || emission.reason !== "annotated-containment") {
     if (entry?.effects.some(effect => effect.kind === "linkedMember" && effect.eligible && effect.function === "source")) {
@@ -72,7 +73,7 @@ export function previewExplicitTarget(source: string, options: ExplicitTargetOpt
   const lineEndings = before.mode === "host" ? /\r\n|\r|\n/g : /\r?\n/g;
   let lineOffset = 0, line = 1;
   for (const ending of source.matchAll(lineEndings)) {
-    if (line++ === options.line) break;
+    if (line++ === headerLine) break;
     lineOffset = ending.index + ending[0].length;
   }
   const annotationOffset = lineOffset + block.sourceSpan.startColumn - 1;
@@ -97,7 +98,7 @@ export function previewExplicitTarget(source: string, options: ExplicitTargetOpt
 
 function findBlock(blocks: AstBlock[], line: number): AstBlock | undefined {
   for (const block of blocks) {
-    if (block.sourceSpan.startLine === line) return block;
+    if (block.sourceSpan.startLine <= line && line <= block.sourceSpan.endLine) return block;
     if (block.annotation?.kind !== "note") {
       const found = findBlock(block.children, line);
       if (found) return found;

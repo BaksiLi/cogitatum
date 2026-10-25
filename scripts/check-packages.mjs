@@ -54,7 +54,7 @@ for (const name of ["ast", "graph-ir", "explain", "source"]) {
 }
 const probe = `
 import assert from 'node:assert/strict';
-import { analyzeSourceReferences, compileGraph, compileGraphWithExplain, compileSource, formatGraph, GRAPH_TEXT_VERSION, parseDocument, previewExplicitTarget } from '@cogitatum/core';
+import { analyzeSourceReferences, compileGraph, compileGraphWithExplain, compileSource, explainSource, formatGraph, GRAPH_TEXT_VERSION, parseDocument, previewExplicitTarget } from '@cogitatum/core';
 const { graph, explain } = compileGraphWithExplain(parseDocument('- Ordinary context.\\n  - [C @claim] A claim.\\n    - [G; @route] A reason.\\n- [O /> @route] A route objection.\\n'));
 assert.equal(GRAPH_TEXT_VERSION, '1');
 assert.ok(formatGraph(graph).includes('b2: challenges([p3], b1)'));
@@ -85,6 +85,14 @@ assert.equal(reuse.graph.bearings.length, 2);
 assert.deepEqual(reuse.graph.bearings[0].sources, [{key: reuse.graph.points[0].key, kind: 'point'}]);
 assert.ok(reuse.explain.entries[2].effects.some(effect => effect.kind === 'focusPoint' && effect.ref.key === reuse.graph.points[0].key));
 assert.equal(reuse.explain.entries[3].recognition.kind, 'use');
+const multiline = explainSource('- [C @p] Shared content\\n  with its qualification.\\n- [C @q] Claim.\\n  - [G use @p; @r] Local\\n    continuation.\\n    - [_ note] A note\\n      continued.\\n\\n      Another paragraph.\\n      - [O @hidden] Literal.');
+assert.deepEqual(multiline.diagnostics, []);
+assert.equal(multiline.graphs[0].points[0].text, 'Shared content\\nwith its qualification.');
+assert.equal(multiline.graphs[0].points.length, 2);
+assert.equal(multiline.documents[0].blocks[1].children[0].text, 'Local\\ncontinuation.');
+assert.equal(multiline.documents[0].blocks[1].children[0].children[0].text, 'A note\\ncontinued.\\n\\nAnother paragraph.');
+assert.deepEqual(multiline.graphs[0].notes[0].sourceSpan, {startLine: 6, startColumn: 7, endLine: 9, endColumn: 25});
+assert.equal(multiline.documents[0].blocks[1].children[0].children[0].children[0].annotation, undefined);
 const bearingUse = compileGraphWithExplain(parseDocument('- [_ use @route] Local note.\\n  - [O/ @bias; @attack] Shared offset.\\n    - [O] Independent instruments.\\n    - [O/] The offset cancels.\\n- [C @p] Premise.\\n- [C @c] Claim.\\n- [_ @p supports @c; @route] Original description.'));
 assert.deepEqual(bearingUse.graph.diagnostics, []);
 assert.equal(bearingUse.graph.points.length, 5);

@@ -63,7 +63,7 @@ describe("AST / Explain occurrence contract over the conformance corpus", () => 
       expect(entries.map(entry => entry.sourceSpan)).toEqual(blocks.map(block => block.sourceSpan));
       expect(new Set(entries.map(entry => JSON.stringify(entry.sourceSpan))).size).toBe(entries.length);
       for (const entry of entries) {
-        expect(entry.sourceSpan.endLine).toBe(entry.sourceSpan.startLine);
+        expect(entry.sourceSpan.endLine).toBeGreaterThanOrEqual(entry.sourceSpan.startLine);
         const emitted = entry.effects.find(effect => effect.kind === "emitBearing");
         const selected = entry.effects.filter((effect): effect is Attachment => effect.kind === "implicitAttachment");
         expect(selected).toHaveLength(emitted?.bearing.derivedBy === "structural" ? 1 : 0);

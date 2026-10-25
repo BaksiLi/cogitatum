@@ -12,6 +12,41 @@ const lineOf = (reading: ReadingProjection, id: string) =>
   reading.units.flatMap(unit => unit.occurrences).find(item => item.id === id)!.line;
 
 describe("source-aware Reading projection", () => {
+  it.each(["document", "host"] as const)("presents each multiline %s occurrence once with its complete source span", mode => {
+    const content = [
+      "- [C @p] The method may work",
+      "  under room-temperature conditions.",
+      "  - [. note] A note",
+      "    with a second line.",
+      "",
+      "    And another paragraph.",
+      "    - [G @hidden] Literal child",
+      "      continued here.",
+      "- [point use @p] This occurrence",
+      "  has local prose."
+    ];
+    const source = (mode === "host" ? ["  ```cog", ...content.map(line => "  " + line), "  ```"] : content).join("\r\n");
+    const exported = JSON.parse(JSON.stringify(explainSource(source, mode))) as ExplainedSource;
+    const result = projectReading(source, exported), unit = result.units[0], offset = mode === "host" ? 1 : 0;
+    expect(result.diagnostics).toEqual([]);
+    expect(result.rows.flatMap(row => row.raw.split("\n"))).toEqual(source.split("\r\n"));
+    expect(unit.occurrences.map(row => [row.line - offset, row.sourceSpan.endLine - offset])).toEqual([
+      [1, 2], [3, 6], [7, 8], [9, 10]
+    ]);
+    expect(unit.notes[0].content.map(row => row.text)).toEqual([
+      "A note\nwith a second line.\n\nAnd another paragraph.",
+      "[G @hidden] Literal child\ncontinued here."
+    ]);
+    expect(unit.occurrences[3].references).toMatchObject([{ kind: "uses", ref: unit.graph.notes[0].target }]);
+    expect(unit.occurrences[3].text).toBe("This occurrence\nhas local prose.");
+    expect(unit.graph.points).toHaveLength(1);
+    expect(unit.graph.points[0].text).toBe("The method may work\nunder room-temperature conditions.");
+    expect(() => projectReading(source.replace("second line", "altered line"), exported)).toThrow("source changed");
+    const corrupt = structuredClone(exported);
+    corrupt.documents[0].blocks[0].children[0].sourceSpan.endLine++;
+    expect(() => projectReading(source, corrupt)).toThrow("AST / Explain occurrence correspondence");
+  });
+
   it.each(["document", "host"] as const)("preserves source-backed object notes across %s serialization and reuse", mode => {
     const fixture = readFileSync(new URL("../../../fixtures/core/object-note-ownership.cog.md", import.meta.url), "utf8").trimEnd();
     const source = mode === "host" ? "Host prose.\n\n  ```cog\n" + fixture.split("\n").map(line => "  " + line).join("\n") + "\n  ```" : fixture;

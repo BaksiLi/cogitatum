@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://cogitatum.baksili.codes/schemas/0.6.0/ast.schema.json",
   "title": "Cogitatum Document AST",
-  "description": "Ordered parser output. An annotation is a block's only semantic representation; raw text preserves the source and is not reinterpreted during compilation.",
+  "description": "Ordered parser output. An annotation is a block's only semantic representation; raw text preserves the source and is not reinterpreted during compilation. A block owns its header and contiguous indented continuation lines, excluding children; raw and text use LF and sourceSpan may span multiple lines.",
   "type": "object",
   "required": ["version", "blocks", "diagnostics"],
   "properties": {

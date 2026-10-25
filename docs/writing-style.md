@@ -16,13 +16,16 @@ The [syntax reference](syntax.md) defines what the language accepts.
 
 Start with the situation, source and purpose in ordinary body.
 Mark the parts whose role or connection helps the reader; leave other prose unmarked.
-Within a Cogitatum source unit, both marked material and body use outline bullets.
+Within a Cogitatum source unit, both marked material and body start with outline bullets.
+Indent continuation lines to the block's content column, without adding a bullet.
 Two spaces per level is a readable convention, not a language requirement.
 
 Keep a Point focused enough that another passage can refer to it without ambiguity.
 Do not split every sentence into a Point, or delete qualifications to make a diagram smaller.
 “May explain this case” and “explains every case” are different contents.
 `C` does not certify either one, and a `supports` connection does not settle whether a reason is sufficient.
+The complete block content is the Point's text, not a title followed by an implicit note.
+Map may abbreviate it for space; Reading and the selected passage retain the complete content.
 
 ## Separate reconstruction from examination
 
@@ -57,7 +60,8 @@ Use ordinary body to organise a discussion, and Q when an actual question needs 
 
 `[. use @p]` brings the same Point into another discussion without importing its declaration's role.
 `[G use @p]` uses that same content as a Ground here and may construct a new connection.
-Prose following a use is local commentary, not a replacement for the shared text or a new Point.
+The entire declared block content, including continuations, is shared at each use.
+Prose following a use, including its continuations, is local commentary, not a replacement for the shared text or a new Point.
 Put an altered claim in a fresh declaration and explain its relationship to the old one.
 
 `[_ use @step]` brings the same Bearing into discussion with its original sources and target.
@@ -89,11 +93,31 @@ See [Bearings](bearings.md) for the attachment rules and explicit targets.
 
 ## Keep literal notes literal
 
-Use `[note]` when a supplementary passage or subtree must remain outside interpretation, including annotation-looking text.
+Use `[note]` when a supplementary passage or subtree must remain outside active Cog annotation parsing, including annotation-looking text.
 Use ordinary body for context through which active annotated descendants may still connect.
 Both retain prose, but they are not interchangeable containers.
 In particular, `linked` constructs a Bearing while `note` keeps its whole subtree literal.
 Removing a note marker can activate its contents or change attachment; retaining the same graph is not enough to establish the same reading.
+
+Plain `[note]` belongs to the source occurrence.
+Use `[. note]` to attach supplementary prose to the locally presented Point, or `[_ note]` to its exposed Bearing.
+These object notes remain at their authored positions and are available from the object's other occurrences.
+Several notes may concern the same object; they are not merged by matching their text.
+Notes can influence a reader's understanding, but do not themselves add a premise, relation or numerical weight.
+If a passage is offered as a reason or objection, mark that commitment explicitly with G or O; G/ and O/ concern the local Bearing.
+A neutral `[.]` makes content independently addressable without assigning it a local argumentative role.
+None of this requires every explanatory sentence to become a Point.
+
+```md cog-check require=supports,challenges points=3 bearings=2 diagnostics=0
+- [C @water] The pump may explain the outbreak.
+  - [G; @proximity] Most cases are nearby.
+    - [_ note] Proximity may reflect access to this water supply.
+      This records the interpretation of the step.
+    - [O/] Some nearby institutions had few cases.
+```
+
+The annotation describes the route; the Objection makes a separate challenge to it.
+Its presence does not remove the original route or decide whether the objection succeeds.
 
 ## Name for continuity; move with an intention
 
@@ -115,6 +139,7 @@ There is no whole-document formatter or automatic style-fix command yet.
 
 Use `cog explicit-target --line 3 inquiry.cog.md` to preview fixing the currently selected target of one occurrence.
 The line is one-based in the complete input file; add `--input host` for a selected Cogitatum fence in Markdown.
+Selecting a continuation line locates the same occurrence and edits its first-line annotation.
 The command prints JSON and does not write to the input file.
 
 Before the edit, the Ground below selects the Claim through ordinary body:
