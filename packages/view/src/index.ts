@@ -143,14 +143,15 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
     for (const node of topology.nodes) { const saved = arrangement.get(positionKey(node)); if (saved) positions.set(node.id, { ...saved }); }
     return positions;
   }
-  const pointLabelWidth = (k: number) => Math.max(96, Math.min(150, 168 * k - 14));
+  // Wording gets a reading measure, not a caption's: three lines at up to 200px before it is shortened.
+  const pointLabelWidth = (k: number) => Math.max(110, Math.min(200, 200 * k - 14));
   function labelLines(shape: Shape, k = camera.k, focused = shape.id === selected || shape.id === hovered): string[] {
     const node = shape.node;
     if (shape.inline) return [];
     if (node.ref.kind === "bearing") return node.name && (k >= LABEL_K || focused) ? [`@${node.name}`] : [];
     if (k < LABEL_K && !focused) return [];
     const width = pointLabelWidth(k);
-    return wrap(node.text, focused ? Math.max(width, 150) : width, 2);
+    return wrap(node.text, focused ? Math.max(width, 200) : width, 3);
   }
   /** Screen-pixel reach of a mark and its unfocused wording on either side of the mark's centre. */
   function reach(shape: Shape, k: number): { left: number; right: number } {
@@ -320,7 +321,8 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
       return placed.length ? { x0, x1 } : { x0: b.x * k - room, x1: (b.x + b.w) * k + room };
     };
     const fits = (k: number) => { const s = span(k); return s.x1 - s.x0 <= size.w; };
-    let k = Math.max(MIN_K, Math.min(1.1, (size.h - padTop - padBottom) / b.h));
+    // A small inquiry may be drawn larger than life so it fills its frame; text keeps its size.
+    let k = Math.max(MIN_K, Math.min(1.6, (size.h - padTop - padBottom) / b.h));
     if (!fits(k)) {
       let lo = MIN_K, hi = k;
       for (let i = 0; i < 14; i++) { const mid = (lo + hi) / 2; if (fits(mid)) lo = mid; else hi = mid; }
