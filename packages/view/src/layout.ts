@@ -88,10 +88,12 @@ export function layoutGraph(topology: GraphProjection, options: LayoutOptions = 
         settle(row, new Map(row.map(node => [node.id, mean(targets.get(node.id)!, x) ?? x.get(node.id)!]))).forEach((value, id) => x.set(id, value));
       }
     }
-    // Points need room for their wording; a layer of junctions alone sits closer.
+    // Wording hangs below a point, up to three lines, so whatever comes next sits clear of it: a junction
+    // just beneath the wording, a point further on. Below a layer of junctions alone the next sits closer.
     const ys: number[] = [];
     const hasPoint = (row: GraphNode[]) => row.some(node => node.ref.kind === "point");
-    layers.forEach((row, depth) => { ys[depth] = depth ? ys[depth - 1] + (hasPoint(row) && hasPoint(layers[depth - 1]) ? 124 : 92) : 0; });
+    const step = (above: GraphNode[], row: GraphNode[]) => !hasPoint(above) ? 92 : hasPoint(row) ? 136 : 116;
+    layers.forEach((row, depth) => { ys[depth] = depth ? ys[depth - 1] + step(layers[depth - 1], row) : 0; });
     const left = Math.min(...nodes.map(node => x.get(node.id)! - footprint(node) / 2));
     const w = Math.max(...nodes.map(node => x.get(node.id)! + footprint(node) / 2)) - left, h = ys[ys.length - 1];
     if (cursorX > 0 && cursorX + w > wrapWidth) { cursorX = 0; cursorY += rowHeight + 110; rowHeight = 0; }
