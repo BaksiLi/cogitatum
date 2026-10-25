@@ -36,6 +36,9 @@ The original published schemas remain unchanged in `spec/0.5.0/`.
   No npm publication, website deployment or installed Obsidian migration is included.
   The finite interpretation fixture is rechecked against 0.6 without extending its theory or changing its source.
 
+- Keep a selected Point or Bearing as the private View's guided focus in Reading and Map; hover and keyboard focus preview only while nothing is selected.
+  Selecting one of several alternative Bearings to a target shows that route, its sources and only the relations addressed to it, by Bearing identity.
+  Emphasis marks only what is being examined, adds no confidence or outcome state, and leaves source, Graph IR and the published contracts unchanged.
 - Explain invalid outline levels before suggesting an independent explicit attachment.
   Preserve diagnostic codes, spans, partial graphs and failed-constructor boundaries.
 - Present typed Point references and Bearing summaries separately from prose in the private View.

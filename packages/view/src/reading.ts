@@ -1,6 +1,6 @@
 import type { BearingTarget, Diagnostic, SourceSpan } from "@cogitatum/core";
 import { bearingMark, createBearingChip, createMarkChip, drawBearingGlyph } from "./marks.js";
-import { focusNeighborhood, projectExploration, projectGraph, referenceKey, type GraphProjection } from "./projection.js";
+import { focusNeighborhood, guidanceSubject, projectExploration, projectGraph, referenceKey, type GraphProjection } from "./projection.js";
 import type { ReadingEndpoint, ReadingOccurrence, ReadingProjection } from "./reading-projection.js";
 import { createProseScope, type ProseRenderer } from "./prose.js";
 
@@ -99,7 +99,7 @@ export function createReadingView(container: HTMLElement, options: ReadingViewOp
   const prose = createProseScope(options.renderProse, () => schedule());
 
   function guide(): void {
-    const active = hovered ?? selected;
+    const active = guidanceSubject(selected, hovered);
     const focused = root.contains(doc.activeElement) ?
       doc.activeElement?.closest<HTMLElement>("[data-occurrence]")?.dataset.occurrence : undefined;
     const tabStop = selected?.occurrenceId ?? focused ?? rows.keys().next().value;

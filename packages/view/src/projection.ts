@@ -45,6 +45,15 @@ export function projectGraph(graph: GraphIR): GraphProjection {
 
 export type GraphFocus = { nodeIds: string[]; bearingKeys: string[] };
 
+/**
+ * What guidance follows. A selection is what the reader is examining, so it keeps the emphasis;
+ * pointer hover and keyboard focus preview a neighborhood only while no graph reference is selected.
+ * Otherwise merely crossing the page with the pointer would move the emphasis off the chosen route.
+ */
+export function guidanceSubject<T extends { ref?: BearingTarget }>(selected?: T, previewed?: T): T | undefined {
+  return selected?.ref ? selected : previewed ?? selected;
+}
+
 /** Whole incident Bearings; Point focus also includes their direct incoming relations. No transitive closure. */
 export function focusNeighborhood(projection: GraphProjection, ref?: BearingTarget): GraphFocus {
   const id = ref && referenceKey(ref);

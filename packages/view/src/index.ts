@@ -1,5 +1,5 @@
 import type { BearingTarget, GraphIR } from "@cogitatum/core";
-import { focusNeighborhood, projectExploration, projectGraph, referenceKey, type GraphLink, type GraphNode, type GraphProjection } from "./projection.js";
+import { focusNeighborhood, guidanceSubject, projectExploration, projectGraph, referenceKey, type GraphLink, type GraphNode, type GraphProjection } from "./projection.js";
 import { layoutGraph, type Point2 } from "./layout.js";
 import { createDragMotion } from "./motion.js";
 import { bearingMark, drawBearingGlyph, drawPointGlyph, MARK_TYPE, pointMark } from "./marks.js";
@@ -183,7 +183,7 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
   function paint(): void {
     frame = 0;
     if (destroyed) return;
-    const focus = focusNeighborhood(full, nodeById(hovered ?? selected)?.ref);
+    const focus = focusNeighborhood(full, guidanceSubject(nodeById(selected), nodeById(hovered))?.ref);
     const related = new Set(focus.nodeIds), active = new Set(focus.bearingKeys), guided = related.size > 0;
     svg.dataset.guided = String(guided);
     for (const shape of shapes.values()) {
@@ -463,7 +463,11 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
     if (event.type === "pointercancel") stopMotion();
     if (svg.hasPointerCapture?.(event.pointerId)) svg.releasePointerCapture(event.pointerId);
     if (moved) { suppressClick = true; return; }
-    if (event.type === "pointerup") select(target && shapes.has(target) ? target : undefined);
+    if (event.type !== "pointerup") return;
+    const pressed = target && shapes.has(target) ? target : undefined;
+    // A background press dismisses the preview too: after a tap the previous mark can keep focus without a hovering pointer.
+    if (!pressed) hovered = undefined;
+    select(pressed);
   };
   svg.addEventListener("pointerup", end, on);
   svg.addEventListener("pointercancel", end, on);
