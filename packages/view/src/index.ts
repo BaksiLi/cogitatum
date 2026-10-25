@@ -143,15 +143,17 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
     for (const node of topology.nodes) { const saved = arrangement.get(positionKey(node)); if (saved) positions.set(node.id, { ...saved }); }
     return positions;
   }
-  // Wording gets a reading measure, not a caption's: three lines at up to 200px before it is shortened.
-  const pointLabelWidth = (k: number) => Math.max(110, Math.min(200, 200 * k - 14));
+  // At full scale or larger there is room between layers, so wording gets a reading measure: three lines at
+  // up to 200px. A dense inquiry drawn smaller keeps the caption measure of two lines, so wording never meets a junction.
+  const roomy = (k: number) => k >= .95;
+  const pointLabelWidth = (k: number) => roomy(k) ? Math.min(200, 200 * k - 14) : Math.max(96, Math.min(150, 168 * k - 14));
   function labelLines(shape: Shape, k = camera.k, focused = shape.id === selected || shape.id === hovered): string[] {
     const node = shape.node;
     if (shape.inline) return [];
     if (node.ref.kind === "bearing") return node.name && (k >= LABEL_K || focused) ? [`@${node.name}`] : [];
     if (k < LABEL_K && !focused) return [];
     const width = pointLabelWidth(k);
-    return wrap(node.text, focused ? Math.max(width, 200) : width, 3);
+    return wrap(node.text, focused ? Math.max(width, roomy(k) ? 200 : 150) : width, roomy(k) ? 3 : 2);
   }
   /** Screen-pixel reach of a mark and its unfocused wording on either side of the mark's centre. */
   function reach(shape: Shape, k: number): { left: number; right: number } {
