@@ -32,7 +32,7 @@ export type GraphView = {
 };
 
 const NS = "http://www.w3.org/2000/svg";
-const POINT_R = 9, RING_GAP = 3.2, JUNCTION_R = 10, LABEL_K = .6, DRAG_SLOP = 4, MIN_K = .3, MAX_K = 2.2;
+const POINT_R = 9, RING_GAP = 3.2, JUNCTION_R = 10, LABEL_K = .6, READ_K = .78, DRAG_SLOP = 4, MIN_K = .3, MAX_K = 2.2;
 type Camera = { k: number; tx: number; ty: number };
 type Shape = { id: string; node: GraphNode; g: SVGGElement; glyph?: SVGGElement; label?: SVGTextElement; labelHit?: SVGRectElement; inline: boolean };
 
@@ -369,7 +369,10 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
     };
     const fits = (k: number) => { const s = span(k); return s.x1 - s.x0 <= size.w; };
     // A small inquiry may be drawn larger than life so it fills its frame; text keeps its size.
-    let k = Math.max(MIN_K, Math.min(1.6, (size.h - padTop - padBottom) / b.h));
+    // A tall one in a full panel is not shrunk past reading: it opens on its conclusion at the top, worded,
+    // and pans down. A small frame keeps the whole drawing in view.
+    const floor = size.w >= 600 && size.h >= 480 ? READ_K : MIN_K;
+    let k = Math.max(floor, Math.min(1.6, (size.h - padTop - padBottom) / b.h));
     if (!fits(k)) {
       let lo = MIN_K, hi = k;
       for (let i = 0; i < 14; i++) { const mid = (lo + hi) / 2; if (fits(mid)) lo = mid; else hi = mid; }
