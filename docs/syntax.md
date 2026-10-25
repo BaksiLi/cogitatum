@@ -242,7 +242,7 @@ Body is transparent, but a Point declaration or Point use owns a new Point frame
 Every Point occurrence, including a declaration, has a locally written mark; `.` is the neutral mark and selects no role.
 Defaults read only local marks: the child occurrence's own mark and, for `answers` and `repliesTo`, the enclosing occurrence's Q or O mark.
 A referenced Point's declaration never supplies either.
-An edge or Bearing use supplies a Bearing context: its first unsuffixed Point, possibly through body, needs an explicit operator and target.
+An explicit Bearing or Bearing use supplies a Bearing context: its first unsuffixed Point, possibly through body, needs an explicit operator and target.
 G/ and O/ may instead select the constructed or referenced Bearing.
 Once a Point frame is reached, its children use the ordinary indentation rules again.
 An operator overrides the structural default; it does not create a second connection.
@@ -254,12 +254,15 @@ It changes diagnostics only: Points, Bearings, identities, validation and fallba
 Failed selections, complete explicit endpoints, root groups, leaf prose, nearer active contexts and literal notes receive no such success advice.
 Its explanation offers existing spellings: keep the grouping deliberately, move the active content beside its target, or state the relation explicitly.
 For `supports`, `challenges` and `about`, and for `G/` and `O/`, an operator written on the occurrence replaces the default, so it adds no second Bearing.
-`answers`, `repliesTo` and `clarifies` have no Point-attached operator: move the occurrence where no default applies and write an `edge`, because an edge added beside an unchanged default creates a second relation.
-Its handle and any `G/` or `O/` commentary that selects this attachment belong to it rather than to the Point, so they move to that edge; selectors beneath a nearer constructor stay with that constructor.
-A linked group likewise becomes an `edge` only after its Grounds leave their default positions.
+`answers`, `repliesTo` and `clarifies` have no Point-attached operator: move the occurrence where no default applies and write a `[_ ...]` constructor, because a Bearing added beside an unchanged default creates a second relation.
+Its handle and any `G/` or `O/` commentary that selects this attachment belong to it rather than to the Point, so they move to that constructor; selectors beneath a nearer constructor stay with that constructor.
+A linked group likewise becomes an explicit Bearing only after its Grounds leave their default positions.
 There is no automatic note-wrapping fix: that would remove the active subtree from the graph.
 
-Recognized malformed `edge` headers retain this boundary in the AST, including incorrect case, an unclosed bracket, and invalid `;` separators. Their descendants cannot acquire a default connection to an outer Point because the edge failed. Valid descendant Points, their ordinary subtrees, and relations with independent explicit targets remain available in the partial result. The exact keyword is reserved: `[edgeless]` remains ordinary body.
+Recognized malformed Bearing constructor headers retain this boundary in the AST, including incorrect case, an unclosed bracket, and invalid `;` separators.
+Their descendants cannot acquire a default connection to an outer Point because the constructor failed.
+Valid descendant Points, their ordinary subtrees, and relations with independent explicit targets remain available in the partial result.
+Each exact keyword is reserved: the `edge` alias is recognized, while `[edgeless]` remains ordinary body.
 
 A top-level Objection is legal even without a target:
 
@@ -278,24 +281,24 @@ See [connections from indentation](bearings.md#connections-from-indentation) for
 `[linked]` or `[linked; @route]` constructs one `supports` Bearing.
 Its target is the nearest enclosing Point, possibly through ordinary body but never past another Point.
 Its sources are direct bare G declarations or G-labelled uses without an operator, selector, handle, or annotation error.
-Classify direct children before lowering any selector: G/ and O/ are commentary, and complete explicit Point clauses or edges are independent relations, never joint sources.
+Classify direct children before lowering any selector: G/ and O/ are commentary, and complete explicit Point clauses or Bearing constructors are independent relations, never joint sources.
 Their roles, content, optional anchors, and individual spans remain intact.
 The linked block has no Point or operator clause of its own, and its Bearing uses `derivedBy: "structural"` and the block's own span, including continuations but excluding children.
-Optional prose after the header, including continuations, becomes that Bearing's `text`, exactly as prose after an `edge` does.
+Optional prose after the header, including continuations, becomes that Bearing's `text`, exactly as prose after `[_ ...]` does.
 It is a description of the connection, not a new Point, member, or parsed argument.
 An empty description leaves `text` absent.
 
 A singleton is legal; an empty group or missing Point target is an error.
 Direct body wrappers, unsuffixed other roles, bare uses, and direct linked blocks are invalid.
 Bare O in a Bearing context is not an alias for O/; the suffix or a complete target makes that request explicit.
-A linked block cannot bypass an edge's explicit-target boundary.
+A linked block cannot bypass an explicit Bearing's target boundary.
 Direct linked-block nesting, even through body, is rejected; a linked block inside a member Point's subtree is a separate inference and is legal.
 Use header prose to describe the joint; G-labelled uses contribute existing Points without unary member attachments.
 
 Any invalid member rejects the whole joint, never a reduced source set.
 First Points below the group, including through invalid body wrappers, receive no structural connection to the outer target even after rejection.
 Valid Points and their own ordinary subtrees remain available.
-A complete explicit Point clause or direct edge remains independently authored and does not invalidate otherwise valid sources.
+A complete explicit Point clause or direct Bearing constructor remains independently authored and does not invalidate otherwise valid sources.
 A direct Bearing use is an independent occurrence, never a source, even when its reference fails.
 Its selectors discuss its explicitly referenced Bearing, not the surrounding joint.
 For example, G +> @missing rejects its own relation; incomplete G +> is unclassified and rejects the whole joint.
@@ -311,10 +314,10 @@ Duplicate member anchors invalidate the entire joint rather than deduplicating o
 Repeated resolved Point identities, including a declaration and use of that same Point, also reject the entire joint.
 Distinct Points with the same prose remain distinct sources.
 
-Unlike an `edge`, a linked block obtains its sources and target from the local structure.
-An equivalent edge example must move the Grounds out of default-support placement while preserving their content, roles, names, status, and subtrees.
+Unlike `[_ ...]`, a linked block obtains its sources and target from the local structure.
+An equivalent explicit Bearing example must move the Grounds out of default-support placement while preserving their content, roles, names, status, and subtrees.
 Use the same header description when comparing semantic content and topology after ignoring local keys, order, spans, Explain, and structural/operator provenance.
-Leaving G children in place and adding an edge intentionally produces both unary and joint Bearings.
+Leaving G children in place and adding an explicit Bearing intentionally produces both unary and joint Bearings.
 Neither construction adds reasoning closure, validity checks, minimality, or necessary-premise claims.
 
 Retired `join` headers receive `RETIRED_JOIN_ANNOTATION`, including malformed reserved prefixes and unclosed headers.
@@ -327,7 +330,7 @@ Unclosed brackets may also receive the outline's malformed-prefix diagnostic, an
 
 ## Names and resolution
 
-A Point name precedes its operator; a Bearing handle follows `;`. Both share one namespace within a source unit. Forward references work. Sources of an `edge` must resolve to Points; targets must satisfy their operator's kind restriction. Generated compilation keys cannot be used as authored names or references.
+A Point name precedes its operator; a Bearing handle follows `;`. Both share one namespace within a source unit. Forward references work. Sources of an explicit Bearing must resolve to Points; targets must satisfy their operator's kind restriction. Generated compilation keys cannot be used as authored names or references.
 
 Duplicate Point anchors invalidate all Points with that anchor and dependent Bearings. Duplicate handles invalidate those Bearings. A Point/handle collision retains valid Points but rejects the conflicting route and ambiguous references. Bearings targeting a failed Bearing are rejected. A handle on an annotation that produces no Bearing is an error.
 
@@ -393,7 +396,7 @@ The nearest constructor exposes one Bearing for `G/` or `O/`:
 | Nearest constructor | Exposed Bearing |
 | --- | --- |
 | Point declaration or Point use | Only the attachment constructed at this occurrence |
-| Explicit edge or linked block | The Bearing constructed there |
+| Explicit Bearing constructor or linked block | The Bearing constructed there |
 | Bearing use | The existing validated Bearing explicitly referenced there |
 
 A referenced Bearing is a focus, not a newly owned attachment.
@@ -435,8 +438,8 @@ All input modes permit indentation-based authoring, explicit-relation authoring,
 These writing techniques are not additional compiler input modes.
 `derivedBy` records how an individual Bearing was produced, not the input mode or an authoring style for the document.
 The four symbolic operators retain their meanings.
-An `edge` may instead use any case-sensitive canonical kind name, including `answers`, `repliesTo`, and `clarifies`.
-Named-kind clauses are adopted only for `edge`; Point-attached clauses continue to use symbolic operators.
+A `[_ ...]` constructor may instead use any case-sensitive canonical kind name, including `answers`, `repliesTo`, and `clarifies`.
+Named-kind clauses are adopted only for explicit Bearing constructors; Point-attached clauses continue to use symbolic operators.
 
 Host integrations can use the source envelope to keep each independent fence paired with its AST, graph, and source locations:
 
@@ -553,14 +556,14 @@ Direct notes in linked have `linkedMember` function `supplementary` and `eligibl
 Graph IR has a required `notes` array in authored source order.
 Each record contains `origin: "note" | "constructor-description"`, a typed resolved `target`, and `sourceSpan`.
 Within its source unit, that span addresses the AST block that owns the text.
-For a typed note it also owns the entire literal subtree; for an edge/linked description it owns the constructor's prose and continuations, not its active children.
+For a typed note it also owns the entire literal subtree; for an explicit Bearing or linked description it owns the constructor's prose and continuations, not its active children.
 Plain `[note]`, use tail prose, malformed notes and unresolved typed notes produce no object-note record.
 Explain emits `selectNoteTarget` with the requested type, nearest `contextSpan` when present, `crossedBodySpans`, and a `target` only on success.
 Successful typed notes and constructor descriptions emit `attachNote` with the corresponding record.
 `preserveNote` and its direct `parentSpan` still describe written location, independently of the selected target.
 
 The AST/source owns authored text; Graph IR and Explain are derived projections.
-`Bearing.text` is derived only from its own accepted edge/linked constructor description.
+`Bearing.text` is derived only from its own accepted explicit Bearing or linked constructor description.
 It never concatenates notes, selects a note arbitrarily, or changes when a use adds a note.
 Graph-only JSON preserves note origins and targets but omits note prose and literal descendants.
 Both `compileSource` and `explainSource` export the complete source units, AST and graphs needed to recover them.

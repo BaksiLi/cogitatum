@@ -84,7 +84,22 @@ Reduced motion keeps neighbours still during direct manipulation.
 A press that does not move selects; dragging does not select or clear.
 Background drag pans, Ctrl/Command + wheel or a pinch zooms, and the ordinary wheel is left to the page. Positions are view-local and never modify the compiled graph or source; `resetLayout()` discards the arrangement.
 
-`clear()` clears selection and guidance. `select(ref)` accepts a ref from the current compilation only and updates `aria-pressed` synchronously; `fit()` and `zoom(factor)` let the host supply controls. Positions live in world space and the camera maps them to pixels, so marks and wording keep a fixed, readable size at every zoom (14px wording, 12px names); the view frames itself once its container has size, including after being revealed from a hidden panel. Selection highlights a **focus neighborhood**: whole incident Bearings, including all joint sources.
+`clear()` clears selection and guidance.
+`select(ref)` accepts a ref from the current compilation only and updates `aria-pressed` synchronously; `fit()` and `zoom(factor)` let the host supply controls.
+Positions live in world space and the camera maps them to pixels.
+Wording retains its CSS reading size (14px wording, 12px names by default); line height follows the host font size, while Point glyphs scale within bounds.
+At close zoom, captions allow three lines; farther out, they use two, then hide until focused.
+The view frames itself once its container has size, including after being revealed from a hidden panel.
+A tall map in a full panel opens at reading scale near its conclusion so the reader can pan through it.
+Explicit `fit()` instead includes the complete drawing, even below the manual zoom minimum.
+Keyboard focus pans the mark and its wording into view without scrolling the host page.
+
+Optional `entrance: true` reveals the first drawing when it comes into view, with marks followed by traced connections.
+Inspection or a camera gesture completes that decoration immediately, so selection guidance and complete routes remain available.
+System reduced motion skips or ends entrance; a host `reducedMotion()` callback is checked on each frame.
+An uninterrupted entrance becomes idle when finished, and destruction cancels pending frames and observation.
+
+Selection highlights a **focus neighborhood**: whole incident Bearings, including all joint sources.
 Selection is what the reader is examining, so it keeps the guidance until it changes or is cleared (Escape or a background press).
 Hover and keyboard focus preview a neighborhood only while nothing is selected; during a selection a pointed or focused unrelated mark only lifts itself so it stays readable and selectable.
 `guidanceSubject(selected, previewed)` is that shared rule, used by both Map and Reading.

@@ -9,7 +9,7 @@ order: 2
 
 A Bearing is a connection from one or more marked Points to a Point or to another Bearing.
 It records how selected material bears on its target in this inquiry.
-It can be written explicitly, with an operator or `edge`, or derived from indentation; a local selector can target a Bearing that has no name.
+It can be written explicitly, with an operator or `_`, or derived from indentation; a local selector can target a Bearing that has no name.
 
 ## Representation, interpretation and assessment
 
@@ -30,7 +30,7 @@ These are useful distinctions in reading, not new mutually exclusive families in
 
 `+>` compiles as `supports`: the source bears positively on the target. This can express deductive or inductive reasoning, an abductive hypothesis, an explanation, or an interpretive reason. It does not declare which method is in use, guarantee validity, or certify sufficient grounds.
 
-Describe the method in ordinary prose or an `edge` description when it matters. This version has no inference-method annotation or subtype taxonomy. Future typed methods would need explicit definitions and a versioned contract; tools must not silently infer them from `supports`.
+Describe the method in ordinary prose or a Bearing constructor's description when it matters. This version has no inference-method annotation or subtype taxonomy. Future typed methods would need explicit definitions and a versioned contract; tools must not silently infer them from `supports`.
 
 For an indented Ground's attachment, put `[_ note]` beneath that Ground to explain the connection without naming or reconstructing it.
 `[. note]` at the same location annotates the Ground's Point; `[note]` stays local to the written occurrence.
@@ -42,7 +42,7 @@ See [local object notes](syntax.md#local-object-notes) for selection, provenance
 ```md cog-check require=supports points=2 bearings=1 diagnostics=0
 - [C @reading] The passage presents the speaker as uncertain.
 - [G @hesitation] The speaker interrupts and revises the same sentence twice.
-- [edge @hesitation +> @reading; @reading-route] This is an interpretive reason for the reading.
+- [_ @hesitation +> @reading; @reading-route] This is an interpretive reason for the reading.
 ```
 
 ## Explicit connections
@@ -54,7 +54,7 @@ See [local object notes](syntax.md#local-object-notes) for selection, provenance
 | `/>` | `challenges`: objection to a connection | Named Bearing |
 | `~>` | `about`: relevance without positive or negative commitment | Point or named Bearing |
 
-A Point annotation with an operator uses that Point as its source. An `edge` connects existing Points and creates no Point of its own.
+A Point annotation with an operator uses that Point as its source. A `[_ ...]` constructor connects existing Points and creates no Point of its own.
 
 Use `~>` when the intended connection is relevance without taking a positive or negative position toward the target.
 It is useful both while developing an inquiry and while reconstructing one.
@@ -66,16 +66,16 @@ You need not classify every relevant passage as support or challenge.
 - [C @conclusion] The service needs more capacity.
 - [G @load] Peak load exceeds current capacity.
 - [G @forecast] The forecast predicts further growth.
-- [edge @load, @forecast +> @conclusion; @capacity-route] These reasons bear on the conclusion jointly.
+- [_ @load, @forecast +> @conclusion; @capacity-route] These reasons bear on the conclusion jointly.
 - [O /> @capacity-route] The forecast assumes a campaign that was cancelled.
 ```
 
-The names are needed for the edge's references; ordinary body cannot serve as an edge source.
-Two separate `[G]` children create two independent connections. One `edge` with two sources creates one joint connection without also creating the independent ones.
+The names are needed for the Bearing's references; ordinary body cannot serve as a Bearing source.
+Two separate `[G]` children create two independent connections. One `[_ ...]` constructor with two sources creates one joint connection without also creating the independent ones.
 
 ### Named canonical kinds
 
-An `edge` can name any canonical kind directly: `[edge @sources KIND @target; @optional-handle]`.
+A `[_ ...]` constructor can name any canonical kind directly: `[_ @sources KIND @target; @optional-handle]`.
 Use the exact spellings below, including the capital T in `repliesTo`:
 
 | Kind | Target |
@@ -95,8 +95,8 @@ Its explicit target is a Point and need not carry O; the R-under-O rule is a loc
 - [O @objection] The explanation lacks a time scale.
 - [Q @question] Which time scale do you mean?
 - [C @concession] The timing is uncertain.
-- [edge @question repliesTo @objection; @clarification-question]
-- [edge @concession repliesTo @objection; @conceding]
+- [_ @question repliesTo @objection; @clarification-question]
+- [_ @concession repliesTo @objection; @conceding]
 ```
 
 The following original sources preserve the same Point declarations and selected graph structure.
@@ -116,10 +116,10 @@ The comparison ignores local keys, source locations, narrative organization, Exp
 - [D @distinction] Drift and noise are different hypotheses.
 - [O @objection] That does not explain the timing.
 - [R @reply] Recalibration happened immediately before the change.
-- [edge @answer answers @question]
-- [edge @distinction clarifies @answer]
-- [edge @objection challenges @answer]
-- [edge @reply repliesTo @objection]
+- [_ @answer answers @question]
+- [_ @distinction clarifies @answer]
+- [_ @objection challenges @answer]
+- [_ @reply repliesTo @objection]
 ```
 
 Identity reuse can follow the explanation's order without copying content or importing an earlier subtree:
@@ -128,17 +128,17 @@ Identity reuse can follow the explanation's order without copying content or imp
 - [. @measurement] Two independent retries timed out.
 - The sample is small; we discuss that limitation before using the observation.
 - [C @cause] A persistent configuration fault may explain the timeouts.
-- [edge @measurement supports @cause; @support] Reuse the earlier observation in this step.
+- [_ @measurement supports @cause; @support] Reuse the earlier observation in this step.
 - [O @limitation] The two retries may share a transient fault.
-- [edge @limitation /> @support] Object to this attachment rather than copying the observation.
+- [_ @limitation /> @support] Object to this attachment rather than copying the observation.
 - [Q @followup] Which environment did the retries share?
-- [edge @followup repliesTo @limitation]
+- [_ @followup repliesTo @limitation]
 ```
 
 Unknown/case-mismatched kinds, incomplete clauses, duplicate sources, multiple targets, and kind/target mismatches are diagnosed without partial relations or implicit fallback.
-For example, `[edge @answer answers @support]` fails when `support` names a Bearing.
+For example, `[_ @answer answers @support]` fails when `support` names a Bearing.
 Named Point-attached forms such as `[Q @question repliesTo @objection]` are not supported.
-Prose after an `edge` annotation describes that individual Bearing and is not parsed as another clause.
+Prose after an `_` annotation describes that individual Bearing and is not parsed as another clause.
 An automatic flat-source formatter is deferred; these constructors do not reconstruct the original document.
 
 ### One reason, two ways to write it
@@ -161,7 +161,7 @@ Edits belong to the chosen note; they do not translate into the other note or pr
 ## Local joint reasons
 
 Use `linked` when nearby Grounds belong to one supporting connection.
-Use `edge` when connecting existing Points by reference, including shared premises or distant targets.
+Use `_` when connecting existing Points by reference, including shared premises or distant targets.
 Both construct Bearings; neither is a new Point role or a measure of reasoning strength.
 
 Both original notes below keep the same Claim and two Grounds, including their names, roles, and content.
@@ -176,11 +176,11 @@ The prose after each header describes the same connection.
     - [G @socrates] Socrates is human.
 ```
 
-```md cog-check compare=joint-reasons caption="Explicit edge" require=supports points=3 bearings=1 diagnostics=0
+```md cog-check compare=joint-reasons caption="Explicit Bearing" require=supports points=3 bearings=1 diagnostics=0
 - [C @mortality] Socrates is mortal.
 - [G @humans] All humans are mortal.
 - [G @socrates] Socrates is human.
-- [edge @humans, @socrates +> @mortality; @route] Apply the general rule to this case.
+- [_ @humans, @socrates +> @mortality; @route] Apply the general rule to this case.
 ```
 
 The two Grounds keep their own content and roles.
@@ -200,9 +200,9 @@ This is a different topology, not an equivalent spelling.
 
 The handle is optional, and one member is allowed.
 The authoring construct is a linked block; its name does not classify every instance as a multi-premise Linked argument structure.
-A singleton linked block gives a single support step an explicit position, while a multi-source `edge` can express a Linked structure without the `linked` keyword.
+A singleton linked block gives a single support step an explicit position, while a multi-source `_` can express a Linked structure without the `linked` keyword.
 The nearest enclosing Point supplies the target, regardless of its role.
-Header prose is optional and becomes the joint Bearing's description, just like `edge` prose.
+Header prose is optional and becomes the joint Bearing's description, just like `_` prose.
 It creates no Point and changes neither membership nor the source and target references.
 Members must be direct `G` children without operators or Bearing handles; an unmarked body child is not a member.
 Invalid source or unclassified intent rejects the whole linked block without falling back to single-source connections.
@@ -213,9 +213,9 @@ For complete restrictions and partial-output behavior, see [local linked blocks]
 ## Assess a local attachment
 
 Use G/ to support and O/ to object to the Bearing exposed by the nearest ancestor constructor.
-That is a Point occurrence's local attachment, an edge or linked block's constructed Bearing, or the existing Bearing explicitly referenced by `[_ use @route]`.
+That is a Point occurrence's local attachment, an explicit Bearing or linked block's constructed Bearing, or the existing Bearing explicitly referenced by `[_ use @route]`.
 These are ordinary G and O Points with a retained local selector, not new roles.
-Body is transparent; another Point, linked, edge or Bearing use is a boundary even when its attachment or focus is missing or rejected.
+Body is transparent; another Point, linked, explicit Bearing or Bearing use is a boundary even when its attachment or focus is missing or rejected.
 Selection never scans a Point's other outgoing Bearings, crosses an unattached Point, or selects the commentary relation being created by the same annotation.
 
 ```md cog-check require=supports,challenges,repliesTo points=6 bearings=4 diagnostics=0
@@ -284,10 +284,10 @@ Bare `O` keeps its Point-context default; use `O/` to select a local Bearing.
 An ordinary Ground occurrence exposes two different objects: the Point's content and the step by which it supports something else.
 `O` beneath it questions the content; `O/` questions that particular step.
 In a `linked` block, direct `G` children supply the joint premises, while `G/` and `O/` comment on the joint Bearing.
-The slash makes the choice of object visible across these constructions, including an explicit `edge` and a Bearing use.
+The slash makes the choice of object visible across these constructions, including an explicit `_` and a Bearing use.
 It is a selector, not a claim that the objection is a theory-specific undercut.
 
-Letting bare `O` automatically select a Bearing beneath `linked`, `edge` or a Bearing use would be a possible alternative language design, and would save one character in those contexts.
+Letting bare `O` automatically select a Bearing beneath `linked`, `_` or a Bearing use would be a possible alternative language design, and would save one character in those contexts.
 It would also make the unsuffixed mark select a different kind of object according to the enclosing constructor, while direct `G` under `linked` would still mean a premise rather than support for the Bearing.
 The current language chooses an explicit selector for relation commentary.
 Bare `O` under a Bearing constructor is diagnosed, not redirected to an outer Point; changing that rule would be a language change requiring its own examples and migration decision.
@@ -329,9 +329,9 @@ The explicit references reuse i's identity without copying its subtree or changi
 - [G @s] Independent observation.
 - [G @t] Corroborating observation.
 - [C @c] Final conclusion.
-- [edge @p, @q +> @i; @first]
-- [edge @i, @r +> @c; @second]
-- [edge @s, @t +> @c; @third]
+- [_ @p, @q +> @i; @first]
+- [_ @i, @r +> @c; @second]
+- [_ @s, @t +> @c; @third]
 ```
 
 Argumentation includes developing, presenting, and examining arguments; it is not limited to debate between people.
@@ -396,7 +396,7 @@ Outside a linked block, without an operator, the nearest enclosing Point and the
 | `D` | Any Point | `clarifies` |
 | `?` | Any Point | `about` |
 
-Other combinations create no default connection. Ordinary body can be crossed while finding the nearest Point; an ineligible Point cannot. The first Point beneath an `edge`, possibly through body, must provide an explicit target. Its own children can then use ordinary indentation: for example, a reply beneath an explicitly targeted objection replies to that objection.
+Other combinations create no default connection. Ordinary body can be crossed while finding the nearest Point; an ineligible Point cannot. The first Point beneath an `_`, possibly through body, must provide an explicit target. Its own children can then use ordinary indentation: for example, a reply beneath an explicitly targeted objection replies to that objection.
 
 Derived connections still have meaning. `derivedBy: "structural"` describes their source; `"operator"` means an operator was written. Neither measures confidence. An answer can be wrong, a reply ineffective, and a positive reason weak. The graph adds no transitive links, proof rules, or conclusions from missing connections.
 
@@ -423,7 +423,7 @@ If you intend a connection, choose the placement or an explicit operator that ex
 
 Indentation-based authoring and explicit-relation authoring can be mixed in one note.
 They are writing techniques, distinct from the [input modes](syntax.md#input-modes) and from each Bearing's `derivedBy` value.
-Every adopted canonical kind has an explicit `edge` constructor, while local shorthand still follows its lexical context.
+Every adopted canonical kind has an explicit `_` constructor, while local shorthand still follows its lexical context.
 Explicit references can point forward or backward; generated source would remain separate from the authored document and needs its own formatter contract.
 
 ## Naming routes

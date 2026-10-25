@@ -32,7 +32,7 @@ Linked names an argument structure; a `[linked]` block is one way to write it, a
 | Occurrence | 出現處 | One place in the source where a Point or Bearing is declared, constructed or used. / 點或係在原文中被宣告、建構或使用的一處。 |
 | Role | 角色 | What a Point's content does at one occurrence: `Q`, `C`, `G`, `O`, `R` or `D`; not truth, a successful argument or a permanent type. / 內容在某一出現處的作用；不表示為真、論證成功或固定類型。 |
 | Local mark | 局部標記 | The mark written at an occurrence: a role, `.`, `?` or a selector; it applies only there. / 寫在某一出現處的標記，只作用於該處。 |
-| Explicit | 明示 | Written in the annotation itself: an operator clause or `edge` states its kind and endpoints, unlike a relation derived from indentation. / 由標注本身寫明種類與端點，有別於由縮排推得的關係。 |
+| Explicit | 明示 | Written in the annotation itself: an operator clause or `_` states its kind and endpoints, unlike a relation derived from indentation. / 由標注本身寫明種類與端點，有別於由縮排推得的關係。 |
 | Body | 正文 | Unmarked prose; it adds no Point or Bearing, and attachment by indentation passes through it. / 未標記的文字；不產生點或係，依縮排的附接可穿過它。 |
 | Note | 附註 | A `[note]` subtree kept as literal prose outside the graph. / 以 `[note]` 開頭、保留為字面文字且不入圖的子樹。 |
 | Handle | 係名 | An authored name for a Bearing, written after `;`. / 以 `;` 寫在後面、為係所取的名字。 |

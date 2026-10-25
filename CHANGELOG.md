@@ -48,6 +48,7 @@ The original published schemas remain unchanged in `spec/0.5.0/`.
   This diagnostic and interpretation change is part of the 0.6 compatibility boundary.
 - Give the private Map ringed Point marks, host-sized captions and an optional traced entrance.
   Tall maps open at reading scale; explicit Fit includes the whole drawing, and keyboard navigation reveals focused wording without scrolling the host.
+  Inspection completes entrance immediately so its opacity cannot conceal a selected route or override branch guidance; reduced motion skips or ends it.
 - Explain invalid outline levels before suggesting an independent explicit attachment.
   Preserve diagnostic codes, spans, partial graphs and failed-constructor boundaries.
 - Present typed Point references and Bearing summaries separately from prose in the private View.
