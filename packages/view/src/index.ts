@@ -53,6 +53,7 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
 
   let full: GraphProjection = { nodes: [], links: [] }, topology: GraphProjection = { nodes: [], links: [] };
   let inline = new Map<string, GraphLink>(), shapes = new Map<string, Shape>(), order: string[] = [];
+  let radii = new Map<string, number>();
   let world = new Map<string, Point2>(), camera: Camera = { k: 1, tx: 0, ty: 0 }, size = { w: 0, h: 0 };
   let scope = "", selected: string | undefined, hovered: string | undefined;
   let destroyed = false, cameraTouched = false, frame = 0, settleFrame = 0;
@@ -101,12 +102,17 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
     // Measure with the host's resolved text style so wrapping matches what is painted.
     const probe = element("text", { class: "cog-text" }, nodeLayer), style = win?.getComputedStyle(probe);
     font = `${style?.fontSize || `${MARK_TYPE.text}px`} ${style?.fontFamily || "serif"}`; probe.remove(); wrapCache.clear();
+    // A point's size is its magnitude: the more bearings meet it, the larger it is drawn, as a star's
+    // brightness shows from where it is seen. Every point keeps at least the base size and its letter.
+    const bearingsOn = new Map<string, number>();
+    for (const link of topology.links) if (link.segment !== "input") bearingsOn.set(link.target, (bearingsOn.get(link.target) ?? 0) + 1);
+    radii = new Map(topology.nodes.map(node => [node.id, POINT_R * (1 + .16 * Math.min(bearingsOn.get(node.id) ?? 0, 4))]));
     for (const node of topology.nodes) {
-      const isPoint = node.ref.kind === "point";
+      const isPoint = node.ref.kind === "point", radius = radii.get(node.id) ?? POINT_R;
       const g = element("g", { class: `cog-node ${isPoint ? "point" : "bearing cog-junction-node"} cog-${node.label.replace("?", "-open")}`, role: "button", tabindex: "-1", "data-node": node.id }, nodeLayer);
       element("circle", { class: "cog-hit", r: isPoint ? "22" : "16" }, g);
-      element("circle", { class: "cog-focus-ring", r: isPoint ? "15" : "16" }, g);
-      if (isPoint) drawPointGlyph(g, node.label, POINT_R); else drawBearingGlyph(g, node.label, true, JUNCTION_R - 2.5);
+      element("circle", { class: "cog-focus-ring", r: isPoint ? String(radius + 6) : "16" }, g);
+      if (isPoint) drawPointGlyph(g, node.label, radius); else drawBearingGlyph(g, node.label, true, JUNCTION_R - 2.5);
       // A junction's name sits beside its diamond, so links may enter it from below without detouring.
       const labelHit = element("rect", { class: "cog-hit cog-label-hit", width: "0", height: "0", "aria-hidden": "true" }, g);
       const label = element("text", { class: isPoint ? "cog-text" : "cog-label", "text-anchor": isPoint ? "middle" : "start" }, g);
@@ -169,7 +175,7 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
    */
   function anchor(id: string, toward: Point2, port = 0): Point2 {
     const p = screen(world.get(id)!), shape = shapes.get(id);
-    const isPoint = shape?.node.ref.kind === "point", r = isPoint ? POINT_R + 2 : JUNCTION_R + 1;
+    const isPoint = shape?.node.ref.kind === "point", r = isPoint ? (radii.get(id) ?? POINT_R) + 2 : JUNCTION_R + 1;
     if (isPoint && shape?.label && toward.y > p.y + r) {
       const lines = shape.label.childNodes.length;
       return { x: p.x + port, y: p.y + (lines ? 14 + lines * MARK_TYPE.lineHeight : Math.sqrt(r * r - port * port)) };
@@ -231,7 +237,8 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
     }));
     for (const [side, list] of sides) {
       if (list.length < 2) continue;
-      const r = nodeById(side.split("|")[0])?.ref.kind === "point" ? POINT_R : JUNCTION_R - 2;
+      const sideId = side.split("|")[0];
+      const r = nodeById(sideId)?.ref.kind === "point" ? radii.get(sideId) ?? POINT_R : JUNCTION_R - 2;
       const spacing = Math.min(4, (r * 1.4) / (list.length - 1));
       list.sort((a, b) => a.x - b.x).forEach((item, i) => ports.set(item.key, (i - (list.length - 1) / 2) * spacing));
     }
