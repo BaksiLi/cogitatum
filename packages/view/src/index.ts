@@ -102,11 +102,18 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
     // Measure with the host's resolved text style so wrapping matches what is painted.
     const probe = element("text", { class: "cog-text" }, nodeLayer), style = win?.getComputedStyle(probe);
     font = `${style?.fontSize || `${MARK_TYPE.text}px`} ${style?.fontFamily || "serif"}`; probe.remove(); wrapCache.clear();
-    // A point's size is its magnitude: the more bearings meet it, the larger it is drawn, as a star's
-    // brightness shows from where it is seen. Every point keeps at least the base size and its letter.
-    const bearingsOn = new Map<string, number>();
-    for (const link of topology.links) if (link.segment !== "input") bearingsOn.set(link.target, (bearingsOn.get(link.target) ?? 0) + 1);
-    radii = new Map(topology.nodes.map(node => [node.id, POINT_R * (1 + .16 * Math.min(bearingsOn.get(node.id) ?? 0, 4))]));
+    // A point's size is its magnitude, as a star's brightness is: the more of the argument flows into it
+    // (every point whose reasoning reaches it, through any route), the larger it is drawn. The scale is a square
+    // root, so a claim stands out without dwarfing its grounds; a leaf keeps a size its letter can sit in.
+    const into = new Map<string, string[]>();
+    for (const link of topology.links) into.set(link.target, [...into.get(link.target) ?? [], link.source]);
+    const isPointId = (id: string) => nodeById(id)?.ref.kind === "point";
+    const upstream = (id: string) => {
+      const seen = new Set<string>([id]), queue = [id];
+      for (let next = queue.pop(); next !== undefined; next = queue.pop()) for (const source of into.get(next) ?? []) if (!seen.has(source)) { seen.add(source); queue.push(source); }
+      return [...seen].filter(other => other !== id && isPointId(other)).length;
+    };
+    radii = new Map(topology.nodes.map(node => [node.id, Math.min(15, 8 + 2.2 * Math.sqrt(upstream(node.id)))]));
     for (const node of topology.nodes) {
       const isPoint = node.ref.kind === "point", radius = radii.get(node.id) ?? POINT_R;
       const g = element("g", { class: `cog-node ${isPoint ? "point" : "bearing cog-junction-node"} cog-${node.label.replace("?", "-open")}`, role: "button", tabindex: "-1", "data-node": node.id }, nodeLayer);
