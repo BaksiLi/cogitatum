@@ -17,7 +17,9 @@ import type {
 // below). Hyphens, plus signs and slashes inside ordinary words such as O-ring,
 // C++ or G/O ratio therefore do not end a mark, and that prose stays body.
 const MARK_END = String.raw`(?=$|[\s;@]|[+\-~/_]>)`;
+const FAMILY_START_RE = new RegExp(String.raw`^(\s*)(point|node|\.|bearing|edge|_)` + MARK_END, "i");
 const LOCAL_BEARING_START_RE = new RegExp(String.raw`^[QCGORD](?:\?|\/|_)?` + MARK_END, "i");
+const GLUED_BEARING_FAMILY_RE = new RegExp(String.raw`^(\s*)(bearing|edge|_)(?=[QCGORD](?:[?/_])?` + MARK_END + ")", "i");
 const RESERVED_START_RE = new RegExp(
   String.raw`^(?:(?:[QCGORD](?:\?|\/|_)?|\?[/_]?)` + MARK_END +
   String.raw`|use(?=$|;|\s+@)|linked(?=$|[\s;])|join(?=$|[\s;])|@)`,
@@ -37,8 +39,7 @@ type AnnotationHead = {
 export function recognizeAnnotationHead(raw: string): AnnotationHead {
   // A role written against a Bearing family spelling, as in [_G], keeps the
   // local boundary so its sources cannot silently fall back to body.
-  const family = /^(\s*)(point|node|\.|bearing|edge|_)(?=$|[\s;])/i.exec(raw)
-    ?? /^(\s*)(bearing|edge|_)(?=[QCGORD](?:[?/_])?(?:$|[\s;@]))/i.exec(raw);
+  const family = FAMILY_START_RE.exec(raw) ?? GLUED_BEARING_FAMILY_RE.exec(raw);
   const type = family ? /^(point|node|\.)$/i.test(family[2]) ? "point" : "bearing" : undefined;
   const rest = family ? raw.slice(family[0].length).trimStart() : raw.trimStart();
   const operation = /^note(?=$|[\s;@]|[+\-~/_]>)/i.test(rest) ? "note"
@@ -189,7 +190,7 @@ function parseCurrentAnnotation(raw: string, sourceSpan?: SourceSpan): Annotatio
       errors.push("localBearing");
       diagnostics.push({
         severity: "error", code: "MALFORMED_LOCAL_BEARING",
-        message: "Local Bearing headers use [_ G], [_ O], [_ R] or [_ D] for a Point target, or [_ G/], [_ O/] or [_ Q/] for the locally exposed Bearing, with an optional ; @route handle and neutral Point sources. The first token after _ selects the mode; do not mix a role with references, operators, use or note." + gluedRoleHint(tokens[0]) + markCaseHint(tokens[1]),
+        message: pointOnlySelectorHint(roleToken, true) || "Local Bearing headers use [_ G], [_ O], [_ R] or [_ D] for a Point target, or [_ G/], [_ O/] or [_ Q/] for the locally exposed Bearing, with an optional ; @route handle and neutral Point sources. The first token after _ selects the mode; do not mix a role with references, operators, use or note." + gluedRoleHint(tokens[0]) + markCaseHint(tokens[1]),
         sourceSpan
       });
     }
@@ -259,7 +260,7 @@ function parseCurrentAnnotation(raw: string, sourceSpan?: SourceSpan): Annotatio
   if (selectorIntent) {
     const role = selectorIntent[1].toUpperCase();
     if (role !== "G" && role !== "O" && role !== "Q") {
-      diagnostics.push({ severity: "error", code: "UNSUPPORTED_LOCAL_BEARING_SELECTOR", message: "Only G/, O/ and Q/ select a local Bearing attachment.", sourceSpan });
+      diagnostics.push({ severity: "error", code: "UNSUPPORTED_LOCAL_BEARING_SELECTOR", message: pointOnlySelectorHint(selectorIntent[1] + "/", false) || "Only G/, O/ and Q/ select a local Bearing attachment.", sourceSpan });
       return { annotation: { kind: "invalid", raw }, diagnostics };
     }
     const tokens = splitTokens(semicolonParts[0]);
@@ -673,7 +674,17 @@ export function operatorSymbol(kind: BearingKind, targetKind?: OperatorClause["t
   return KIND_SYMBOLS.get(kind);
 }
 
-// Hints extend existing messages; codes and severities stay unchanged.
+// Hints guide authoring without changing diagnostic codes or severities.
+function pointOnlySelectorHint(token: string, group: boolean): string {
+  if (!/^[RD]\/$/i.test(token)) return "";
+  const role = token[0].toUpperCase();
+  const kind = role === "R" ? "respondsTo" : "clarifies";
+  const prefix = group ? "_ " : "";
+  const explicit = group ? `[_ @source ${kind} @target]` : `[${role} ${kind} @target]`;
+  const naming = group ? "named endpoints" : "a named Point target";
+  return `${kind} requires a Point target, so there is no [${prefix}${role}/]: write [${prefix}${role}] for the nearest Point, or ${explicit} with ${naming}.` + markCaseHint(token);
+}
+
 function markCaseHint(token: string | undefined): string {
   const upper = token?.toUpperCase();
   return token && upper !== token && /^[QCGORD](?:\?|\/|_)?$/.test(upper!)
@@ -706,13 +717,13 @@ export function isBearingModeUnselected(header: string): boolean {
 }
 
 const LOCAL_ROLE_FOR_KIND = new Map<string, string>([
-  ["+>", "G"], ["supports", "G"], ["->", "O"], ["/>", "O"], ["challenges", "O"], ["respondsTo", "R"], ["clarifies", "D"]
+  ["+>", "G"], ["supports", "G"], ["->", "O"], ["/>", "O/"], ["challenges", "O"], ["respondsTo", "R"], ["clarifies", "D"]
 ]);
 
 function localKindHint(token: string | undefined): string {
   if (!token) return "";
   const role = LOCAL_ROLE_FOR_KIND.get(token);
-  if (role) return ` To take sources and target from the outline, write the role letter: [_ ${role}].`;
+  if (role) return ` To take sources and target from the outline, write the local mark: [_ ${role}].`;
   return token === "answers" || token === "concerns" || token === "~>"
     ? " Joint answers and Point-targeted concerns have no local header; name their endpoints explicitly. For concerns about the nearest exposed Bearing, write [_ Q/]." : "";
 }

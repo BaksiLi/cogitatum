@@ -128,6 +128,8 @@ A local header takes only its role and optional handle; `[_ G @a +> @b]` is a ma
 Any other first token selects no mode: `[_]`, `[_ +>]`, `[_ supports]` and `[edge cases]` receive `MALFORMED_BEARING_MODE`, whose message names the matching local header where one exists.
 Such a header remains a failed `explicitBearing` boundary with `syntaxErrors: ["mode"]`; its descendants cannot attach outward, and no explicit-target requirement is reported for them.
 A role written against the family spelling, as in `[_G]` or `[bearingG]`, is a malformed local header (`MALFORMED_LOCAL_BEARING`), never ordinary body.
+This boundary also holds when the operator's separating spaces are missing, as in `[_G->@claim]`, including an unclosed header.
+Its descendants cannot acquire an implicit attachment to an outer Point; ordinary words such as `[_O-ring]` remain body.
 `[_ @a +>]` remains a malformed explicit construction, even when its children could supply local sources.
 The first token fixes the mode before the rest of the header is validated; no local fallback is attempted.
 There are no local `Q` or `C` headers, and no active standalone `linked` keyword.
@@ -163,6 +165,8 @@ Invalid annotations remain inspectable in the AST; a valid Point can survive an 
 `[Context for this section]` and its unclosed counterpart are ordinary body.
 Annotation parsing starts only with a complete mark or keyword: a role letter, `?`, a Point/Bearing family spelling, `use` or `note`; the retired `linked` and `join` keywords are also recognized so that they are diagnosed.
 A role letter is complete when the bracket, whitespace, `;`, `@` or an operator follows it, directly or after a `?`, `/` or `_` suffix; `?` likewise, after an optional `/` or `_`.
+Point/Bearing family spellings use the same boundaries, so `[point@p]` and `[_@a+>@b]` are malformed annotations rather than transparent body.
+Required spaces are still required; recognizing a failed header never makes its spelling valid.
 Incorrect case and retired spellings such as `join`, `C?`, `G_`, `O_`, `[@p]` and `[use @p]` are also recognized, so that they are diagnosed; recognition does not make invalid forms legal.
 Words such as `Context`, `joined` and `linked-data` do not select annotation parsing, and neither do words that merely begin with a mark letter, such as `[O-ring]`, `[C-section]`, `[C++]` or `[G/O ratio]`.
 Reserving complete marks and keywords is a deliberate trade-off: `[C major]`, `[edge cases]` and `[note to self]` are malformed annotations rather than prose, and their failure boundaries apply.

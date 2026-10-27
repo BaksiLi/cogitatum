@@ -20,6 +20,12 @@ Use the complete released schema set and [migrate retained source](docs/syntax.m
   Recompile the complete proposed input and verify identities, content, declaration marks, ordered endpoints, literal subtrees, note ownership and unrelated diagnostics.
   Explain source movements, introduced uses and future attachment differences; decline missing names, changed roles and mismatched local targets.
   Keep the existing single-insertion `previewExplicitTarget` contract.
+- Use the same annotation boundaries for Point/Bearing family spellings and role marks, including `@` and symbolic operators.
+  Retain malformed headers such as `[point@p]`, `[_@a+>@b]` and `[_G->@claim]`, including unclosed forms.
+  Diagnose them instead of interpreting them as body and attaching descendants to an outer Point; preserve ordinary words such as `[_O-ring]`.
+  Explain the Point-only target restriction consistently for `R/`, `D/`, `[_ R/]` and `[_ D/]`.
+  A selector beneath a Point without an attachment names the Point-targeted spelling; a direct R or D in a local Bearing explains that the header creates no Point.
+  Incomplete explicit clauses keep their syntax guidance, and `/>` suggests `[_ O/]`.
 - Add `formatExplain` / `EXPLAIN_TEXT_VERSION` and `cog explain --format text`, including host input.
   Show every compiler effect, including membership, selection, non-emission, failed candidates and note ownership, with aggregate source-selection diagnostics.
   Reuse the existing Explain evidence rather than introducing another interpretation model.

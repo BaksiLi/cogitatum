@@ -90,6 +90,28 @@ describe("annotation recognition boundaries", () => {
     expect(message(graph, "MALFORMED_EXPLICIT_BEARING")).toContain("[_ @a,@b +> @c]");
     expect(graph.bearings).toEqual([]);
   });
+
+  it.each([".", "point", "node", "_", "bearing", "edge"])("keeps missing spaces after %s inside the same annotation boundary", family => {
+    for (const suffix of ["@a", "+>@outer", "->@outer", "/>@outer", "~>@outer", "@a+>@outer"]) {
+      for (const closer of ["]", ""]) {
+        const ast = parseDocument(`- [. @a] Existing.
+- [C @outer] Outer.
+  - [${family}${suffix}${closer} Malformed.
+    - [G @child] Retained Point.
+      - [O] Objection to that Point.`);
+        const { graph, explain } = compileGraphWithExplain(ast);
+        expect(explain.entries[2].recognition.kind, family + suffix).not.toBe("body");
+        expect(graph.diagnostics.some(d => d.severity === "error"), family + suffix).toBe(true);
+        expect(graph.bearings.some(b => b.target.key === graph.points.find(p => p.id === "outer")!.key), family + suffix).toBe(false);
+        expect(graph.bearings.at(-1)).toMatchObject({ kind: "challenges", target: { key: graph.points.find(p => p.id === "child")!.key } });
+        expect(validateAst(json(ast)), JSON.stringify(validateAst.errors)).toBe(true);
+      }
+    }
+    for (const suffix of ["-style", "/style", "+ratio", ".txt"]) {
+      const ast = parseDocument(`- [C] Outer.\n  - [${family}${suffix}] Ordinary prose.`);
+      expect(ast.blocks[0].children[0].annotation, family + suffix).toBeUndefined();
+    }
+  });
 });
 
 describe("clean edge annotations require an operator clause", () => {

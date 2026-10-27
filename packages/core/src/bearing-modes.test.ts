@@ -56,6 +56,28 @@ describe("Bearing mode selection", () => {
     expect(ast.blocks[0].children[0].annotation).toBeUndefined();
   });
 
+  it.each(["_", "bearing", "edge"])("retains the %s boundary when both role and operator spacing are missing", family => {
+    for (const suffix of ["G->@outer", "O+>@outer", "Q/~>@step", "G?/>@outer", "D_~>@outer"]) {
+      for (const closer of ["]", ""]) {
+        const header = `${family}${suffix}`;
+        const { graph, explain } = compile(`- [C @outer] Outer.
+  - [G; @step] Original reason.
+    - [${header}${closer} Malformed step.
+      - [G @source] Retained source.
+        - [O @detail] Source objection.`);
+        expect(explain.entries[2].recognition.kind, header).toBe("localBearing");
+        expect(graph.diagnostics.some(d => d.code === "MALFORMED_LOCAL_BEARING"), header).toBe(true);
+        expect(graph.diagnostics.map(d => d.code), header).not.toContain("IMPLICIT_ATTACHMENT_THROUGH_BODY");
+        expect(graph.bearings.map(b => b.kind), header).toEqual(["supports", "challenges"]);
+        expect(graph.bearings[1].target.key, header).toBe(graph.points.find(p => p.id === "source")!.key);
+      }
+    }
+    for (const suffix of ["O-ring", "G+ratio", "G/O ratio", "G/~ratio"]) {
+      const ast = parseDocument(`- [C] Outer.\n  - [${family}${suffix}] Ordinary prose.`);
+      expect(ast.blocks[0].children[0].annotation, suffix).toBeUndefined();
+    }
+  });
+
   it.each([
     ["supports", "[_ G]"], ["+>", "[_ G]"], ["challenges", "[_ O]"], ["respondsTo", "[_ R]"], ["clarifies", "[_ D]"],
     ["answers", "name their endpoints explicitly"], ["concerns", "name their endpoints explicitly"]

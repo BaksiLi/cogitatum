@@ -1,4 +1,5 @@
 import type {
+  Annotation,
   AstBlock,
   Bearing,
   BearingDerivedBy,
@@ -300,7 +301,7 @@ function compileBlock(
       draft.bearing = { outcome: "candidate", candidate: bearing, reason: "local-attachment" };
       producedBearing = bearing;
     } else {
-      diagnostics.push({ severity: "error", code: "NO_LOCAL_BEARING_ATTACHMENT", message: "The nearest ancestor constructor exposes no Bearing; use an explicit target instead.", sourceSpan: block.sourceSpan });
+      diagnostics.push({ severity: "error", code: "NO_LOCAL_BEARING_ATTACHMENT", message: noLocalBearingMessage(context, annotation.role, false), sourceSpan: block.sourceSpan });
       draft.bearing = { outcome: "rejected", reason: "no-local-attachment" };
     }
   } else if (annotation.operatorClause) {
@@ -367,8 +368,15 @@ function classifyLocalBearingChild(block: AstBlock): LocalBearingChildFunction {
   return (annotation.kind === "material" || (annotation.kind === "use" && !annotation.role)) && !annotation.handle && !annotation.syntaxErrors?.length ? "source" : "unclassified";
 }
 
-function localBearingMemberDiagnosticMessage(block: AstBlock): string {
+function localBearingMemberDiagnosticMessage(block: AstBlock, header: Extract<Annotation, { kind: "localBearing" }>): string {
   const annotation = block.annotation;
+  if ((annotation?.kind === "role" || annotation?.kind === "use") && (annotation.role === "R" || annotation.role === "D")
+      && !annotation.selector && !annotation.operatorClause && !annotation.syntaxErrors?.length) {
+    const relation = annotation.role === "R" ? "respond to" : "clarify";
+    return `A local Bearing header creates no Point, so a direct ${annotation.role} has no Point to ${relation}. ` +
+      "Place it beneath the Point it addresses, or give it an explicit target." +
+      (header.selector && header.role === "Q" ? " For a Question Point that concerns this step and can receive responses, write [Q/] instead of the group header." : "");
+  }
   if ((annotation?.kind === "role" || annotation?.kind === "use")
       && (annotation.role === "G" || annotation.role === "O")
       && !annotation.selector && !annotation.operatorClause && !annotation.handle && !annotation.syntaxErrors?.length
@@ -380,6 +388,18 @@ function localBearingMemberDiagnosticMessage(block: AstBlock): string {
       "or a complete explicit target for an independent relation. These are different authoring choices; no default attachment is created here.";
   }
   return "Direct local Bearing children must be neutral Point sources, local selector commentary, complete independent clauses or valid notes.";
+}
+
+// A selector needs a step to bear on. Beneath a Point without an attachment,
+// name the Point-targeted spelling rather than a constructor that is not there.
+function noLocalBearingMessage(context: Context, role: "G" | "O" | "Q", group: boolean): string {
+  if (context?.kind === "point" && context.focus) {
+    const action = role === "G" ? "support" : role === "O" ? "challenge" : "concern";
+    const pointForm = role === "Q" ? "an explicit ~> or concerns target" : group ? `[_ ${role}]` : `[${role}]`;
+    return `The nearest enclosing Point has no attachment, so ${group ? `[_ ${role}/]` : `${role}/`} has no step to ${action}. ` +
+      `To ${action} the Point itself, write ${pointForm}; to address another step, name that Bearing explicitly.`;
+  }
+  return "The nearest local context exposes no Bearing; use an explicit target instead.";
 }
 
 function compileLocalBearing(
@@ -403,7 +423,7 @@ function compileLocalBearing(
   };
   const target = annotation.selector ? selectLocalBearing(context, draft) : context?.kind === "point" ? context.focus : undefined;
   if (annotation.selector) {
-    if (!target) reject("NO_LOCAL_BEARING_ATTACHMENT", "The nearest ancestor constructor exposes no Bearing; use an explicit target instead.");
+    if (!target) reject("NO_LOCAL_BEARING_ATTACHMENT", noLocalBearingMessage(context, annotation.role, true));
   } else {
     if (!target && context?.block.annotation?.kind !== "localBearing") reject("LOCAL_BEARING_REQUIRES_POINT_TARGET", "A local Bearing requires a nearest enclosing Point target.");
     if (context?.block.annotation?.kind === "explicitBearing") reject("EXPLICIT_BEARING_DESCENDANT_REQUIRES_TARGET",
@@ -416,7 +436,7 @@ function compileLocalBearing(
   if (headerValid && !sources.length && ![...localBearingChildren.values()].includes("unclassified")) reject("EMPTY_LOCAL_BEARING", "A local Bearing requires at least one direct neutral Point source, not only commentary or notes.");
   for (const child of block.children) {
     if (headerValid && localBearingChildren.get(child) === "unclassified") reject("INVALID_LOCAL_BEARING_MEMBER",
-      localBearingMemberDiagnosticMessage(child), child);
+      localBearingMemberDiagnosticMessage(child, annotation), child);
   }
   let attachment: CandidateBearing | undefined;
   const kind = annotation.selector ? LOCAL_SELECTOR_KINDS[annotation.role] : structuralKind(role);

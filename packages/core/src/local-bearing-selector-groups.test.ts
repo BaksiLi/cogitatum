@@ -121,6 +121,42 @@ describe("local Bearing selector constructors", () => {
     expect(parseAnnotation(header).diagnostics.map(d => d.code)).toContain("MALFORMED_LOCAL_BEARING");
   });
 
+  it.each([["R", "respondsTo"], ["D", "clarifies"]])("explains the same Point target boundary for %s/ and its group form", (role, kind) => {
+    for (const prefix of ["", "_ "]) {
+      const header = prefix + role + "/";
+      const message = parseAnnotation(header).diagnostics[0].message;
+      expect(message).toContain(`${kind} requires a Point target`);
+      expect(message).toContain(`write [${prefix}${role}]`);
+      expect(message).toContain(prefix ? `[_ @source ${kind} @target]` : `[${role} ${kind} @target]`);
+    }
+  });
+
+  it("suggests the Bearing-targeted mark for a bare />", () => {
+    expect(parseAnnotation("_ />").diagnostics[0].message).toContain("[_ O/]");
+  });
+
+  it("names the Point-targeted spelling when the nearest Point has no step", () => {
+    const message = (source: string) => compile(source).graph.diagnostics.find(d => d.code === "NO_LOCAL_BEARING_ATTACHMENT")!.message;
+    expect(message("- [C] Claim.\n  - [_ O/]\n    - [.] Source.")).toContain("write [_ O]");
+    expect(message("- [C] Claim.\n  - [O/] Single.")).toContain("write [O]");
+    expect(message("- [C] Claim.\n  - [Q/] Why?")).toContain("explicit ~> or concerns target");
+  });
+
+  it("explains that a group header offers no Point for a direct response", () => {
+    const { graph } = compile("- [C] Claim.\n  - [G; @step] Ground.\n    - [_ Q/] Why?\n      - [.] Source.\n      - [R] Response.");
+    const message = graph.diagnostics.find(d => d.code === "INVALID_LOCAL_BEARING_MEMBER")!.message;
+    expect(message).toContain("creates no Point, so a direct R has no Point to respond to");
+    expect(message).toContain("write [Q/]");
+  });
+
+  it.each(["R +>", "D respondsTo", "R use @p +>"])("does not interpret incomplete [%s] as an ordinary local role", header => {
+    const { graph } = compile(`- [. @p] Shared.\n- [C] Claim.\n  - [_ G]\n    - [.] Source.\n    - [${header}] Incomplete.`);
+    const message = graph.diagnostics.find(d => d.code === "INVALID_LOCAL_BEARING_MEMBER")!.message;
+    expect(message).toContain("complete independent clauses");
+    expect(message).not.toContain("has no Point to");
+    expect(graph.bearings).toEqual([]);
+  });
+
   it("retains the target selector when suggesting a missing header space", () => {
     expect(parseAnnotation("_G/").diagnostics[0].message).toContain("[_ G/]");
   });
