@@ -17,7 +17,7 @@ describe("consolidated symbolic authoring", () => {
     expect(compile("- [C @claim] Claim.\n  - Body.\n    - [G] Reason.").graph.bearings[0].target.key).toBe("_p1");
   });
 
-  it.each(["supports", "challenges", "concerns", "answers", "repliesTo", "clarifies"] satisfies BearingKind[])("uses one normalized explicit constructor for %s", kind => {
+  it.each(["supports", "challenges", "concerns", "answers", "respondsTo", "clarifies"] satisfies BearingKind[])("uses one normalized explicit constructor for %s", kind => {
     const prefix = "- [. @source] Source.\n- [C @target] Target.\n- [edge @source +> @target; @route]\n";
     const target = "target";
     const compact = compile(prefix + "- [_ @source " + kind + " @" + target + "; @current] Route description.");

@@ -297,7 +297,7 @@ try {
     assert.equal(await page.locator('#map [data-node^="bearing:"]').count(), 1);
     assert.equal(await page.locator('#map .cog-link').count(), 3, 'only the complete surviving joint is drawn');
 
-    for (const [mark, parent, kind] of [['G', 'C', 'supports'], ['O', 'C', 'challenges'], ['R', 'O', 'repliesTo'], ['D', 'C', 'clarifies']]) {
+    for (const [mark, parent, kind] of [['G', 'C', 'supports'], ['O', 'C', 'challenges'], ['R', 'O', 'respondsTo'], ['D', 'C', 'clarifies']]) {
       await mount(`- [${parent} @target] Target.
   - [_ ${mark}; @joint] Route description.
     - [. @a] First source.
@@ -316,6 +316,30 @@ try {
       assert.equal(await row(5).getAttribute('data-related'), 'true', 'the route note follows its owner');
     }
 
+    for (const [mark, kind] of [['G/', 'supports'], ['O/', 'challenges'], ['Q/', 'concerns']]) {
+      await mount(`- [C @claim] Claim.
+  - [_ G; @step]
+    - [. @source] Original source.
+    - [_ ${mark}; @review] Joint review.
+      - [. @a] First review source.
+      - [. @b] Second review source.
+      - [_ note] Review note.`);
+      assert.deepEqual(await page.evaluate(() => window.views.projection.diagnostics), []);
+      assert.equal(await row(4).locator('.cog-reading-relation').getAttribute('data-kind'), kind);
+      assert.deepEqual(await row(4).locator('.cog-reading-endpoints button').allTextContents(), ['@a', '@b', '@step']);
+      assert.equal(await row(5).locator('.cog-reading-relation').count(), 0);
+      assert.equal(await row(6).locator('.cog-reading-relation').count(), 0);
+      assert.equal(await page.locator('#map .cog-link').count(), 5);
+      assert.match(await page.locator('#map [data-node="bearing:_b2"]').getAttribute('aria-label'), /joint, 2 sources/);
+      await row(4).locator('.cog-reading-endpoints').getByRole('button', { name: 'Bearing @step, line 2', exact: true }).click();
+      assert.equal(await row(2).getAttribute('data-selected-reference'), 'bearing');
+      await page.locator('#map [data-node="bearing:_b2"]').dispatchEvent('click');
+      assert.equal(await page.locator('#map [data-node="bearing:_b2"]').getAttribute('aria-pressed'), 'true');
+      await row(4).getByRole('button', { name: 'Bearing @review, line 4', exact: true }).click();
+      await flush();
+      assert.equal(await row(7).getAttribute('data-related'), 'true', 'the review note belongs to the joint assessment');
+    }
+
     await mount(`- [C @claim] The visitor may be familiar.
   - [_ G; @step]
     - [.] The dog did not bark.
@@ -325,7 +349,7 @@ try {
     assert.equal(await row(4).getAttribute('data-role'), 'Q');
     assert.equal(await row(4).locator('.cog-reading-mark .cog-glyph-letter').textContent(), 'Q');
     assert.equal(await row(4).locator('.cog-reading-relation').getAttribute('data-kind'), 'concerns');
-    assert.equal(await row(5).locator('.cog-reading-relation').getAttribute('data-kind'), 'repliesTo');
+    assert.equal(await row(5).locator('.cog-reading-relation').getAttribute('data-kind'), 'respondsTo');
     assert.equal(await row(3).locator('.cog-reading-relation').count(), 0, 'the source member owns no unary attachment');
     await row(4).locator('.cog-reading-endpoints').getByRole('button', { name: 'Bearing @step, line 2', exact: true }).click();
     assert.equal(await row(2).getAttribute('data-selected-reference'), 'bearing', 'Q/ concerns the step rather than its source Point');

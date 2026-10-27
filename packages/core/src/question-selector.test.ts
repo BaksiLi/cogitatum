@@ -18,7 +18,7 @@ describe("questions concerning a local Bearing", () => {
     const { graph, explain } = compileGraphWithExplain(ast);
     expect(graph.diagnostics).toEqual([]);
     expect(graph.points.map(point => point.id)).toEqual(["claim", "silent", "conditions", "reply", undefined, undefined]);
-    expect(graph.bearings.map(bearing => bearing.kind)).toEqual(["supports", "concerns", "repliesTo"]);
+    expect(graph.bearings.map(bearing => bearing.kind)).toEqual(["supports", "concerns", "respondsTo"]);
     expect(graph.bearings[0].sources).toEqual([{ kind: "point", key: graph.points[1].key }]);
     expect(graph.bearings[1]).toMatchObject({
       sources: [{ kind: "point", key: graph.points[2].key }],
@@ -36,7 +36,7 @@ describe("questions concerning a local Bearing", () => {
     expect(graph.notes).toEqual([]);
   });
 
-  it.each(["supports", "challenges", "concerns", "answers", "repliesTo", "clarifies"])(
+  it.each(["supports", "challenges", "concerns", "answers", "respondsTo", "clarifies"])(
     "can ask about an unnamed %s attachment without changing its kind", kind => {
       const { graph } = compile(`- [. @target] Target.
   - [. ${kind} @target] Source.
@@ -68,7 +68,7 @@ describe("questions concerning a local Bearing", () => {
     - [Q/ @condition] Was the dog able to bark?
       - [R] A recording may tell us.`);
     expect(graph.diagnostics).toEqual([]);
-    expect(graph.bearings.map(bearing => bearing.kind)).toEqual(["supports", "concerns", "repliesTo"]);
+    expect(graph.bearings.map(bearing => bearing.kind)).toEqual(["supports", "concerns", "respondsTo"]);
     expect(graph.bearings[0].sources).toEqual([
       { kind: "point", key: graph.points[1].key }, { kind: "point", key: graph.points[2].key }
     ]);
@@ -146,7 +146,7 @@ ${premise}
       - [R] Check the dog's condition.`);
     expect(graph.diagnostics).toEqual([]);
     expect(graph.bearings.map(bearing => bearing.kind)).toEqual([
-      "supports", "concerns", "concerns", "supports", "repliesTo"
+      "supports", "concerns", "concerns", "supports", "respondsTo"
     ]);
     expect(graph.bearings.slice(2, 4).map(bearing => bearing.target)).toEqual([
       { kind: "bearing", key: graph.bearings[1].key }, { kind: "bearing", key: graph.bearings[1].key }
@@ -174,7 +174,7 @@ ${premise}
   });
 
   it.each([
-    "[Q/ ~> @step]", "[Q/ repliesTo @claim]", "[Q/ @a @b]", "[Q/;]", "[q/]", "[Q/",
+    "[Q/ ~> @step]", "[Q/ respondsTo @claim]", "[Q/ @a @b]", "[Q/;]", "[q/]", "[Q/",
     "[Q/ use @question ~> @step]"
   ])("retains malformed selector %s as commentary rather than a joint source", header => {
     const { graph } = compile(`- [. @question] Which conditions apply?

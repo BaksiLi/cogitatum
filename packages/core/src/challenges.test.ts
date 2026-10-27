@@ -107,7 +107,7 @@ describe("format 0.6 unified challenges", () => {
     const { graph } = compile(linked);
     expect(graph.diagnostics).toEqual([]);
     expect(graph.bearings.map(b => [b.kind, b.target.kind])).toEqual([
-      ["supports", "point"], ["challenges", "bearing"], ["repliesTo", "point"]
+      ["supports", "point"], ["challenges", "bearing"], ["respondsTo", "point"]
     ]);
     expect(errors(linked.replace("[O/]", "[O]"))).toContain("INVALID_LOCAL_BEARING_MEMBER");
     expect(errors(declarations + "\n  - [O] Bare objection.")).toContain("EXPLICIT_BEARING_DESCENDANT_REQUIRES_TARGET");
@@ -127,7 +127,7 @@ describe("format 0.6 unified challenges", () => {
     }
   });
 
-  it.each(["supports", "concerns", "answers", "repliesTo", "clarifies"])("keeps %s target requirements aligned with the AST schema", op => {
+  it.each(["supports", "concerns", "answers", "respondsTo", "clarifies"])("keeps %s target requirements aligned with the AST schema", op => {
     const ast = JSON.parse(JSON.stringify(parseDocument(declarations + `\n- [edge @a ${op} @claim]`)));
     for (const targetKind of ["point", "bearing", "either"]) {
       ast.blocks[4].annotation.operatorClause.targetKind = targetKind;

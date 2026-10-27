@@ -2,12 +2,15 @@ export const FORMAT_VERSION = "0.6.0";
 
 export type Role = "Q" | "C" | "G" | "O" | "R" | "D";
 export type BearingOp = "supports" | "challenges" | "concerns";
-export type BearingKind = BearingOp | "repliesTo" | "clarifies" | "answers";
+export type BearingKind = BearingOp | "respondsTo" | "clarifies" | "answers";
 export type BearingDerivedBy = "operator" | "structural";
 export type Severity = "error" | "warning" | "suggestion";
 export type AnnotationSyntaxError = "operator" | "handle" | "localBearing" | "mode" | "selector" | "reference" | "retired" | "note";
 export type LocalBearingChildFunction = "source" | "commentary" | "independent" | "supplementary" | "unclassified";
 export type LocalBearingRole = "G" | "O" | "R" | "D";
+export type LocalBearingMark =
+  | { role?: LocalBearingRole; selector?: never }
+  | { role: "G" | "O" | "Q"; selector: "attachment" };
 export type SourceParseMode = "document" | "host";
 export type SourceUnitKind = "document" | "fence";
 
@@ -39,7 +42,7 @@ export type OperatorClause = {
 } & (
   | { op: "supports" | "concerns"; targetKind: "either" }
   | { op: "challenges"; targetKind: "bearing" | "either" }
-  | { op: "answers" | "repliesTo" | "clarifies"; targetKind: "point" }
+  | { op: "answers" | "respondsTo" | "clarifies"; targetKind: "point" }
 );
 
 // A Point declaration or use is the sole source of its explicit clause.
@@ -78,7 +81,7 @@ export type Annotation =
   | (PointAnnotationBase & RoleMark & { kind: "role" })
   | (PointAnnotationBase & { kind: "material" })
   // Local Bearing construction: sources are children and the target is local.
-  | (AnnotationBase<"localBearing" | "handle"> & { kind: "localBearing"; role?: LocalBearingRole })
+  | (AnnotationBase<"localBearing" | "handle"> & { kind: "localBearing" } & LocalBearingMark)
   // "mode" records a Bearing-family header whose first token selects no mode.
   | (AnnotationBase<"operator" | "handle" | "selector" | "retired" | "mode"> & {
       kind: "explicitBearing";
@@ -159,7 +162,7 @@ type BearingBase = {
 };
 
 type BearingRelation =
-  | { kind: "answers" | "repliesTo" | "clarifies"; target: PointRef }
+  | { kind: "answers" | "respondsTo" | "clarifies"; target: PointRef }
   | { kind: "supports" | "challenges" | "concerns"; target: BearingTarget };
 
 export type Bearing = BearingBase & BearingRelation;
@@ -198,7 +201,7 @@ export type ExplainRecognition =
   | ({ kind: "role" } & RoleMark)
   | { kind: "material" }
   | { kind: "explicitBearing" }
-  | { kind: "localBearing"; role?: LocalBearingRole }
+  | ({ kind: "localBearing" } & LocalBearingMark)
   | { kind: "bearingUse"; ref?: Ref }
   | ({ kind: "use"; ref?: Ref } & PointUseMark);
 

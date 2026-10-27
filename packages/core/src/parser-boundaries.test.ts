@@ -133,7 +133,7 @@ describe("parser failure boundaries", () => {
             sources: [pointRef(result.graph, "explicit")], target: pointRef(result.graph, "other")
           }),
           expect.objectContaining({
-            kind: "repliesTo", sources: [pointRef(result.graph, "reply")], target: pointRef(result.graph, "explicit")
+            kind: "respondsTo", sources: [pointRef(result.graph, "reply")], target: pointRef(result.graph, "explicit")
           })
         ]);
         expect(result.graph.diagnostics.map((item) => item.code)).toEqual(

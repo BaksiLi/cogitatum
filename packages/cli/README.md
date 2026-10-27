@@ -6,7 +6,7 @@ Checkout version **0.6.0**, format **0.6.0**, not yet published, with equivalent
 Build the checkout below to use the new syntax.
 `export` retains note prose and literal subtrees through the complete `explainSource` envelope.
 `graph` retains note target/origin records but omits note prose; graph-text `structure-v1` also omits those records.
-Explicit Bearing constructors, Point declarations and Point uses accept all canonical kind names, including `answers`, `repliesTo` and `clarifies`.
+Explicit Bearing constructors, Point declarations and Point uses accept all canonical kind names, including `answers`, `respondsTo` and `clarifies`.
 The historical npm `alpha` tag provides **0.3.0-alpha.1** without linked.
 Requires Node.js 22.12 or newer.
 Use the matching Core/CLI and schema versions when upgrading from 0.5.0.
@@ -40,8 +40,10 @@ An agent can call the same commands as a person; no model account, API key or mo
 | `graph` | Compile source and return its Point-Bearing structure as JSON |
 | `graph --format text` | Present one compiled document as readable entity and relation tables |
 | `explain` | Inspect why the compiler emitted or rejected a construction |
+| `explain --format text` | Read every compiler effect, including local choices and host selection errors |
 | `export` | Preserve selected source units, AST, graph, notes and Explain together |
 | `explicit-target --line N` | Preview one checked source edit, including its consequences |
+| `bearing-form --line N --to local\|explicit` | Preview a checked local/explicit structural equivalent |
 
 Choose the command for the result you need: `ast` for parsed source, `graph` for compiled connections, `check` for diagnostics, and `explain` for the compilation trace.
 Use `export` for a source-backed artifact containing all four projections, in both document and host modes.
@@ -83,6 +85,7 @@ This command explains how the markup was compiled, without interpreting the pros
 | `explain` | One Explain trace | `{ version, mode, units, explanations, diagnostics }` |
 | `check --references` | Reference-analysis result | Reference-analysis result, with independent units |
 | `explicit-target` | Ready/unavailable preview | Ready/unavailable preview, using complete-file line numbers |
+| `bearing-form` | Ready/unavailable structural preview | Same, using complete-file line numbers |
 
 Host `explain` is a command-specific projection without `documents` or `graphs`, so it is not a source-envelope schema instance.
 Validate each `explanations[i]` with the Explain schema, or call Core `explainSource` for the complete envelope.
@@ -118,7 +121,9 @@ Read the [quick start](https://cogitatum.onesimos.net/docs/quick-start), browse 
 Partial graphs are marked and all graph diagnostics are displayed, retaining the normal 0/1 exit status.
 `--format json` is explicit default behavior; existing JSON output is unchanged.
 Text output is not a source formatter or interchange decoder.
-Host text output is an argument error (exit 2); use host JSON to retain all units and aggregate diagnostics.
+Host graph text is an argument error (exit 2); use host JSON to retain all units and aggregate diagnostics.
+`cog explain --format text` instead prints every active compiler effect, selected context, ordered sources, target, membership and note ownership.
+It accepts `--input host` and retains all units and aggregate selection diagnostics, including failures that produced no unit.
 
 ## Explicit target preview
 
@@ -130,12 +135,33 @@ The same operation is available as Core `previewExplicitTarget`.
 A ready preview retains prose, names, occurrence ownership and current relations, but deliberately changes future editing: moving the occurrence retains the explicit target, and changing its role retains the explicit operator.
 Compare `originalSource` with the current complete file before applying `proposedSource`; regenerate the preview if the file changed.
 The single `edit.offset` uses UTF-16 code units.
-The preview supports ordinary implicit G / O / R / D attachments (`supports`, `challenges`, `repliesTo`, `clarifies`), retaining the local mark, handle and children.
+The preview supports ordinary implicit G / O / R / D attachments (`supports`, `challenges`, `respondsTo`, `clarifies`), retaining the local mark, handle and children.
 Unattached Q, C and neutral occurrences have no implicit relation to make explicit.
 Unnamed targets, selectors, local Bearing constructions and already explicit clauses receive an unavailable result with no proposed source.
 Errors anywhere in the complete input also withhold the edit.
 Exit 0 means ready; 1 means unavailable or an I/O failure; 2 means invalid options.
 `--line` is required and accepts one positive integer; `--format` and `--references` do not apply to this command.
+
+## Local / explicit structural preview
+
+```sh
+cog bearing-form --line 3 --to explicit inquiry.cog.md
+cog bearing-form --input host --line 12 --to local notes.md
+```
+
+This calls Core `previewBearingForm` and prints ready/unavailable JSON without writing.
+It supports G/O/R/D attachments, G/O/Q selectors and Bearing constructors with ordered neutral sources.
+It reparses and recompiles the complete proposal, checking identities, content, declaration marks, ordered endpoints, literal subtrees, note ownership and unrelated diagnostics.
+Required endpoints must already be named, and the selected Point role and local target must remain the same.
+`answers` and Point-targeted `concerns` have no local equivalent.
+
+Local → explicit fixes endpoints and may move neutral source subtrees outside an enclosing Bearing.
+Explicit → local introduces ordered neutral uses while retaining declarations.
+The returned `consequence` describes future editing differences; this does not restore an earlier outline or establish equivalent reasoning.
+Ready JSON has original/proposed source, diagnostics and ordered `edits: { offset, remove, insert }[]`.
+Offsets address original UTF-16 code units; compare the complete current source with `originalSource`, then apply edits in reverse order.
+Exit status and unavailable results follow `explicit-target`.
+The [inspection reference](../../docs/graph-inspection.md#preview-local-and-explicit-forms) gives the full preservation scope.
 
 ## Using the CLI from an assistant
 

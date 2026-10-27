@@ -101,7 +101,7 @@ A smaller graph or a passing check does not by itself make a better reconstructi
 An issue or pull request can use a short Cog fence where the disputed step benefits from an explicit connection.
 Keep status, reproduction steps and verification in ordinary Markdown:
 
-```md cog-check require=supports,challenges,repliesTo points=4 bearings=3 diagnostics=0
+```md cog-check require=supports,challenges,respondsTo points=4 bearings=3 diagnostics=0
 - [C] A single-source local Bearing can be complete.
   - [G] Its source, target and intended connection can already be fully specified.
   - [O] Readers may expect a group to contain several sources.

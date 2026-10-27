@@ -290,8 +290,7 @@ function compileBlock(
   } else if (bearingSyntaxFailed) {
     draft.bearing = { outcome: "rejected", reason: "annotation-syntax-error" };
   } else if ((annotation.kind === "role" || annotation.kind === "use") && annotation.selector) {
-    const selected = context?.exposedBearing;
-    draft.selection = { ...(context?.block.annotation?.kind === "bearingUse" ? { contextSpan: context.block.sourceSpan } : context ? { ownerSpan: context.block.sourceSpan } : {}), ...(selected ? { target: { ...selected } } : {}) };
+    const selected = selectLocalBearing(context, draft);
     if (selected) {
       const source = annotation.kind === "use" ? annotation.ref : pointKeyForBlock(block, pointKeys);
       if (!source) throw new Error("Compiler invariant violated: a valid selector has no Point operand.");
@@ -393,19 +392,25 @@ function compileLocalBearing(
   explainDrafts: ExplainDraft[],
   diagnostics: Diagnostic[]
 ): void {
-  const role = block.annotation?.kind === "localBearing" ? block.annotation.role : undefined;
-  let valid = block.annotation?.kind === "localBearing" && Boolean(role) && !block.annotation.syntaxErrors?.length;
+  const annotation = block.annotation;
+  if (annotation?.kind !== "localBearing") throw new Error("Compiler invariant violated: expected a local Bearing annotation.");
+  const role = annotation.role;
+  let valid = Boolean(role) && !annotation.syntaxErrors?.length;
   const headerValid = valid;
   const reject = (code: string, message: string, location = block) => {
     diagnostics.push({ severity: "error", code, message, sourceSpan: location.sourceSpan });
     valid = false;
   };
-  const target = context?.kind === "point" ? context.focus : undefined;
-  if (!target && context?.block.annotation?.kind !== "localBearing") reject("LOCAL_BEARING_REQUIRES_POINT_TARGET", "A local Bearing requires a nearest enclosing Point target.");
-  if (context?.block.annotation?.kind === "explicitBearing") reject("EXPLICIT_BEARING_DESCENDANT_REQUIRES_TARGET",
-    "A local Bearing beneath an explicit Bearing cannot bypass the requirement for an explicitly targeted first Point.");
-  if (context?.block.annotation?.kind === "localBearing") reject("NESTED_LOCAL_BEARING_UNSUPPORTED",
-    "A local Bearing cannot be nested beneath another local Bearing without an intervening Point.");
+  const target = annotation.selector ? selectLocalBearing(context, draft) : context?.kind === "point" ? context.focus : undefined;
+  if (annotation.selector) {
+    if (!target) reject("NO_LOCAL_BEARING_ATTACHMENT", "The nearest ancestor constructor exposes no Bearing; use an explicit target instead.");
+  } else {
+    if (!target && context?.block.annotation?.kind !== "localBearing") reject("LOCAL_BEARING_REQUIRES_POINT_TARGET", "A local Bearing requires a nearest enclosing Point target.");
+    if (context?.block.annotation?.kind === "explicitBearing") reject("EXPLICIT_BEARING_DESCENDANT_REQUIRES_TARGET",
+      "A local Bearing beneath an explicit Bearing cannot bypass the requirement for an explicitly targeted first Point.");
+    if (context?.block.annotation?.kind === "localBearing") reject("NESTED_LOCAL_BEARING_UNSUPPORTED",
+      "A local Bearing cannot be nested beneath another local Bearing without an intervening Point.");
+  }
   const localBearingChildren = new Map(block.children.map(child => [child, classifyLocalBearingChild(child)]));
   const sources = block.children.filter(child => localBearingChildren.get(child) === "source");
   if (headerValid && !sources.length && ![...localBearingChildren.values()].includes("unclassified")) reject("EMPTY_LOCAL_BEARING", "A local Bearing requires at least one direct neutral Point source, not only commentary or notes.");
@@ -414,10 +419,10 @@ function compileLocalBearing(
       localBearingMemberDiagnosticMessage(child), child);
   }
   let attachment: CandidateBearing | undefined;
-  const kind = structuralKind(role);
+  const kind = annotation.selector ? LOCAL_SELECTOR_KINDS[annotation.role] : structuralKind(role);
   if (valid && target && kind) {
     const bearing = structural(block, kind, sources.map(child => child.annotation?.kind === "use" ? child.annotation.ref! : pointKeyForBlock(child, pointKeys)),
-      target, "point");
+      target, annotation.selector ? "bearing" : "point");
     bearing.key = `_b${bearings.length + 1}`;
     bearings.push(bearing);
     draft.bearing = { outcome: "candidate", candidate: bearing, reason: "local-bearing-containment" };
@@ -429,6 +434,15 @@ function compileLocalBearing(
   for (const child of block.children) {
     compileBlock(child, { kind: "bearing", block, exposedBearing: attachment ? { kind: "bearing", key: attachment.key } : undefined, localBearingChildren }, pointKeys, points, bearings, explainDrafts, diagnostics, block);
   }
+}
+
+function selectLocalBearing(context: Context, draft: ExplainDraft): BearingRef | Ref | undefined {
+  const selected = context?.exposedBearing;
+  draft.selection = {
+    ...(context?.block.annotation?.kind === "bearingUse" ? { contextSpan: context.block.sourceSpan } : context ? { ownerSpan: context.block.sourceSpan } : {}),
+    ...(selected ? { target: { ...selected } } : {})
+  };
+  return selected;
 }
 
 function recognitionForBlock(block: AstBlock): ExplainRecognition {
@@ -448,7 +462,9 @@ function recognitionForBlock(block: AstBlock): ExplainRecognition {
       ? { ...focus, role: annotation.role, selector: annotation.selector }
       : { ...focus, ...(annotation.role ? { role: annotation.role } : {}) };
   }
-  if (annotation.kind === "localBearing") return { kind: "localBearing", ...(annotation.role ? { role: annotation.role } : {}) };
+  if (annotation.kind === "localBearing") return annotation.selector
+    ? { kind: "localBearing", role: annotation.role, selector: annotation.selector }
+    : { kind: "localBearing", ...(annotation.role ? { role: annotation.role } : {}) };
   return { kind: annotation.kind };
 }
 
@@ -543,7 +559,7 @@ function structuralKind(role: Role | undefined): BearingKind | undefined {
     case "G": return "supports";
     case "O": return "challenges";
     case "D": return "clarifies";
-    case "R": return "repliesTo";
+    case "R": return "respondsTo";
     default: return undefined;
   }
 }
@@ -925,8 +941,9 @@ function implicitAttachmentAdvice(
   if (reason === "local-bearing-containment") {
     const sources = sourceNames.map(id => id ? "@" + id : placeholder("source"));
     const unnamed = !targetName || sourceNames.some(id => !id);
-    return keep + ` To state it explicitly, write [_ ${sources.join(", ")} ${operatorSymbol(kind) ?? kind} ${target}${handle}] in place of the local Bearing header` +
-      `${unnamed ? " after naming each placeholder Point" : ""}, move its neutral source occurrences with their subtrees beside the constructor, and keep its other children, such as independent relations, notes and direct G/, O/ or Q/ commentary, beneath the edge.` + note;
+    const selector = annotation?.kind === "localBearing" && annotation.selector;
+    return keep + ` To state it explicitly, write [_ ${sources.join(", ")} ${operatorSymbol(kind, selector ? "bearing" : "point") ?? kind} ${target}${handle}] in place of the local Bearing header` +
+      `${unnamed ? selector ? " after naming every unnamed endpoint" : " after naming each placeholder Point" : ""}, move its neutral source occurrences with their subtrees before the constructor, outside enclosing Bearing contexts, and keep its other children, such as independent relations, notes and selector commentary, beneath the constructor.` + note;
   }
   if (!annotation || (annotation.kind !== "role" && annotation.kind !== "use")) return keep + note;
   if (reason === "local-attachment" && "selector" in annotation && annotation.selector) {
@@ -1015,8 +1032,8 @@ function toCanonicalBearing(bearing: CandidateBearing): Bearing {
 
 function requiresPointTarget(
   kind: BearingKind
-): kind is "answers" | "repliesTo" | "clarifies" {
-  return kind === "answers" || kind === "repliesTo" || kind === "clarifies";
+): kind is "answers" | "respondsTo" | "clarifies" {
+  return kind === "answers" || kind === "respondsTo" || kind === "clarifies";
 }
 
 function classifyId(id: string, symbols: SymbolTable): SymbolKind {

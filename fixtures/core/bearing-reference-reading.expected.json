@@ -16,7 +16,7 @@
       { "line": 9, "kind": "challenges", "sources": [9], "target": { "kind": "bearing", "line": 5 }, "derivedBy": "structural", "handle": "attack" },
       { "line": 10, "kind": "challenges", "sources": [10], "target": { "kind": "point", "line": 9 }, "derivedBy": "structural" },
       { "line": 11, "kind": "challenges", "sources": [11], "target": { "kind": "bearing", "line": 9 }, "derivedBy": "structural" },
-      { "line": 12, "kind": "repliesTo", "sources": [12], "target": { "kind": "point", "line": 9 }, "derivedBy": "structural" },
+      { "line": 12, "kind": "respondsTo", "sources": [12], "target": { "kind": "point", "line": 9 }, "derivedBy": "structural" },
       { "line": 15, "kind": "supports", "sources": [15], "target": { "kind": "bearing", "line": 5 }, "derivedBy": "structural" }
     ]
   }]

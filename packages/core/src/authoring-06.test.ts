@@ -6,7 +6,7 @@ const errors = (text: string) => compile(text).graph.diagnostics.filter(d => d.s
 
 describe("0.6 authoring boundaries", () => {
   it.each([
-    ["G", "supports"], ["O", "challenges"], ["R", "repliesTo"], ["D", "clarifies"]
+    ["G", "supports"], ["O", "challenges"], ["R", "respondsTo"], ["D", "clarifies"]
   ].flatMap(([role, kind]) => [".", "Q", "C", "G", "O", "R", "D"].map(parent => [role, kind, parent])))(
     "keeps the %s / %s route to a %s parent through ordinary use, singleton construction and explicit endpoints",
     (role, kind, parent) => {
@@ -69,7 +69,7 @@ describe("0.6 authoring boundaries", () => {
     }
   });
 
-  it.each([["G", "C", "supports"], ["O", "C", "challenges"], ["R", "O", "repliesTo"], ["D", ".", "clarifies"]])(
+  it.each([["G", "C", "supports"], ["O", "C", "challenges"], ["R", "O", "respondsTo"], ["D", ".", "clarifies"]])(
     "%s linked beneath %s constructs one %s joint from neutral members",
     (role, parent, kind) => {
       const source = `- [${parent} @target] Target.
@@ -102,7 +102,7 @@ describe("0.6 authoring boundaries", () => {
       expect(graph.diagnostics).toEqual([]);
       expect(graph.bearings).toHaveLength(1);
       expect(graph.bearings[0]).toMatchObject({
-        kind: "repliesTo",
+        kind: "respondsTo",
         target: { kind: "point", key: graph.points.find(point => point.id === "p")!.key }
       });
     }
@@ -173,9 +173,9 @@ describe("0.6 authoring boundaries", () => {
   });
 
   it("keeps a question reply and a joint answer explicit without relabelling their Points", () => {
-    const {graph}=compile("- [Q @q] Who did what?\n- [Q @followup] Which project?\n- [. @a] A collected samples.\n- [. @b] B calibrated the instrument.\n- [_ @followup repliesTo @q]\n- [_ @a, @b answers @q]");
+    const {graph}=compile("- [Q @q] Who did what?\n- [Q @followup] Which project?\n- [. @a] A collected samples.\n- [. @b] B calibrated the instrument.\n- [_ @followup respondsTo @q]\n- [_ @a, @b answers @q]");
     expect(graph.diagnostics).toEqual([]);
-    expect(graph.bearings.map(b=>b.kind)).toEqual(["repliesTo","answers"]);
+    expect(graph.bearings.map(b=>b.kind)).toEqual(["respondsTo","answers"]);
     expect(graph.points.map(p=>p.declaration.role)).toEqual(["Q","Q",undefined,undefined]);
   });
 });

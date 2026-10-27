@@ -42,7 +42,7 @@ describe("graph text structure-v1", () => {
     expect(result).toContain('p10: role(R) text="A reply."');
   });
 
-  it.each(["supports", "challenges", "concerns", "answers", "repliesTo", "clarifies"] satisfies BearingKind[])("renders %s without reinterpreting it", kind => {
+  it.each(["supports", "challenges", "concerns", "answers", "respondsTo", "clarifies"] satisfies BearingKind[])("renders %s without reinterpreting it", kind => {
     const graph = compile(`- [. @a] Material.\n- [. @b] Other.\n- [edge @a ${kind} @b; @step] Description.`);
     expect(graph.diagnostics).toEqual([]);
     expect(formatGraph(graph)).toContain(`b1: ${kind}([p1], p2) handle="step" text="Description."`);

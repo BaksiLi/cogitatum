@@ -127,7 +127,7 @@
         "handle": { "$ref": "#/$defs/authoredId" },
         "kind": {
           "description": "supports records positive bearing, including deductive, inductive, abductive, and explanatory or interpretive grounds. It does not certify truth, strength, or validity.",
-          "enum": ["supports", "challenges", "concerns", "repliesTo", "clarifies", "answers"]
+          "enum": ["supports", "challenges", "concerns", "respondsTo", "clarifies", "answers"]
         },
         "sources": {
           "type": "array",
@@ -149,7 +149,7 @@
         {
           "if": {
             "properties": {
-              "kind": { "enum": ["answers", "repliesTo", "clarifies"] }
+              "kind": { "enum": ["answers", "respondsTo", "clarifies"] }
             },
             "required": ["kind"]
           },

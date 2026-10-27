@@ -82,7 +82,7 @@
         "key": { "$ref": "#/$defs/bearingKey" },
         "handle": { "$ref": "#/$defs/authoredId" },
         "kind": {
-          "enum": ["supports", "challenges", "concerns", "repliesTo", "clarifies", "answers"]
+          "enum": ["supports", "challenges", "concerns", "respondsTo", "clarifies", "answers"]
         },
         "sources": {
           "type": "array",
@@ -111,7 +111,7 @@
           },
           "allOf": [
             {
-              "if": { "properties": { "kind": { "enum": ["answers", "repliesTo", "clarifies"] } }, "required": ["kind"] },
+              "if": { "properties": { "kind": { "enum": ["answers", "respondsTo", "clarifies"] } }, "required": ["kind"] },
               "then": { "properties": { "target": { "$ref": "#/$defs/pointRef" } } }
             }
           ]
@@ -182,7 +182,14 @@
         {
           "type": "object",
           "required": ["kind"],
-          "properties": { "kind": { "const": "localBearing" }, "role": { "enum": ["G", "O", "R", "D"] } },
+          "properties": { "kind": { "const": "localBearing" }, "role": { "enum": ["G", "O", "R", "D", "Q"] }, "selector": { "const": "attachment" } },
+          "allOf": [
+            {
+              "if": { "required": ["selector"] },
+              "then": { "required": ["role"], "properties": { "role": { "enum": ["G", "O", "Q"] } } },
+              "else": { "properties": { "role": { "enum": ["G", "O", "R", "D"] } } }
+            }
+          ],
           "additionalProperties": false
         }
       ]

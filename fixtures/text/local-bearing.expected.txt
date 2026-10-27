@@ -17,7 +17,7 @@ bearings (6):
 b1: supports([p2], p1)
 b2: supports([p3, p6], p1) handle="joint-route"
 b3: challenges([p4], p3)
-b4: repliesTo([p5], p4)
+b4: respondsTo([p5], p4)
 b5: challenges([p7], b2)
 b6: supports([p3], p8) handle="shared-route"
 

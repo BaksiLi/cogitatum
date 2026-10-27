@@ -151,7 +151,7 @@ describe("reading rail", () => {
 
 describe("shared mark vocabulary", () => {
   it("uses canonical names without an openness mark", () => {
-    expect(Object.values(POINT_MARKS).map(m => m.name)).toEqual(["Question", "Claim", "Ground", "Objection", "Reply", "Distinction", "Neutral Point"]);
+    expect(Object.values(POINT_MARKS).map(m => m.name)).toEqual(["Question", "Claim", "Ground", "Objection", "Response", "Distinction", "Neutral Point"]);
     expect(Object.keys(POINT_MARKS)).toEqual(["Q", "C", "G", "O", "R", "D", "Material"]);
     expect(Object.values(POINT_MARKS).map(m => m.zh)).toEqual(["問題", "主張", "依據", "駁議", "回應", "辨別", "中性點"]);
     expect(Object.values(POINT_MARKS).every(m => m.shape === "filled" || m.shape === "material")).toBe(true);
@@ -159,7 +159,7 @@ describe("shared mark vocabulary", () => {
     expect(pointMark("O").zh).toBe("駁議");
     expect(bearingMark("challenges").zh).toBe("質疑");
     expect(bearingMark("concerns").tone).toBe("neutral");
-    expect(Object.keys(BEARING_MARKS).sort()).toEqual(["answers", "challenges", "clarifies", "concerns", "repliesTo", "supports"]);
+    expect(Object.keys(BEARING_MARKS).sort()).toEqual(["answers", "challenges", "clarifies", "concerns", "respondsTo", "supports"]);
   });
 
   it("matches the glossary's canonical names and suggested readings", () => {

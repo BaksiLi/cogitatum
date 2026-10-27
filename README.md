@@ -6,7 +6,7 @@ Cogitatum is a lightweight markup language for making selected reasoning structu
 
 Use it while reading, developing or revising an argument: in reading notes, investigations, or the reasons for a decision. Keep the context in words; mark a question, reason, objection, or missing piece when making it explicit helps.
 
-```md cog-check require=supports,challenges,repliesTo points=4 bearings=3 diagnostics=0
+```md cog-check require=supports,challenges,respondsTo points=4 bearings=3 diagnostics=0
 - A neighbourhood library is considering later opening hours. This is an imagined discussion.
 - [C] The library should stay open until eight on weekdays.
   - [G] Readers have asked for somewhere to study after work.
@@ -14,7 +14,7 @@ Use it while reading, developing or revising an argument: in reading notes, inve
     - [R] Try one evening within the existing staffing budget.
 ```
 
-Four marked Points and three connections: a reason for the Claim, an Objection and a Reply.
+Four marked Points and three connections: a reason for the Claim, an Objection and a Response.
 The opening context remains ordinary prose.
 The compiler makes these connections inspectable without deciding whether the reasons are good enough.
 

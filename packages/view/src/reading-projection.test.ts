@@ -13,6 +13,18 @@ const lineOf = (reading: ReadingProjection, id: string) =>
   reading.units.flatMap(unit => unit.occurrences).find(item => item.id === id)!.line;
 
 describe("source-aware Reading projection", () => {
+  it.each(["document", "host"] as const)("projects joint Bearing-targeted commentary with ordered source occurrences in %s", mode => {
+    const content = "- [C] Claim.\n  - [_ G; @original]\n    - [.] Original source.\n    - [_ O/; @review]\n      - [.] First objection source.\n      - [.] Second objection source.\n      - [_ note] Review note.";
+    const source = mode === "host" ? "```cog\n" + content + "\n```" : content;
+    const result = project(source, mode), offset = mode === "host" ? 1 : 0;
+    expect(result.diagnostics).toEqual([]);
+    const original = route(result, 2 + offset), review = route(result, 4 + offset);
+    expect(original.sources).toHaveLength(1);
+    expect(review.sources.map(s => lineOf(result, s.occurrenceId!))).toEqual([5 + offset, 6 + offset]);
+    expect(review.target).toMatchObject({ occurrenceId: original.occurrenceId, ref: { kind: "bearing" } });
+    expect(result.units[0].notes.at(-1)?.record.target).toEqual({ kind: "bearing", key: result.units[0].graph.bearings[1].key });
+  });
+
   it.each(["document", "host"] as const)("keeps Q/ questions and replies attached to their distinct objects in %s input", mode => {
     const lines = [
       "- [C] The visitor may be familiar.",
@@ -25,7 +37,7 @@ describe("source-aware Reading projection", () => {
     const result = projectReading(source, exported), unit = result.units[0], offset = mode === "host" ? 1 : 0;
     expect(result.diagnostics).toEqual([]);
     expect(unit.graph.points).toHaveLength(4);
-    expect(unit.graph.bearings.map(bearing => bearing.kind)).toEqual(["supports", "concerns", "repliesTo"]);
+    expect(unit.graph.bearings.map(bearing => bearing.kind)).toEqual(["supports", "concerns", "respondsTo"]);
     expect(occurrence(result, 3 + offset)).toMatchObject({
       depth: 2, recognition: { kind: "role", role: "Q", selector: "attachment" },
       references: [{ kind: "declares", ref: { kind: "point" } }, { kind: "constructs", ref: { kind: "bearing" } }]
@@ -198,7 +210,7 @@ describe("source-aware Reading projection", () => {
     ]);
   });
 
-  it.each(["supports", "challenges", "concerns", "answers", "repliesTo", "clarifies"])(
+  it.each(["supports", "challenges", "concerns", "answers", "respondsTo", "clarifies"])(
     "projects a named %s declaration and use without changing roles, identity or source ownership",
     kind => {
       const source = [

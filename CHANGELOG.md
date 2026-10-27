@@ -8,6 +8,22 @@ Use the complete released schema set and [migrate retained source](docs/syntax.m
 
 ## Unreleased
 
+- Use **Response / `respondsTo`**, retaining `R`, for a passage addressing another Point in a static artefact.
+  It requires no chronological conversation and certifies no answer, rebuttal or resolution.
+  Diagnose retired named `repliesTo` on constructors, Point declarations and uses with `RETIRED_BEARING_KIND`, without default fallback.
+  Migrate retained source and regenerate every projection; published 0.5 schemas remain unchanged.
+- Add `[_ G/]`, `[_ O/]` and `[_ Q/]` with ordered neutral sources and the nearest exposed Bearing as target.
+  Reuse scalar selection, failed-context and atomic-source rules; nested selector groups are commentary, not sources in the outer Bearing.
+  Keep `[_ Q]`, `R/` and `D/` unsupported.
+  Align active public types, AST/Explain schemas and Reading projections.
+- Add Core `previewBearingForm` and `cog bearing-form --line N --to local|explicit`.
+  Recompile the complete proposed input and verify identities, content, declaration marks, ordered endpoints, literal subtrees, note ownership and unrelated diagnostics.
+  Explain source movements, introduced uses and future attachment differences; decline missing names, changed roles and mismatched local targets.
+  Keep the existing single-insertion `previewExplicitTarget` contract.
+- Add `formatExplain` / `EXPLAIN_TEXT_VERSION` and `cog explain --format text`, including host input.
+  Show every compiler effect, including membership, selection, non-emission, failed candidates and note ownership, with aggregate source-selection diagnostics.
+  Reuse the existing Explain evidence rather than introducing another interpretation model.
+
 **Migration from published 0.5.0:** review newly reserved `point`, `node`, `bearing`, `edge use`, and typed note headers before recompiling retained source.
 Former body can become a Point and change a descendant's implicit target; notes make their entire subtree literal.
 Keep intended prose outside leading reserved brackets, and do not automatically promote use tail prose into object notes.
@@ -15,7 +31,7 @@ Recompile all projections with the complete 0.6 bundle; changing a JSON version 
 The original published schemas remain unchanged in `spec/0.5.0/`.
 
 - Unify local and explicit construction under `bearing` / `edge` / `_`.
-  The first token after the family spelling selects local construction (`G`, `O`, `R`, `D`), explicit endpoints (`@ref`), reuse (`use`) or note mode (`note`).
+  The first token after the family spelling selects local Point targets (`G`, `O`, `R`, `D`), local Bearing targets (`G/`, `O/`, `Q/`), explicit endpoints (`@ref`), reuse (`use`) or note mode (`note`).
   Local `[_ G; @route]` takes direct neutral Point sources and the nearest enclosing Point target, using the same relation rules as ordinary G / O / R / D attachments; local `Q` / `C` are unsupported.
   Header prose becomes `Bearing.text`; a singleton is a complete construction, and Serial uses ordinary Point nesting.
   Reject mixed `[_ G @a +> @b]` with `MALFORMED_LOCAL_BEARING`, reject `[_ +>]`, and keep unfinished `[_ @a +>]` in explicit mode without local fallback.
@@ -32,25 +48,25 @@ The original published schemas remain unchanged in `spec/0.5.0/`.
   These choices change different commitments and cannot be selected automatically.
 - Treat a Point as independently identified authored content, including a question or fragment, without requiring a declarative or truth-apt proposition.
   Separate Q / C presentation from local relations: Q, C and neutral Points do not attach automatically.
-  G / O / R / D select `supports` / `challenges` / `repliesTo` / `clarifies` toward the nearest enclosing Point, irrespective of its mark; R is no longer limited to an O parent.
+  G / O / R / D select `supports` / `challenges` / `respondsTo` / `clarifies` toward the nearest enclosing Point, irrespective of its mark; R is no longer limited to an O parent.
   Preserve source nesting, transparent body, literal notes and failed or Bearing context boundaries, without searching past a nearer Point for another target.
   Retire `DISCONNECTED_ANCHORED_MATERIAL`; an isolated neutral Point is complete.
   **Migration:** add explicit `answers` clauses where C-under-Q previously recorded an intended answer.
-  Review formerly unattached R occurrences, which now reply to their nearest Point.
+  Review formerly unattached R occurrences, which now respond to their nearest Point.
   Q has no implicit relevance relation, including in early 0.6 drafts; state intended `concerns` with an explicit clause or opt into `Q/` for a local Bearing.
   Draft `LOCAL_BEARING_REPLY_REQUIRES_OBJECTION` and `LINKED_REPLY_REQUIRES_OBJECTION` diagnostics are no longer emitted.
 - Add `Q/` and `[Q/ use @question]` to concern the nearest locally exposed Bearing, alongside `G/` support and `O/` challenge.
   Preserve the original Bearing and its ordered sources, without an implicit premise, hidden Point, new relation kind or resolution state.
   Bare Q still has no default relation; `[Q /> @route]` explicitly challenges rather than concerns the named Bearing.
   Use the same constructor/use contexts, nearest-context failure boundaries, notes and recursive selection as G/ and O/.
-  Widen correlated selector roles in public types, AST and Explain schemas; keep local Q/C constructors unsupported.
+  Widen correlated selector roles in public types, AST and Explain schemas; keep unsuffixed local Q/C constructors unsupported.
   Preserve selector intent in unclosed G/O/Q selector-use prefixes so malformed commentary cannot invalidate a local Bearing's neutral sources.
 - Rename canonical `about` to `concerns`, retaining `~>` and diagnosing the old named spelling.
   Support joint relevance with ordered Point sources and a Point or Bearing target.
   Keep all six named constructors; explicit construction does not impose declaration-role checks.
 - Accept all six canonical names on Point declarations and uses, with the Point itself as the sole source.
   An explicit clause replaces the default once, retaining the occurrence's local role, content ownership, children and handle.
-  `answers`, `repliesTo` and `clarifies` retain Point-only targets; selectors exclude named clauses as well as symbols.
+  `answers`, `respondsTo` and `clarifies` retain Point-only targets; selectors exclude named clauses as well as symbols.
   Widen `PointOperatorClause` and the AST schema together; diagnose incomplete or case-mismatched clauses without default fallback.
   Update duplicate-reuse and implicit-attachment advice, and let explicit-target previews insert the selected G / O / R / D relation while preserving object-note ownership.
 - Let `->` challenge Points or Bearings; optional `/>` continues to require a Bearing.

@@ -21,7 +21,7 @@ describe("local Bearing attachment selectors", () => {
     expect(codes(local.graph)).toEqual(["IMPLICIT_ATTACHMENT_THROUGH_BODY", "IMPLICIT_ATTACHMENT_THROUGH_BODY"]);
     expect(codes(explicit.graph)).toEqual([]);
     expect(projection(local.graph)).toEqual(projection(explicit.graph));
-    expect(local.graph.bearings.map(bearing => bearing.kind)).toEqual(["supports", "supports", "challenges", "repliesTo"]);
+    expect(local.graph.bearings.map(bearing => bearing.kind)).toEqual(["supports", "supports", "challenges", "respondsTo"]);
     expect(local.explain.entries[4].effects).toContainEqual({ kind: "selectAttachment", ownerSpan: local.graph.points[1].sourceSpan, target: { kind: "bearing", key: local.graph.bearings[0].key } });
     expect(local.graph.bearings[1].derivedBy).toBe("structural");
     expect(explicit.graph.bearings[1].derivedBy).toBe("operator");
@@ -37,7 +37,7 @@ describe("local Bearing attachment selectors", () => {
   it("classifies linked sources, selectors and independent clauses once before lowering", () => {
     const { graph, explain } = compile("- [C @claim] Claim.\n  - [_ G; @joint]\n    - [. @first] First.\n    - [. @second] Second.\n    - [G/ @warrant] Warrant.\n    - [O/ @objection] Objection.\n      - [R] Reply.\n    - [G @independent +> @missing] Independent invalid target.");
     expect(codes(graph)).toEqual(["UNKNOWN_TARGET"]);
-    expect(graph.bearings.map(bearing => bearing.kind)).toEqual(["supports", "supports", "challenges", "repliesTo"]);
+    expect(graph.bearings.map(bearing => bearing.kind)).toEqual(["supports", "supports", "challenges", "respondsTo"]);
     expect(graph.bearings[0].sources.map(ref => graph.points.find(point => point.key === ref.key)?.id)).toEqual(["first", "second"]);
     expect(explain.entries.flatMap(entry => entry.effects.filter(effect => effect.kind === "localBearingMember").map(effect => effect.function))).toEqual(["source", "source", "commentary", "commentary", "independent"]);
   });
@@ -83,7 +83,7 @@ describe("local Bearing attachment selectors", () => {
   it("supports edge/body selection and recursive commentary but keeps unsuffixed edge defaults explicit", () => {
     const { graph } = compile("- [C @claim] Claim.\n- [G @reason] Reason.\n- [edge @reason +> @claim; @step]\n  - Body.\n    - [O/ @objection; @attack] Assessment.\n      - [G/] Ground for the attack.\n      - [R] Reply.\n  - [O] Still requires a target.");
     expect(codes(graph)).toEqual(["EXPLICIT_BEARING_DESCENDANT_REQUIRES_TARGET", "IMPLICIT_ATTACHMENT_THROUGH_BODY"]);
-    expect(graph.bearings.map(bearing => bearing.kind)).toEqual(["supports", "challenges", "supports", "repliesTo"]);
+    expect(graph.bearings.map(bearing => bearing.kind)).toEqual(["supports", "challenges", "supports", "respondsTo"]);
     expect(graph.bearings[2].target.key).toBe(graph.bearings[1].key);
   });
 

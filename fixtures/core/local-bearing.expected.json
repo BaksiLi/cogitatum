@@ -16,7 +16,7 @@
       {"line": 2, "kind": "supports", "sources": [2], "target": {"kind": "point", "line": 1}, "derivedBy": "structural"},
       {"line": 3, "kind": "supports", "sources": [4, 7], "target": {"kind": "point", "line": 1}, "derivedBy": "structural", "handle": "joint-route"},
       {"line": 5, "kind": "challenges", "sources": [5], "target": {"kind": "point", "line": 4}, "derivedBy": "structural"},
-      {"line": 6, "kind": "repliesTo", "sources": [6], "target": {"kind": "point", "line": 5}, "derivedBy": "structural"},
+      {"line": 6, "kind": "respondsTo", "sources": [6], "target": {"kind": "point", "line": 5}, "derivedBy": "structural"},
       {"line": 8, "kind": "challenges", "sources": [8], "target": {"kind": "bearing", "line": 3}, "derivedBy": "operator"},
       {"line": 10, "kind": "supports", "sources": [4], "target": {"kind": "point", "line": 9}, "derivedBy": "operator", "handle": "shared-route"}
     ]

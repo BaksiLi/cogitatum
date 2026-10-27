@@ -3,6 +3,7 @@ import type {
   AnnotationSyntaxError,
   BearingKind,
   Diagnostic,
+  LocalBearingMark,
   LocalBearingRole,
   OperatorClause,
   PointOperatorClause,
@@ -66,7 +67,7 @@ const RELATION_TOKENS = new Map<string, BearingKind>([
   ["challenges", "challenges"],
   ["concerns", "concerns"],
   ["answers", "answers"],
-  ["repliesTo", "repliesTo"],
+  ["respondsTo", "respondsTo"],
   ["clarifies", "clarifies"]
 ]);
 
@@ -176,16 +177,19 @@ function parseCurrentAnnotation(raw: string, sourceSpan?: SourceSpan): Annotatio
 
   if (edgeIntent && head.mode === "local") {
     const tokens = splitTokens(semicolonParts[0]);
-    const role = /^[GORD]$/.test(tokens[1] ?? "") ? tokens[1] as LocalBearingRole : undefined;
+    const roleToken = /^(?:_|bearing|edge)([GOQ]\/)/i.exec(tokens[0])?.[1] ?? tokens[1] ?? "";
+    const mark: LocalBearingMark = /^[GOQ]\//i.test(roleToken)
+      ? { role: roleToken[0].toUpperCase() as "G" | "O" | "Q", selector: "attachment" }
+      : { role: /^[GORD]$/.test(roleToken) ? roleToken as LocalBearingRole : undefined };
     const handle = semicolonParts.length === 2 ? parseSingleRef(semicolonParts[1]) : undefined;
-    const invalidSyntax = tokens[0] !== "_" || tokens.length !== 2 || !role || semicolonParts.length > 2;
+    const invalidSyntax = tokens[0] !== "_" || tokens.length !== 2 || !mark.role || (mark.selector && roleToken !== mark.role + "/") || semicolonParts.length > 2;
     const invalidHandle = semicolonParts.length === 2 && !handle;
     const errors: ("localBearing" | "handle")[] = [];
     if (invalidSyntax) {
       errors.push("localBearing");
       diagnostics.push({
         severity: "error", code: "MALFORMED_LOCAL_BEARING",
-        message: "Local Bearing headers use [_ G], [_ O], [_ R] or [_ D], with an optional ; @route handle and neutral Point sources. The first token after _ selects the mode; do not mix a role with references, operators, use or note." + gluedRoleHint(tokens[0]) + markCaseHint(tokens[1]),
+        message: "Local Bearing headers use [_ G], [_ O], [_ R] or [_ D] for a Point target, or [_ G/], [_ O/] or [_ Q/] for the locally exposed Bearing, with an optional ; @route handle and neutral Point sources. The first token after _ selects the mode; do not mix a role with references, operators, use or note." + gluedRoleHint(tokens[0]) + markCaseHint(tokens[1]),
         sourceSpan
       });
     }
@@ -194,7 +198,7 @@ function parseCurrentAnnotation(raw: string, sourceSpan?: SourceSpan): Annotatio
       diagnostics.push({ severity: "error", code: "MALFORMED_BEARING_HANDLE",
         message: "Bearing handle separator ';' must be followed by exactly one valid @id.", sourceSpan });
     }
-    return { annotation: { kind: "localBearing", raw, ...(role ? { role } : {}), ...(!invalidSyntax && handle ? { handle } : {}),
+    return { annotation: { kind: "localBearing", raw, ...mark, ...(!invalidSyntax && handle ? { handle } : {}),
       syntaxErrors: errors.length ? errors : undefined }, diagnostics };
   }
 
@@ -320,7 +324,7 @@ function parseCurrentAnnotation(raw: string, sourceSpan?: SourceSpan): Annotatio
     diagnostics.push({
       severity: "error",
       code: "MALFORMED_BEARING_MODE",
-      message: "The first token after _, bearing or edge selects the mode: G, O, R or D for local construction ([_ G]), @ref for explicit construction ([_ @a +> @claim]), use ([_ use @route]) or note ([_ note])." + localKindHint(tokens[1]) + proseHint(tokens),
+      message: "The first token after _, bearing or edge selects the mode: G, O, R, D, G/, O/ or Q/ for local construction ([_ G]), @ref for explicit construction ([_ @a +> @claim]), use ([_ use @route]) or note ([_ note])." + localKindHint(tokens[1]) + proseHint(tokens),
       sourceSpan
     });
     return { annotation: { kind: "explicitBearing", syntaxErrors: invalidHandle ? ["mode", "handle"] : ["mode"], handle, raw }, diagnostics };
@@ -416,7 +420,7 @@ function parseCurrentAnnotation(raw: string, sourceSpan?: SourceSpan): Annotatio
       diagnostics.push({
         severity: "error",
         code: "MALFORMED_ROLE_ANNOTATION",
-        message: "Role annotations must look like [C], [G @id], or [Q @id repliesTo @target]." + proseHint(tokens),
+        message: "Role annotations must look like [C], [G @id], or [Q @id respondsTo @target]." + proseHint(tokens),
         sourceSpan
       });
       return { diagnostics };
@@ -478,6 +482,15 @@ function parseOperatorClause(
   sourceSpan: SourceSpan | undefined,
   diagnostics: Diagnostic[]
 ): OperatorClause | undefined {
+  if (opToken.toLowerCase() === "repliesto") {
+    diagnostics.push({
+      severity: "error",
+      code: "RETIRED_BEARING_KIND",
+      message: "The named repliesTo spelling is retired. Use respondsTo, retaining the same sources, Point target, handle and prose, then recompile retained source; do not relabel old JSON.",
+      sourceSpan
+    });
+    return undefined;
+  }
   const op = RELATION_TOKENS.get(opToken);
   if (!op || (sourceTokens !== "self" && sourceTokens.length === 0) || targetTokens.length === 0) {
     diagnostics.push({
@@ -675,7 +688,7 @@ function proseHint(tokens: string[]): string {
 // Case-mismatched names still select a clause boundary; parsing diagnoses them
 // instead of letting the occurrence acquire a default attachment.
 function isRelationToken(token: string): boolean {
-  return RELATION_TOKENS.has(token) || KIND_NAMES.some(kind => kind.toLowerCase() === token.toLowerCase());
+  return token.toLowerCase() === "repliesto" || RELATION_TOKENS.has(token) || KIND_NAMES.some(kind => kind.toLowerCase() === token.toLowerCase());
 }
 
 function jointSourceHint(prefix: string[], clause: string): string {
@@ -693,7 +706,7 @@ export function isBearingModeUnselected(header: string): boolean {
 }
 
 const LOCAL_ROLE_FOR_KIND = new Map<string, string>([
-  ["+>", "G"], ["supports", "G"], ["->", "O"], ["/>", "O"], ["challenges", "O"], ["repliesTo", "R"], ["clarifies", "D"]
+  ["+>", "G"], ["supports", "G"], ["->", "O"], ["/>", "O"], ["challenges", "O"], ["respondsTo", "R"], ["clarifies", "D"]
 ]);
 
 function localKindHint(token: string | undefined): string {
@@ -701,11 +714,11 @@ function localKindHint(token: string | undefined): string {
   const role = LOCAL_ROLE_FOR_KIND.get(token);
   if (role) return ` To take sources and target from the outline, write the role letter: [_ ${role}].`;
   return token === "answers" || token === "concerns" || token === "~>"
-    ? " Joint answers and concerns have no local header; name their endpoints explicitly." : "";
+    ? " Joint answers and Point-targeted concerns have no local header; name their endpoints explicitly. For concerns about the nearest exposed Bearing, write [_ Q/]." : "";
 }
 
 function gluedRoleHint(token: string | undefined): string {
-  const glued = token && /^(_|bearing|edge)([QCGORD])/i.exec(token);
+  const glued = token && /^(_|bearing|edge)([QCGORD](?:[?/_])?)/i.exec(token);
   return glued ? ` Separate the family spelling from the role with a space: [${glued[1]} ${glued[2]}].` : "";
 }
 

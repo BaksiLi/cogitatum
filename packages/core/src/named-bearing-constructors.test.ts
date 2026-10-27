@@ -5,12 +5,12 @@ import type { BearingKind, GraphIR } from "./types.js";
 const compile = (source: string) => compileGraph(parseDocument(source));
 const codes = (graph: GraphIR) => graph.diagnostics.map(diagnostic => diagnostic.code);
 const declarations = "- [. @first] Material premise.\n- [Q @second] A clarification question.\n- [C @target] Open claim.\n- [edge @target +> @first; @base] Base route.";
-const kinds: BearingKind[] = ["supports", "challenges", "concerns", "answers", "repliesTo", "clarifies"];
+const kinds: BearingKind[] = ["supports", "challenges", "concerns", "answers", "respondsTo", "clarifies"];
 
 describe("named canonical Bearing constructors", () => {
   it.each(kinds)("constructs ordered %s with existing Point identities and declaration metadata", kind => {
     const target = "target";
-    const source = declarations + "\n- [edge @second, @first " + kind + " @" + target + "; @named] Description mentions repliesTo without another clause.";
+    const source = declarations + "\n- [edge @second, @first " + kind + " @" + target + "; @named] Description mentions respondsTo without another clause.";
     const { graph, explain } = compileGraphWithExplain(parseDocument(source));
     expect(codes(graph)).toEqual([]);
     expect(graph.points).toHaveLength(3);
@@ -21,7 +21,7 @@ describe("named canonical Bearing constructors", () => {
     expect(bearing.kind).toBe(kind);
     expect(bearing.sources.map(ref => graph.points.find(point => point.key === ref.key)?.id)).toEqual(["second", "first"]);
     expect(bearing.target.kind).toBe("point");
-    expect(bearing.text).toBe("Description mentions repliesTo without another clause.");
+    expect(bearing.text).toBe("Description mentions respondsTo without another clause.");
     expect(bearing.derivedBy).toBe("operator");
     expect(explain.entries[4].effects).toContainEqual(expect.objectContaining({ kind: "emitBearing", reason: "operator-clause", bearing: expect.objectContaining({ kind: kind }) }));
   });
@@ -32,7 +32,7 @@ describe("named canonical Bearing constructors", () => {
     expect(graph.bearings[1]).toMatchObject({ kind, target: { key: graph.bearings[0].key, kind: "bearing" } });
   });
 
-  it.each(["answers", "repliesTo", "clarifies"])("retains the Point target constraint for named %s", kind => {
+  it.each(["answers", "respondsTo", "clarifies"])("retains the Point target constraint for named %s", kind => {
     const graph = compile(declarations + "\n- [edge @first " + kind + " @base; @rejected]");
     expect(graph.bearings).toHaveLength(1);
     expect(codes(graph)).toEqual(["BEARING_KIND_REQUIRES_POINT_TARGET"]);
@@ -62,10 +62,10 @@ describe("named canonical Bearing constructors", () => {
   });
 
   it("preserves a Question reply and a concession without converting either into a challenge", () => {
-    const graph = compile("- [O @objection] The account lacks a time scale.\n- [Q @question] Which time scale do you mean?\n- [C @concession] The timing is uncertain.\n- [edge @question repliesTo @objection; @clarification]\n- [edge @concession repliesTo @objection; @conceding]");
+    const graph = compile("- [O @objection] The account lacks a time scale.\n- [Q @question] Which time scale do you mean?\n- [C @concession] The timing is uncertain.\n- [edge @question respondsTo @objection; @clarification]\n- [edge @concession respondsTo @objection; @conceding]");
     expect(codes(graph)).toEqual([]);
     expect(graph.points.map(point => point.declaration.role)).toEqual(["O", "Q", "C"]);
-    expect(graph.bearings.map(bearing => bearing.kind)).toEqual(["repliesTo", "repliesTo"]);
+    expect(graph.bearings.map(bearing => bearing.kind)).toEqual(["respondsTo", "respondsTo"]);
   });
 
   it("keeps forward reference effects under scoped declaration reordering and retains equal-endpoint instances", () => {
@@ -96,7 +96,7 @@ describe("named canonical Bearing constructors", () => {
     expect(codes(cycle)).toEqual([]);
     expect(cycle.bearings).toHaveLength(3);
     const fence = String.fromCharCode(96).repeat(3);
-    const host = compileSource([fence + "cog", "- [O @remote] Remote objection.", fence, "", fence + "cog", "- [Q @local] Local question.", "- [edge @local repliesTo @remote]", fence].join("\n"), "host");
+    const host = compileSource([fence + "cog", "- [O @remote] Remote objection.", fence, "", fence + "cog", "- [Q @local] Local question.", "- [edge @local respondsTo @remote]", fence].join("\n"), "host");
     expect(host.graphs[0].points).toHaveLength(1);
     expect(host.graphs[1].points).toHaveLength(1);
     expect(host.graphs[1].bearings).toEqual([]);

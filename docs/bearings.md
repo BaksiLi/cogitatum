@@ -16,26 +16,26 @@ It does not certify that the reason is sufficient or the objection succeeds.
 
 ## Connections from indentation
 
-```md cog-check require=supports,challenges,repliesTo points=4 bearings=3 diagnostics=0
+```md cog-check require=supports,challenges,respondsTo points=4 bearings=3 diagnostics=0
 - [C] The service needs inspection.
   - [G] Two independent retries timed out.
   - [O] The failures may have been transient.
     - [R] The same failure recurred this morning.
 ```
 
-The Ground supports the Claim, the Objection challenges it, and the Reply responds to the Objection.
+The Ground supports the Claim, the Objection challenges it, and the Response responds to the Objection.
 The child's mark selects the relation; indentation supplies the nearest enclosing Point:
 
 | Child mark | Connection to the enclosing Point |
 | --- | --- |
 | `G` | `supports` |
 | `O` | `challenges` |
-| `R` | `repliesTo` |
+| `R` | `respondsTo` |
 | `D` | `clarifies` |
 | `.`, `Q`, `C` | No default connection |
 
 The enclosing Point's mark does not change these rules.
-For example, `R` beneath a Question replies to that Question.
+For example, `R` beneath a Question responds to that Question.
 Ordinary body can supply context between them; an intervening Point becomes the nearer target.
 
 ## Argument structures

@@ -78,7 +78,7 @@ The core rejects the retired named `undercuts` spelling; a future theory-specifi
 Likewise, discourse relations do not supply a dialogue-event model by themselves.
 AIF+ TA nodes represent transition applications between locutions; IAT illocutionary connections anchor dialogue and argument structure.
 See the [AIF+ paper](https://www.simonwells.org/assets/papers/reed_2008_aif.plus.pdf) and the [IAT corpus analysis](https://aclanthology.org/L16-1161/).
-Cogitatum Points are not automatically locution events, and `repliesTo`, `answers`, or `clarifies` cannot be converted into TA or YA nodes just by renaming them.
+Cogitatum Points are not automatically locution events, and `respondsTo`, `answers`, or `clarifies` cannot be converted into TA or YA nodes just by renaming them.
 Repeated content and repeated utterances require different identity decisions.
 
 The next contract questions are interpretation provenance, faithful translation, selection across revisions, and theory-specific evidence.

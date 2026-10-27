@@ -58,7 +58,7 @@
         },
         {
           "line": 5,
-          "kind": "repliesTo",
+          "kind": "respondsTo",
           "sources": [
             5
           ],

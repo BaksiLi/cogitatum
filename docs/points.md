@@ -17,13 +17,13 @@ Use a mark to say how you are presenting it here:
 | `[C]` | Claim | A claim, position or possible answer |
 | `[G]` | Ground | A reason for another Point |
 | `[O]` | Objection | An objection or opposing explanation |
-| `[R]` | Reply | A response to another Point |
+| `[R]` | Response | A response to another Point |
 | `[D]` | Distinction | A distinction that helps clarify another Point |
 | `[.]` | Neutral Point | Content without a specified role |
 
 A role describes this presentation, rather than a permanent type or a judgment of truth.
 The same content can be a Claim in one discussion and a Ground in another.
-A reply may also answer or clarify something; its mark need not catalogue everything the passage does.
+A response may also answer or clarify something; its mark need not catalogue everything the passage does.
 
 ## Keep the complete content
 
@@ -59,8 +59,8 @@ When you want to record an answer explicitly:
   - [. answers @scale] Seconds, rather than minutes.
 ```
 
-`[R]` beneath the Question instead records a reply.
-Neither a reply nor an answer relation certifies that the question is resolved.
+`[R]` beneath the Question instead records a response.
+Neither a response nor an answer relation certifies that the question is resolved.
 See [connections from indentation](bearings.md#connections-from-indentation) for the other local relations.
 
 ## Name a Point for later reference

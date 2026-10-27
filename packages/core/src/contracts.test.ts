@@ -24,6 +24,35 @@ const validateSource = ajv.compile(sourceSchema);
 const json = (value: unknown) => JSON.parse(JSON.stringify(value));
 
 describe("public compiler contract boundaries", () => {
+  it.each(["G", "O", "Q"])("correlates the local %s/ group through every public projection", role => {
+    const result = json(explainSource(`- [C] Claim.\n  - [G] Reason.\n    - [_ ${role}/]\n      - [.] First.\n      - [.] Second.`));
+    expect(validateSource(result), JSON.stringify(validateSource.errors)).toBe(true);
+    for (const invalidRole of [undefined, "C", "R", "D"]) {
+      const invalid = structuredClone(result);
+      invalid.documents[0].blocks[0].children[0].children[0].annotation.role = invalidRole;
+      invalid.explanations[0].entries[2].recognition.role = invalidRole;
+      expect(validateAst(json(invalid.documents[0])), String(invalidRole)).toBe(false);
+      expect(validateExplain(json(invalid.explanations[0])), String(invalidRole)).toBe(false);
+    }
+    if (role === "Q") {
+      delete result.documents[0].blocks[0].children[0].children[0].annotation.selector;
+      delete result.explanations[0].entries[2].recognition.selector;
+      expect(validateAst(result.documents[0])).toBe(false);
+      expect(validateExplain(result.explanations[0])).toBe(false);
+    }
+  });
+
+  it("rejects saved repliesTo data in the active contract instead of relabelling it", () => {
+    const result = json(explainSource("- [Q @q] Which scale?\n  - [R respondsTo @q] Seconds."));
+    expect(validateSource(result)).toBe(true);
+    result.documents[0].blocks[0].children[0].annotation.operatorClause.op = "repliesTo";
+    result.graphs[0].bearings[0].kind = "repliesTo";
+    result.explanations[0].entries[1].effects.find((e: any) => e.kind === "emitBearing").bearing.kind = "repliesTo";
+    expect(validateAst(result.documents[0])).toBe(false);
+    expect(validateGraph(result.graphs[0])).toBe(false);
+    expect(validateExplain(result.explanations[0])).toBe(false);
+  });
+
   it.each(["G", "O", "R", "D"])("retains the %s linked role through every JSON projection", role => {
     const source = `- [O @target] Target.\n  - [_ ${role}; @route]\n    - [. @a] First.\n    - [. @b] Second.`;
     const result = json(explainSource(source));
@@ -237,7 +266,7 @@ describe("public compiler contract boundaries", () => {
   });
 
   it("validates all named kinds on explicit Bearings, Point declarations and Point uses", () => {
-    for (const kind of ["supports", "challenges", "concerns", "answers", "repliesTo", "clarifies"]) {
+    for (const kind of ["supports", "challenges", "concerns", "answers", "respondsTo", "clarifies"]) {
       const target = "claim";
       const source = "- [C @claim] Claim.\n- [. @material] Material.\n- [edge @material supports @claim; @route]\n- [edge @claim " + kind + " @" + target + "]\n- [Q @question " + kind + " @claim] Which scale?\n- [. use @material " + kind + " @claim]";
       const ast = parseDocument(source);
@@ -250,7 +279,7 @@ describe("public compiler contract boundaries", () => {
       expect(validateSource(json(explainSource(fence + "cog\n" + source + "\n" + fence, "host"))), kind).toBe(true);
     }
     const self = json(parseDocument("- [C @claim] Claim.\n- [G +> @claim] Ground."));
-    for (const kind of ["answers", "repliesTo", "clarifies"]) {
+    for (const kind of ["answers", "respondsTo", "clarifies"]) {
       self.blocks[1].annotation.operatorClause.op = kind;
       self.blocks[1].annotation.operatorClause.targetKind = "point";
       expect(validateAst(self), kind).toBe(true);

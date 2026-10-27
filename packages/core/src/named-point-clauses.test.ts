@@ -4,8 +4,8 @@ import type { BearingKind, GraphIR } from "./types.js";
 
 const compile = (source: string) => compileGraphWithExplain(parseDocument(source));
 const codes = (graph: GraphIR) => graph.diagnostics.map(diagnostic => diagnostic.code);
-const kinds: BearingKind[] = ["supports", "challenges", "concerns", "answers", "repliesTo", "clarifies"];
-const pointKinds = ["answers", "repliesTo", "clarifies"];
+const kinds: BearingKind[] = ["supports", "challenges", "concerns", "answers", "respondsTo", "clarifies"];
+const pointKinds = ["answers", "respondsTo", "clarifies"];
 
 describe("named Point clauses", () => {
   it.each(kinds)("states %s once while retaining the occurrence's Q role, content and child context", kind => {
@@ -85,12 +85,12 @@ describe("named Point clauses", () => {
       expect(codes(graph).length, mark).toBeGreaterThan(1);
       expect(codes(graph), mark).toContain("NO_LOCAL_BEARING_ATTACHMENT");
       expect(graph.bearings, mark).toHaveLength(1);
-      expect(graph.bearings[0].kind, mark).toBe("repliesTo");
+      expect(graph.bearings[0].kind, mark).toBe("respondsTo");
       expect(graph.points.find(point => point.key === graph.bearings[0].target.key)?.id, mark).toBe(mark.includes("use") ? "shared" : "question");
     }
   });
 
-  it.each(["[Q @question answer @target]", "[Q @question repliesTo @target"])(
+  it.each(["[Q @question answer @target]", "[Q @question respondsTo @target"])(
     "keeps unknown kinds and unclosed %s as failed boundaries",
     header => {
       const { graph } = compile(`- [O @target] Target.\n- [C @outer] Outer.\n  - ${header} Bad header.\n    - [G @child] Child.`);
@@ -118,7 +118,7 @@ describe("named Point clauses", () => {
   });
 
   it("inventories written use operands and named targets without treating self as a written source", () => {
-    const result = analyzeSourceReferences("- [O @target] Objection.\n- [Q @question repliesTo @target; @reply] Which scale?\n- [. use @question clarifies @target]");
+    const result = analyzeSourceReferences("- [O @target] Objection.\n- [Q @question respondsTo @target; @reply] Which scale?\n- [. use @question clarifies @target]");
     expect(result.diagnostics).toEqual([]);
     const names = result.references.units[0];
     expect(names.find(name => name.name === "question")?.references.map(ref => ref.kind)).toEqual(["point-use"]);

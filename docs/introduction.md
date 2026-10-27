@@ -11,7 +11,7 @@ audience: One minute
 Cogitatum is a little markup for seeing the reasoning in your notes.
 Keep the context in ordinary prose, then mark the parts you want to examine:
 
-```md cog-check require=supports,challenges,repliesTo points=4 bearings=3 diagnostics=0
+```md cog-check require=supports,challenges,respondsTo points=4 bearings=3 diagnostics=0
 - A neighbourhood library is considering later opening hours. This is an imagined discussion.
 - [C] The library should stay open until eight on weekdays.
   - [G] Readers have asked for somewhere to study after work.
@@ -19,8 +19,8 @@ Keep the context in ordinary prose, then mark the parts you want to examine:
     - [R] Try one evening within the existing staffing budget.
 ```
 
-`C` marks a Claim, `G` a Ground, `O` an Objection, and `R` a Reply.
-The indentation connects the reason and objection to the Claim, and the Reply to the Objection.
+`C` marks a Claim, `G` a Ground, `O` an Objection, and `R` a Response.
+The indentation connects the reason and objection to the Claim, and the Response to the Objection.
 The opening context remains ordinary prose.
 
 A marked piece of content is a **Point**.

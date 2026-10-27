@@ -142,11 +142,11 @@ describe("actionable parser messages", () => {
   it.each([
     ["- [G @x Supports @c]", "MALFORMED_EXPLICIT_BEARING", "Kind names are case-sensitive: write supports, not Supports."],
     ["- [O Challenges @x]", "MALFORMED_EXPLICIT_BEARING", "write challenges, not Challenges"],
-    ["- [R repliesto @o]", "MALFORMED_EXPLICIT_BEARING", "write repliesTo, not repliesto"],
-    ["- [O use @p repliesto @o]", "MALFORMED_EXPLICIT_BEARING", "write repliesTo, not repliesto"],
+    ["- [R respondsto @o]", "MALFORMED_EXPLICIT_BEARING", "write respondsTo, not respondsto"],
+    ["- [O use @p respondsto @o]", "MALFORMED_EXPLICIT_BEARING", "write respondsTo, not respondsto"],
     ["- [G @a, @b +> @c]", "MALFORMED_ROLE_BEARING", "write joint sources in an edge: [_ @a, @b +> @c]."],
     ["- [. @a, @b ~> @c]", "MALFORMED_EXPLICIT_BEARING", "[_ @a, @b ~> @c]"],
-    ["- [_ @a repliesto @b]", "MALFORMED_EXPLICIT_BEARING", "Kind names are case-sensitive: write repliesTo, not repliesto."],
+    ["- [_ @a respondsto @b]", "MALFORMED_EXPLICIT_BEARING", "Kind names are case-sensitive: write respondsTo, not respondsto."],
     ["- [_ @a refutes @b]", "MALFORMED_EXPLICIT_BEARING", "refutes is not a canonical kind"],
     ["- [g/]", "MALFORMED_LOCAL_BEARING_SELECTOR", "write G/, not g/"],
     ["- [g +> @c]", "MALFORMED_EXPLICIT_BEARING", "write G, not g"],
@@ -171,15 +171,15 @@ describe("actionable parser messages", () => {
   });
 
   it("retains a named clause, local role and handle in duplicate-declaration reuse advice", () => {
-    const source = "- [C @p] Shared.\n- [O @target] Objection.\n- [Q @p repliesTo @target; @route] Which scale?";
+    const source = "- [C @p] Shared.\n- [O @target] Objection.\n- [Q @p respondsTo @target; @route] Which scale?";
     const { graph } = compileGraphWithExplain(parseDocument(source));
-    const spelling = "[Q use @p repliesTo @target; @route]";
+    const spelling = "[Q use @p respondsTo @target; @route]";
     expect(graph.diagnostics.find(diagnostic => diagnostic.code === "DUPLICATE_ID")?.explanation).toContain(`reuse it with ${spelling}`);
-    const followed = compileGraph(parseDocument(source.replace("[Q @p repliesTo @target; @route]", spelling)));
+    const followed = compileGraph(parseDocument(source.replace("[Q @p respondsTo @target; @route]", spelling)));
     expect(followed.diagnostics).toEqual([]);
     expect(followed.points).toHaveLength(2);
     expect(followed.points[0].declaration.role).toBe("C");
-    expect(followed.bearings[0]).toMatchObject({ kind: "repliesTo", handle: "route" });
+    expect(followed.bearings[0]).toMatchObject({ kind: "respondsTo", handle: "route" });
   });
 
   it.each([["O", "challenges"], ["G", "supports"]])("keeps the %s/ selector in the suggested reuse and its typed endpoint", (role, kind) => {

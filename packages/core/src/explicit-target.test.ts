@@ -58,7 +58,7 @@ describe("explicit target previews", () => {
     expect(graph.bearings[0].target).not.toEqual(graph.bearings[1].target);
   });
 
-  it.each([["Q", "R", "repliesTo"], ["O", "R", "repliesTo"], ["C", "D", "clarifies"]])(
+  it.each([["Q", "R", "respondsTo"], ["O", "R", "respondsTo"], ["C", "D", "clarifies"]])(
     "makes implicit %s > %s explicit with %s while keeping child and object-note ownership",
     (parent, child, kind) => {
       for (const occurrence of [`${child} @point`, `${child} use @shared`]) {

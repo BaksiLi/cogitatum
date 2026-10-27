@@ -51,7 +51,7 @@ See the [syntax reference](syntax.md#local-bearing-constructions) for other loca
 | `[C]` | Claim | 主張 | 此處呈現的主張、立場或可能答案。 |
 | `[G]` | Ground | 依據 | 用以支持所論的理由或材料。 |
 | `[O]` | Objection | 駁議 | 對所論提出的異議或反對解釋。 |
-| `[R]` | Reply | 回應 | 對另一個 Point 所作的回覆，不限於異議。 |
+| `[R]` | Response | 回應 | 對另一個 Point 所作的回覆，不限於異議。 |
 | `[D]` | Distinction | 辨別 | 指出有助釐清所論的區別。 |
 | `[.]`, `[. @passage]` | Neutral Point | 中性點 | 沒有指定角色的內容，可選擇命名。 |
 | `[. use @p]`, `[G use @p]` | Point use | 點的引用 | 再次使用同一個點；此處所寫的標記只作用於此處。 |
@@ -68,7 +68,7 @@ See [Points](points.md) for roles, neutral content, and names.
 | `->` | challenges | 質疑 | 對目標 Point 或 Bearing 提出反對。 |
 | `~>` | concerns | 關涉 | 記錄相關性，不承諾正面或反面作用。 |
 | Explicit `answers` | answers | 回答 | 作者明示某個 Point 回答另一個 Point；Q 下的 C 不自動產生此關係。 |
-| Reply beneath a Point | repliesTo | 回應 | R 回應最近的外層 Point，不要求目標標成 O。 |
+| Response beneath a Point | respondsTo | 回應 | R 回應最近的外層 Point，不要求目標標成 O。 |
 | Distinction beneath a Point | clarifies | 釐清 | D 用來釐清最近的外層 Point。 |
 
 See [Bearings](bearings.md) for indentation, joint support, and target restrictions,

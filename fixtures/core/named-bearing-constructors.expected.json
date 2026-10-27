@@ -9,7 +9,7 @@
     ],
     "bearings": [
       { "line": 5, "kind": "answers", "sources": [1], "target": { "kind": "point", "line": 2 }, "derivedBy": "operator", "handle": "answer" },
-      { "line": 6, "kind": "repliesTo", "sources": [2], "target": { "kind": "point", "line": 3 }, "derivedBy": "operator", "handle": "reply" },
+      { "line": 6, "kind": "respondsTo", "sources": [2], "target": { "kind": "point", "line": 3 }, "derivedBy": "operator", "handle": "reply" },
       { "line": 7, "kind": "clarifies", "sources": [1], "target": { "kind": "point", "line": 3 }, "derivedBy": "operator", "handle": "clarification" },
       { "line": 8, "kind": "supports", "sources": [3], "target": { "kind": "point", "line": 1 }, "derivedBy": "operator", "handle": "support" },
       { "line": 9, "kind": "challenges", "sources": [1], "target": { "kind": "point", "line": 3 }, "derivedBy": "operator", "handle": "challenge" },

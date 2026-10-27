@@ -185,7 +185,7 @@ describe("Cogitatum language contracts", () => {
         target: pointRef(graph, "conclusion")
       }),
       expect.objectContaining({
-        kind: "repliesTo",
+        kind: "respondsTo",
         sources: [pointRef(graph, "reply")],
         target: pointRef(graph, "objection")
       })
@@ -199,7 +199,7 @@ describe("Cogitatum language contracts", () => {
       expect.objectContaining({ kind: "clarifies" })
     ]);
     expect(graph.bearings.filter((bearing) => bearing.sources.some((source) => source.key === pointRef(graph, "reply").key))).toEqual([
-      expect.objectContaining({ kind: "repliesTo" })
+      expect.objectContaining({ kind: "respondsTo" })
     ]);
     expect(graph.diagnostics).toEqual([]);
   });
@@ -805,7 +805,7 @@ describe("Cogitatum language contracts", () => {
         derivedBy: "operator"
       }),
       expect.objectContaining({
-        kind: "repliesTo",
+        kind: "respondsTo",
         sources: [{ key: reply?.key, kind: "point" }],
         target: { key: objection?.key, kind: "point" },
         derivedBy: "structural"
@@ -891,7 +891,7 @@ describe("Cogitatum language contracts", () => {
       // An O beneath the use challenges the shared observation; O/ assesses only the new step.
       { kind: "challenges", handle: undefined, sources: [4], target: point(1) },
       { kind: "challenges", handle: undefined, sources: [5], target: bearing(2) },
-      { kind: "repliesTo", handle: undefined, sources: [6], target: point(5) },
+      { kind: "respondsTo", handle: undefined, sources: [6], target: point(5) },
       // A Bearing use selects the report's own step without constructing another relation.
       { kind: "challenges", handle: undefined, sources: [7], target: bearing(0) }
     ]);
@@ -1693,7 +1693,7 @@ describe("Cogitatum language contracts", () => {
     (undercut.target as { kind: string }).kind = "point";
 
     expect(validateGraph(undercutGraph)).toBe(true);
-    for (const kind of ["answers", "repliesTo", "clarifies"] as const) {
+    for (const kind of ["answers", "respondsTo", "clarifies"] as const) {
       const invalid = jsonValue(pointTargetGraph);
       const bearing = invalid.bearings.find((candidate) => candidate.kind === kind);
       if (!bearing) {

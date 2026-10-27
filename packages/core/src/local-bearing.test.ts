@@ -104,7 +104,7 @@ describe("local joint support", () => {
       { kind: "supports", handle: "route", sources: ["a", "b"], target: { kind: "point", name: "c" } },
       { kind: "supports", handle: "shared", sources: ["a"], target: { kind: "point", name: "other" } },
       { kind: "challenges", handle: undefined, sources: ["premise-objection"], target: { kind: "point", name: "a" } },
-      { kind: "repliesTo", handle: undefined, sources: ["reply"], target: { kind: "point", name: "premise-objection" } },
+      { kind: "respondsTo", handle: undefined, sources: ["reply"], target: { kind: "point", name: "premise-objection" } },
       { kind: "challenges", handle: undefined, sources: ["route-objection"], target: { kind: "bearing", name: "route" } }
     ]));
     expect(graph.points.map(p => p.id)).toEqual(["c", "independent", "a", "premise-objection", "reply", "b", "other", "route-objection"]);
@@ -208,7 +208,7 @@ describe("local joint support", () => {
       - [R @r] Reply.
 - [O /> @route] Route objection.`);
     expect(graph.points.map(p => p.id)).toEqual(["c", "a", "o", "r", undefined]);
-    expect(routes(graph)).toEqual([{ kind: "repliesTo", handle: undefined, sources: ["r"], target: { kind: "point", name: "o" } }]);
+    expect(routes(graph)).toEqual([{ kind: "respondsTo", handle: undefined, sources: ["r"], target: { kind: "point", name: "o" } }]);
     expect(codes(graph)).toEqual(["INVALID_LOCAL_BEARING_MEMBER", "UNKNOWN_TARGET"]);
   });
 

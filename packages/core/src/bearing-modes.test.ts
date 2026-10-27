@@ -5,7 +5,7 @@ const compile = (source: string) => compileGraphWithExplain(parseDocument(source
 
 describe("Bearing mode selection", () => {
   it.each(["_", "bearing", "edge"])("constructs local Bearings through the %s family spelling", family => {
-    for (const [role, kind] of [["G", "supports"], ["O", "challenges"], ["R", "repliesTo"], ["D", "clarifies"]]) {
+    for (const [role, kind] of [["G", "supports"], ["O", "challenges"], ["R", "respondsTo"], ["D", "clarifies"]]) {
       const { graph, explain } = compile(`- [O @target] Target.
   - [${family} ${role}; @route] Step description.
     - [. @a] First source.
@@ -22,7 +22,7 @@ describe("Bearing mode selection", () => {
   });
 
   it.each(["_", "bearing", "edge"])("never reinterprets mixed local %s headers as explicit, use or note", family => {
-    for (const suffix of ["G @a +> @b", "G +>", "G use @a", "G note", "G supports @b", "G @a", "G; @one; @two", "g", "Q", "C", "G/"]) {
+    for (const suffix of ["G @a +> @b", "G +>", "G use @a", "G note", "G supports @b", "G @a", "G; @one; @two", "g", "Q", "C", "R/", "D/", "G/ @a +> @b"]) {
       const header = `${family} ${suffix}`;
       const parsed = parseAnnotation(header);
       expect(parsed.annotation, header).toMatchObject({ kind: "localBearing", syntaxErrors: expect.arrayContaining(["localBearing"]) });
@@ -57,7 +57,7 @@ describe("Bearing mode selection", () => {
   });
 
   it.each([
-    ["supports", "[_ G]"], ["+>", "[_ G]"], ["challenges", "[_ O]"], ["repliesTo", "[_ R]"], ["clarifies", "[_ D]"],
+    ["supports", "[_ G]"], ["+>", "[_ G]"], ["challenges", "[_ O]"], ["respondsTo", "[_ R]"], ["clarifies", "[_ D]"],
     ["answers", "name their endpoints explicitly"], ["concerns", "name their endpoints explicitly"]
   ])("points [_ %s] to the matching local header or explicit endpoints", (token, hint) => {
     const { graph } = compile(`- [O @outer] Outer.

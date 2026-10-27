@@ -40,9 +40,9 @@ describe("reference-only Point occurrences", () => {
   it("bare use focuses without an attachment or inherited role, while child R still replies to it", () => {
     const { graph } = compile("- [O @objection] Original O.\n  - [G; @original-step] Original ground.\n- [C @claim] Claim.\n  - [. use @objection] Local prose.\n    - [R @bare-reply] No inherited O mark.\n    - [O/] No inherited attachment.\n- [O use @objection]\n  - [R @marked-reply] Local reply.");
     expect(codes(graph)).toEqual(["NO_LOCAL_BEARING_ATTACHMENT"]);
-    expect(relations(graph).filter(bearing => bearing.kind === "repliesTo")).toEqual([
-      { kind: "repliesTo", handle: undefined, sources: ["bare-reply"], target: { kind: "point", name: "objection" } },
-      { kind: "repliesTo", handle: undefined, sources: ["marked-reply"], target: { kind: "point", name: "objection" } }
+    expect(relations(graph).filter(bearing => bearing.kind === "respondsTo")).toEqual([
+      { kind: "respondsTo", handle: undefined, sources: ["bare-reply"], target: { kind: "point", name: "objection" } },
+      { kind: "respondsTo", handle: undefined, sources: ["marked-reply"], target: { kind: "point", name: "objection" } }
     ]);
   });
 
@@ -162,7 +162,7 @@ describe("reference-only Point occurrences", () => {
   it("keeps local and explicit projections equal while preserving separate prose, spans and derivation", () => {
     const declarations = "- [C @premise] Original open premise.\n- [C @claim] Conclusion.\n- [O @objection] Objection.\n- [R @reply] Reply.";
     const local = compile(declarations + "\n- Narrative in reader order.\n- [. use @claim] Later discussion.\n  - [G use @premise; @step] Occurrence prose.\n    - [O/ use @objection; @attack]\n      - [R use @reply; @response]");
-    const explicit = compile(declarations + "\n- [edge @premise supports @claim; @step]\n- [edge @objection /> @step; @attack]\n- [edge @reply repliesTo @objection; @response]");
+    const explicit = compile(declarations + "\n- [edge @premise supports @claim; @step]\n- [edge @objection /> @step; @attack]\n- [edge @reply respondsTo @objection; @response]");
     expect(codes(local.graph)).toEqual([]);
     expect(codes(explicit.graph)).toEqual([]);
     expect(relations(local.graph)).toEqual(relations(explicit.graph));

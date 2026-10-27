@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { analyzeSourceReferences, compileGraph, formatGraph, parseDocument, explainSource, previewExplicitTarget } from "../../core/src/index.js";
+import { analyzeSourceReferences, compileGraph, formatGraph, formatExplain, parseDocument, explainSource, previewExplicitTarget, previewBearingForm } from "../../core/src/index.js";
 import type { SourceParseMode } from "../../core/src/index.js";
 
 const repoRoot = fileURLToPath(new URL("../../../", import.meta.url));
@@ -28,6 +28,47 @@ afterAll(() => {
 });
 
 describe("cog CLI", () => {
+  it.each(["document", "host"] as const)("prints all compiler decisions and structural previews in %s input without writing", mode => {
+    const content = "- [C @claim] Claim.\n  - [G @reason; @step] Reason.\n    - [_ O/; @review]\n      - [. @first] First.\n      - [. @second] Second.";
+    const source = mode === "host" ? "Host prose.\r\n  ```cog\r\n" + content.split("\n").map(l => "  " + l).join("\r\n") + "\r\n  ```" : content;
+    const file = join(workingDirectory, "bearing-form.md");
+    writeFileSync(file, source);
+    const line = mode === "host" ? 5 : 3;
+    const result = runCli("bearing-form", "--input", mode, "--line", String(line), "--to", "explicit", file);
+    expect(result.status).toBe(0);
+    expect(JSON.parse(result.stdout)).toEqual(previewBearingForm(source, { mode, line, form: "explicit" }));
+    const explain = runCli("explain", "--input", mode, "--format", "text", file);
+    expect(explain.status).toBe(0);
+    expect(explain.stdout).toBe(formatExplain(explainSource(source, mode)));
+    expect(readFileSync(file, "utf8")).toBe(source);
+    const proposed = JSON.parse(result.stdout).proposedSource as string;
+    writeFileSync(file, proposed);
+    const headerLine = proposed.split(/\r\n|\r|\n/).findIndex(l => l.includes("[_ @first,")) + 1;
+    expect(runCli("bearing-form", "--input", mode, "--line", String(headerLine), "--to", "local", file).status).toBe(0);
+    writeFileSync(file, source.replace("[. @first]", "[.]"));
+    expect(runCli("bearing-form", "--input", mode, "--line", String(line), "--to", "explicit", file).status).toBe(1);
+  });
+
+  it("prints source-selection errors in text Explain without a selected unit", () => {
+    const file = join(workingDirectory, "unclosed-explain.md");
+    writeFileSync(file, "```cog\n- [C] Unclosed.");
+    const result = runCli("explain", "--input", "host", "--format", "text", file);
+    expect(result.status).toBe(1);
+    expect(result.stdout).toContain("UNCLOSED_COGITATUM_FENCE");
+  });
+
+  it.each([
+    ["bearing-form", "--line", "1", "valid.cog.md"],
+    ["bearing-form", "--to", "local", "valid.cog.md"],
+    ["bearing-form", "--to", "local", "--to", "explicit", "--line", "1", "valid.cog.md"],
+    ["bearing-form", "--to", "other", "--line", "1", "valid.cog.md"],
+    ["bearing-form", "--to", "local", "--line", "0", "valid.cog.md"],
+    ["explicit-target", "--to", "local", "--line", "1", "valid.cog.md"],
+    ["graph", "--to", "local", "valid.cog.md"],
+    ["bearing-form", "--to", "explicit", "--line", "1", "--format", "text", "valid.cog.md"]
+  ])("rejects invalid preview arguments %j", (...args) => {
+    expect(runCli(...args).status).toBe(2);
+  });
   it.each(["document", "host"] as const)("exports complete multiline note ownership and literal content in %s mode", mode => {
     const inquiry = [
       "- [C @c] Claim",
@@ -144,7 +185,6 @@ describe("cog CLI", () => {
     ["graph", "--format", "html", "valid.cog.md"],
     ["check", "--format", "text", "valid.cog.md"],
     ["ast", "--format", "json", "valid.cog.md"],
-    ["explain", "--format", "text", "valid.cog.md"],
     ["graph", "--input", "host", "--format", "text", "host.md"],
     ["graph", "--format", "text", "--input", "host", "host.md"]
   ])("rejects unsupported text scopes/options: %j", (...args) => {

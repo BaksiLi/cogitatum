@@ -60,7 +60,7 @@ describe("reference-only Bearing occurrences", () => {
       { kind: "challenges", handle: "attack", sources: ["bias"], target: { kind: "bearing", name: "route" } },
       { kind: "challenges", handle: undefined, sources: ["independent"], target: { kind: "point", name: "bias" } },
       { kind: "challenges", handle: undefined, sources: ["cancellation"], target: { kind: "bearing", name: "attack" } },
-      { kind: "repliesTo", handle: undefined, sources: ["reply"], target: { kind: "point", name: "bias" } }
+      { kind: "respondsTo", handle: undefined, sources: ["reply"], target: { kind: "point", name: "bias" } }
     ]);
     expect(referenced.explain.entries[4].effects).toContainEqual({ kind: "selectBearing", contextSpan: referenced.explain.entries[3].sourceSpan, target: { kind: "bearing", key: referenced.graph.bearings[0].key } });
     expect(created.explain.entries[3].effects.some(effect => effect.kind === "selectAttachment")).toBe(true);

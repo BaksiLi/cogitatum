@@ -21,7 +21,7 @@ export const POINT_MARKS: Readonly<Record<PointMarkLabel, PointMark>> = {
   C: { label: "C", name: "Claim", zh: "主張", letter: "C", shape: "filled" },
   G: { label: "G", name: "Ground", zh: "依據", letter: "G", shape: "filled" },
   O: { label: "O", name: "Objection", zh: "駁議", letter: "O", shape: "filled" },
-  R: { label: "R", name: "Reply", zh: "回應", letter: "R", shape: "filled" },
+  R: { label: "R", name: "Response", zh: "回應", letter: "R", shape: "filled" },
   D: { label: "D", name: "Distinction", zh: "辨別", letter: "D", shape: "filled" },
   Material: { label: "Material", name: "Neutral Point", zh: "中性點", letter: "", shape: "material" }
 };
@@ -32,7 +32,7 @@ export const BEARING_MARKS: Readonly<Record<string, BearingMark>> = {
   challenges: { kind: "challenges", name: "challenges", zh: "質疑", symbol: "−", tone: "objection", dashed: false },
   concerns: { kind: "concerns", name: "concerns", zh: "關涉", symbol: "∼", tone: "neutral", dashed: true },
   answers: { kind: "answers", name: "answers", zh: "回答", symbol: "↳", tone: "neutral", dashed: false },
-  repliesTo: { kind: "repliesTo", name: "replies to", zh: "回應", symbol: "↩", tone: "neutral", dashed: false },
+  respondsTo: { kind: "respondsTo", name: "responds to", zh: "回應", symbol: "↩", tone: "neutral", dashed: false },
   clarifies: { kind: "clarifies", name: "clarifies", zh: "釐清", symbol: "=", tone: "neutral", dashed: true }
 };
 

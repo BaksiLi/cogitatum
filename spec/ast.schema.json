@@ -45,7 +45,7 @@
       "type": "object",
       "required": ["op", "targetKind", "sources", "target"],
       "properties": {
-        "op": { "enum": ["supports", "challenges", "concerns", "answers", "repliesTo", "clarifies"] },
+        "op": { "enum": ["supports", "challenges", "concerns", "answers", "respondsTo", "clarifies"] },
         "targetKind": { "enum": ["point", "bearing", "either"] },
         "sources": {
           "oneOf": [
@@ -61,7 +61,7 @@
         "target": { "$ref": "#/$defs/ref" }
       },
       "allOf": [
-        { "if": { "properties": { "op": { "enum": ["answers", "repliesTo", "clarifies"] } }, "required": ["op"] }, "then": { "properties": { "targetKind": { "const": "point" } } } },
+        { "if": { "properties": { "op": { "enum": ["answers", "respondsTo", "clarifies"] } }, "required": ["op"] }, "then": { "properties": { "targetKind": { "const": "point" } } } },
         { "if": { "properties": { "op": { "enum": ["supports", "concerns"] } }, "required": ["op"] }, "then": { "properties": { "targetKind": { "const": "either" } } } },
         { "if": { "properties": { "op": { "const": "challenges" } }, "required": ["op"] }, "then": { "properties": { "targetKind": { "enum": ["bearing", "either"] } } } }
       ],
@@ -154,7 +154,8 @@
           "required": ["kind", "raw"],
           "properties": {
             "kind": { "const": "localBearing" },
-            "role": { "enum": ["G", "O", "R", "D"] },
+            "role": { "enum": ["G", "O", "R", "D", "Q"] },
+            "selector": { "const": "attachment" },
             "syntaxErrors": { "$ref": "#/$defs/localBearingSyntaxErrors" },
             "handle": { "$ref": "#/$defs/authoredId" },
             "raw": { "type": "string" }
@@ -162,6 +163,13 @@
           "anyOf": [
             { "required": ["role"] },
             { "required": ["syntaxErrors"], "properties": { "syntaxErrors": { "type": "array", "contains": { "const": "localBearing" } } } }
+          ],
+          "allOf": [
+            {
+              "if": { "required": ["selector"] },
+              "then": { "required": ["role"], "properties": { "role": { "enum": ["G", "O", "Q"] } } },
+              "else": { "properties": { "role": { "enum": ["G", "O", "R", "D"] } } }
+            }
           ],
           "additionalProperties": false
         },
