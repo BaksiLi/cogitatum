@@ -2,16 +2,69 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { explainSource } from "../../core/src/index.js";
 import type { ExplainedSource, SourceParseMode } from "../../core/src/index.js";
-import { projectReading, type ReadingOccurrence, type ReadingProjection } from "./reading-projection.js";
+import { projectReading, type ReadingProjection } from "./reading-projection.js";
 
 const project = (source: string, mode: SourceParseMode = "document") => projectReading(source, explainSource(source, mode));
-const occurrence = (reading: ReadingProjection, line: number) => reading.rows[line - 1] as ReadingOccurrence;
+const occurrence = (reading: ReadingProjection, line: number) =>
+  reading.units.flatMap(unit => unit.occurrences).find(item => item.line === line)!;
 const route = (reading: ReadingProjection, line: number) =>
   reading.units.flatMap(unit => unit.bearings).find(item => item.occurrenceId === occurrence(reading, line).id)!;
 const lineOf = (reading: ReadingProjection, id: string) =>
   reading.units.flatMap(unit => unit.occurrences).find(item => item.id === id)!.line;
 
 describe("source-aware Reading projection", () => {
+  it.each(["document", "host"] as const)("keeps Q/ questions and replies attached to their distinct objects in %s input", mode => {
+    const lines = [
+      "- [C] The visitor may be familiar.",
+      "  - [G] The dog did not bark.",
+      "    - [Q/] Which conditions make silence relevant?",
+      "      - [R] Check whether the dog was awake."
+    ];
+    const source = (mode === "host" ? ["  ```cog", ...lines.map(line => "  " + line), "  ```"] : lines).join("\r\n");
+    const exported = JSON.parse(JSON.stringify(explainSource(source, mode))) as ExplainedSource;
+    const result = projectReading(source, exported), unit = result.units[0], offset = mode === "host" ? 1 : 0;
+    expect(result.diagnostics).toEqual([]);
+    expect(unit.graph.points).toHaveLength(4);
+    expect(unit.graph.bearings.map(bearing => bearing.kind)).toEqual(["supports", "concerns", "repliesTo"]);
+    expect(occurrence(result, 3 + offset)).toMatchObject({
+      depth: 2, recognition: { kind: "role", role: "Q", selector: "attachment" },
+      references: [{ kind: "declares", ref: { kind: "point" } }, { kind: "constructs", ref: { kind: "bearing" } }]
+    });
+    const question = route(result, 3 + offset), reply = route(result, 4 + offset);
+    expect(question.target).toMatchObject({
+      occurrenceId: occurrence(result, 2 + offset).id, ref: { kind: "bearing", key: unit.graph.bearings[0].key }
+    });
+    expect(reply.target).toMatchObject({
+      occurrenceId: occurrence(result, 3 + offset).id, ref: { kind: "point", key: unit.graph.points[2].key }
+    });
+    expect(result.rows.map(row => row.raw)).toEqual(source.split("\r\n"));
+  });
+
+  it.each(["document", "host"] as const)("preserves question nesting without inventing Bearings in %s input", mode => {
+    const lines = [
+      "- [Q @scale] How fast is fast?",
+      "  - [.] Seconds.",
+      "  - [C] The instrument may resolve milliseconds.",
+      "    - Ordinary context."
+    ];
+    const source = (mode === "host" ? ["```cog", ...lines, "```"] : lines).join("\n");
+    const result = project(source, mode), unit = result.units[0], offset = mode === "host" ? 1 : 0;
+    expect(result.diagnostics).toEqual([]);
+    expect(unit.graph.points.map(point => point.text)).toEqual([
+      "How fast is fast?", "Seconds.", "The instrument may resolve milliseconds."
+    ]);
+    expect(unit.graph.bearings).toEqual([]);
+    expect(unit.bearings).toEqual([]);
+    expect(unit.occurrences.map(item => [item.line - offset, item.depth, item.text])).toEqual([
+      [1, 0, "How fast is fast?"], [2, 1, "Seconds."],
+      [3, 1, "The instrument may resolve milliseconds."], [4, 2, "Ordinary context."]
+    ]);
+    expect(unit.occurrences.slice(0, 3).map(item => item.references.map(ref => ref.kind))).toEqual([
+      ["declares"], ["declares"], ["declares"]
+    ]);
+    expect(result.rows.map(row => row.raw)).toEqual(source.split("\n"));
+  });
+
   it.each([
     ["document", "  "], ["host", "  "], ["document", "\t"], ["host", "\t"]
   ] as const)("presents each multiline %s occurrence once with %j indentation and complete spans", (mode, indent) => {
@@ -131,8 +184,8 @@ describe("source-aware Reading projection", () => {
     const source = [
       "- [C @shared] Shared.", "- [C @other] Other.",
       "  - [G use @shared] A local reuse.", "    - [O] Objection here.",
-      "    - [O -> @shared] Explicit concern.", "  - [linked; @joint]",
-      "    - [G use @shared] Reused joint member.", "    - [G] Other member."
+      "    - [O -> @shared] Explicit concern.", "  - [_ G; @joint]",
+      "    - [. use @shared] Reused joint member.", "    - [.] Other member."
     ].join("\n");
     const result = project(source);
     expect(result.diagnostics).toEqual([]);
@@ -141,9 +194,38 @@ describe("source-aware Reading projection", () => {
     expect(lineOf(result, route(result, 5).target.occurrenceId)).toBe(1);
     expect(route(result, 5).target.basis).toBe("declaration");
     expect(route(result, 6).sources.map(endpoint => [lineOf(result, endpoint.occurrenceId), endpoint.basis])).toEqual([
-      [7, "linked-member"], [8, "linked-member"]
+      [7, "local-bearing-member"], [8, "local-bearing-member"]
     ]);
   });
+
+  it.each(["supports", "challenges", "concerns", "answers", "repliesTo", "clarifies"])(
+    "projects a named %s declaration and use without changing roles, identity or source ownership",
+    kind => {
+      const source = [
+        "- [O @target] Objection.", "- [C @outer] Local context.",
+        `  - [Q @question ${kind} @target; @step] Which scale`, "    do you mean?",
+        "    - [_ note] Attachment note.",
+        `  - [Q use @question ${kind} @target; @again] Local explanation.`,
+        "    - [C @answer answers @question] Seconds."
+      ].join("\n");
+      const result = project(source), unit = result.units[0];
+      expect(result.diagnostics).toEqual([]);
+      expect(unit.graph.points).toHaveLength(4);
+      expect(unit.graph.bearings.map(bearing => bearing.kind)).toEqual([kind, kind, "answers"]);
+      const declared = occurrence(result, 3), reused = occurrence(result, 6);
+      expect(declared.recognition).toEqual({ kind: "role", role: "Q" });
+      expect(reused.recognition).toEqual({ kind: "use", role: "Q", ref: { id: "question" } });
+      expect(declared.text).toBe("Which scale\ndo you mean?");
+      expect(reused.text).toBe("Local explanation.");
+      expect(reused.references).toMatchObject([
+        { kind: "uses", ref: declared.references[0].ref }, { kind: "constructs", ref: { kind: "bearing" } }
+      ]);
+      expect(route(result, 3).target.basis).toBe("declaration");
+      expect(route(result, 6).sources[0].occurrenceId).toBe(reused.id);
+      expect(lineOf(result, route(result, 7).target.occurrenceId)).toBe(3);
+      expect(unit.notes[0].record.target).toEqual({ kind: "bearing", key: route(result, 3).bearing.key });
+    }
+  );
 
   it("preserves a local Bearing-use context separately from the Bearing's canonical construction", () => {
     const source = [
@@ -180,7 +262,7 @@ describe("source-aware Reading projection", () => {
       "- [_ @p +> @right; @left]", "- [_ @q /> @left; @right]"
     ].join("\n");
     const result = project(source), unit = result.units[0];
-    expect(result.diagnostics.map(diagnostic => diagnostic.code)).toEqual(["DISCONNECTED_ANCHORED_MATERIAL"]);
+    expect(result.diagnostics).toEqual([]);
     expect(unit.bearings.map(item => item.bearing)).toEqual(unit.graph.bearings);
     expect(unit.bearings.map(item => item.sources.map(source => source.ref))).toEqual(unit.graph.bearings.map(bearing => bearing.sources));
     expect(unit.occurrences).toHaveLength(7);

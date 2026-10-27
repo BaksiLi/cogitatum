@@ -1,12 +1,13 @@
 export const FORMAT_VERSION = "0.6.0";
 
 export type Role = "Q" | "C" | "G" | "O" | "R" | "D";
-export type BearingOp = "supports" | "challenges" | "about";
+export type BearingOp = "supports" | "challenges" | "concerns";
 export type BearingKind = BearingOp | "repliesTo" | "clarifies" | "answers";
 export type BearingDerivedBy = "operator" | "structural";
 export type Severity = "error" | "warning" | "suggestion";
-export type AnnotationSyntaxError = "operator" | "handle" | "linked" | "selector" | "reference" | "retired" | "note";
-export type LinkedChildFunction = "source" | "commentary" | "independent" | "supplementary" | "unclassified";
+export type AnnotationSyntaxError = "operator" | "handle" | "localBearing" | "mode" | "selector" | "reference" | "retired" | "note";
+export type LocalBearingChildFunction = "source" | "commentary" | "independent" | "supplementary" | "unclassified";
+export type LocalBearingRole = "G" | "O" | "R" | "D";
 export type SourceParseMode = "document" | "host";
 export type SourceUnitKind = "document" | "fence";
 
@@ -36,17 +37,13 @@ export type OperatorClause = {
   sources: Ref[] | "self";
   target: Ref;
 } & (
-  | { op: "supports" | "about"; targetKind: "either" }
-  | { op: "challenges"; targetKind: "point" | "bearing" | "either" }
+  | { op: "supports" | "concerns"; targetKind: "either" }
+  | { op: "challenges"; targetKind: "bearing" | "either" }
   | { op: "answers" | "repliesTo" | "clarifies"; targetKind: "point" }
 );
 
-// Point declarations and uses accept symbolic clauses only; named challenges
-// with an unrestricted target belongs to an edge.
-export type PointOperatorClause = OperatorClause & { sources: "self" } & (
-  | { op: "supports" | "about" }
-  | { op: "challenges"; targetKind: "point" | "bearing" }
-);
+// A Point declaration or use is the sole source of its explicit clause.
+export type PointOperatorClause = OperatorClause & { sources: "self" };
 
 type AnnotationBase<ErrorKind extends AnnotationSyntaxError = "operator" | "handle" | "selector" | "retired"> = {
   syntaxErrors?: ErrorKind[];
@@ -55,14 +52,14 @@ type AnnotationBase<ErrorKind extends AnnotationSyntaxError = "operator" | "hand
 };
 
 type RoleMark =
-  | { role: "G" | "O"; status?: never; selector: "attachment"; operatorClause?: never }
+  | { role: "G" | "O" | "Q"; status?: never; selector: "attachment"; operatorClause?: never }
   | { role: Role; status?: never; selector?: never };
 
-// A reused Point has its own local role; only G/ and O/ select an attachment.
+// A reused Point has its own local role; G/, O/ and Q/ select an attachment.
 // AST and Explain must retain the same role/selector correlation.
 type PointUseMark =
   | { role?: Role; selector?: never }
-  | { role: "G" | "O"; selector: "attachment"; operatorClause?: never };
+  | { role: "G" | "O" | "Q"; selector: "attachment"; operatorClause?: never };
 
 type PointAnnotationBase = AnnotationBase & {
   anchor?: string;
@@ -79,11 +76,12 @@ export type Annotation =
       operatorClause?: PointOperatorClause;
     } & PointUseMark)
   | (PointAnnotationBase & RoleMark & { kind: "role" })
-  | (PointAnnotationBase & { kind: "gap"; status: "open" })
   | (PointAnnotationBase & { kind: "material" })
-  | (AnnotationBase<"linked" | "handle"> & { kind: "linked" })
-  | (AnnotationBase & {
-      kind: "edge";
+  // Local Bearing construction: sources are children and the target is local.
+  | (AnnotationBase<"localBearing" | "handle"> & { kind: "localBearing"; role?: LocalBearingRole })
+  // "mode" records a Bearing-family header whose first token selects no mode.
+  | (AnnotationBase<"operator" | "handle" | "selector" | "retired" | "mode"> & {
+      kind: "explicitBearing";
       operatorClause?: OperatorClause & { sources: Ref[] };
     });
 
@@ -136,7 +134,6 @@ export type CompiledSource = ParsedSource & {
 // How the Point was introduced: its declaration mark, not a role every later use must take.
 export type PointDeclaration =
   | { form: "role"; role: Role; status?: never }
-  | { form: "gap"; role?: never; status: "open" }
   | { form: "material"; role?: never; status?: never };
 
 export type Point = {
@@ -163,7 +160,7 @@ type BearingBase = {
 
 type BearingRelation =
   | { kind: "answers" | "repliesTo" | "clarifies"; target: PointRef }
-  | { kind: "supports" | "challenges" | "about"; target: BearingTarget };
+  | { kind: "supports" | "challenges" | "concerns"; target: BearingTarget };
 
 export type Bearing = BearingBase & BearingRelation;
 
@@ -199,10 +196,9 @@ export type ExplainRecognition =
   | { kind: "body" }
   | { kind: "invalid"; selector?: "attachment" }
   | ({ kind: "role" } & RoleMark)
-  | { kind: "gap"; status: "open" }
   | { kind: "material" }
-  | { kind: "edge" }
-  | { kind: "linked" }
+  | { kind: "explicitBearing" }
+  | { kind: "localBearing"; role?: LocalBearingRole }
   | { kind: "bearingUse"; ref?: Ref }
   | ({ kind: "use"; ref?: Ref } & PointUseMark);
 
@@ -240,7 +236,7 @@ export type ExplainEffect =
     ))
   // Successful structural selection, even with no intervening body. Not emitted for rejected Bearings.
   | { kind: "implicitAttachment"; target: BearingTarget; targetSpan?: SourceSpan; contextSpan: SourceSpan; crossedBodySpans: SourceSpan[] }
-  | { kind: "linkedMember"; linkedSpan: SourceSpan; eligible: boolean; function: LinkedChildFunction }
+  | { kind: "localBearingMember"; localBearingSpan: SourceSpan; eligible: boolean; function: LocalBearingChildFunction }
   | { kind: "focusPoint"; ref: PointRef; operand: Ref }
   | { kind: "focusBearing"; ref: BearingRef; operand: Ref }
   | { kind: "rejectFocus"; operand?: Ref; reason: "reference-error" | "annotation-syntax-error" }
@@ -251,30 +247,30 @@ export type ExplainEffect =
       kind: "emitPoint";
       ref: PointRef;
       id?: string;
-      reason: "role-annotation" | "gap-annotation" | "material-annotation";
+      reason: "role-annotation" | "material-annotation";
     }
   | { kind: "rejectPoint"; ref: PointRef; id?: string; reason: "duplicate-anchor" }
   | {
       kind: "emitBearing";
       ref: ExplainBearingRef;
       bearing: ExplainEmittedBearingSummary;
-      reason: "operator-clause" | "annotated-containment" | "linked-containment" | "local-attachment";
+      reason: "operator-clause" | "annotated-containment" | "local-bearing-containment" | "local-attachment";
     }
   | {
       kind: "rejectBearing";
       bearing?: ExplainBearingSummary;
       reason:
         | "annotation-syntax-error"
-        | "edge-descendant-requires-explicit-target"
+        | "explicit-bearing-descendant-requires-target"
         | "bearing-use-requires-explicit-target"
         | "failed-context-requires-explicit-target"
         | "no-local-attachment"
         | "validation-error"
-        | "invalid-linked";
+        | "invalid-local-bearing";
     }
   | {
       kind: "skipBearing";
-      reason: "no-eligible-ancestor" | "no-structural-rule" | "linked-membership";
+      reason: "no-eligible-ancestor" | "no-structural-rule" | "local-bearing-membership";
     };
 
 export type ExplainEntry = {

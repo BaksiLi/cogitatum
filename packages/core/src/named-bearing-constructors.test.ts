@@ -5,7 +5,7 @@ import type { BearingKind, GraphIR } from "./types.js";
 const compile = (source: string) => compileGraph(parseDocument(source));
 const codes = (graph: GraphIR) => graph.diagnostics.map(diagnostic => diagnostic.code);
 const declarations = "- [. @first] Material premise.\n- [Q @second] A clarification question.\n- [C @target] Open claim.\n- [edge @target +> @first; @base] Base route.";
-const kinds: BearingKind[] = ["supports", "challenges", "about", "answers", "repliesTo", "clarifies"];
+const kinds: BearingKind[] = ["supports", "challenges", "concerns", "answers", "repliesTo", "clarifies"];
 
 describe("named canonical Bearing constructors", () => {
   it.each(kinds)("constructs ordered %s with existing Point identities and declaration metadata", kind => {
@@ -26,7 +26,7 @@ describe("named canonical Bearing constructors", () => {
     expect(explain.entries[4].effects).toContainEqual(expect.objectContaining({ kind: "emitBearing", reason: "operator-clause", bearing: expect.objectContaining({ kind: kind }) }));
   });
 
-  it.each(["supports", "challenges", "about"])("allows named %s to target an existing Bearing", kind => {
+  it.each(["supports", "challenges", "concerns"])("allows named %s to target an existing Bearing", kind => {
     const graph = compile(declarations + "\n- [edge @second " + kind + " @base]");
     expect(codes(graph)).toEqual([]);
     expect(graph.bearings[1]).toMatchObject({ kind, target: { key: graph.bearings[0].key, kind: "bearing" } });
@@ -57,13 +57,8 @@ describe("named canonical Bearing constructors", () => {
     expect(graph.points).toHaveLength(5);
     expect(graph.bearings).toHaveLength(1);
     expect(codes(graph).length).toBeGreaterThan(0);
-    expect(codes(graph)).toContain("EDGE_DESCENDANT_REQUIRES_EXPLICIT_TARGET");
-  });
-
-  it("does not add named-kind clauses to self-sourced Point syntax", () => {
-    const graph = compile("- [O @objection] Objection.\n- [Q @question repliesTo @objection] Unsupported attached form.");
-    expect(graph.bearings).toEqual([]);
-    expect(codes(graph)).toEqual(["MALFORMED_ROLE_ANNOTATION"]);
+    // Without a first @reference the header selects no mode, so it states no explicit-target requirement.
+    expect(codes(graph)).toContain(header === "[edge answers @target]" ? "MALFORMED_BEARING_MODE" : "EXPLICIT_BEARING_DESCENDANT_REQUIRES_TARGET");
   });
 
   it("preserves a Question reply and a concession without converting either into a challenge", () => {
@@ -91,13 +86,13 @@ describe("named canonical Bearing constructors", () => {
   });
 
   it("propagates failed Bearing dependencies while retaining valid unrelated structure", () => {
-    const graph = compile(declarations + "\n- [edge @first supports @missing; @failed]\n- [edge @second about @failed; @dependent]\n- [edge @second clarifies @target; @independent]");
+    const graph = compile(declarations + "\n- [edge @first supports @missing; @failed]\n- [edge @second concerns @failed; @dependent]\n- [edge @second clarifies @target; @independent]");
     expect(codes(graph)).toEqual(["UNKNOWN_TARGET", "UNRESOLVED_BEARING_TARGET"]);
     expect(graph.bearings.map(bearing => bearing.handle)).toEqual(["base", "independent"]);
   });
 
   it("preserves the existing cycle policy and host namespace isolation", () => {
-    const cycle = compile(declarations + "\n- [edge @first about @right; @left]\n- [edge @second supports @left; @right]");
+    const cycle = compile(declarations + "\n- [edge @first concerns @right; @left]\n- [edge @second supports @left; @right]");
     expect(codes(cycle)).toEqual([]);
     expect(cycle.bearings).toHaveLength(3);
     const fence = String.fromCharCode(96).repeat(3);

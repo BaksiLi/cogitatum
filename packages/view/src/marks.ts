@@ -8,14 +8,14 @@
 
 import type { PointDeclaration } from "@cogitatum/core";
 
-export type PointMarkLabel = "Q" | "C" | "G" | "O" | "R" | "D" | "Gap" | "Material";
-export type MarkShape = "filled" | "gap" | "material";
+export type PointMarkLabel = "Q" | "C" | "G" | "O" | "R" | "D" | "Material";
+export type MarkShape = "filled" | "material";
 export type MarkTone = "support" | "objection" | "neutral";
 
 export type PointMark = { label: PointMarkLabel; name: string; zh: string; letter: string; shape: MarkShape };
 export type BearingMark = { kind: string; name: string; zh: string; symbol: string; tone: MarkTone; dashed: boolean };
 
-/** Gap openness belongs to its declaration; it never depends on selection. */
+/** Point marks describe authored roles, never acceptance or completion. */
 export const POINT_MARKS: Readonly<Record<PointMarkLabel, PointMark>> = {
   Q: { label: "Q", name: "Question", zh: "問題", letter: "Q", shape: "filled" },
   C: { label: "C", name: "Claim", zh: "主張", letter: "C", shape: "filled" },
@@ -23,7 +23,6 @@ export const POINT_MARKS: Readonly<Record<PointMarkLabel, PointMark>> = {
   O: { label: "O", name: "Objection", zh: "駁議", letter: "O", shape: "filled" },
   R: { label: "R", name: "Reply", zh: "回應", letter: "R", shape: "filled" },
   D: { label: "D", name: "Distinction", zh: "辨別", letter: "D", shape: "filled" },
-  Gap: { label: "Gap", name: "Gap", zh: "闕漏", letter: "?", shape: "gap" },
   Material: { label: "Material", name: "Neutral Point", zh: "中性點", letter: "", shape: "material" }
 };
 
@@ -31,9 +30,9 @@ export const POINT_MARKS: Readonly<Record<PointMarkLabel, PointMark>> = {
 export const BEARING_MARKS: Readonly<Record<string, BearingMark>> = {
   supports: { kind: "supports", name: "supports", zh: "支持", symbol: "+", tone: "support", dashed: false },
   challenges: { kind: "challenges", name: "challenges", zh: "質疑", symbol: "−", tone: "objection", dashed: false },
-  about: { kind: "about", name: "is about", zh: "關涉", symbol: "∼", tone: "neutral", dashed: true },
+  concerns: { kind: "concerns", name: "concerns", zh: "關涉", symbol: "∼", tone: "neutral", dashed: true },
   answers: { kind: "answers", name: "answers", zh: "回答", symbol: "↳", tone: "neutral", dashed: false },
-  repliesTo: { kind: "repliesTo", name: "replies to", zh: "回應異議", symbol: "↩", tone: "neutral", dashed: false },
+  repliesTo: { kind: "repliesTo", name: "replies to", zh: "回應", symbol: "↩", tone: "neutral", dashed: false },
   clarifies: { kind: "clarifies", name: "clarifies", zh: "釐清", symbol: "=", tone: "neutral", dashed: true }
 };
 
@@ -46,7 +45,6 @@ export function pointMark(label: string): PointMark {
 
 /** The mark a Point was declared with. Marks written at later uses are in the AST and Explain, not here. */
 export function declarationMark(declaration: PointDeclaration): PointMark {
-  if (declaration.form === "gap") return POINT_MARKS.Gap;
   if (declaration.form === "material") return POINT_MARKS.Material;
   return pointMark(declaration.role);
 }

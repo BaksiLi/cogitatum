@@ -82,7 +82,7 @@
         "key": { "$ref": "#/$defs/bearingKey" },
         "handle": { "$ref": "#/$defs/authoredId" },
         "kind": {
-          "enum": ["supports", "challenges", "about", "repliesTo", "clarifies", "answers"]
+          "enum": ["supports", "challenges", "concerns", "repliesTo", "clarifies", "answers"]
         },
         "sources": {
           "type": "array",
@@ -136,7 +136,7 @@
           "type": "object",
           "required": ["kind"],
           "properties": { "kind": { "const": "use" }, "ref": { "$ref": "#/$defs/authoredRef" }, "role": { "enum": ["Q", "C", "G", "O", "R", "D"] }, "selector": { "const": "attachment" } },
-          "allOf": [{ "if": { "required": ["selector"] }, "then": { "required": ["role"], "properties": { "role": { "enum": ["G", "O"] } } } }],
+          "allOf": [{ "if": { "required": ["selector"] }, "then": { "required": ["role"], "properties": { "role": { "enum": ["G", "O", "Q"] } } } }],
           "additionalProperties": false
         },
         {
@@ -162,15 +162,9 @@
           "allOf": [
             {
               "if": { "required": ["selector"] },
-              "then": { "properties": { "role": { "enum": ["G", "O"] } } }
+              "then": { "properties": { "role": { "enum": ["G", "O", "Q"] } } }
             }
           ],
-          "additionalProperties": false
-        },
-        {
-          "type": "object",
-          "required": ["kind", "status"],
-          "properties": { "kind": { "const": "gap" }, "status": { "const": "open" } },
           "additionalProperties": false
         },
         {
@@ -182,7 +176,13 @@
         {
           "type": "object",
           "required": ["kind"],
-          "properties": { "kind": { "enum": ["edge", "linked"] } },
+          "properties": { "kind": { "const": "explicitBearing" } },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["kind"],
+          "properties": { "kind": { "const": "localBearing" }, "role": { "enum": ["G", "O", "R", "D"] } },
           "additionalProperties": false
         }
       ]
@@ -264,10 +264,10 @@
         },
         {
           "type": "object",
-          "required": ["kind", "linkedSpan", "eligible", "function"],
+          "required": ["kind", "localBearingSpan", "eligible", "function"],
           "properties": {
-            "kind": { "const": "linkedMember" },
-            "linkedSpan": { "$ref": "#/$defs/sourceSpan" },
+            "kind": { "const": "localBearingMember" },
+            "localBearingSpan": { "$ref": "#/$defs/sourceSpan" },
             "eligible": { "type": "boolean" },
             "function": { "enum": ["source", "commentary", "independent", "supplementary", "unclassified"] }
           },
@@ -286,7 +286,7 @@
             "kind": { "const": "emitPoint" },
             "ref": { "$ref": "#/$defs/pointRef" },
             "id": { "$ref": "#/$defs/authoredId" },
-            "reason": { "enum": ["role-annotation", "gap-annotation", "material-annotation"] }
+            "reason": { "enum": ["role-annotation", "material-annotation"] }
           },
           "additionalProperties": false
         },
@@ -308,7 +308,7 @@
             "kind": { "const": "emitBearing" },
             "ref": { "$ref": "#/$defs/emittedBearingRef" },
             "bearing": { "$ref": "#/$defs/emittedBearingSummary" },
-            "reason": { "enum": ["operator-clause", "annotated-containment", "linked-containment", "local-attachment"] }
+            "reason": { "enum": ["operator-clause", "annotated-containment", "local-bearing-containment", "local-attachment"] }
           },
           "additionalProperties": false
         },
@@ -319,7 +319,7 @@
             "kind": { "const": "rejectBearing" },
             "bearing": { "$ref": "#/$defs/bearingSummary" },
             "reason": {
-              "enum": ["annotation-syntax-error", "edge-descendant-requires-explicit-target", "bearing-use-requires-explicit-target", "failed-context-requires-explicit-target", "validation-error", "invalid-linked", "no-local-attachment"]
+              "enum": ["annotation-syntax-error", "explicit-bearing-descendant-requires-target", "bearing-use-requires-explicit-target", "failed-context-requires-explicit-target", "validation-error", "invalid-local-bearing", "no-local-attachment"]
             }
           },
           "additionalProperties": false
@@ -329,7 +329,7 @@
           "required": ["kind", "reason"],
           "properties": {
             "kind": { "const": "skipBearing" },
-            "reason": { "enum": ["no-eligible-ancestor", "no-structural-rule", "linked-membership"] }
+            "reason": { "enum": ["no-eligible-ancestor", "no-structural-rule", "local-bearing-membership"] }
           },
           "additionalProperties": false
         }

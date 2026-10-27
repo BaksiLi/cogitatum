@@ -45,7 +45,7 @@
       "type": "object",
       "required": ["op", "targetKind", "sources", "target"],
       "properties": {
-        "op": { "enum": ["supports", "challenges", "about", "answers", "repliesTo", "clarifies"] },
+        "op": { "enum": ["supports", "challenges", "concerns", "answers", "repliesTo", "clarifies"] },
         "targetKind": { "enum": ["point", "bearing", "either"] },
         "sources": {
           "oneOf": [
@@ -62,15 +62,15 @@
       },
       "allOf": [
         { "if": { "properties": { "op": { "enum": ["answers", "repliesTo", "clarifies"] } }, "required": ["op"] }, "then": { "properties": { "targetKind": { "const": "point" } } } },
-        { "if": { "properties": { "op": { "enum": ["supports", "about"] } }, "required": ["op"] }, "then": { "properties": { "targetKind": { "const": "either" } } } }
+        { "if": { "properties": { "op": { "enum": ["supports", "concerns"] } }, "required": ["op"] }, "then": { "properties": { "targetKind": { "const": "either" } } } },
+        { "if": { "properties": { "op": { "const": "challenges" } }, "required": ["op"] }, "then": { "properties": { "targetKind": { "enum": ["bearing", "either"] } } } }
       ],
       "additionalProperties": false
     },
     "selfOperatorClause": {
       "allOf": [
         { "$ref": "#/$defs/operatorClause" },
-        { "type": "object", "properties": { "sources": { "const": "self" }, "op": { "enum": ["supports", "challenges", "about"] } } },
-        { "type": "object", "if": { "properties": { "op": { "const": "challenges" } }, "required": ["op"] }, "then": { "properties": { "targetKind": { "enum": ["point", "bearing"] } } } }
+        { "type": "object", "properties": { "sources": { "const": "self" } } }
       ]
     },
     "edgeOperatorClause": {
@@ -85,9 +85,15 @@
       "minItems": 1,
       "uniqueItems": true
     },
-    "linkedSyntaxErrors": {
+    "explicitBearingSyntaxErrors": {
       "type": "array",
-      "items": { "enum": ["linked", "handle"] },
+      "items": { "enum": ["operator", "handle", "selector", "retired", "mode"] },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "localBearingSyntaxErrors": {
+      "type": "array",
+      "items": { "enum": ["localBearing", "handle"] },
       "minItems": 1,
       "uniqueItems": true
     },
@@ -133,7 +139,7 @@
           },
           "allOf": [
             { "if": { "not": { "required": ["syntaxErrors"] } }, "then": { "required": ["ref"] } },
-            { "if": { "required": ["selector"] }, "then": { "required": ["role"], "properties": { "role": { "enum": ["G", "O"] } }, "not": { "required": ["operatorClause"] } } }
+            { "if": { "required": ["selector"] }, "then": { "required": ["role"], "properties": { "role": { "enum": ["G", "O", "Q"] } }, "not": { "required": ["operatorClause"] } } }
           ],
           "additionalProperties": false
         },
@@ -147,11 +153,16 @@
           "type": "object",
           "required": ["kind", "raw"],
           "properties": {
-            "kind": { "const": "linked" },
-            "syntaxErrors": { "$ref": "#/$defs/linkedSyntaxErrors" },
+            "kind": { "const": "localBearing" },
+            "role": { "enum": ["G", "O", "R", "D"] },
+            "syntaxErrors": { "$ref": "#/$defs/localBearingSyntaxErrors" },
             "handle": { "$ref": "#/$defs/authoredId" },
             "raw": { "type": "string" }
           },
+          "anyOf": [
+            { "required": ["role"] },
+            { "required": ["syntaxErrors"], "properties": { "syntaxErrors": { "type": "array", "contains": { "const": "localBearing" } } } }
+          ],
           "additionalProperties": false
         },
         {
@@ -170,32 +181,18 @@
           "allOf": [
             {
               "if": { "required": ["selector"] },
-              "then": { "properties": { "role": { "enum": ["G", "O"] } }, "not": { "required": ["operatorClause"] } }
+              "then": { "properties": { "role": { "enum": ["G", "O", "Q"] } }, "not": { "required": ["operatorClause"] } }
             }
           ],
           "additionalProperties": false
         },
         {
           "type": "object",
-          "required": ["kind", "status", "raw"],
-          "properties": {
-            "kind": { "const": "gap" },
-            "status": { "const": "open" },
-            "anchor": { "$ref": "#/$defs/authoredId" },
-            "operatorClause": { "$ref": "#/$defs/selfOperatorClause" },
-            "syntaxErrors": { "$ref": "#/$defs/annotationSyntaxErrors" },
-            "handle": { "$ref": "#/$defs/authoredId" },
-            "raw": { "type": "string" }
-          },
-          "additionalProperties": false
-        },
-        {
-          "type": "object",
           "required": ["kind", "raw"],
           "properties": {
-            "kind": { "const": "edge" },
+            "kind": { "const": "explicitBearing" },
             "operatorClause": { "$ref": "#/$defs/edgeOperatorClause" },
-            "syntaxErrors": { "$ref": "#/$defs/annotationSyntaxErrors" },
+            "syntaxErrors": { "$ref": "#/$defs/explicitBearingSyntaxErrors" },
             "handle": { "$ref": "#/$defs/authoredId" },
             "raw": { "type": "string" }
           },

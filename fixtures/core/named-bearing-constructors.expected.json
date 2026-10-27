@@ -14,7 +14,7 @@
       { "line": 8, "kind": "supports", "sources": [3], "target": { "kind": "point", "line": 1 }, "derivedBy": "operator", "handle": "support" },
       { "line": 9, "kind": "challenges", "sources": [1], "target": { "kind": "point", "line": 3 }, "derivedBy": "operator", "handle": "challenge" },
       { "line": 10, "kind": "challenges", "sources": [2], "target": { "kind": "bearing", "line": 8 }, "derivedBy": "operator", "handle": "pressure" },
-      { "line": 11, "kind": "about", "sources": [2], "target": { "kind": "bearing", "line": 10 }, "derivedBy": "operator", "handle": "relevance" }
+      { "line": 11, "kind": "concerns", "sources": [2], "target": { "kind": "bearing", "line": 10 }, "derivedBy": "operator", "handle": "relevance" }
     ]
   }]
 }

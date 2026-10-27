@@ -135,7 +135,7 @@ describe("Cogitatum language contracts", () => {
     );
   });
 
-  it("treats indentation defaults as partial without skipping an ineligible Point", () => {
+  it("retains Q/C without attachments while relation marks target the nearest Point", () => {
     const graph = compileGraph(parseDocument(fixture("syntax/partial-indentation-defaults.cog.md")));
     const ground = graph.points.find((point) => point.declaration.form === "role" && point.declaration.role === "G");
     const objection = graph.points.find((point) => point.declaration.form === "role" && point.declaration.role === "O");
@@ -143,11 +143,6 @@ describe("Cogitatum language contracts", () => {
     expect(ground).toBeDefined();
     expect(objection).toBeDefined();
     expect(graph.bearings).toEqual([
-      expect.objectContaining({
-        kind: "answers",
-        sources: [pointRef(graph, "answer")],
-        target: pointRef(graph, "question")
-      }),
       expect.objectContaining({
         kind: "supports",
         sources: [{ key: ground?.key, kind: "point" }],
@@ -348,12 +343,12 @@ describe("Cogitatum language contracts", () => {
 
     expect(compilation.graph.bearings).toEqual([]);
     expect(edge).toMatchObject({
-      recognition: { kind: "edge" },
+      recognition: { kind: "explicitBearing" },
       effects: [
         {
           kind: "rejectBearing",
           bearing: {
-            kind: "about",
+            kind: "concerns",
             sources: [pointRef(compilation.graph, "c1")],
             target: { id: "missing" },
             derivedBy: "operator"
@@ -457,7 +452,7 @@ describe("Cogitatum language contracts", () => {
         fenceInfo: "cog",
         source:
           "- [Q @discrepancy] What explains the discrepancy?\n" +
-          "  - [C @baseline] The measurements use different baselines.\n" +
+          "  - [C @baseline answers @discrepancy] The measurements use different baselines.\n" +
           "    - [G @records] The calibration records name different reference dates."
       })
     ]);
@@ -540,13 +535,7 @@ describe("Cogitatum language contracts", () => {
     );
 
     expect(graph.points.map((point) => point.id)).toEqual(["q1", "c1"]);
-    expect(graph.bearings).toEqual([
-      expect.objectContaining({
-        kind: "answers",
-        sources: [pointRef(graph, "c1")],
-        target: pointRef(graph, "q1")
-      })
-    ]);
+    expect(graph.bearings).toEqual([]);
   });
 
   it("reads the pre-0.3 scope prefix as ordinary body, as its graph effect already was", () => {
@@ -722,8 +711,8 @@ describe("Cogitatum language contracts", () => {
     }
   });
 
-  it("keeps openness only on the distinct Gap form", () => {
-    const valid = compileGraph(parseDocument("- [C @claim] Open claim.\n- [? @gap] Open gap.\n"));
+  it("does not assign openness to Claims or Questions", () => {
+    const valid = compileGraph(parseDocument("- [C @claim] A claim.\n- [Q @question] A question.\n"));
     const invalid = compileGraph(
       parseDocument(
         ["Q?", "G?", "O?", "R?", "D?"].map((role) => `- [${role}] Invalid open role.`).join("\n")
@@ -732,7 +721,7 @@ describe("Cogitatum language contracts", () => {
 
     expect(valid.points).toEqual([
       expect.objectContaining({ id: "claim", declaration: { form: "role", role: "C" } }),
-      expect.objectContaining({ id: "gap", declaration: { form: "gap", status: "open" } })
+      expect.objectContaining({ id: "question", declaration: { form: "role", role: "Q" } })
     ]);
     expect(invalid.points).toEqual([]);
     expect(invalid.diagnostics.map((diagnostic) => diagnostic.code)).toEqual(
@@ -773,7 +762,7 @@ describe("Cogitatum language contracts", () => {
       expect(graph.points.some((point) => point.id === "implicit-objection")).toBe(true);
       expect(graph.bearings.some((bearing) => bearing.kind === "challenges" && bearing.target.kind === "point")).toBe(false);
       expect(graph.diagnostics).toEqual([
-        expect.objectContaining({ code: "EDGE_DESCENDANT_REQUIRES_EXPLICIT_TARGET" })
+        expect.objectContaining({ code: "EXPLICIT_BEARING_DESCENDANT_REQUIRES_TARGET" })
       ]);
     }
   });
@@ -788,11 +777,15 @@ describe("Cogitatum language contracts", () => {
       "route-challenge"
     ]);
     expect(graph.bearings).toEqual([
-      expect.objectContaining({ handle: "route", kind: "supports", target: pointRef(graph, "claim") })
+      expect.objectContaining({ handle: "route", kind: "supports", target: pointRef(graph, "claim") }),
+      expect.objectContaining({
+        kind: "challenges",
+        sources: [pointRef(graph, "route-challenge")],
+        target: bearingRef(graph, "route")
+      })
     ]);
     expect(graph.diagnostics).toEqual([
-      expect.objectContaining({ code: "CHALLENGE_REQUIRES_BEARING_TARGET" }),
-      expect.objectContaining({ code: "CHALLENGE_REQUIRES_POINT_TARGET" })
+      expect.objectContaining({ code: "CHALLENGE_REQUIRES_BEARING_TARGET" })
     ]);
   });
 
@@ -860,11 +853,10 @@ describe("Cogitatum language contracts", () => {
   });
 
   it("treats body children as prose rather than graph connectivity", () => {
-    const graph = compileGraph(parseDocument(fixture("diagnostics/disconnected-anchored-material.cog.md")));
-
-    expect(graph.diagnostics).toEqual(
-      expect.arrayContaining([expect.objectContaining({ code: "DISCONNECTED_ANCHORED_MATERIAL" })])
-    );
+    const graph = compileGraph(parseDocument(fixture("syntax/neutral-point-with-body.cog.md")));
+    expect(graph.points).toHaveLength(1);
+    expect(graph.bearings).toEqual([]);
+    expect(graph.diagnostics).toEqual([]);
   });
 
   it("keeps the API timeout review's source, reconstruction, reuse and objection targets distinct", () => {
@@ -879,7 +871,7 @@ describe("Cogitatum language contracts", () => {
     expect(graph.points.map((point) => [point.id, point.declaration.role, point.declaration.status, point.text])).toEqual([
       [undefined, "C", undefined, "Connection pool exhaustion caused the timeouts."],
       ["acq-fail", "G", undefined, "Between 02:00 and 03:00 the service logged repeated connection-acquisition failures."],
-      [undefined, "Q", undefined, "What should change before the next release?"],
+      ["release", "Q", undefined, "What should change before the next release?"],
       [undefined, "C", undefined, "Doubling the pool size will prevent these timeouts."],
       [undefined, "O", undefined, "The log export may use UTC, so those failures may not fall between 02:00 and 03:00 local time."],
       [undefined, "O", undefined, "Running out of connections does not show that a larger pool is enough; a leak would exhaust any size."],
@@ -938,11 +930,11 @@ describe("Cogitatum language contracts", () => {
     expect(graph.diagnostics).toEqual([]);
     expect(points(graph).map(([id, role, status]) => [id, role, status])).toEqual([
       ["return", "C", undefined],
-      ["opposites", "G", undefined],
-      ["life-death", "G", undefined],
+      ["opposites", undefined, undefined],
+      ["life-death", undefined, undefined],
       ["exhaustion", "G", undefined],
       ["survival", "C", undefined],
-      ["continuity", "G", undefined],
+      ["continuity", undefined, undefined],
       [undefined, "O", undefined],
       [undefined, "O", undefined],
       [undefined, "O", undefined],
@@ -1022,7 +1014,7 @@ describe("Cogitatum language contracts", () => {
           target: bearingRef(graph, "route")
         }),
         expect.objectContaining({
-          kind: "about",
+          kind: "concerns",
           target: bearingRef(graph, "named-route")
         })
       ])
@@ -1035,7 +1027,7 @@ describe("Cogitatum language contracts", () => {
     const graph = compileGraph(ast);
     const bareBlock = ast.blocks[0].children.find((block) => block.annotation?.operatorClause?.op === "supports");
     const bareBearing = graph.bearings.find((bearing) => bearing.kind === "supports");
-    const describedBearing = graph.bearings.find((bearing) => bearing.kind === "about");
+    const describedBearing = graph.bearings.find((bearing) => bearing.kind === "concerns");
 
     expect(bareBlock?.text).toBe("");
     expect(bareBlock?.children).toEqual([
@@ -1070,19 +1062,18 @@ describe("Cogitatum language contracts", () => {
     expect(graph.diagnostics).toEqual([]);
   });
 
-  it("compiles a gap about a Bearing handle without exposing compiler rule names", () => {
-    const graph = compileGraph(parseDocument(fixture("core/gap-about-bearing.cog.md")));
-    const gap = graph.points.find((point) => point.declaration.form === "gap");
+  it("compiles a Question selecting its local reply Bearing without exposing compiler rule names", () => {
+    const graph = compileGraph(parseDocument(fixture("core/question-concerns-bearing.cog.md")));
+    const question = graph.points.find((point) => point.declaration.role === "Q");
     const bearing = graph.bearings.find((candidate) =>
-      candidate.sources.some((source) => source.key === gap?.key)
+      candidate.sources.some((source) => source.key === question?.key)
     );
 
-    expect(gap?.declaration.form).toBe("gap");
-    expect(gap?.declaration.status).toBe("open");
+    expect(question?.declaration).toEqual({ form: "role", role: "Q" });
     expect(bearing).toMatchObject({
-      kind: "about",
+      kind: "concerns",
       target: bearingRef(graph, "temporal-rebuttal"),
-      derivedBy: "operator"
+      derivedBy: "structural"
     });
     expect(graph.diagnostics).toEqual([]);
   });
@@ -1121,13 +1112,13 @@ describe("Cogitatum language contracts", () => {
     }
   });
 
-  it("compiles a local joint of Grounds without adding independent support routes", () => {
+  it("compiles joint support from neutral Points without adding independent support routes", () => {
     const graph = compileGraph(parseDocument(example("syllogism.cog.md")));
     const supports = graph.bearings.filter((bearing) => bearing.kind === "supports");
 
     expect(graph.points.map(point => [point.declaration.role, point.text])).toEqual([
       ["Q", "Is Socrates mortal?"], ["C", "Socrates is mortal."],
-      ["G", "All humans are mortal."], ["G", "Socrates is human."]
+      [undefined, "All humans are mortal."], [undefined, "Socrates is human."]
     ]);
 
     expect(supports).toEqual([
@@ -1152,55 +1143,55 @@ describe("Cogitatum language contracts", () => {
       graph.points.findIndex((point) => point.key === bearing.target.key),
       bearing.text
     ]);
-    const points = (graph: GraphIR) => graph.points.map((point) => [point.declaration.form, point.declaration.role, point.declaration.status, point.text]);
     const linked = compileGraph(parseDocument(source));
 
     expect(linked.diagnostics).toEqual([]);
     expect(linked.points.map((point) => [point.declaration.form, point.declaration.role, point.text])).toEqual([
       ["role", "Q", "Why did the treated samples produce a weaker signal?"],
       ["role", "C", "The detection reagent degraded before the run."],
-      ["role", "G", "Positive controls were also weaker than their historical range."],
-      ["role", "G", "The controls used the same reagent lot as the treated samples."],
-      ["gap", undefined, "Confirm the lot numbers on the run sheet."],
+      ["material", undefined, "Positive controls were also weaker than their historical range."],
+      ["material", undefined, "The controls used the same reagent lot as the treated samples."],
       ["role", "G", "The reagent was left at room temperature overnight."],
       ["role", "O", "The low readings may instead be a plate-position effect."],
-      ["role", "G", "Most low readings occurred along the outer wells."],
-      ["gap", undefined, "Repeat with a fresh reagent and randomized well positions."]
+      ["role", "G", "Most low readings occurred along the outer wells."]
     ]);
     expect(relations(linked)).toEqual([
       ["answers", [1], "point", 0, undefined],
       ["supports", [2, 3], "point", 1, "Weak controls implicate the reagent only if they shared its lot."],
-      ["about", [4], "point", 3, undefined],
-      ["supports", [5], "point", 1, undefined],
-      ["challenges", [6], "point", 1, undefined],
-      ["supports", [7], "point", 6, undefined],
-      ["about", [8], "point", 0, undefined]
+      ["supports", [4], "point", 1, undefined],
+      ["challenges", [5], "point", 1, undefined],
+      ["supports", [6], "point", 5, undefined]
     ]);
 
-    // Without the linked header, each control observation would become its own reason.
-    // Remove only the header and dedent only its own subtree.
+    // Removing the header alone does not make neutral sources independent reasons.
     const lines = source.split("\n");
-    const header = lines.findIndex((line) => line.includes("[linked]"));
+    const header = lines.findIndex((line) => line.includes("[_ G]"));
     const indent = (line: string) => line.length - line.trimStart().length;
     let end = header + 1;
     while (end < lines.length && lines[end].trim() && indent(lines[end]) > indent(lines[header])) end += 1;
     expect(end - header - 1).toBe(3);
-    const unlinked = compileGraph(parseDocument([
+    const withoutHeader = [
       ...lines.slice(0, header),
       ...lines.slice(header + 1, end).map((line) => line.slice(2)),
       ...lines.slice(end)
-    ].join("\n")));
+    ].join("\n");
+    const neutral = compileGraph(parseDocument(withoutHeader));
+    expect(neutral.bearings.filter((bearing) => bearing.kind === "supports")).toHaveLength(2);
+
+    // Independent support requires an authorial decision to mark each source G.
+    const unlinked = compileGraph(parseDocument(withoutHeader.replaceAll("[.]", "[G]")));
     expect(unlinked.diagnostics).toEqual([]);
-    expect(points(unlinked)).toEqual(points(linked));
+    expect(unlinked.points.map((point) => point.text)).toEqual(linked.points.map((point) => point.text));
+    expect(unlinked.points.slice(2, 4).map((point) => point.declaration)).toEqual([
+      { form: "role", role: "G" }, { form: "role", role: "G" }
+    ]);
     expect(relations(unlinked)).toEqual([
       ["answers", [1], "point", 0, undefined],
       ["supports", [2], "point", 1, undefined],
       ["supports", [3], "point", 1, undefined],
-      ["about", [4], "point", 3, undefined],
-      ["supports", [5], "point", 1, undefined],
-      ["challenges", [6], "point", 1, undefined],
-      ["supports", [7], "point", 6, undefined],
-      ["about", [8], "point", 0, undefined]
+      ["supports", [4], "point", 1, undefined],
+      ["challenges", [5], "point", 1, undefined],
+      ["supports", [6], "point", 5, undefined]
     ]);
   });
 
@@ -1283,7 +1274,7 @@ describe("Cogitatum language contracts", () => {
 
     expect(invalidEdge.raw).toContain("[edge @g1, not-a-ref +> @c1]");
     expect(invalidEdge.annotation).toMatchObject({
-      kind: "edge",
+      kind: "explicitBearing",
       syntaxErrors: ["operator"]
     });
     expect(graph.bearings.some((bearing) => bearing.kind === "supports")).toBe(false);
@@ -1345,7 +1336,7 @@ describe("Cogitatum language contracts", () => {
     const graph = compileGraph(ast);
     const edge = ast.blocks[2];
 
-    expect(edge.annotation).toMatchObject({ kind: "edge", syntaxErrors: ["operator"] });
+    expect(edge.annotation).toMatchObject({ kind: "explicitBearing", syntaxErrors: ["operator"] });
     expect(graph.points.map((point) => point.id)).toEqual(["claim", "ground"]);
     expect(graph.bearings).toEqual([]);
     expect(graph.diagnostics).toEqual([
@@ -1555,7 +1546,7 @@ describe("Cogitatum language contracts", () => {
     const compilation = compileGraphWithExplain(parseDocument(source));
     const graph = jsonValue(compilation.graph);
     const explanation = jsonValue(compilation.explain);
-    const edgeSources = ast.blocks[0].children.find(block => block.annotation?.kind === "edge")?.annotation?.operatorClause?.sources;
+    const edgeSources = ast.blocks[0].children.find(block => block.annotation?.kind === "explicitBearing")?.annotation?.operatorClause?.sources;
 
     expect(validateAst(ast), JSON.stringify(validateAst.errors)).toBe(true);
     expect(validateGraph(graph), JSON.stringify(validateGraph.errors)).toBe(true);
@@ -1667,7 +1658,7 @@ describe("Cogitatum language contracts", () => {
     );
     const pointTargetSource =
       "- [Q @question] What follows?\n" +
-      "  - [C @answer] An answer.\n" +
+      "  - [C @answer answers @question] An answer.\n" +
       "    - [O @objection] An objection.\n" +
       "      - [R @reply] A reply.\n" +
       "    - [D @distinction] A distinction.\n";
@@ -1678,8 +1669,8 @@ describe("Cogitatum language contracts", () => {
     const supportToBearingGraph = jsonValue(
       compileGraph(parseDocument(fixture("core/route-handle-needed.cog.md")))
     );
-    const aboutBearingGraph = jsonValue(
-      compileGraph(parseDocument(fixture("core/gap-about-bearing.cog.md")))
+    const concernsBearingGraph = jsonValue(
+      compileGraph(parseDocument(fixture("core/question-concerns-bearing.cog.md")))
     );
     const undercut = undercutGraph.bearings.find((bearing) => bearing.kind === "challenges" && bearing.target.kind === "bearing");
 
@@ -1694,10 +1685,10 @@ describe("Cogitatum language contracts", () => {
       )
     ).toBe(true);
     expect(
-      aboutBearingGraph.bearings.some((bearing) => bearing.kind === "about" && bearing.target.kind === "bearing")
+      concernsBearingGraph.bearings.some((bearing) => bearing.kind === "concerns" && bearing.target.kind === "bearing")
     ).toBe(true);
     expect(validateGraph(supportToBearingGraph), JSON.stringify(validateGraph.errors)).toBe(true);
-    expect(validateGraph(aboutBearingGraph), JSON.stringify(validateGraph.errors)).toBe(true);
+    expect(validateGraph(concernsBearingGraph), JSON.stringify(validateGraph.errors)).toBe(true);
 
     (undercut.target as { kind: string }).kind = "point";
 
@@ -1740,7 +1731,7 @@ describe("Cogitatum language contracts", () => {
     );
     const graph = jsonValue(compileGraph(parseDocument(fixture("core/edge-description-and-body.cog.md"))));
     const bare = graph.bearings.find((bearing) => bearing.kind === "supports");
-    const described = graph.bearings.find((bearing) => bearing.kind === "about");
+    const described = graph.bearings.find((bearing) => bearing.kind === "concerns");
 
     expect(bare?.text).toBeUndefined();
     expect(described?.text).toBe("Contextual relevance, not support.");

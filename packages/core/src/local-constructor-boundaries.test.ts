@@ -28,7 +28,7 @@ describe("nearest constructor failure boundaries", () => {
     const result = compileGraphWithExplain(parseDocument("- [C @outer] Outer.\n  - [G @duplicate] First.\n  - [G @duplicate] Second.\n    - [G @child] Child.\n  - [edge @missing +> @outer]\n    - [G @blocked] Blocked."));
     expect(result.graph.points.map(point => point.id)).toEqual(["outer", "child", "blocked"]);
     expect(result.graph.bearings).toEqual([]);
-    expect(result.graph.diagnostics.map(diagnostic => diagnostic.code)).toEqual(["DUPLICATE_ID", "EDGE_DESCENDANT_REQUIRES_EXPLICIT_TARGET", "UNKNOWN_SOURCE"]);
+    expect(result.graph.diagnostics.map(diagnostic => diagnostic.code)).toEqual(["DUPLICATE_ID", "EXPLICIT_BEARING_DESCENDANT_REQUIRES_TARGET", "UNKNOWN_SOURCE"]);
   });
 
   it("keeps ordinary bracket prose transparent and maps failed constructors in host source", () => {

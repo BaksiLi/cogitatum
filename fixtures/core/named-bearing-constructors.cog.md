@@ -8,4 +8,4 @@
 - [edge @claim supports @material; @support]
 - [_ @material challenges @claim; @challenge]
 - [edge @question /> @support; @pressure]
-- [edge @question about @pressure; @relevance]
+- [edge @question concerns @pressure; @relevance]

@@ -6,35 +6,30 @@ Cogitatum is a lightweight markup language for making selected reasoning structu
 
 Use it while reading, developing or revising an argument: in reading notes, investigations, or the reasons for a decision. Keep the context in words; mark a question, reason, objection, or missing piece when making it explicit helps.
 
-```md cog-check require=supports,challenges points=4 bearings=3 diagnostics=0
+```md cog-check require=supports,challenges,repliesTo points=4 bearings=3 diagnostics=0
 - A neighbourhood library is considering later opening hours. This is an imagined discussion.
 - [C] The library should stay open until eight on weekdays.
-  - [G] Forty people visited after six at last month's evening event.
-    - [O] The count included repeat entries, so fewer than forty people may have visited.
-    - [O/] People may have come for the special event, not for ordinary evening opening.
+  - [G] Readers have asked for somewhere to study after work.
+  - [O] The library cannot afford another staffed shift.
+    - [R] Try one evening within the existing staffing budget.
 ```
 
-Four marked points and three explicit connections. One objection questions the attendance count; the other grants the count and questions what it tells us about ordinary evenings. The opening prose remains in the source. The compiler exposes these distinctions without deciding the case.
+Four marked Points and three connections: a reason for the Claim, an Objection and a Reply.
+The opening context remains ordinary prose.
+The compiler makes these connections inspectable without deciding whether the reasons are good enough.
 
 [Try the playground](https://cogitatum.onesimos.net/playground) · [One-minute introduction](docs/introduction.md) · [Ten-minute quick start](docs/quick-start.md) · [Examples](https://cogitatum.onesimos.net/examples)
 
 ## Release status
 
 This checkout prepares **Core/CLI 0.6.0 / format 0.6.0**, not yet published.
-It adds equivalent Point/Bearing family spellings and local object notes with retained source ownership.
-Use the checkout commands below to try them; review [migration from 0.5](docs/syntax.md#from-published-05) before recompiling existing source.
+It includes multiline content, local Bearing construction such as `[_ G]`, object notes, and revised local relation rules.
+The Docs describe this development version.
+See the [migration from 0.5](docs/syntax.md#from-published-05) and [changelog](CHANGELOG.md) before recompiling saved notes.
 
-**Cogitatum 0.5 releases an inquiry markup language and a working compiler.**
-
-Release packages: **@cogitatum/core 0.5.0** and **@cogitatum/cli 0.5.0**, with **format 0.5.0**.
-This release unifies negative relations as `challenges` with typed targets, preserves `->` / `/>` target requirements, and keeps explicit `O/` local selection.
-It also adds text graph inspection and a source-preserving explicit-target preview.
-See [migration](docs/syntax.md#compatibility-and-migration) before upgrading from 0.4.12 / format 0.4.0.
-Recompile retained original source and regenerate projections with the complete 0.5 compiler and schemas.
-
-Install with `npm install @cogitatum/core`, or run the CLI with `npx --package @cogitatum/cli cog check inquiry.cog.md`.
-The historical `alpha` tag remains at **0.3.0-alpha.1**, with **format 0.3.0**.
-Published schema contracts stay fixed; later incompatible contracts require a new format identifier.
+Published packages remain **@cogitatum/core 0.5.0** and **@cogitatum/cli 0.5.0**, with **format 0.5.0**.
+Install with `npm install @cogitatum/core@0.5.0`, or run `npx --package @cogitatum/cli@0.5.0 cog check inquiry.cog.md`.
+Build this checkout to try 0.6.
 
 The production [playground](https://cogitatum.onesimos.net/playground) is deployed separately from npm packages.
 The experimental View remains private; publishing Core/CLI does not deploy the website or release host adapters.
@@ -89,6 +84,11 @@ After `npm ci`, run `npm run build:public` to build Core, CLI, and the experimen
 | `fixtures/` | Language conformance cases, including invalid input and expected diagnostics |
 | `examples/` | Public notes registered in the example manifest |
 | `docs/` | Introduction, quick start, writing style, Points, Bearings, glossary, and complete syntax |
+
+For folding and other editor features, retain the original source and use the AST's `children` for outline nesting.
+A block's `sourceSpan` covers its own header and continuation lines, excluding its children.
+Graph IR records the selected connections and cannot recover the whole source outline.
+See the [source contract](packages/core/README.md#compiler-contracts) for coordinates and projection boundaries.
 
 For a compiler fix, add a small regression case and run `npx vitest run packages/core`. A [conformance fixture](fixtures/README.md) needs a specific purpose and a reviewed expected result, including diagnostics and the complete surviving graph topology. For a CLI fix, run `npx vitest run packages/cli`. For documentation, run `npm run check:docs` and review the Markdown. Finish with `npm run check`, which also verifies packed packages in an isolated consumer project.
 
@@ -151,7 +151,7 @@ Verify the GitHub Actions trusted publisher in the npm settings for both [`@cogi
 No npm token or GitHub secret is needed.
 A new trusted publisher must complete its first successful publish within two days of creation.
 
-For the 0.5 release, review migration against published 0.4.12 / format 0.4.0, including retired `undercuts`, typed challenge targets and regenerated source projections.
+For the 0.6 release, review migration against published 0.5.0 / format 0.5.0, including local Bearing constructors, Q/C relation defaults, retired Gap syntax and regenerated source projections.
 Run `npm run check` and `npm run check:publication` on the final integrated commit, with matching Core/CLI versions and the CLI's exact Core dependency.
 Passing stacked-PR checks applies to those checked commits and bases; it does not verify a later combined or retargeted head.
 Record downstream adoption against the exact public source pin and schema bundle, and rerun affected consumer checks when that pin changes.

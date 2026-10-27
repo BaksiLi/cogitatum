@@ -14,5 +14,5 @@ Host prose remains available to the host application.
 ```cog
 - Independent follow-up
   - [Q @next] What should be verified?
-    - [C @check] Compare cache and origin version headers.
+    - [C @check answers @next] Compare cache and origin version headers.
 ```

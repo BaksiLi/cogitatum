@@ -1,0 +1,25 @@
+{
+  "mode": "document",
+  "diagnostics": [
+    {"line": 4, "code": "INVALID_LOCAL_BEARING_MEMBER", "severity": "error"},
+    {"line": 6, "code": "INVALID_LOCAL_BEARING_MEMBER", "severity": "error"},
+    {"line": 10, "code": "UNKNOWN_TARGET", "severity": "error"}
+  ],
+  "graphs": [{
+    "points": [
+      {"line": 1, "form": "role", "role": "C", "id": "conclusion"},
+      {"line": 3, "form": "material", "id": "first"},
+      {"line": 4, "form": "role", "role": "O", "id": "objection"},
+      {"line": 5, "form": "role", "role": "R", "id": "reply"},
+      {"line": 7, "form": "role", "role": "G", "id": "wrapped"},
+      {"line": 8, "form": "role", "role": "G", "id": "child"},
+      {"line": 9, "form": "role", "role": "G", "id": "explicit"},
+      {"line": 10, "form": "role", "role": "O", "id": "undercut"}
+    ],
+    "bearings": [
+      {"line": 5, "kind": "repliesTo", "sources": [5], "target": {"kind": "point", "line": 4}, "derivedBy": "structural"},
+      {"line": 8, "kind": "supports", "sources": [8], "target": {"kind": "point", "line": 7}, "derivedBy": "structural"},
+      {"line": 9, "kind": "supports", "sources": [9], "target": {"kind": "point", "line": 1}, "derivedBy": "operator", "handle": "explicit-route"}
+    ]
+  }]
+}

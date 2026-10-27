@@ -1,75 +1,69 @@
 ---
 title: Points — mark something worth examining
-summary: Mark a role or a gap; name content when a reference needs it.
+summary: Mark a question, claim or reason; keep its wording and refer to it when needed.
 section: reference
 order: 1
 ---
 
 # Points
 
-A Point is a marked part of your writing.
-Use one when a sentence, passage, or missing piece needs an explicit role or a reference.
-Ordinary body does not become a Point automatically.
-Points can be questions, gaps, or source material; they need not all be propositions that can be true or false.
+A Point is content you identify for independent discussion.
+It can be a question, sentence, fragment or passage.
+Use a mark to say how you are presenting it here:
 
 | Mark | Name | Use here |
 | --- | --- | --- |
 | `[Q]` | Question | A question or issue to examine |
-| `[C]` | Claim | A claim, position, or possible answer |
-| `[G]` | Ground | A reason bearing positively on a target |
-| `[O]` | Objection | An objection or alternative raised against a target |
-| `[R]` | Reply | A response to an objection |
-| `[D]` | Distinction | A distinction that helps clarify a target |
-| `[?]` | Gap | An open gap or missing piece |
+| `[C]` | Claim | A claim, position or possible answer |
+| `[G]` | Ground | A reason for another Point |
+| `[O]` | Objection | An objection or opposing explanation |
+| `[R]` | Reply | A response to another Point |
+| `[D]` | Distinction | A distinction that helps clarify another Point |
+| `[.]` | Neutral Point | Content without a specified role |
 
-A role describes what the material does here.
-The six roles are `Q`, `C`, `G`, `O`, `R`, and `D`.
-The mark on a Point's declaration is also kept as its declaration information: how it was introduced, not a type every later use must follow.
-`C` means Claim, not a permanent conclusion; the same Claim can later serve as a Ground.
-Gap is a separate Point form, not an additional role, and remains open.
-Role-level openness is unsupported; the retired C? spelling receives a migration error.
-See the [English / 繁體中文 glossary](glossary.md) for suggested Chinese readings.
+A role describes this presentation, rather than a permanent type or a judgment of truth.
+The same content can be a Claim in one discussion and a Ground in another.
+A reply may also answer or clarify something; its mark need not catalogue everything the passage does.
 
-## Preserve tentative content
-
-Use C for a claim or possible answer, including tentative ones.
-C does not certify truth, acceptance, certainty or completion.
-Likewise, `R` does not certify a successful reply.
-
-Wording such as “possibly P” is part of the claim's content.
-When reconstructing, preserve whether the source asserts the claim or leaves it open.
-Distinguish the author's commitment, your uncertainty about the reading, and your evaluation in prose.
-See the [quick start](quick-start.md#writing-and-reconstruction) for an example.
-
-## Leave context as body
-
-```md cog-check require=supports points=2 bearings=1 diagnostics=1
-- [C @claim] The current explanation is incomplete.
-  - This paragraph supplies context without another marked point.
-    - [G] It does not account for the second observation.
-```
-
-The reason connects to the enclosing claim through the body. Body itself creates no Point or connection. An intervening Point, however, becomes the nearest target candidate; the compiler does not skip it to find a more convenient ancestor.
-The nonblocking suggestion identifies this actual attachment through body; the author may retain that grouping deliberately.
-
-## Keep supplementary prose in a note
+## Keep the complete content
 
 ```md cog-check require=supports points=2 bearings=1 diagnostics=0
-- [C @claim] These measurements can be compared under the same calibration conditions.
-  - [note] Source and editorial details.
-    - Laboratory record, section 2.
-      - [G @unfinished] This is quoted syntax, not an active Ground.
-  - [G] Both runs used the same calibration procedure.
+- [C] The method may work
+  under the same calibration conditions.
+  - [G] Both runs used the same temperature.
 ```
 
-Write note once; its whole indented subtree stays literal prose, including nested annotation-looking text.
-Dedenting restores interpretation, so the sibling Ground remains active.
-A note belongs to its direct source occurrence, including a use, rather than to shared Point content.
-Reusing the Claim does not copy this note.
-Keep qualifications that change the Claim's scope in its content or a clearly retained argument context.
-Moving an active argument into note is an author-selected semantic edit, not a formatting repair.
+The Claim includes its continuation line.
+Keep qualifications in the content even when Map shortens the display.
+A Point need not be a complete declarative sentence, and a new line does not turn its continuation into a note.
 
-## Identity
+Ordinary context can stay unmarked.
+It remains in Reading without becoming another Point.
+
+## Questions do not prescribe their children
+
+```md cog-check points=3 bearings=0 diagnostics=0
+- [Q @scale] How fast is "fast" here?
+  - [.] Seconds, rather than minutes.
+  - [C] The record does not describe the measurement method.
+```
+
+All three are complete Points.
+The nesting organizes the discussion without automatically recording an answer or relevance relation.
+A neutral Point leaves its role unspecified; it need not be impartial or unfinished.
+
+When you want to record an answer explicitly:
+
+```md cog-check require=answers points=2 bearings=1 diagnostics=0
+- [Q @scale] How fast is "fast" here?
+  - [. answers @scale] Seconds, rather than minutes.
+```
+
+`[R]` beneath the Question instead records a reply.
+Neither a reply nor an answer relation certifies that the question is resolved.
+See [connections from indentation](bearings.md#connections-from-indentation) for the other local relations.
+
+## Name a Point for later reference
 
 ```md cog-check require=supports,challenges points=3 bearings=2 diagnostics=0
 - [C @claim] The current explanation is incomplete.
@@ -77,32 +71,39 @@ Moving an active argument into note is an author-selected semantic edit, not a f
 - [O -> @claim] That observation may be a measurement error.
 ```
 
-The claim has the authored name `claim`. The reason and objection are anonymous: they remain full Points, and the objection can have an explicit target without naming itself.
+`@claim` names the Claim.
+The anonymous Ground and Objection remain full Points.
+Names use lowercase letters, digits, hyphens or underscores, beginning with a letter.
+Keep a name when later references should continue to identify the same content.
 
-Names match `[a-z][a-z0-9_-]*` and share a namespace with named [connections](bearings.md). Prose can use any language. Keep a name across edits when the same authored item should remain identifiable; renaming requires updating references.
-
-Content can also be named without assigning a role: `[. @passage]` declares a Neutral Point.
-This is a Point form, not another role; the machine contract records it as `declaration.form: "material"`.
-See the [complete syntax](syntax.md#annotation-grammar) for this and all other naming forms.
-
-## Reuse without redeclaring
-
-Use `[. use @p]` to bring an existing Point into the current discussion without copying its content or subtree.
-Add a local mark when its role here should create a connection:
+## Reuse without copying
 
 ```md cog-check require=supports points=2 bearings=1 diagnostics=0
 - [C @observation] Two retries timed out.
-- [C @claim] The shared configuration may explain the timeouts.
-  - [G use @observation] Consider that observation in this step.
+- [C @cause] A shared configuration fault may explain the failures.
+  - [G use @observation] Consider these retries in this step.
 ```
 
-The observation remains one Claim in the graph; this occurrence uses it as a Ground.
-Its trailing explanation stays local rather than replacing the observation's text.
-Beneath this occurrence, `[O]` challenges the shared observation itself, while [`[O/]`](bearings.md#assess-a-local-attachment) objects only to the support made here.
-Bare `[. use @observation]` writes the neutral mark: it selects no role and adds no default connection, and the original declaration's role is never imported as the local role.
-A local mark applies at its occurrence only; it does not change the Point's declaration, text or Gap openness, and it does not fill a Gap.
-Names can resolve forward within the same document or selected host unit.
-`[G @observation]` would instead declare again and receive `DUPLICATE_ID`.
-For local attachment selection, failure boundaries and unsupported occurrence status, see [reference-only occurrences](syntax.md#reference-only-occurrences).
+`use` presents the existing Point as a Ground here.
+Its content and original declaration remain shared; this appearance adds its own supporting connection.
+The words after the use are commentary at this appearance, rather than a replacement for “Two retries timed out.”
 
-For integrations, every compiled Point has a `key`; `id` is present only when the author supplied a name. Graph references use `{ key, kind: "point" }`. Keys are local to one compilation and one graph, including one host fence. They are not stable cross-revision identifiers, source names, or global IDs. Source spans are locations, not identity.
+Use `[. use @observation]` to present the same Point without a default connection.
+It does not copy the Point's children or notes.
+If you change what the claim says, declare a new Point instead.
+
+## Keep supplementary prose in a note
+
+```md cog-check require=supports points=2 bearings=1 diagnostics=0
+- [C] The measurements can be compared.
+  - [G] Both runs used the same calibration procedure.
+  - [note] Source: laboratory record, section 2.
+    - Check the archived worksheet before revising.
+```
+
+A note and its whole indented subtree remain supplementary prose.
+They add no Points or connections, even if a quoted line looks like an annotation.
+Keep a qualification that changes the Claim in its content; give a separate reason its own Point.
+
+For alias spellings, object notes and precise reference boundaries, consult the [syntax reference](syntax.md).
+The [English / 繁體中文 glossary](glossary.md) gives suggested Chinese readings.

@@ -1,6 +1,6 @@
 - [C @conclusion] Conclusion.
-  - [linked; @failed-route]
-    - [G @first] First premise.
+  - [_ G; @failed-route]
+    - [. @first] First premise.
     - [O @objection] Invalid member.
       - [R @reply] A surviving reply.
     - Wrapper.

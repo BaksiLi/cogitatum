@@ -5,7 +5,7 @@ import { layoutGraph } from "./layout.js";
 import { createDragMotion } from "./motion.js";
 
 function setup() {
-  const graph = compileSource('- [C] Claim.\n  - [linked]\n    - [G] First.\n    - [G] Second.\n- [C] Separate.\n', 'document').graphs[0];
+  const graph = compileSource("- [C] Claim.\n  - [_ G]\n    - [.] First.\n    - [.] Second.\n- [C] Separate.\n", 'document').graphs[0];
   const topology = projectExploration(projectGraph(graph));
   const positions = new Map(layoutGraph(topology).map(n => [n.id, { x: n.x, y: n.y }]));
   const dragged = topology.nodes.find(n => n.text === 'First.')!.id;

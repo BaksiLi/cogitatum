@@ -27,36 +27,36 @@ describe("local Bearing attachment selectors", () => {
     expect(explicit.graph.bearings[1].derivedBy).toBe("operator");
   });
 
-  it.each(["G/", "O/"])("selects an unnamed about attachment for %s instead of inventing support", mark => {
+  it.each([["G/", "supports"], ["O/", "challenges"], ["Q/", "concerns"]])("selects an unnamed concerns attachment for %s as %s", (mark, kind) => {
     const { graph } = compile("- [C @outer] Outer.\n  - [G @reason ~> @topic] About another topic.\n    - [" + mark + "] Assessment.\n- [C @topic] Topic.");
     expect(codes(graph)).toEqual([]);
-    expect(graph.bearings.map(bearing => bearing.kind)).toEqual(["about", mark === "G/" ? "supports" : "challenges"]);
+    expect(graph.bearings.map(bearing => bearing.kind)).toEqual(["concerns", kind]);
     expect(graph.bearings[1].target).toEqual({ kind: "bearing", key: graph.bearings[0].key });
   });
 
   it("classifies linked sources, selectors and independent clauses once before lowering", () => {
-    const { graph, explain } = compile("- [C @claim] Claim.\n  - [linked; @joint]\n    - [G @first] First.\n    - [G @second] Second.\n    - [G/ @warrant] Warrant.\n    - [O/ @objection] Objection.\n      - [R] Reply.\n    - [G @independent +> @missing] Independent invalid target.");
+    const { graph, explain } = compile("- [C @claim] Claim.\n  - [_ G; @joint]\n    - [. @first] First.\n    - [. @second] Second.\n    - [G/ @warrant] Warrant.\n    - [O/ @objection] Objection.\n      - [R] Reply.\n    - [G @independent +> @missing] Independent invalid target.");
     expect(codes(graph)).toEqual(["UNKNOWN_TARGET"]);
     expect(graph.bearings.map(bearing => bearing.kind)).toEqual(["supports", "supports", "challenges", "repliesTo"]);
     expect(graph.bearings[0].sources.map(ref => graph.points.find(point => point.key === ref.key)?.id)).toEqual(["first", "second"]);
-    expect(explain.entries.flatMap(entry => entry.effects.filter(effect => effect.kind === "linkedMember").map(effect => effect.function))).toEqual(["source", "source", "commentary", "commentary", "independent"]);
+    expect(explain.entries.flatMap(entry => entry.effects.filter(effect => effect.kind === "localBearingMember").map(effect => effect.function))).toEqual(["source", "source", "commentary", "commentary", "independent"]);
   });
 
   it.each(["[G +>]", "[G @missing @other]", "[G; @individual]", "[O]", "[linked]"])("rejects unclassified %s without reducing sources or restoring unary supports", header => {
-    const { graph } = compile("- [C @claim] Claim.\n  - [linked; @joint]\n    - [G @first] First.\n    - " + header + " Invalid child.\n    - [G @second] Second.");
+    const { graph } = compile("- [C @claim] Claim.\n  - [_ G; @joint]\n    - [. @first] First.\n    - " + header + " Invalid child.\n    - [. @second] Second.");
     expect(graph.bearings).toEqual([]);
-    expect(codes(graph)).toContain("INVALID_LINKED_MEMBER");
+    expect(codes(graph)).toContain("INVALID_LOCAL_BEARING_MEMBER");
   });
 
   it.each(["[G/ +> @claim]", "[O/ @a @b]", "[G/;]", "[O/"])("retains malformed selector commentary %s without shrinking the joint", header => {
-    const { graph } = compile("- [C @claim] Claim.\n  - [linked; @joint]\n    - [G @first] First.\n    - " + header + " Invalid commentary.\n      - [G @child] Descendant.\n    - [G @second] Second.");
+    const { graph } = compile("- [C @claim] Claim.\n  - [_ G; @joint]\n    - [. @first] First.\n    - " + header + " Invalid commentary.\n      - [G @child] Descendant.\n    - [. @second] Second.");
     expect(graph.bearings.find(bearing => bearing.handle === "joint")?.sources.map(ref => graph.points.find(point => point.key === ref.key)?.id)).toEqual(["first", "second"]);
-    expect(codes(graph)).not.toContain("INVALID_LINKED_MEMBER");
+    expect(codes(graph)).not.toContain("INVALID_LOCAL_BEARING_MEMBER");
     expect(graph.bearings.filter(bearing => bearing.sources.some(ref => graph.points.find(point => point.key === ref.key)?.id === "first"))).toHaveLength(1);
   });
 
-  it.each(["G/", "O/"])("does not invent a unary attachment for a linked member under %s", mark => {
-    const { graph } = compile("- [C] Claim.\n  - [linked]\n    - [G] Member.\n      - [" + mark + "] Invalid member assessment.\n    - [G] Second.");
+  it.each(["G/", "O/", "Q/"])("does not invent a unary attachment for a linked member under %s", mark => {
+    const { graph } = compile("- [C] Claim.\n  - [_ G]\n    - [.] Member.\n      - [" + mark + "] Invalid member assessment.\n    - [.] Second.");
     expect(codes(graph)).toEqual(["NO_LOCAL_BEARING_ATTACHMENT"]);
     expect(graph.bearings).toHaveLength(1);
     expect(graph.bearings[0].sources).toHaveLength(2);
@@ -75,14 +75,14 @@ describe("local Bearing attachment selectors", () => {
   });
 
   it("rejects comments-only and failed constructors without outward fallback", () => {
-    const { graph } = compile("- [C @claim] Claim.\n  - [linked]\n    - [G/] No sources.\n  - [edge]\n    - [O/] Failed edge.\n  - [G @independent +> @claim] Independent support.");
-    expect(codes(graph)).toEqual(["MALFORMED_EDGE_ANNOTATION", "EMPTY_LINKED", "NO_LOCAL_BEARING_ATTACHMENT", "NO_LOCAL_BEARING_ATTACHMENT"]);
+    const { graph } = compile("- [C @claim] Claim.\n  - [_ G]\n    - [G/] No sources.\n  - [edge]\n    - [O/] Failed edge.\n  - [G @independent +> @claim] Independent support.");
+    expect(codes(graph)).toEqual(["MALFORMED_BEARING_MODE", "EMPTY_LOCAL_BEARING", "NO_LOCAL_BEARING_ATTACHMENT", "NO_LOCAL_BEARING_ATTACHMENT"]);
     expect(graph.bearings).toHaveLength(1);
   });
 
   it("supports edge/body selection and recursive commentary but keeps unsuffixed edge defaults explicit", () => {
     const { graph } = compile("- [C @claim] Claim.\n- [G @reason] Reason.\n- [edge @reason +> @claim; @step]\n  - Body.\n    - [O/ @objection; @attack] Assessment.\n      - [G/] Ground for the attack.\n      - [R] Reply.\n  - [O] Still requires a target.");
-    expect(codes(graph)).toEqual(["EDGE_DESCENDANT_REQUIRES_EXPLICIT_TARGET", "IMPLICIT_ATTACHMENT_THROUGH_BODY"]);
+    expect(codes(graph)).toEqual(["EXPLICIT_BEARING_DESCENDANT_REQUIRES_TARGET", "IMPLICIT_ATTACHMENT_THROUGH_BODY"]);
     expect(graph.bearings.map(bearing => bearing.kind)).toEqual(["supports", "challenges", "supports", "repliesTo"]);
     expect(graph.bearings[2].target.key).toBe(graph.bearings[1].key);
   });

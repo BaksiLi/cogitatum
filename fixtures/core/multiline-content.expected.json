@@ -2,25 +2,18 @@
   "mode": "document",
   "diagnostics": [],
   "graphs": [{
+    "notes": [
+      {"line": 5, "origin": "note", "target": {"kind": "bearing", "line": 3}, "text": "This step uses the calibrated reading.\nCalibration was checked before the observation.\n\nThe original conditions remain part of this explanation.", "literal": [{"line": 9, "text": "[O @literal] Quoted syntax\nis not another objection.", "children": []}]},
+      {"line": 15, "origin": "note", "target": {"kind": "bearing", "line": 3}, "text": "Review this same route\nalongside the later measurements.", "literal": []}
+    ],
     "points": [
-      { "line": 1, "form": "role", "role": "C", "id": "claim" },
-      { "line": 3, "form": "role", "role": "G", "id": "reading" },
-      { "line": 11, "form": "role", "role": "O" }
+      {"line": 1, "form": "role", "role": "C", "id": "claim"},
+      {"line": 3, "form": "role", "role": "G", "id": "reading"},
+      {"line": 11, "form": "role", "role": "O"}
     ],
     "bearings": [
-      { "line": 3, "kind": "supports", "sources": [3], "target": { "kind": "point", "line": 1 }, "derivedBy": "structural", "handle": "route" },
-      { "line": 11, "kind": "challenges", "sources": [11], "target": { "kind": "bearing", "line": 3 }, "derivedBy": "structural" }
-    ],
-    "notes": [
-      {
-        "line": 5, "origin": "note", "target": { "kind": "bearing", "line": 3 },
-        "text": "This step uses the calibrated reading.\nCalibration was checked before the observation.\n\nThe original conditions remain part of this explanation.",
-        "literal": [{ "line": 9, "text": "[O @literal] Quoted syntax\nis not another objection.", "children": [] }]
-      },
-      {
-        "line": 15, "origin": "note", "target": { "kind": "bearing", "line": 3 },
-        "text": "Review this same route\nalongside the later measurements.", "literal": []
-      }
+      {"line": 3, "kind": "supports", "sources": [3], "target": {"kind": "point", "line": 1}, "derivedBy": "structural", "handle": "route"},
+      {"line": 11, "kind": "challenges", "sources": [11], "target": {"kind": "bearing", "line": 3}, "derivedBy": "structural"}
     ]
   }]
 }

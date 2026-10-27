@@ -37,26 +37,29 @@ describe("reference-only Point occurrences", () => {
     expect(new Set(graph.bearings.map(bearing => bearing.key)).size).toBe(6);
   });
 
-  it("bare use focuses without an attachment or remote target-sensitive defaults", () => {
+  it("bare use focuses without an attachment or inherited role, while child R still replies to it", () => {
     const { graph } = compile("- [O @objection] Original O.\n  - [G; @original-step] Original ground.\n- [C @claim] Claim.\n  - [. use @objection] Local prose.\n    - [R @bare-reply] No inherited O mark.\n    - [O/] No inherited attachment.\n- [O use @objection]\n  - [R @marked-reply] Local reply.");
     expect(codes(graph)).toEqual(["NO_LOCAL_BEARING_ATTACHMENT"]);
-    expect(relations(graph).filter(bearing => bearing.kind === "repliesTo")).toEqual([{ kind: "repliesTo", handle: undefined, sources: ["marked-reply"], target: { kind: "point", name: "objection" } }]);
+    expect(relations(graph).filter(bearing => bearing.kind === "repliesTo")).toEqual([
+      { kind: "repliesTo", handle: undefined, sources: ["bare-reply"], target: { kind: "point", name: "objection" } },
+      { kind: "repliesTo", handle: undefined, sources: ["marked-reply"], target: { kind: "point", name: "objection" } }
+    ]);
   });
 
-  it("uses local Q marks for answers without changing declarations", () => {
+  it("Q uses preserve declarations without turning Claim children into answers", () => {
     const { graph } = compile("- [Q @question] Original Q.\n- [C @claim] Original open claim.\n- [. use @question]\n  - [C @background] Not an answer.\n- [Q use @claim]\n  - [C @answer] Explicit local Q focus.");
     expect(codes(graph)).toEqual([]);
-    expect(relations(graph)).toEqual([{ kind: "answers", handle: undefined, sources: ["answer"], target: { kind: "point", name: "claim" } }]);
+    expect(relations(graph)).toEqual([]);
     expect(graph.points.find(point => point.id === "claim")?.declaration.status).toBeUndefined();
   });
 
   it.each(["G use @premise", ". use @premise"])("allows a complete symbolic override for %s and exactly one attachment", mark => {
     const { graph } = compile("- [. @premise] Premise.\n- [C @outer] Outer.\n  - [" + mark + " ~> @topic; @step] Local description.\n    - [O/] Assessment.\n- [Q @topic] Topic.");
     expect(codes(graph)).toEqual([]);
-    expect(relations(graph).map(bearing => [bearing.kind, bearing.target.name])).toEqual([["about", "topic"], ["challenges", "step"]]);
+    expect(relations(graph).map(bearing => [bearing.kind, bearing.target.name])).toEqual([["concerns", "topic"], ["challenges", "step"]]);
   });
 
-  it.each([". use @missing", ". use @route", "C? use @premise", "G use @", "G use @premise answers @claim", "O/ use @premise /> @route", ". use @premise; @dangling", ". use @premise", "Use @premise"])("retains %s failures without outer fallback or declaration", header => {
+  it.each([". use @missing", ". use @route", "C? use @premise", "G use @", "G use @premise answers", "O/ use @premise /> @route", ". use @premise; @dangling", ". use @premise", "Use @premise"])("retains %s failures without outer fallback or declaration", header => {
     const source = "- [C @claim] Claim.\n- [. @premise] Original.\n- [edge @premise +> @claim; @route]\n- [C @outer] Outer.\n  - [" + header + "] Local use.\n    - [O/] Must not guess an attachment.\n    - [G @child] Valid child.\n      - [O @grandchild] Valid subtree.";
     const { graph } = compile(source);
     expect(graph.points.map(point => point.id)).toEqual(["claim", "premise", "outer", undefined, "child", "grandchild"]);
@@ -71,30 +74,30 @@ describe("reference-only Point occurrences", () => {
     expect(explain.entries[2].recognition.kind).toBe("use");
   });
 
-  it("requires a G use for linked membership regardless of declaration role", () => {
-    const { graph } = compile("- [C @premise] Original C.\n- [. @other] Other material.\n- [C @claim] Claim.\n  - [linked; @joint]\n    - [G use @premise]\n    - [G use @other]\n    - [O/ @objection] Assessment.");
+  it("requires a neutral use for linked membership regardless of declaration role", () => {
+    const { graph } = compile("- [C @premise] Original C.\n- [. @other] Other material.\n- [C @claim] Claim.\n  - [_ G; @joint]\n    - [. use @premise]\n    - [. use @other]\n    - [O/ @objection] Assessment.");
     expect(codes(graph)).toEqual([]);
     expect(relations(graph)[0]).toEqual({ kind: "supports", handle: "joint", sources: ["premise", "other"], target: { kind: "point", name: "claim" } });
     expect(graph.points).toHaveLength(4);
-    const bare = compile("- [G @premise] Original G.\n- [C @claim] Claim.\n  - [linked]\n    - [G] Valid source.\n    - [. use @premise]").graph;
-    expect(codes(bare)).toEqual(["INVALID_LINKED_MEMBER"]);
+    const bare = compile("- [G @premise] Original G.\n- [C @claim] Claim.\n  - [_ G]\n    - [.] Valid source.\n    - [G use @premise]").graph;
+    expect(codes(bare)).toEqual(["INVALID_LOCAL_BEARING_MEMBER"]);
     expect(bare.bearings).toEqual([]);
   });
 
   it("rejects repeated resolved linked identity instead of deduplicating or inventing unary support", () => {
-    for (const sources of ["    - [G use @premise]\n    - [G use @premise]", "    - [G @premise] Definition.\n    - [G use @premise]"]) {
-      const declaration = sources.includes("[G @premise]") ? "" : "- [C @premise] Original.\n";
-      const { graph } = compile(declaration + "- [C @claim] Claim.\n  - [linked; @joint]\n" + sources + "\n    - [O/] Failed joint assessment.");
+    for (const sources of ["    - [. use @premise]\n    - [. use @premise]", "    - [. @premise] Definition.\n    - [. use @premise]"]) {
+      const declaration = sources.includes("[. @premise]") ? "" : "- [C @premise] Original.\n";
+      const { graph } = compile(declaration + "- [C @claim] Claim.\n  - [_ G; @joint]\n" + sources + "\n    - [O/] Failed joint assessment.");
       expect(graph.bearings).toEqual([]);
       expect(codes(graph)).toEqual(["DUPLICATE_BEARING_SOURCES", "UNRESOLVED_BEARING_TARGET"]);
     }
   });
 
   it("rejects failed source focus atomically while independent target failure does not shrink a joint", () => {
-    const failed = compile("- [. @premise] Premise.\n- [C @claim] Claim.\n  - [linked]\n    - [G use @premise]\n    - [G use @missing]").graph;
+    const failed = compile("- [. @premise] Premise.\n- [C @claim] Claim.\n  - [_ G]\n    - [. use @premise]\n    - [. use @missing]").graph;
     expect(failed.bearings).toEqual([]);
-    expect(codes(failed)).toEqual(["UNKNOWN_POINT_REFERENCE", "UNKNOWN_SOURCE", "DISCONNECTED_ANCHORED_MATERIAL"]);
-    const independent = compile("- [. @premise] Premise.\n- [C @claim] Claim.\n  - [linked; @joint]\n    - [G use @premise]\n    - [G use @premise +> @missing]").graph;
+    expect(codes(failed)).toEqual(["UNKNOWN_POINT_REFERENCE", "UNKNOWN_SOURCE"]);
+    const independent = compile("- [. @premise] Premise.\n- [C @claim] Claim.\n  - [_ G; @joint]\n    - [. use @premise]\n    - [G use @premise +> @missing]").graph;
     expect(codes(independent)).toEqual(["UNKNOWN_TARGET"]);
     expect(independent.bearings).toHaveLength(1);
   });
@@ -108,7 +111,7 @@ describe("reference-only Point occurrences", () => {
 
   it("preserves reference effects under scoped standalone declaration reordering and remote-edge additions", () => {
     const definitions = ["- [C @premise] Original content.", "- [Q @topic] Topic."];
-    const local = "- [C @claim] Claim.\n  - [G use @premise; @step]\n    - [O/ @objection; @attack] Objection.\n- [edge @premise about @topic; @remote] Remote.";
+    const local = "- [C @claim] Claim.\n  - [G use @premise; @step]\n    - [O/ @objection; @attack] Objection.\n- [edge @premise concerns @topic; @remote] Remote.";
     const before = compile(definitions.join("\n") + "\n" + local).graph;
     const after = compile(local + "\n" + definitions.toReversed().join("\n")).graph;
     expect(codes(before)).toEqual([]);
@@ -143,8 +146,8 @@ describe("reference-only Point occurrences", () => {
   });
 
   it("never lets a failed Bearing-as-Point use supply a legal Bearing target to implicit descendants", () => {
-    const { graph } = compile("- [C @claim] Claim.\n- [. @premise] Premise.\n- [edge @premise +> @claim; @route]\n- [. use @route]\n  - [G @child] Must not support route.\n  - [? @gap] Must not be about route.\n  - [G @independent +> @claim] Independent relation.");
-    expect(codes(graph)).toEqual(["BEARING_IS_NOT_POINT_REFERENCE", "POINT_FOCUS_REQUIRES_POINT", "POINT_FOCUS_REQUIRES_POINT"]);
+    const { graph } = compile("- [C @claim] Claim.\n- [. @premise] Premise.\n- [edge @premise +> @claim; @route]\n- [. use @route]\n  - [G @child] Must not support route.\n  - [Q @gap] Must not be about route.\n  - [G @independent +> @claim] Independent relation.");
+    expect(codes(graph)).toEqual(["BEARING_IS_NOT_POINT_REFERENCE", "POINT_FOCUS_REQUIRES_POINT"]);
     expect(graph.bearings).toHaveLength(2);
     expect(graph.bearings.every(bearing => bearing.target.kind === "point")).toBe(true);
   });

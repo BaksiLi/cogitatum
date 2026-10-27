@@ -58,7 +58,6 @@ function labels(entities: { key: string }[], prefix: "p" | "b"): Map<string, str
 
 function declaration(value: PointDeclaration): string {
   if (value.form === "role") return `role(${value.role})`;
-  if (value.form === "gap") return "gap(open)";
   return "material";
 }
 

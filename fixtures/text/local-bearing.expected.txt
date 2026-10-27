@@ -6,10 +6,10 @@ status: no-errors
 points (8):
 p1: role(C) id="conclusion" text="Conclusion."
 p2: role(G) id="observation" text="An independent reason."
-p3: role(G) id="first" text="First joint premise."
+p3: material id="first" text="First joint premise."
 p4: role(O) id="objection" text="Objection to this premise."
 p5: role(R) id="reply" text="Reply to that objection."
-p6: role(G) id="second" text="Second joint premise."
+p6: material id="second" text="Second joint premise."
 p7: role(O) id="undercut" text="Objection to the route."
 p8: role(C) id="other" text="Another conclusion."
 

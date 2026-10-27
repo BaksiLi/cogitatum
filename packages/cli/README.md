@@ -6,7 +6,7 @@ Checkout version **0.6.0**, format **0.6.0**, not yet published, with equivalent
 Build the checkout below to use the new syntax.
 `export` retains note prose and literal subtrees through the complete `explainSource` envelope.
 `graph` retains note target/origin records but omits note prose; graph-text `structure-v1` also omits those records.
-Explicit `edge` clauses accept all canonical kind names, including `answers`, `repliesTo`, and `clarifies`.
+Explicit Bearing constructors, Point declarations and Point uses accept all canonical kind names, including `answers`, `repliesTo` and `clarifies`.
 The historical npm `alpha` tag provides **0.3.0-alpha.1** without linked.
 Requires Node.js 22.12 or newer.
 Use the matching Core/CLI and schema versions when upgrading from 0.5.0.
@@ -130,7 +130,9 @@ The same operation is available as Core `previewExplicitTarget`.
 A ready preview retains prose, names, occurrence ownership and current relations, but deliberately changes future editing: moving the occurrence retains the explicit target, and changing its role retains the explicit operator.
 Compare `originalSource` with the current complete file before applying `proposedSource`; regenerate the preview if the file changed.
 The single `edit.offset` uses UTF-16 code units.
-Unnamed targets, selectors, Linked constructions, already explicit clauses and relations without a Point-attached operator receive an unavailable result with no proposed source.
+The preview supports ordinary implicit G / O / R / D attachments (`supports`, `challenges`, `repliesTo`, `clarifies`), retaining the local mark, handle and children.
+Unattached Q, C and neutral occurrences have no implicit relation to make explicit.
+Unnamed targets, selectors, local Bearing constructions and already explicit clauses receive an unavailable result with no proposed source.
 Errors anywhere in the complete input also withhold the edit.
 Exit 0 means ready; 1 means unavailable or an I/O failure; 2 means invalid options.
 `--line` is required and accepts one positive integer; `--format` and `--references` do not apply to this command.

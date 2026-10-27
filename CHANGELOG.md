@@ -14,12 +14,54 @@ Keep intended prose outside leading reserved brackets, and do not automatically 
 Recompile all projections with the complete 0.6 bundle; changing a JSON version is not migration.
 The original published schemas remain unchanged in `spec/0.5.0/`.
 
+- Unify local and explicit construction under `bearing` / `edge` / `_`.
+  The first token after the family spelling selects local construction (`G`, `O`, `R`, `D`), explicit endpoints (`@ref`), reuse (`use`) or note mode (`note`).
+  Local `[_ G; @route]` takes direct neutral Point sources and the nearest enclosing Point target, using the same relation rules as ordinary G / O / R / D attachments; local `Q` / `C` are unsupported.
+  Header prose becomes `Bearing.text`; a singleton is a complete construction, and Serial uses ordinary Point nesting.
+  Reject mixed `[_ G @a +> @b]` with `MALFORMED_LOCAL_BEARING`, reject `[_ +>]`, and keep unfinished `[_ @a +>]` in explicit mode without local fallback.
+  Retire `[linked]`, `[G linked]` and `[linked G]` with `RETIRED_LINKED_ANNOTATION`; no compiling aliases are added, and `join` remains retired.
+  Migrate published bare `[linked]` to `[_ G]` and its direct Ground sources to neutral declarations or uses; role-headed drafts already using neutral sources only need the header migration and target review.
+  Preserve failed-context boundaries and atomic source validation, without reduced source sets or outward target fallback.
+  Explain direct `G` / `O` member errors with neutral `[.]`, `G/` / `O/` commentary and complete explicit-target choices, preserving names and use references without automatic rewrites.
+  Add parser `head.mode: "local" | "explicit"`.
+  Diagnose `[_G]` and `[bearingG]` as malformed local headers instead of body, and report a header whose first token selects no mode, such as `[_ supports]` or `[edge cases]`, once with `MALFORMED_BEARING_MODE` and `syntaxErrors: ["mode"]`, without a follow-on descendant error.
+  Rename machine names after local and explicit construction: AST/Explain kinds `localBearing` and `explicitBearing`, Explain `localBearingMember` / `localBearingSpan` and `local-bearing-*` reasons, `explicit-bearing-descendant-requires-target`, and the `*_LOCAL_BEARING*` / `EXPLICIT_BEARING_*` diagnostic codes; `MALFORMED_EDGE_ANNOTATION` becomes `MALFORMED_EXPLICIT_BEARING` or `MALFORMED_BEARING_MODE`.
+  Convergent, Linked and Serial remain graph structure names; multi-source support records an ordered source array, not reasoning strength or success.
+- Retire `[?]`, Gap declarations and `status: "open"` from the active AST, Graph IR, Explain and consumers.
+  Migrate absence claims to scoped Points, inquiries to Q and editorial tasks to notes; preserve intended references and topical connections explicitly.
+  These choices change different commitments and cannot be selected automatically.
+- Treat a Point as independently identified authored content, including a question or fragment, without requiring a declarative or truth-apt proposition.
+  Separate Q / C presentation from local relations: Q, C and neutral Points do not attach automatically.
+  G / O / R / D select `supports` / `challenges` / `repliesTo` / `clarifies` toward the nearest enclosing Point, irrespective of its mark; R is no longer limited to an O parent.
+  Preserve source nesting, transparent body, literal notes and failed or Bearing context boundaries, without searching past a nearer Point for another target.
+  Retire `DISCONNECTED_ANCHORED_MATERIAL`; an isolated neutral Point is complete.
+  **Migration:** add explicit `answers` clauses where C-under-Q previously recorded an intended answer.
+  Review formerly unattached R occurrences, which now reply to their nearest Point.
+  Q has no implicit relevance relation, including in early 0.6 drafts; state intended `concerns` with an explicit clause or opt into `Q/` for a local Bearing.
+  Draft `LOCAL_BEARING_REPLY_REQUIRES_OBJECTION` and `LINKED_REPLY_REQUIRES_OBJECTION` diagnostics are no longer emitted.
+- Add `Q/` and `[Q/ use @question]` to concern the nearest locally exposed Bearing, alongside `G/` support and `O/` challenge.
+  Preserve the original Bearing and its ordered sources, without an implicit premise, hidden Point, new relation kind or resolution state.
+  Bare Q still has no default relation; `[Q /> @route]` explicitly challenges rather than concerns the named Bearing.
+  Use the same constructor/use contexts, nearest-context failure boundaries, notes and recursive selection as G/ and O/.
+  Widen correlated selector roles in public types, AST and Explain schemas; keep local Q/C constructors unsupported.
+  Preserve selector intent in unclosed G/O/Q selector-use prefixes so malformed commentary cannot invalidate a local Bearing's neutral sources.
+- Rename canonical `about` to `concerns`, retaining `~>` and diagnosing the old named spelling.
+  Support joint relevance with ordered Point sources and a Point or Bearing target.
+  Keep all six named constructors; explicit construction does not impose declaration-role checks.
+- Accept all six canonical names on Point declarations and uses, with the Point itself as the sole source.
+  An explicit clause replaces the default once, retaining the occurrence's local role, content ownership, children and handle.
+  `answers`, `repliesTo` and `clarifies` retain Point-only targets; selectors exclude named clauses as well as symbols.
+  Widen `PointOperatorClause` and the AST schema together; diagnose incomplete or case-mismatched clauses without default fallback.
+  Update duplicate-reuse and implicit-attachment advice, and let explicit-target previews insert the selected G / O / R / D relation while preserving object-note ownership.
+- Let `->` challenge Points or Bearings; optional `/>` continues to require a Bearing.
+  Retire `CHALLENGE_REQUIRES_POINT_TARGET`; retain `CHALLENGE_REQUIRES_BEARING_TARGET` for `/>`.
+  Update AST target constraints, schemas, diagnostics, documentation and consumer checks together.
 - Share one family/operation grammar across `point` / `node` / `.`, and `bearing` / `edge` / `_`, including construction, use, notes and malformed boundaries.
 - Add `[. note]` and `[_ note]`, selecting one slot from the nearest semantic context.
-  Reject missing or failed local targets without outward fallback; direct linked Grounds own no unary attachment.
+  Reject missing or failed local targets without outward fallback; direct local source members own no unary attachment.
   Preserve literal note subtrees, anonymous objects, fixed Bearing use endpoints and separate equal-text records.
 - Add source-backed `GraphIR.notes` records and Explain selection/attachment effects.
-  The AST owns prose and literal subtrees; existing edge/linked descriptions use the same provenance projection.
+  The AST owns prose and literal subtrees; local and explicit Bearing descriptions use the same provenance projection.
   `Bearing.text` derives only from constructor prose.
   Complete source exports preserve all note content; graph-only exports omit note prose and graph-text `structure-v1` omits note records too.
   Add `cog export` for the complete selected-source/AST/graph/Explain envelope in document and host modes.
@@ -35,6 +77,9 @@ The original published schemas remain unchanged in `spec/0.5.0/`.
 - Consumer verification is scoped to the checkout Core/CLI, packed packages and private View.
   No npm publication, website deployment or installed Obsidian migration is included.
   The finite interpretation fixture is rechecked against 0.6 without extending its theory or changing its source.
+- Restructure the public learning path around a first note and small Convergent, Linked and Serial examples.
+  Keep alias spellings, optional operators, detailed selector comparisons and migrations in the syntax reference.
+  Move CLI name inventories and explicit-target previews to graph inspection, and document source/AST boundaries for editor integrations.
 
 - Keep a selected Point or Bearing as the private View's guided focus in Reading and Map; hover and keyboard focus preview only while nothing is selected.
   Selecting one of several alternative Bearings to a target shows that route, its sources and only the relations addressed to it, by Bearing identity.

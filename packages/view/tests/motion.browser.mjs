@@ -81,7 +81,7 @@ try {
     assert.notEqual(unrelatedAt, insertedAt, 'an untouched named node follows the revised layout rather than overlapping the inserted node');
     assert.equal(await page.evaluate(() => window.pendingFrames()), 0);
 
-    const joint = '- [C @claim] Claim.\n  - [linked]\n    - [G @first] First.\n    - [G @second] Second.\n- [C @separate] Separate.\n';
+    const joint = "- [C @claim] Claim.\n  - [_ G]\n    - [. @first] First.\n    - [. @second] Second.\n- [C @separate] Separate.\n";
     await page.evaluate(source => window.mount(source), joint);
     await drag('_p2');
     for (let frame = 0; frame < 9; frame++) await advance(100);

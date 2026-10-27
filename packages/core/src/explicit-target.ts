@@ -1,3 +1,4 @@
+import { operatorSymbol } from "./annotation.js";
 import { explainSource } from "./source.js";
 import { FORMAT_VERSION } from "./types.js";
 import type { AstBlock, Diagnostic, ExplainedSource, PointOperatorClause, SourceParseMode } from "./types.js";
@@ -24,7 +25,7 @@ export type ExplicitTargetPreview = {
 );
 
 /**
- * Preview one ordinary implicit Point attachment as an explicit symbolic clause.
+ * Preview one ordinary implicit Point attachment as an explicit target clause.
  * No source is written. A caller applying a preview must first compare its current
  * complete source with originalSource; a changed source requires a fresh preview.
  */
@@ -40,10 +41,10 @@ export function previewExplicitTarget(source: string, options: ExplicitTargetOpt
   const unitIndex = before.documents.findIndex(document => findBlock(document.blocks, options.line));
   const block = unitIndex < 0 ? undefined : findBlock(before.documents[unitIndex].blocks, options.line);
   const annotation = block?.annotation;
-  if (annotation?.kind === "linked") {
-    return unavailable("no-attachment", "This linked header constructs one joint Bearing. Making its target explicit requires a separate edit that preserves its source members and their order.");
+  if (annotation?.kind === "localBearing") {
+    return unavailable("no-attachment", "This local header constructs one Bearing. Making its target explicit requires a separate edit that preserves its source members and their order.");
   }
-  if (!block || !annotation || (annotation.kind !== "role" && annotation.kind !== "gap" && annotation.kind !== "use")) {
+  if (!block || !annotation || (annotation.kind !== "role" && annotation.kind !== "material" && annotation.kind !== "use")) {
     return unavailable("no-attachment", "Select an active Point occurrence with an ordinary implicit attachment.");
   }
   if (annotation.operatorClause) return unavailable("already-explicit", "This occurrence already has an explicit target.");
@@ -52,21 +53,21 @@ export function previewExplicitTarget(source: string, options: ExplicitTargetOpt
   const entry = before.explanations[unitIndex].entries.find(e => e.sourceSpan.startLine === headerLine);
   const emission = entry?.effects.find(effect => effect.kind === "emitBearing");
   if (!emission || emission.reason !== "annotated-containment") {
-    if (entry?.effects.some(effect => effect.kind === "linkedMember" && effect.eligible && effect.function === "source")) {
-      return unavailable("no-attachment", "This Ground contributes to the enclosing joint Bearing. Making the joint target explicit requires a separate edit of the linked construction, preserving its source members and their order.");
+    if (entry?.effects.some(effect => effect.kind === "localBearingMember" && effect.eligible && effect.function === "source")) {
+      return unavailable("no-attachment", "This Point contributes to the enclosing Bearing. Making its target explicit requires a separate edit of the local construction, preserving its source members and their order.");
     }
     return unavailable("no-attachment", "This occurrence does not construct an ordinary implicit attachment.");
   }
   const relation = emission.bearing;
-  if (relation.target.kind !== "point" || (relation.kind !== "supports" && relation.kind !== "challenges" && relation.kind !== "about")) {
-    return unavailable("unsupported-attachment", "This relation has no equivalent Point-attached symbolic clause; moving it into an edge is a different operation.");
+  if (relation.target.kind !== "point") {
+    return unavailable("unsupported-attachment", "This operation handles ordinary Point attachments only.");
   }
   const targetName = before.graphs[unitIndex].points.find(p => p.key === relation.target.key)?.id;
   if (!targetName) return unavailable("unnamed-target", "The selected target has no authored name. Name it deliberately before preparing this edit.");
-  const symbol = relation.kind === "supports" ? "+>" : relation.kind === "challenges" ? "->" : "~>";
-  const clause: PointOperatorClause = relation.kind === "challenges"
-    ? { sources: "self", op: "challenges", targetKind: "point", target: { id: targetName } }
-    : { sources: "self", op: relation.kind, targetKind: "either", target: { id: targetName } };
+  const spelling = operatorSymbol(relation.kind) ?? relation.kind;
+  const clause: PointOperatorClause = relation.kind === "supports" || relation.kind === "challenges" || relation.kind === "concerns"
+    ? { sources: "self", op: relation.kind, targetKind: "either", target: { id: targetName } }
+    : { sources: "self", op: relation.kind, targetKind: "point", target: { id: targetName } };
 
   // Host Markdown recognizes lone CR as well as CRLF/LF; document outlines
   // recognize CRLF/LF. Count the original separators without normalizing bytes.
@@ -83,7 +84,7 @@ export function previewExplicitTarget(source: string, options: ExplicitTargetOpt
   }
   const separator = annotation.raw.indexOf(";");
   const prefix = separator < 0 ? annotation.raw : annotation.raw.slice(0, separator);
-  const edit = { offset: annotationOffset + 1 + prefix.trimEnd().length, insert: ` ${symbol} @${targetName}` };
+  const edit = { offset: annotationOffset + 1 + prefix.trimEnd().length, insert: ` ${spelling} @${targetName}` };
   const proposedSource = source.slice(0, edit.offset) + edit.insert + source.slice(edit.offset);
   const after = explainSource(proposedSource, before.mode);
   if (!preserves(before, after, unitIndex, block, clause, relation.key)) {
@@ -112,7 +113,7 @@ function preserves(before: ExplainedSource, after: ExplainedSource, unitIndex: n
   const expected = structuredClone(before.documents);
   const expectedBlock = findBlock(expected[unitIndex].blocks, selected.sourceSpan.startLine)!;
   const annotation = expectedBlock.annotation;
-  if (!annotation || (annotation.kind !== "role" && annotation.kind !== "gap" && annotation.kind !== "use") || ("selector" in annotation && annotation.selector)) return false;
+  if (!annotation || (annotation.kind !== "role" && annotation.kind !== "material" && annotation.kind !== "use") || ("selector" in annotation && annotation.selector)) return false;
   annotation.operatorClause = clause;
   if (!same(expected, after.documents, ["raw", "sourceSpan"])) return false;
   const expectedGraphs = structuredClone(before.graphs);

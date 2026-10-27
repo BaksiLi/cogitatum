@@ -1,12 +1,6 @@
 {
   "mode": "document",
-  "diagnostics": [
-    {
-      "line": 1,
-      "code": "DISCONNECTED_ANCHORED_MATERIAL",
-      "severity": "suggestion"
-    }
-  ],
+  "diagnostics": [],
   "graphs": [
     {
       "points": [

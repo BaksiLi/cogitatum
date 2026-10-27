@@ -245,6 +245,107 @@ try {
     assert.equal(await row(5).getAttribute('data-selected'), 'true');
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
 
+    const versions = [
+      '- [. @before] Original clause.', '- [. @after] Revised clause.',
+      '- [Q @change] Has the scope changed?',
+    ].join('\n');
+    await mount(versions + [
+      '', '- [_ @after, @before ~> @change; @comparison] Compare the versions.',
+      '- [_ @before ~> @change; @original]',
+      '- [_ @after ~> @change; @revision]',
+      '- [_ @before, @after concerns @comparison; @context] Material concerning the comparison.',
+    ].join('\n'));
+    const comparison = row(4).locator('.cog-reading-relation');
+    assert.deepEqual(await comparison.locator('.cog-reading-endpoints button').allTextContents(), ['@after', '@before', '@change']);
+    assert.match(await comparison.locator('.cog-reading-relation-kind').textContent(), /joint.*concerns/);
+    assert.equal(await page.locator('#reading .cog-reading-relation[data-kind="concerns"]').count(), 4);
+    assert.doesNotMatch((await page.locator('#reading .cog-reading-relation-kind').allTextContents()).join(' '), /support|challenge|inference/i);
+    const aboutKeys = await page.evaluate(() => Object.fromEntries(
+      window.views.projection.units[0].graph.bearings.map(bearing => [bearing.handle, bearing.key])
+    ));
+    const mapComparison = page.locator(`#map [data-node="bearing:${aboutKeys.comparison}"]`);
+    assert.match(await mapComparison.getAttribute('aria-label'), /concerns \(joint, 2 sources\)/);
+    assert.equal(await mapComparison.locator('.cog-tone-neutral.cog-junction').count(), 1);
+    assert.equal(await page.locator('#map .cog-inline-bearing.cog-concerns').count(), 2, 'independent relevance relations keep separate selectable lines');
+    assert.equal(await page.locator('#map .cog-link.cog-tone-neutral.cog-dashed').count(), 8);
+    assert.equal(await page.locator('#reading .cog-reading-bearing.cog-tone-neutral .cog-reading-dashed').count(), 8);
+    assert.equal(await page.locator(`#map .cog-link.input[data-bearing="${aboutKeys.comparison}"]`).count(), 2);
+    assert.equal(await page.locator(`#map .cog-link.output[data-bearing="${aboutKeys.comparison}"]`).count(), 1);
+    assert.equal(await page.locator(`#reading [data-bearing="${aboutKeys.comparison}"] .cog-reading-arc`).count(), 3);
+    await comparison.getByRole('button', { name: 'Point @after, line 2', exact: true }).click();
+    assert.equal(await row(2).getAttribute('data-selected'), 'true', 'the first written source navigates to its own occurrence');
+    await row(7).locator('.cog-reading-endpoints').getByRole('button', { name: 'Bearing @comparison, line 4', exact: true }).click();
+    assert.equal(await row(4).getAttribute('data-selected-reference'), 'bearing');
+    await page.keyboard.press('Enter');
+    assert.equal(await page.evaluate(() => window.views.events.navigate.at(-1).sourceSpan.startLine), 4);
+    await mapComparison.focus(); await page.keyboard.press('Space'); await flush();
+    assert.deepEqual(await page.evaluate(() => window.views.events.map.at(-1).ref), { kind: 'bearing', key: aboutKeys.comparison });
+    assert.equal(await page.locator('#map .cog-link[data-active="true"]').count(), 6, 'joint focus includes its whole relation and the relation addressing it');
+    assert.equal(await page.locator(`#map .cog-link[data-bearing="${aboutKeys.original}"][data-active="true"]`).count(), 0);
+    assert.equal(await page.locator(`#map .cog-link[data-bearing="${aboutKeys.revision}"][data-active="true"]`).count(), 0);
+    assert.equal(await page.locator('#reading path[d*="NaN"], #map path[d*="NaN"]').count(), 0);
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+
+    await mount(versions + [
+      '', '- [_ @before, @after ~> @change; @existing]',
+      '- [_ @after, @missing ~> @change; @failed] Keep this failed prose.',
+      '- [_ @before, @after concerns @failed; @dependent]',
+    ].join('\n'));
+    assert.equal(await page.locator('#reading .cog-reading-relation').count(), 1, 'a failed joint and its dependent have no rendered relation');
+    assert.match(await row(5).textContent(), /Keep this failed prose/);
+    assert.equal(await row(5).locator('.cog-reading-diagnostic').count(), 1);
+    assert.equal(await page.locator('#map [data-node^="bearing:"]').count(), 1);
+    assert.equal(await page.locator('#map .cog-link').count(), 3, 'only the complete surviving joint is drawn');
+
+    for (const [mark, parent, kind] of [['G', 'C', 'supports'], ['O', 'C', 'challenges'], ['R', 'O', 'repliesTo'], ['D', 'C', 'clarifies']]) {
+      await mount(`- [${parent} @target] Target.
+  - [_ ${mark}; @joint] Route description.
+    - [. @a] First source.
+    - [. @b] Second source.
+    - [_ note] Detail about this route.`);
+      assert.deepEqual(await page.evaluate(() => window.views.projection.diagnostics), []);
+      assert.equal(await row(2).locator('.cog-reading-relation').getAttribute('data-kind'), kind);
+      assert.deepEqual(await row(2).locator('.cog-reading-endpoints button').allTextContents(), ['@a', '@b', '@target']);
+      assert.equal(await row(3).locator('.cog-reading-relation').count(), 0, 'a neutral member creates no unary attachment');
+      assert.equal(await row(4).locator('.cog-reading-relation').count(), 0);
+      const junction = page.locator('#map [data-node="bearing:_b1"]');
+      assert.match(await junction.getAttribute('aria-label'), /joint, 2 sources/);
+      assert.equal(await page.locator('#map .cog-link').count(), 3);
+      await row(2).locator('.cog-reading-relation [data-ref-kind="bearing"]').click();
+      assert.equal(await row(2).getAttribute('data-selected-reference'), 'bearing', 'the role header selects a Bearing, not a new Point');
+      assert.equal(await row(5).getAttribute('data-related'), 'true', 'the route note follows its owner');
+    }
+
+    await mount(`- [C @claim] The visitor may be familiar.
+  - [_ G; @step]
+    - [.] The dog did not bark.
+    - [Q/ @conditions; @inquiry] When does silence support familiarity?
+      - [R] Check whether the dog was awake.`);
+    assert.deepEqual(await page.evaluate(() => window.views.projection.diagnostics), []);
+    assert.equal(await row(4).getAttribute('data-role'), 'Q');
+    assert.equal(await row(4).locator('.cog-reading-mark .cog-glyph-letter').textContent(), 'Q');
+    assert.equal(await row(4).locator('.cog-reading-relation').getAttribute('data-kind'), 'concerns');
+    assert.equal(await row(5).locator('.cog-reading-relation').getAttribute('data-kind'), 'repliesTo');
+    assert.equal(await row(3).locator('.cog-reading-relation').count(), 0, 'the source member owns no unary attachment');
+    await row(4).locator('.cog-reading-endpoints').getByRole('button', { name: 'Bearing @step, line 2', exact: true }).click();
+    assert.equal(await row(2).getAttribute('data-selected-reference'), 'bearing', 'Q/ concerns the step rather than its source Point');
+    await row(5).locator('.cog-reading-endpoints').getByRole('button', { name: 'Point @conditions, line 4', exact: true }).click();
+    assert.equal(await row(4).getAttribute('data-selected-reference'), 'point', 'R replies to the Question rather than its concerns Bearing');
+    const questionKeys = await page.evaluate(() => {
+      const { graph } = window.views.projection.units[0];
+      return {
+        point: graph.points.find(point => point.id === 'conditions').key,
+        inquiry: graph.bearings.find(bearing => bearing.handle === 'inquiry').key,
+      };
+    });
+    assert.match(await page.locator(`#map [data-node="point:${questionKeys.point}"]`).getAttribute('aria-label'), /Question/);
+    const questionBearing = page.locator(`#map g[data-node="bearing:${questionKeys.inquiry}"]`);
+    assert.match(await questionBearing.getAttribute('aria-label'), /concerns/);
+    assert.equal(await questionBearing.locator('.cog-bearing-glyph.cog-tone-neutral').count(), 1);
+    assert.equal(await page.locator(`#map [data-bearing="${questionKeys.inquiry}"].cog-link.cog-tone-neutral.cog-dashed`).count(), 1, 'an unaddressed unary concern keeps the existing inline presentation');
+    assert.equal(await page.locator('#reading path[d*="NaN"], #map path[d*="NaN"]').count(), 0);
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+
     await mount('- [C] Anonymous conclusion.\n  - [G] Anonymous reason.');
     assert.deepEqual(await row(2).locator('.cog-reading-relation [data-ref-kind="point"]').allTextContents(), [
       'L2 · Anonymous reason.', 'L1 · Anonymous conclusion.'
@@ -424,7 +525,7 @@ try {
   assert.equal(await page.locator('#map svg').getAttribute('data-guided'), 'false', 'tapping the background clears the focus');
   await touch.close();
   assert.deepEqual(errors, []);
-  console.log(`View selection browser checks passed: ${runs} viewports and touch; occurrence echoes, keyboard refs, Map Fit and focus reveal, host typography, assistive clicks, selected-route guidance, partial compilation, cycles, duplicate Bearings, unit scope and cleanup.`);
+  console.log(`View selection browser checks passed: ${runs} viewports and touch; occurrence echoes, keyboard refs, Map Fit and focus reveal, host typography, assistive clicks, selected-route guidance, local question/reply targets, partial compilation, cycles, duplicate Bearings, unit scope and cleanup.`);
 } finally {
   await browser.close();
 }

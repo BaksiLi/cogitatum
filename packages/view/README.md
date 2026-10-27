@@ -4,6 +4,10 @@ Experimental, framework-neutral Map and Reading views of compiler-produced Cogit
 Core owns parsing and relation semantics; View owns presentation and temporary selection.
 Currently available from this checkout, not the published Core/CLI release.
 The 0.6 checkout requires matching Core/format 0.6 projections.
+Core selects local or explicit Bearing construction, reuse or note mode from the first token after `bearing` / `edge` / `_`.
+Local `[_ G]`, `[_ O]`, `[_ R]` and `[_ D]` produce Bearings with direct neutral source members; a singleton is complete and header prose supplies `Bearing.text`.
+View consumes AST `kind: "localBearing"` / `"explicitBearing"` and Explain `localBearingMember` / `local-bearing-containment` membership classifications.
+Convergent, Linked and Serial describe graph structures; source arrays and junctions convey participation, not strength or success.
 Reading retains typed notes in source order and provides links to their original passages from declarations and uses.
 `ReadingUnit.notes` joins each Core note record to existing source occurrences; reuse creates no copied note.
 Map marks show typed note counts, and the block preview's details include their full content and source navigation.
@@ -110,11 +114,16 @@ Selecting one of several alternative Bearings to the same target therefore shows
 Membership is by Bearing identity, so parallel Bearings of the same kind between the same endpoints remain separate routes.
 Emphasis means only "currently examined"; it expresses no confidence, acceptance or outcome, and does not depend on how many sources or objections a route has.
 Guidance only dims; the declared shapes remain visible and selectable.
-Nodes support arrow-key navigation in source order, Space selection, Enter/double-click navigation and Escape to clear. A Bearing with one source is drawn as its own line with a circular kind symbol, so independent supports stay separate lines even when they reach the same target; a joint Bearing (several sources), an addressed Bearing (the target of a Bearing-directed `challenges`, `supports` or `about`), or a parallel/self-directed one keeps a diamond junction with one input line per source. Lines are never merged into a shared trunk. Motion respects system reduced-motion and an optional host `reducedMotion()` callback. Callbacks and accessible labels retain full text, including collapsed Bearings.
+Nodes support arrow-key navigation in source order, Space selection, Enter/double-click navigation and Escape to clear. A Bearing with one source is drawn as its own line with a circular kind symbol, so independent supports stay separate lines even when they reach the same target; a joint Bearing (several sources), an addressed Bearing (the target of a Bearing-directed `challenges`, `supports` or `concerns`), or a parallel/self-directed one keeps a diamond junction with one input line per source. Lines are never merged into a shared trunk. Motion respects system reduced-motion and an optional host `reducedMotion()` callback. Callbacks and accessible labels retain full text, including collapsed Bearings.
 
 `projectGraph` exposes the incidence graph, and `layoutGraph` its deterministic reading arrangement for alternate renderers. The default direction is `down`; pass `direction: 'right'` to the view or `layoutGraph` options for horizontal flow. The incidence projection represents each Bearing as a node: multiple input links mean joint sources, and output links can target other Bearings. This is a view representation of Core's first-class relationship object, not a new Core Point. `projectExploration` provides the simplified visual topology and its `inlineBearings`; collapsed output links retain their original `bearingKey`. Use `focusNeighborhood` against the complete incidence projection, including collapsed Bearings. These pure view helpers neither invent transitive connections nor flatten joint support. Core owns typed identities and relation semantics; the view owns visual topology, neighborhood guidance and geometry. Host code should surface compiler diagnostics when rendering a partial graph.
 
-`marks` is the shared vocabulary for every surface: `POINT_MARKS`, `BEARING_MARKS`, `pointMark(label)`, `declarationMark(point.declaration)` and `bearingMark(kind)` give canonical names (docs/glossary.md), auxiliary Chinese readings, glyph shapes and kind symbols; `drawPointGlyph`, `drawBearingGlyph`, `createMarkChip` and `createBearingChip` draw the same glyphs for host chips and lists; `MARK_TYPE` is the type scale. Display names follow the glossary: the `Material` key, matching Graph IR `declaration.form: "material"`, displays as Neutral Point (中性點); keys, label unions and shapes are unchanged identifiers. Shape carries meaning (filled Point, dashed ring for Gap, square for Neutral Point); colour only distinguishes authored support from objection and never judges correctness. `layoutGraph` owns automatic placement; `relaxLayout` owns bounded local adjustment.
+`marks` is the shared vocabulary for every surface: `POINT_MARKS`, `BEARING_MARKS`, `pointMark(label)`, `declarationMark(point.declaration)` and `bearingMark(kind)` give canonical names, auxiliary Chinese readings, glyph shapes and kind symbols.
+`drawPointGlyph`, `drawBearingGlyph`, `createMarkChip` and `createBearingChip` draw the same glyphs for host chips and lists; `MARK_TYPE` is the type scale.
+Display names follow the [glossary](../../docs/glossary.md): the `Material` key, matching Graph IR `declaration.form: "material"`, displays as Neutral Point (中性點).
+Role-marked Points use circles; Neutral Points use squares.
+Colour distinguishes authored support from objection and never judges correctness.
+`layoutGraph` owns automatic placement; `relaxLayout` owns bounded local adjustment.
 The pre-release layout selector, `GraphLayout`, `setLayout`, `layoutFlow`, `layoutConstellation` and `layoutGraphSettled` have been removed; hosts use the single Map and `resetLayout()`.
 
 Map CSS is scoped to `.cog-graph` and `.cog-chip`, themed only through `--cog-ink`, `--cog-surface`, `--cog-canvas`, `--cog-muted`, `--cog-line`, `--cog-focus`, `--cog-support` and `--cog-objection` (`--cog-bearing-surface` and `--cog-accent` are no longer read). The host controls container size, full-text/evidence UI and diagnostics. This is a small renderer for inquiry fragments, not a graph editor or a large-workspace layout engine.
@@ -164,7 +173,9 @@ The host must pair the exact input and output, including host text outside selec
 
 For an implicit target, the endpoint is the occurrence identified by Core's `implicitAttachment.contextSpan`.
 For an explicit target or source operand, it is the canonical declaration/construction.
-Joint sources use their own Linked member occurrences.
+Local Bearing sources use their own direct neutral member occurrences.
+A neutral use presents the existing Point at that source location without creating another Point.
+Explicit sources use their named operands' canonical declarations.
 A local Bearing use remains a local row; a target at the Bearing's construction reaches its junction.
 These display locations do not create extra graph entities, independent evidence or inferred relations.
 Repeated names and keys in different source units remain separate.

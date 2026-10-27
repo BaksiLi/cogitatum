@@ -5,11 +5,6 @@
       "line": 5,
       "code": "CHALLENGE_REQUIRES_BEARING_TARGET",
       "severity": "error"
-    },
-    {
-      "line": 6,
-      "code": "CHALLENGE_REQUIRES_POINT_TARGET",
-      "severity": "error"
     }
   ],
   "graphs": [
@@ -53,6 +48,18 @@
           },
           "derivedBy": "operator",
           "handle": "route"
+        },
+        {
+          "line": 6,
+          "kind": "challenges",
+          "sources": [
+            6
+          ],
+          "target": {
+            "kind": "bearing",
+            "line": 4
+          },
+          "derivedBy": "operator"
         }
       ]
     }

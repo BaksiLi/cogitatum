@@ -67,8 +67,9 @@ A Serial structure retains its intermediate Point and each step; the formatter a
 
 For format 0.6.0, a graph has finite, disjoint typed identity sets of Points and Bearings.
 Each Bearing has a nonempty, duplicate-free, ordered sequence of Point sources and one typed Point or Bearing target.
-`supports`, `challenges` and `about` admit either target type; `answers`, `repliesTo` and `clarifies` require a Point.
-Point declaration metadata is `role` with its role, `gap` with open status, or `material`.
+`supports`, `challenges` and `concerns` admit either target type; `answers`, `repliesTo` and `clarifies` require a Point.
+Point declaration metadata is `role` with its role, or `material` without a role.
+Neither form carries an open or resolved status.
 Authored names are separate from compilation-local keys.
 Refer to [the machine contract](syntax.md#machine-contract-and-cli) for field definitions and source-unit scope.
 
@@ -92,7 +93,7 @@ No graph row asserts truth, logical validity, defeat, acceptability or resolutio
 | --- | --- |
 | Format version | Printed explicitly |
 | Each Point and Bearing identity | Replaced by a distinct output-local `pN` or `bN` label, used consistently in every reference |
-| Point `declaration`, `text`, optional `id` | Preserved; declaration includes its applicable role or open status |
+| Point `declaration`, `text`, optional `id` | Preserved; declaration records its form and applicable role |
 | Bearing `kind`, ordered `sources`, typed `target`, optional `handle` and `text` | Preserved, including separate instances with equal endpoints |
 | Optional name/text absence versus empty string | Preserved by omitting the field or printing `=""` |
 | Point and Bearing array order | Used to allocate and print labels; no sorting or deduplication |
@@ -123,7 +124,7 @@ Adding an anchor changes retained authored identity metadata, so that edit does 
 Reordering a Bearing's source list also changes it.
 Changing a Point's declaration from C to G changes it even if the connections remain the same.
 Conversely, a local and explicit form may preserve the projection while changing occurrence prose, literal boundaries or future attachment behavior.
-The [Linked and Serial paired examples](bearings.md#argument-structures) illustrate a supported comparison scope; they do not license arbitrary outline rearrangements.
+The [reconstruction comparisons](syntax.md#reconstruction-choices) show how Linked and Serial arrangements differ; they do not license arbitrary outline rearrangements.
 
 ## Text and diagnostic rules
 
@@ -140,6 +141,97 @@ Warnings and suggestions remain visible; absence of errors does not certify a co
 All supplied diagnostics are printed, including those on an empty graph.
 The CLI retains exit status 0 for no compilation errors, 1 for compilation or I/O failure, and 2 for invalid arguments.
 Argument errors retain JSON diagnostics even when text output was requested.
+
+## Review names before a deliberate edit
+
+The CLI offers `cog check --references inquiry.cog.md` to inspect written references before renaming an observation or reviewing which names to retain.
+Run it on the complete file; use `--input host` for Markdown.
+This is a read-only inventory, not an automatic cleanup rule.
+
+Here both Points participate in a connection, but neither name has a written reference:
+
+```md cog-check points=2 bearings=1 diagnostics=0
+- [C @sampling] Wait ten minutes before sampling.
+  - [G @measurement; @route] Drift was below 0.1% after ten minutes.
+```
+
+The connection comes from indentation.
+The inventory lists `sampling`, `measurement` and the Bearing handle `route`, each with an empty reference array.
+That does not justify removing them: a host or a later revision may rely on those names.
+
+Conversely, this measurement has a written reference even though it participates in no Bearing:
+
+```md cog-check points=1 bearings=0 diagnostics=0
+- [. use @measurement] Revisit the calibration record.
+- [. @measurement] Drift was below 0.1% after ten minutes.
+```
+
+The inventory records the forward Point use on the first line.
+This is complete without a Bearing or an isolation diagnostic.
+Ordinary prose mentions and literal note descendants do not count as syntax references.
+
+Point uses, Bearing uses, explicit ordered sources and explicit targets appear separately in the inventory, with their containing block locations.
+Each host fence has its own namespace.
+If any selected input has errors, including an omitted unclosed or nested fence, the inventory is explicitly unavailable rather than reporting zero references.
+Names with no written references generate no new warnings, and the command never edits the source.
+
+## Preview an explicit target
+
+Use `cog explicit-target --line 3 inquiry.cog.md` to preview fixing the currently selected target of one occurrence.
+The line is one-based in the complete input file; add `--input host` for a selected Cogitatum fence in Markdown.
+Selecting a continuation line locates the same occurrence and edits its first-line annotation.
+The command prints JSON and does not write to the input file.
+
+Before the edit, the Ground below selects the Claim through ordinary body:
+
+```md cog-check require=supports,challenges points=3 bearings=2 diagnostics=1
+- [C @claim] The service needs inspection.
+  - Evidence collected this morning
+    - [G; @route] Two independent retries timed out.
+      - [O/] Both may share a transient fault.
+```
+
+The preview inserts a clause into the selected annotation:
+
+```md cog-check require=supports,challenges points=3 bearings=2 diagnostics=0
+- [C @claim] The service needs inspection.
+  - Evidence collected this morning
+    - [G +> @claim; @route] Two independent retries timed out.
+      - [O/] Both may share a transient fault.
+```
+
+The same three Points and two individual Bearings remain, including the objection to this particular route.
+The source prose, occurrence ownership, note boundaries, indentation, names, handles and line endings are retained.
+The change removes this occurrence's implicit-attachment advice and changes its attachment provenance from structural to explicit.
+It does not decide whether the observations are independent or sufficient.
+
+**This deliberately changes future editing behavior.**
+Moving the Ground under another Claim will retain `@claim` as its target.
+Changing its role will retain the explicit operator rather than select a new relation from local defaults.
+Choose this operation when that is the intended commitment; it is not an automatic formatting fix.
+The inserted operators retain their normal target requirements: `+>`, `->` and `~>` permit either kind; optional `/>` requires a Bearing.
+Later changes to the target declaration therefore need their own review.
+
+The operation handles ordinary implicit `supports`, `challenges`, `repliesTo` and `clarifies` attachments on Point declarations and uses, with an already named Point target.
+It inserts a symbol where available, otherwise the canonical kind name.
+It declines anonymous targets, local `G/`, `O/` or `Q/` selectors and local Bearing headers/source members.
+Unattached `.`, `Q` and `C` occurrences have no implicit relation to make explicit; the preview does not interpret them as answers or relevance relations.
+Already explicit clauses are reported as unavailable rather than receiving a duplicate clause.
+Any error anywhere in the complete input withholds a preview, including an invalid or unclosed separate host fence.
+
+A ready result includes `originalSource`, `proposedSource`, one insertion in `edit`, the original and proposed diagnostic lists, and the consequence for future moves and role changes.
+The insertion offset counts UTF-16 code units in `originalSource`, not UTF-8 bytes.
+Before applying a saved preview, an editor or caller must compare the complete current source with `originalSource`; any difference requires a new preview.
+The command provides no delayed apply or file overwrite mode.
+An unavailable result contains a reason and message, with no edit or proposed source.
+Exit status is 0 for a ready preview, 1 for an unavailable preview or I/O failure, and 2 for invalid command options.
+
+The Core implementation reparses the proposed complete input in the same mode.
+It checks the ordered AST including occurrence text and note subtrees, allowing only the selected clause and source metadata to change.
+It checks every graph's identities, entity order, contents, declarations, ordered sources, typed targets and names, allowing only the selected Bearing's provenance and source positions to change.
+Diagnostics retain their ordered severity, code and starting location, except that the selected implicit-attachment suggestion may disappear.
+Full messages are returned for review because they may embed changed source columns.
+These checks establish the stated structural and source preservation conditions; they do not certify an interpretation of the prose.
 
 ## Core API and compatibility
 

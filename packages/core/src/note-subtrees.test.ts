@@ -47,13 +47,13 @@ describe("literal note subtrees", () => {
   });
 
   it("uses the direct source parent for every placement and never imports remote notes", () => {
-    const source = ["- [C @c] Claim.", "  - [note] Declaration detail.", "  - [G @g; @route] Reason.", "    - [note] Point AND attachment occurrence.", "  - [linked; @joint]", "    - [note] Linked detail.", "    - [G use @g] Inline Ground use prose.", "      - [note] Ground use detail.", "- [_ @g +> @c]", "  - [note] Explicit construction detail.", "- [_ use @route] Inline Bearing use prose.", "  - [note] Bearing use detail.", "- [. use @c] Inline Point use prose.", "  - [note] This use only.", "- Organisation", "  - [note] Body detail.", "- [note] Document detail."].join("\n");
+    const source = ["- [C @c] Claim.", "  - [note] Declaration detail.", "  - [G @g; @route] Reason.", "    - [note] Point AND attachment occurrence.", "  - [_ G; @joint]", "    - [note] Linked detail.", "    - [. use @g] Inline Ground use prose.", "      - [note] Ground use detail.", "- [_ @g +> @c]", "  - [note] Explicit construction detail.", "- [_ use @route] Inline Bearing use prose.", "  - [note] Bearing use detail.", "- [. use @c] Inline Point use prose.", "  - [note] This use only.", "- Organisation", "  - [note] Body detail.", "- [note] Document detail."].join("\n");
     const ast = parseDocument(source);
     const { graph, explain } = compileGraphWithExplain(ast);
     expect(graph.diagnostics).toEqual([]);
     const notes = explain.entries.filter(entry => entry.recognition.kind === "note");
     expect(notes.map(entry => entry.effects.find(effect => effect.kind === "preserveNote"))).toEqual([1, 3, 5, 7, 9, 11, 13, 15, undefined].map(line => line ? { kind: "preserveNote", parentSpan: flatten(ast.blocks).find(block => block.sourceSpan.startLine === line)!.sourceSpan } : { kind: "preserveNote" }));
-    expect(notes[2].effects).toContainEqual({ kind: "linkedMember", linkedSpan: ast.blocks[0].children[2].sourceSpan, eligible: false, function: "supplementary" });
+    expect(notes[2].effects).toContainEqual({ kind: "localBearingMember", localBearingSpan: ast.blocks[0].children[2].sourceSpan, eligible: false, function: "supplementary" });
     expect(graph.points[0].text).toBe("Claim.");
     expect(ast.blocks[2].text).toBe("Inline Bearing use prose.");
     expect(ast.blocks[3].text).toBe("Inline Point use prose.");
@@ -61,15 +61,15 @@ describe("literal note subtrees", () => {
   });
 
   it("excludes notes from ordered linked sources without flattening wrappers", () => {
-    const valid = compile("- [C] Claim.\n  - [linked]\n    - [G @first] First.\n    - [note]\n      - [G @fake] Literal.\n    - [G @last] Last.");
+    const valid = compile("- [C] Claim.\n  - [_ G]\n    - [. @first] First.\n    - [note]\n      - [G @fake] Literal.\n    - [. @last] Last.");
     expect(valid.graph.diagnostics).toEqual([]);
     expect(valid.graph.bearings[0].sources).toEqual([{ kind: "point", key: "_p2" }, { kind: "point", key: "_p3" }]);
     for (const member of ["[note @bad]", "Ordinary body"]) {
-      const invalid = compile("- [C] Claim.\n  - [linked]\n    - [G] First.\n    - " + member + "\n      - [G] Nested.");
+      const invalid = compile("- [C] Claim.\n  - [_ G]\n    - [.] First.\n    - " + member + "\n      - [G] Nested.");
       expect(invalid.graph.bearings).toEqual([]);
-      expect(invalid.graph.diagnostics.map(diagnostic => diagnostic.code)).toContain("INVALID_LINKED_MEMBER");
+      expect(invalid.graph.diagnostics.map(diagnostic => diagnostic.code)).toContain("INVALID_LOCAL_BEARING_MEMBER");
     }
-    expect(compile("- [C] Claim.\n  - [linked]\n    - [note]\n      - [G] Literal.").graph.diagnostics.map(diagnostic => diagnostic.code)).toEqual(["EMPTY_LINKED"]);
+    expect(compile("- [C] Claim.\n  - [_ G]\n    - [note]\n      - [G] Literal.").graph.diagnostics.map(diagnostic => diagnostic.code)).toEqual(["EMPTY_LOCAL_BEARING"]);
   });
 
   it("retains UTF-16 locations in an indented host fence", () => {

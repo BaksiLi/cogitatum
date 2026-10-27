@@ -31,16 +31,18 @@ function pointRef(graph: GraphIR, id: string) {
   return { key: point.key, kind: "point" as const };
 }
 
+// A header that selects no mode reports only itself; an explicit header still
+// requires its first descendant Point to carry its own target.
 const malformedEdges = [
-  ["[edge @g +> @c; @one; @two]", "MALFORMED_ANNOTATION"],
-  ["[edge @g +> @c", "MALFORMED_ANNOTATION_PREFIX"],
-  ["[Edge @g +> @c]", "MALFORMED_EXPLICIT_BEARING"],
-  ["[EDGE @g +> @c]", "MALFORMED_EXPLICIT_BEARING"],
-  ["[edge; @one; @two]", "MALFORMED_ANNOTATION"],
-  ["[edge; @route]", "MALFORMED_EDGE_ANNOTATION"],
-  ["[edge;", "MALFORMED_ANNOTATION_PREFIX"],
-  ["[Edge @g", "MALFORMED_ANNOTATION_PREFIX"],
-  ["[edge @g +> @c;]", "MALFORMED_BEARING_HANDLE"]
+  ["[edge @g +> @c; @one; @two]", "MALFORMED_ANNOTATION", true],
+  ["[edge @g +> @c", "MALFORMED_ANNOTATION_PREFIX", true],
+  ["[Edge @g +> @c]", "MALFORMED_EXPLICIT_BEARING", true],
+  ["[EDGE @g +> @c]", "MALFORMED_EXPLICIT_BEARING", true],
+  ["[edge; @one; @two]", "MALFORMED_ANNOTATION", false],
+  ["[edge; @route]", "MALFORMED_BEARING_MODE", false],
+  ["[edge;", "MALFORMED_ANNOTATION_PREFIX", false],
+  ["[Edge @g", "MALFORMED_ANNOTATION_PREFIX", true],
+  ["[edge @g +> @c;]", "MALFORMED_BEARING_HANDLE", true]
 ] as const;
 
 describe("parser failure boundaries", () => {
@@ -97,13 +99,13 @@ describe("parser failure boundaries", () => {
           expect(result.graph.points.map((point) => point.id)).toEqual(["c"]);
           expect(result.graph.bearings).toEqual([]);
           expect(result.graph.diagnostics.map((item) => item.code)).toEqual([
-            "MALFORMED_ROLE_ANNOTATION", "MALFORMED_EDGE_ANNOTATION"
+            "MALFORMED_ROLE_ANNOTATION", "MALFORMED_EXPLICIT_BEARING"
           ]);
           expectValidContracts(result);
         }
       );
 
-      it.each(malformedEdges)("keeps the failed constructor %s as an edge boundary", (header, code) => {
+      it.each(malformedEdges)("keeps the failed constructor %s as an explicit Bearing boundary", (header, code, explicitMode) => {
         const result = explainUnit(
           `- [C @c] Outer claim.\n` +
           `  - ${header} Failed route.\n` +
@@ -117,7 +119,7 @@ describe("parser failure boundaries", () => {
           mode
         );
         const boundary = result.ast.blocks[0].children[0];
-        expect(boundary.annotation).toMatchObject({ kind: "edge" });
+        expect(boundary.annotation).toMatchObject({ kind: "explicitBearing" });
         expect(boundary.annotation?.syntaxErrors?.length).toBeGreaterThan(0);
         expect(result.graph.points.map((point) => point.id)).toEqual([
           "c", "o", "detail", "explicit", "reply", "g", "other"
@@ -134,12 +136,12 @@ describe("parser failure boundaries", () => {
             kind: "repliesTo", sources: [pointRef(result.graph, "reply")], target: pointRef(result.graph, "explicit")
           })
         ]);
-        expect(result.graph.diagnostics.map((item) => item.code)).toEqual([
-          code, "EDGE_DESCENDANT_REQUIRES_EXPLICIT_TARGET"
-        ]);
+        expect(result.graph.diagnostics.map((item) => item.code)).toEqual(
+          explicitMode ? [code, "EXPLICIT_BEARING_DESCENDANT_REQUIRES_TARGET"] : [code]
+        );
         expect(result.explain.entries.find((entry) => entry.sourceSpan.startLine === boundary.sourceSpan.startLine))
           .toMatchObject({
-            recognition: { kind: "edge" },
+            recognition: { kind: "explicitBearing" },
             effects: [{ kind: "rejectBearing", reason: "annotation-syntax-error" }]
           });
         expectValidContracts(result);
@@ -153,12 +155,12 @@ describe("parser failure boundaries", () => {
       "- [G +> @c; @route] Support.\n" +
       "- [O -> @c] Challenge to the Point.\n" +
       "- [O /> @route] Challenge to the route.\n" +
-      "- [? ~> @c] A gap about the claim.",
+      "- [Q ~> @c] Which evidence bears on the claim?",
       "document"
     );
     expect(result.graph.diagnostics).toEqual([]);
     expect(result.graph.bearings.map((bearing) => [bearing.kind, bearing.target.kind])).toEqual([
-      ["supports", "point"], ["challenges", "point"], ["challenges", "bearing"], ["about", "point"]
+      ["supports", "point"], ["challenges", "point"], ["challenges", "bearing"], ["concerns", "point"]
     ]);
     expectValidContracts(result);
   });
@@ -170,9 +172,8 @@ describe("parser failure boundaries", () => {
     );
     expect(result.graph.points.map((point) => point.id)).toEqual(["c", "o"]);
     expect(result.graph.bearings).toEqual([]);
-    expect(result.graph.diagnostics.map((item) => item.code)).toEqual([
-      "MALFORMED_ANNOTATION", "EDGE_DESCENDANT_REQUIRES_EXPLICIT_TARGET"
-    ]);
+    expect(result.graph.diagnostics.map((item) => item.code)).toEqual(["MALFORMED_ANNOTATION"]);
+    expect(result.ast.blocks[0].children[0].annotation).toMatchObject({ kind: "explicitBearing", syntaxErrors: ["mode"] });
     expectValidContracts(result);
   });
 
@@ -194,7 +195,7 @@ describe("parser failure boundaries", () => {
     const ast = parseDocument("- [C @c] Claim.\n  - [Edge @g +> @c]\n    - [O @o] Objection.");
     const boundary = ast.blocks[0].children[0];
     const raw = boundary.raw;
-    expect(boundary.annotation?.kind).toBe("edge");
+    expect(boundary.annotation?.kind).toBe("explicitBearing");
     expect(compileGraph(ast).bearings).toEqual([]);
     delete boundary.annotation;
     const graph = compileGraph(ast);

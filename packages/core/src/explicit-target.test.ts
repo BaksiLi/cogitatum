@@ -35,7 +35,7 @@ describe("explicit target previews", () => {
     expect(previewExplicitTarget(source, { line: 5 })).toMatchObject({ status: "unavailable", reason: "no-attachment" });
   });
 
-  it.each([["G", "+>"], ["O", "->"], ["?", "~>"]])("makes %s explicit without changing its prose, mark, name or handle", (mark, symbol) => {
+  it.each([["G", "+>"], ["O", "->"]])("makes %s explicit without changing its prose, mark, name or handle", (mark, symbol) => {
     const source = `- [C @claim] Claim.\n  - [ ${mark} @point   ; @step ] Reason [G] stays prose.\n    - [O/] Review this particular step.\n    - [note] Qualification.\n      - [G +> @missing] Inert syntax.`;
     const preview = ready(previewExplicitTarget(source, { line: 2 }));
     expect(preview.proposedSource).toBe(source.replace(`${mark} @point   ;`, `${mark} @point ${symbol} @claim   ;`));
@@ -57,6 +57,31 @@ describe("explicit target previews", () => {
     expect(graph.bearings[0].sources).toEqual(graph.bearings[1].sources);
     expect(graph.bearings[0].target).not.toEqual(graph.bearings[1].target);
   });
+
+  it.each([["Q", "R", "repliesTo"], ["O", "R", "repliesTo"], ["C", "D", "clarifies"]])(
+    "makes implicit %s > %s explicit with %s while keeping child and object-note ownership",
+    (parent, child, kind) => {
+      for (const occurrence of [`${child} @point`, `${child} use @shared`]) {
+        const source = `- [. @shared] Shared content.
+- [${parent} @target] Target.
+  - Context for the reader.
+    - [${occurrence}; @step] Local prose
+      with a continuation.
+      - [G @reason] A reason for the Point.
+      - [O/ @review] Review this attachment.
+      - [. note] Point note.
+      - [_ note] Bearing note.`;
+        const preview = ready(previewExplicitTarget(source, { line: 5 }));
+        expect(preview.proposedSource).toBe(source.replace(`[${occurrence};`, `[${occurrence} ${kind} @target;`));
+        expect(preview.proposedDiagnostics).toEqual(preview.diagnostics.filter(diagnostic => diagnostic.code !== "IMPLICIT_ATTACHMENT_THROUGH_BODY"));
+        const before = explainSource(source).graphs[0], after = explainSource(preview.proposedSource).graphs[0];
+        expect(formatGraph({ ...after, diagnostics: [] })).toBe(formatGraph({ ...before, diagnostics: [] }));
+        expect(after.notes).toEqual(before.notes);
+        expect(after.bearings[0]).toMatchObject({ kind, handle: "step", derivedBy: "operator" });
+        expect(previewExplicitTarget(preview.proposedSource, { line: 4 })).toMatchObject({ reason: "already-explicit" });
+      }
+    }
+  );
 
   it("targets the canonical Point selected by a reused parent, not a nearby declaration", () => {
     const source = '- [C @first] First.\n- [C @second] Second.\n- [C use @first] Local reading.\n  - Body\n    - [O] Concern.';
@@ -97,10 +122,10 @@ describe("explicit target previews", () => {
   it("retains unrelated diagnostics and removes only the selected implicit advice", () => {
     const source = '- [. @alone] Isolated material.\n- [C @a] Claim.\n  - Group\n    - [G] One.\n    - [O] Two.';
     const preview = ready(previewExplicitTarget(source, { line: 4 }));
-    expect(preview.diagnostics).toHaveLength(3);
-    expect(preview.proposedDiagnostics).toHaveLength(2);
-    expect(preview.proposedDiagnostics.map(d => d.code)).toEqual(['DISCONNECTED_ANCHORED_MATERIAL', 'IMPLICIT_ATTACHMENT_THROUGH_BODY']);
-    expect(preview.proposedDiagnostics[1].sourceSpan?.startLine).toBe(5);
+    expect(preview.diagnostics).toHaveLength(2);
+    expect(preview.proposedDiagnostics).toHaveLength(1);
+    expect(preview.proposedDiagnostics.map(d => d.code)).toEqual(['IMPLICIT_ATTACHMENT_THROUGH_BODY']);
+    expect(preview.proposedDiagnostics[0].sourceSpan?.startLine).toBe(5);
   });
 
   it("makes the intentional difference after moving the same occurrence explicit", () => {
@@ -116,16 +141,16 @@ describe("explicit target previews", () => {
 
   it.each([
     ['anonymous target', '- [C] Claim.\n  - [G] Reason.', 2, 'unnamed-target'],
-    ['answer', '- [Q @q] Question.\n  - [C] Answer.', 2, 'unsupported-attachment'],
-    ['reply', '- [O @o] Objection.\n  - [R] Reply.', 2, 'unsupported-attachment'],
-    ['clarification', '- [C @c] Claim.\n  - [D] Distinction.', 2, 'unsupported-attachment'],
     ['local selector', '- [C @c] Claim.\n  - [G; @route] Reason.\n    - [O/] Concern.', 3, 'unsupported-attachment'],
-    ['linked member', '- [C @c] Claim.\n  - [linked]\n    - [G] Reason.', 3, 'no-attachment'],
-    ['linked header', '- [C @c] Claim.\n  - [linked]\n    - [G] Reason.', 2, 'no-attachment'],
+    ['linked member', "- [C @c] Claim.\n  - [_ G]\n    - [.] Reason.", 3, 'no-attachment'],
+    ['local Bearing header', "- [C @c] Claim.\n  - [_ G]\n    - [.] Reason.", 2, 'no-attachment'],
     ['explicit clause', '- [C @c] Claim.\n  - [G +> @c] Reason.', 2, 'already-explicit'],
     ['literal child', '- [C @c] Claim.\n  - [note] Literal.\n    - [G] Not an active Point.', 3, 'no-attachment'],
     ['body', '- [C @c] Claim.\n  - Plain body.', 2, 'no-attachment'],
     ['unattached root', '- [G] Reason.', 1, 'no-attachment'],
+    ['question without a relation', '- [C @c] Claim.\n  - [Q] Which scale?', 2, 'no-attachment'],
+    ['claim under a question', '- [Q @q] Which scale?\n  - [C] Seconds.', 2, 'no-attachment'],
+    ['neutral answer fragment', '- [Q @q] Which scale?\n  - [.] Seconds.', 2, 'no-attachment'],
     ['missing line', '- [C @c] Claim.', 100, 'no-attachment'],
     ['invalid source', '- [C @c] Claim.\n  - [G] Reason.\n- [O /> @c] Wrong target.', 2, 'source-errors']
   ] as const)("declines %s without a partial edit", (_label, source, line, reason) => {
@@ -136,8 +161,8 @@ describe("explicit target previews", () => {
   });
 
   it("explains why a joint target cannot be made explicit by editing a single member", () => {
-    const source = "- [C @claim] Claim.\n  - [linked; @joint] Joint route.\n    - [G @first] First source.\n    - [G @second] Second source.";
-    for (const [line, message] of [[2, "This linked header constructs one joint Bearing."], [3, "This Ground contributes to the enclosing joint Bearing."], [4, "This Ground contributes to the enclosing joint Bearing."]] as const) {
+    const source = "- [C @claim] Claim.\n  - [_ G; @joint] Joint route.\n    - [. @first] First source.\n    - [. @second] Second source.";
+    for (const [line, message] of [[2, "This local header constructs one Bearing."], [3, "This Point contributes to the enclosing Bearing."], [4, "This Point contributes to the enclosing Bearing."]] as const) {
       const preview = previewExplicitTarget(source, { line });
       expect(preview).toMatchObject({ status: "unavailable", reason: "no-attachment", message: expect.stringContaining(message) });
       expect(preview).not.toHaveProperty("edit");
@@ -146,7 +171,7 @@ describe("explicit target previews", () => {
   });
 
   it("keeps errors, independent clauses, selectors and literal notes ahead of joint-member advice", () => {
-    const source = "- [C @claim] Claim.\n  - [linked; @joint] Joint route.\n    - [G @first] Source.\n    - [G +> @claim] Independent support.\n    - [O/] Review joint.\n    - [note] Literal.\n      - [G] Inert.";
+    const source = "- [C @claim] Claim.\n  - [_ G; @joint] Joint route.\n    - [. @first] Source.\n    - [G +> @claim] Independent support.\n    - [O/] Review joint.\n    - [note] Literal.\n      - [G] Inert.";
     expect(previewExplicitTarget(source + "\n- [G +> @missing] Broken.", { line: 2 })).toMatchObject({ reason: "source-errors" });
     expect(previewExplicitTarget(source, { line: 4 })).toMatchObject({ reason: "already-explicit" });
     expect(previewExplicitTarget(source, { line: 5 })).toMatchObject({ reason: "unsupported-attachment" });

@@ -30,13 +30,13 @@ describe("independent and joint support stay distinct in the visual topology", (
   });
 
   it("keeps a linked block, its singleton form and pressure on the joint Bearing addressable", () => {
-    const local = explore(fixture("core/local-linked.cog.md"));
+    const local = explore(fixture("core/local-bearing.cog.md"));
     const route = local.graph.bearings.find(b => b.handle === "joint-route")!;
     expect(route.sources).toHaveLength(2);
     const id = referenceKey({ kind: "bearing", key: route.key });
     expect(local.exploration.nodes.some(n => n.id === id)).toBe(true);
     expect(local.exploration.links.some(l => l.segment === "output" && l.target === id)).toBe(true);
-    const host = explore(fixture("host/local-linked.md"), "host");
+    const host = explore(fixture("host/local-bearing.md"), "host");
     const single = host.graph.bearings.find(b => b.handle === "route")!;
     expect(single.sources).toHaveLength(1);
     // Addressed by a Bearing-targeted challenge, so it remains a junction even with one source; nothing is invented.
@@ -57,7 +57,7 @@ describe("reading layout", () => {
   });
 
   it("separates disconnected fragments and keeps every point readable apart", () => {
-    const { topology } = explore("- [Q] One?\n  - [C] Answer.\n- [O] A top-level objection stays a Point.\n- [?] A gap.\n  - [C] A claim under a gap.");
+    const { topology } = explore("- [Q] One?\n  - [C] Answer.\n- [O] A top-level objection stays a Point.\n- [Q] A gap.\n  - [C] A claim under a gap.");
     const placed = layoutGraph(topology);
     expect(placed).toHaveLength(topology.nodes.length);
     for (let i = 0; i < placed.length; i++) for (let j = i + 1; j < placed.length; j++) {
@@ -86,7 +86,7 @@ describe("reading layout", () => {
   });
 
   it("relaxes without moving pinned nodes and never touches the projection", () => {
-    const { topology } = explore(fixture("core/local-linked.cog.md"));
+    const { topology } = explore(fixture("core/local-bearing.cog.md"));
     const before = structuredClone(topology);
     const seed = layoutGraph(topology);
     const positions = new Map(seed.map(n => [n.id, { x: n.x, y: n.y }]));
@@ -104,9 +104,9 @@ describe("reading layout", () => {
       "- [C @other] A second conclusion.",
       "  - [G use @load] Reused here for the second conclusion.",
       "    - [O] Under this use, the load figure is from a test run.",
-      "  - [linked; @joint] Load and config jointly bear on it.",
-      "    - [G use @load] The same load, as one linked member.",
-      "    - [G @config] The pool size is fixed.",
+      "  - [_ G; @joint] Load and config jointly bear on it.",
+      "    - [. use @load] The same load, as one linked member.",
+      "    - [. @config] The pool size is fixed.",
       "- [C @third] A third conclusion.",
       "  - [G use @load; @local-route] A named local attachment.",
       "    - [O/] Pressure on this local attachment, not on the load.",
@@ -150,16 +150,16 @@ describe("reading rail", () => {
 });
 
 describe("shared mark vocabulary", () => {
-  it("uses canonical names and keeps openness only on Gap", () => {
-    expect(Object.values(POINT_MARKS).map(m => m.name)).toEqual(["Question", "Claim", "Ground", "Objection", "Reply", "Distinction", "Gap", "Neutral Point"]);
-    expect(Object.keys(POINT_MARKS)).toEqual(["Q", "C", "G", "O", "R", "D", "Gap", "Material"]);
-    expect(Object.values(POINT_MARKS).map(m => m.zh)).toEqual(["問題", "主張", "依據", "駁議", "回應", "辨別", "闕漏", "中性點"]);
-    expect(Object.values(POINT_MARKS).filter(m => m.shape === "gap").map(m => m.label)).toEqual(["Gap"]);
+  it("uses canonical names without an openness mark", () => {
+    expect(Object.values(POINT_MARKS).map(m => m.name)).toEqual(["Question", "Claim", "Ground", "Objection", "Reply", "Distinction", "Neutral Point"]);
+    expect(Object.keys(POINT_MARKS)).toEqual(["Q", "C", "G", "O", "R", "D", "Material"]);
+    expect(Object.values(POINT_MARKS).map(m => m.zh)).toEqual(["問題", "主張", "依據", "駁議", "回應", "辨別", "中性點"]);
+    expect(Object.values(POINT_MARKS).every(m => m.shape === "filled" || m.shape === "material")).toBe(true);
     expect(pointMark("Material").shape).toBe("material");
     expect(pointMark("O").zh).toBe("駁議");
     expect(bearingMark("challenges").zh).toBe("質疑");
-    expect(bearingMark("about").tone).toBe("neutral");
-    expect(Object.keys(BEARING_MARKS).sort()).toEqual(["about", "answers", "challenges", "clarifies", "repliesTo", "supports"]);
+    expect(bearingMark("concerns").tone).toBe("neutral");
+    expect(Object.keys(BEARING_MARKS).sort()).toEqual(["answers", "challenges", "clarifies", "concerns", "repliesTo", "supports"]);
   });
 
   it("matches the glossary's canonical names and suggested readings", () => {
@@ -168,11 +168,11 @@ describe("shared mark vocabulary", () => {
       const [mark, english, zh] = line.split("|").slice(1, 4).map(cell => cell.trim());
       return [mark.split(",")[0].replaceAll("`", ""), { english, zh }] as const;
     }));
-    const marks = { "[Q]": "Q", "[C]": "C", "[G]": "G", "[O]": "O", "[R]": "R", "[D]": "D", "[?]": "Gap", "[.]": "Material" } as const;
+    const marks = { "[Q]": "Q", "[C]": "C", "[G]": "G", "[O]": "O", "[R]": "R", "[D]": "D", "[.]": "Material" } as const;
     for (const [mark, key] of Object.entries(marks)) {
       expect({ name: POINT_MARKS[key].name, zh: POINT_MARKS[key].zh }, mark).toEqual({ name: rows.get(mark)?.english, zh: rows.get(mark)?.zh });
     }
-    for (const [symbol, kind] of [["+>", "supports"], ["->", "challenges"], ["/>", "challenges"], ["~>", "about"]]) {
+    for (const [symbol, kind] of [["+>", "supports"], ["->", "challenges"], ["~>", "concerns"]]) {
       expect(bearingMark(kind).zh, symbol).toBe(rows.get(symbol)?.zh);
     }
   });

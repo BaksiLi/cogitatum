@@ -3,21 +3,21 @@
   "diagnostics": [],
   "graphs": [{
     "points": [
-      { "line": 1, "form": "role", "role": "C", "id": "claim" },
-      { "line": 3, "form": "role", "role": "G", "id": "first" },
-      { "line": 4, "form": "role", "role": "G", "id": "second" },
-      { "line": 5, "form": "role", "role": "G", "id": "warrant" },
-      { "line": 6, "form": "role", "role": "O", "id": "objection" },
-      { "line": 7, "form": "role", "role": "R", "id": "reply" },
-      { "line": 8, "form": "role", "role": "G", "id": "independent" },
-      { "line": 9, "form": "role", "role": "C", "id": "other" }
+      {"line": 1, "form": "role", "role": "C", "id": "claim"},
+      {"line": 3, "form": "material", "id": "first"},
+      {"line": 4, "form": "material", "id": "second"},
+      {"line": 5, "form": "role", "role": "G", "id": "warrant"},
+      {"line": 6, "form": "role", "role": "O", "id": "objection"},
+      {"line": 7, "form": "role", "role": "R", "id": "reply"},
+      {"line": 8, "form": "role", "role": "G", "id": "independent"},
+      {"line": 9, "form": "role", "role": "C", "id": "other"}
     ],
     "bearings": [
-      { "line": 2, "kind": "supports", "sources": [3, 4], "target": { "kind": "point", "line": 1 }, "derivedBy": "structural", "handle": "joint" },
-      { "line": 5, "kind": "supports", "sources": [5], "target": { "kind": "bearing", "line": 2 }, "derivedBy": "structural" },
-      { "line": 6, "kind": "challenges", "sources": [6], "target": { "kind": "bearing", "line": 2 }, "derivedBy": "structural" },
-      { "line": 7, "kind": "repliesTo", "sources": [7], "target": { "kind": "point", "line": 6 }, "derivedBy": "structural" },
-      { "line": 8, "kind": "supports", "sources": [8], "target": { "kind": "point", "line": 9 }, "derivedBy": "operator", "handle": "separate" }
+      {"line": 2, "kind": "supports", "sources": [3, 4], "target": {"kind": "point", "line": 1}, "derivedBy": "structural", "handle": "joint"},
+      {"line": 5, "kind": "supports", "sources": [5], "target": {"kind": "bearing", "line": 2}, "derivedBy": "structural"},
+      {"line": 6, "kind": "challenges", "sources": [6], "target": {"kind": "bearing", "line": 2}, "derivedBy": "structural"},
+      {"line": 7, "kind": "repliesTo", "sources": [7], "target": {"kind": "point", "line": 6}, "derivedBy": "structural"},
+      {"line": 8, "kind": "supports", "sources": [8], "target": {"kind": "point", "line": 9}, "derivedBy": "operator", "handle": "separate"}
     ]
   }]
 }

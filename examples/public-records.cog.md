@@ -1,8 +1,8 @@
 - A fictional public-records request. The governing rule is still unknown.
 - Public records request
-  - [Q] Should the agency disclose the draft safety report?
-    - [C @disclose] The report should be disclosed with limited redactions.
+  - [Q @disclosure] Should the agency disclose the draft safety report?
+    - [C @disclose answers @disclosure] The report should be disclosed with limited redactions.
       - [G] The report concerns a completed public-safety investigation.
       - [O @privacy] Witness details create a substantial privacy risk.
         - [R] Redacting names and contact details addresses that risk without withholding the findings.
-      - [?] Need the jurisdiction's rule for draft documents and investigatory records.
+      - [note] Need the jurisdiction's rule for draft documents and investigatory records.

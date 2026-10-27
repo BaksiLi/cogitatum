@@ -1,8 +1,9 @@
 import type {
   Annotation,
+  AnnotationSyntaxError,
   BearingKind,
-  BearingOp,
   Diagnostic,
+  LocalBearingRole,
   OperatorClause,
   PointOperatorClause,
   Ref,
@@ -15,6 +16,7 @@ import type {
 // below). Hyphens, plus signs and slashes inside ordinary words such as O-ring,
 // C++ or G/O ratio therefore do not end a mark, and that prose stays body.
 const MARK_END = String.raw`(?=$|[\s;@]|[+\-~/_]>)`;
+const LOCAL_BEARING_START_RE = new RegExp(String.raw`^[QCGORD](?:\?|\/|_)?` + MARK_END, "i");
 const RESERVED_START_RE = new RegExp(
   String.raw`^(?:(?:[QCGORD](?:\?|\/|_)?|\?[/_]?)` + MARK_END +
   String.raw`|use(?=$|;|\s+@)|linked(?=$|[\s;])|join(?=$|[\s;])|@)`,
@@ -23,6 +25,7 @@ const RESERVED_START_RE = new RegExp(
 type AnnotationHead = {
   family?: "point" | "bearing";
   operation: "construct" | "use" | "note";
+  mode?: "local" | "explicit";
   canonicalRaw: string;
 };
 
@@ -31,14 +34,22 @@ type AnnotationHead = {
  * only exact lowercase aliases are normalized into valid grammar.
  */
 export function recognizeAnnotationHead(raw: string): AnnotationHead {
-  const family = /^(\s*)(point|node|\.|bearing|edge|_)(?=$|[\s;])/i.exec(raw);
+  // A role written against a Bearing family spelling, as in [_G], keeps the
+  // local boundary so its sources cannot silently fall back to body.
+  const family = /^(\s*)(point|node|\.|bearing|edge|_)(?=$|[\s;])/i.exec(raw)
+    ?? /^(\s*)(bearing|edge|_)(?=[QCGORD](?:[?/_])?(?:$|[\s;@]))/i.exec(raw);
   const type = family ? /^(point|node|\.)$/i.test(family[2]) ? "point" : "bearing" : undefined;
   const rest = family ? raw.slice(family[0].length).trimStart() : raw.trimStart();
   const operation = /^note(?=$|[\s;@]|[+\-~/_]>)/i.test(rest) ? "note"
-    : /^(?:[QCGORD](?:\?|[_/])?\s+)?use(?=$|[\s;])/i.test(rest) ? "use" : "construct";
+    : (type === "bearing" ? /^use(?=$|[\s;])/i : /^(?:[QCGORD](?:\?|[_/])?\s+)?use(?=$|[\s;])/i).test(rest) ? "use" : "construct";
+  // Keep malformed role-led headers in local mode; later tokens never select
+  // another mode, including use/note or a partially written explicit clause.
+  const mode = type === "bearing" && operation === "construct"
+    ? LOCAL_BEARING_START_RE.test(rest) ? "local" : "explicit"
+    : undefined;
   const canonicalRaw = family && family[2] === family[2].toLowerCase()
     ? family[1] + (type === "point" ? "." : "_") + raw.slice(family[0].length) : raw;
-  return { family: type, operation, canonicalRaw };
+  return { family: type, operation, ...(mode ? { mode } : {}), canonicalRaw };
 }
 const RETIRED_CLAIM_RE = new RegExp(String.raw`^\s*C\?` + MARK_END, "i");
 const RETIRED_SELECTOR_RE = /^\s*[GO]_(?=$|[\s;@])/i;
@@ -46,17 +57,14 @@ const GLUED_OPERATOR_RE = /[^\s,;](?:\+>|->|\/>|~>|_>)|(?:\+>|->|\/>|~>|_>)[^\s,
 const ROLE_RE = /^(Q|C|G|O|R|D)$/;
 const INVALID_OPEN_ROLE_RE = /^(Q|G|O|R|D)\?$/;
 const ANCHOR_RE = /^@([a-z][a-z0-9_-]*)$/;
-const OP_TO_BEARING = new Map<string, BearingOp>([
+const RELATION_TOKENS = new Map<string, BearingKind>([
   ["+>", "supports"],
   ["->", "challenges"],
   ["/>", "challenges"],
-  ["~>", "about"]
-]);
-const EDGE_TO_BEARING = new Map<string, BearingKind>([
-  ...OP_TO_BEARING,
+  ["~>", "concerns"],
   ["supports", "supports"],
   ["challenges", "challenges"],
-  ["about", "about"],
+  ["concerns", "concerns"],
   ["answers", "answers"],
   ["repliesTo", "repliesTo"],
   ["clarifies", "clarifies"]
@@ -85,7 +93,13 @@ function parseRecognizedAnnotation(raw: string, sourceSpan?: SourceSpan): Annota
   if (RETIRED_CLAIM_RE.test(raw)) {
     return {
       annotation: { kind: "invalid", raw },
-      diagnostics: [{ severity: "error", code: "RETIRED_CLAIM_OPENNESS", message: "C? is retired. Deliberately migrate to C to remove Claim open metadata, retaining tentative wording and the original source/version. C does not assert truth, certainty, acceptance or completion; Gap remains separate.", sourceSpan }]
+      diagnostics: [{ severity: "error", code: "RETIRED_CLAIM_OPENNESS", message: "C? is retired. Deliberately migrate to C to remove Claim open metadata, retaining tentative wording and the original source/version. C does not assert truth, certainty, acceptance or completion.", sourceSpan }]
+    };
+  }
+  if (/^\s*\?(?=$|[\s;@/_]|[+\-~]>)/.test(raw)) {
+    return {
+      annotation: { kind: "invalid", raw },
+      diagnostics: [{ severity: "error", code: "RETIRED_GAP_ANNOTATION", message: "Gap [?] is retired. Use a Point for a scoped absence claim, retaining its anchor and explicit ~> attachment when needed, or a note for an author's task. Notes remove Point identity; G/O add a different commitment. Recompile the retained source.", sourceSpan }]
     };
   }
   if (GLUED_OPERATOR_RE.test(raw)) {
@@ -99,12 +113,12 @@ function parseRecognizedAnnotation(raw: string, sourceSpan?: SourceSpan): Annota
     if (annotation?.kind === "bearingUse") {
       annotation.raw = raw;
       annotation.syntaxErrors = ["reference"];
-    } else if (annotation && annotation.kind !== "invalid" && annotation.kind !== "linked" && annotation.kind !== "note") {
+    } else if (annotation && annotation.kind !== "invalid" && annotation.kind !== "localBearing" && annotation.kind !== "note") {
       annotation.raw = raw;
-      const errors = new Set(annotation.syntaxErrors);
+      const errors = new Set<AnnotationSyntaxError>(annotation.syntaxErrors);
       errors.add("retired");
       if (annotation.kind === "use" && /^\s*use(?=$|;|\s+@)/i.test(raw)) errors.add("reference");
-      annotation.syntaxErrors = [...errors];
+      (annotation as { syntaxErrors?: AnnotationSyntaxError[] }).syntaxErrors = [...errors];
     }
     return { annotation: /^\s*@/.test(raw) ? { kind: "invalid", raw } : annotation ?? { kind: "invalid", raw }, diagnostics: [{ severity: "error", code: "RETIRED_AUTHORING_SYNTAX", message: "Retired authoring spelling; migrate this annotation to [" + normalized + "] and reparse the original source.", sourceSpan }, ...parsed.diagnostics] };
   }
@@ -135,7 +149,7 @@ function parseGluedOperator(raw: string, sourceSpan?: SourceSpan): AnnotationPar
     message: `Separate an operator from its neighbours with spaces, as in [${spaced.replace(/(^|\s)_>(?=\s)/g, "$1/>")}].`,
     sourceSpan
   };
-  if (!annotation || annotation.kind === "invalid" || annotation.kind === "note" || annotation.kind === "linked" || annotation.kind === "bearingUse") {
+  if (!annotation || annotation.kind === "invalid" || annotation.kind === "note" || annotation.kind === "localBearing" || annotation.kind === "bearingUse") {
     return { annotation: annotation ? { ...annotation, raw } : { kind: "invalid", raw }, diagnostics: [spacing, ...parsed.diagnostics] };
   }
   const { operatorClause: _clause, ...rest } = annotation;
@@ -160,11 +174,35 @@ function parseCurrentAnnotation(raw: string, sourceSpan?: SourceSpan): Annotatio
     };
   }
 
+  if (edgeIntent && head.mode === "local") {
+    const tokens = splitTokens(semicolonParts[0]);
+    const role = /^[GORD]$/.test(tokens[1] ?? "") ? tokens[1] as LocalBearingRole : undefined;
+    const handle = semicolonParts.length === 2 ? parseSingleRef(semicolonParts[1]) : undefined;
+    const invalidSyntax = tokens[0] !== "_" || tokens.length !== 2 || !role || semicolonParts.length > 2;
+    const invalidHandle = semicolonParts.length === 2 && !handle;
+    const errors: ("localBearing" | "handle")[] = [];
+    if (invalidSyntax) {
+      errors.push("localBearing");
+      diagnostics.push({
+        severity: "error", code: "MALFORMED_LOCAL_BEARING",
+        message: "Local Bearing headers use [_ G], [_ O], [_ R] or [_ D], with an optional ; @route handle and neutral Point sources. The first token after _ selects the mode; do not mix a role with references, operators, use or note." + gluedRoleHint(tokens[0]) + markCaseHint(tokens[1]),
+        sourceSpan
+      });
+    }
+    if (invalidHandle) {
+      errors.push("handle");
+      diagnostics.push({ severity: "error", code: "MALFORMED_BEARING_HANDLE",
+        message: "Bearing handle separator ';' must be followed by exactly one valid @id.", sourceSpan });
+    }
+    return { annotation: { kind: "localBearing", raw, ...(role ? { role } : {}), ...(!invalidSyntax && handle ? { handle } : {}),
+      syntaxErrors: errors.length ? errors : undefined }, diagnostics };
+  }
+
   if (/^join(?=$|[\s;])/i.test(trimmed)) {
     return {
-      annotation: { kind: "linked", raw, syntaxErrors: ["linked"] },
+      annotation: { kind: "localBearing", raw, syntaxErrors: ["localBearing"] },
       diagnostics: [{ severity: "error", code: "RETIRED_JOIN_ANNOTATION",
-        message: "The join keyword is retired. Replace a grouping header with [linked] or [linked; @route], then recompile the original source.", sourceSpan }]
+        message: "The join keyword is retired. Use [_ G; @route] with neutral [.] or [. use @id] source members, then recompile the original source.", sourceSpan }]
     };
   }
   const useIntent = head.family === "point" && head.operation === "use"
@@ -174,8 +212,8 @@ function parseCurrentAnnotation(raw: string, sourceSpan?: SourceSpan): Annotatio
     const tokens = splitTokens(semicolonParts[0]);
     const useIndex = useIntent[1] ? 1 : 0;
     const mark = useIntent[1];
-    const role = mark && /^[QCGORD]$/.test(mark) ? mark as Role : mark === "G/" || mark === "O/" ? mark[0] as "G" | "O" : undefined;
-    const selector = mark === "G/" || mark === "O/" ? "attachment" as const : undefined;
+    const selectorRole = mark === "G/" || mark === "O/" || mark === "Q/" ? mark[0] as "G" | "O" | "Q" : undefined;
+    const role = mark && /^[QCGORD]$/.test(mark) ? mark as Role : selectorRole;
     const operand = tokens[useIndex + 1] ? parseSingleRef(tokens[useIndex + 1]) : undefined;
     const handle = semicolonParts.length === 2 ? parseSingleRef(semicolonParts[1]) : undefined;
     const errors: ("reference" | "operator" | "selector" | "handle")[] = [];
@@ -186,16 +224,16 @@ function parseCurrentAnnotation(raw: string, sourceSpan?: SourceSpan): Annotatio
     const suffix = tokens.slice(useIndex + 2);
     let operatorClause: PointOperatorClause | undefined;
     if (suffix.length) {
-      if (selector) {
+      if (selectorRole) {
         errors.push("selector");
         diagnostics.push({ severity: "error", code: "LOCAL_SELECTOR_WITH_EXPLICIT_CLAUSE", message: "A local selector and an explicit operator clause are mutually exclusive.", sourceSpan });
-      } else if (OP_TO_BEARING.has(suffix[0])) {
+      } else if (isRelationToken(suffix[0])) {
         const clause = parseOperatorClause(suffix[0], "self", suffix.slice(1), sourceSpan, diagnostics);
         if (clause) operatorClause = pointOperatorClause(clause);
         else errors.push("operator");
       } else {
-        errors.push("reference");
-        diagnostics.push({ severity: "error", code: "MALFORMED_POINT_USE", message: "After a Point use operand, only a complete symbolic operator clause is permitted." + namedKindHint(suffix, tokens.slice(0, useIndex + 2).join(" "), tokens[useIndex + 1], true), sourceSpan });
+        errors.push("operator");
+        diagnostics.push({ severity: "error", code: "MALFORMED_POINT_USE", message: "After a Point use operand, only a complete symbolic operator or canonical named-kind clause is permitted." + kindHint(suffix[0]), sourceSpan });
       }
     }
     if (semicolonParts.length === 2 && !handle) {
@@ -203,45 +241,33 @@ function parseCurrentAnnotation(raw: string, sourceSpan?: SourceSpan): Annotatio
       diagnostics.push({ severity: "error", code: "MALFORMED_BEARING_HANDLE", message: "Bearing handle separator ';' must be followed by exactly one valid @id.", sourceSpan });
     }
     const base = { kind: "use" as const, ref: operand ? { id: operand } : undefined, handle, raw, syntaxErrors: errors.length ? [...new Set(errors)] : undefined };
-    return { annotation: selector ? { ...base, role: mark === "G/" ? "G" : "O", selector } : { ...base, role, operatorClause }, diagnostics };
+    return { annotation: selectorRole ? { ...base, role: selectorRole, selector: "attachment" } : { ...base, role, operatorClause }, diagnostics };
   }
-  if (/^linked(?=$|[\s;])/i.test(trimmed)) {
-    const main = semicolonParts[0];
-    const handle = semicolonParts.length === 2 ? parseSingleRef(semicolonParts[1]) : undefined;
-    const invalidSyntax = main !== "linked" || semicolonParts.length > 2;
-    const invalidHandle = semicolonParts.length === 2 && !handle;
-    if (invalidSyntax) {
-      diagnostics.push({ severity: "error", code: "MALFORMED_LINKED_ANNOTATION",
-        message: "Linked annotations must look like [linked] or [linked; @route]." + proseHint(splitTokens(main)), sourceSpan });
-    }
-    if (invalidHandle) {
-      diagnostics.push({ severity: "error", code: "MALFORMED_BEARING_HANDLE",
-        message: "Bearing handle separator ';' must be followed by exactly one valid @id.", sourceSpan });
-    }
-    const errors: ("linked" | "handle")[] = [];
-    if (invalidSyntax) errors.push("linked");
-    if (invalidHandle) errors.push("handle");
-    return { annotation: { kind: "linked", raw, handle,
-      syntaxErrors: errors.length ? errors : undefined }, diagnostics };
+  if (/^linked(?=$|[\s;])/i.test(trimmed) || /^(?:[QCGORD](?:[/_])?|\.)\s+linked(?=$|[\s;])/i.test(trimmed)) {
+    return {
+      annotation: { kind: "localBearing", raw, syntaxErrors: ["localBearing"] },
+      diagnostics: [{ severity: "error", code: "RETIRED_LINKED_ANNOTATION",
+        message: "The linked keyword is retired. Use [_ G], [_ O], [_ R] or [_ D], optionally followed by ; @route, with neutral [.] or [. use @id] source members. Preserve the intended relation, names, commentary and member subtrees when migrating.", sourceSpan }]
+    };
   }
 
   const selectorIntent = /^([QCGORD?])\//i.exec(trimmed);
   if (selectorIntent) {
     const role = selectorIntent[1].toUpperCase();
-    if (role !== "G" && role !== "O") {
-      diagnostics.push({ severity: "error", code: "UNSUPPORTED_LOCAL_BEARING_SELECTOR", message: "Only G/ and O/ select a local Bearing attachment.", sourceSpan });
+    if (role !== "G" && role !== "O" && role !== "Q") {
+      diagnostics.push({ severity: "error", code: "UNSUPPORTED_LOCAL_BEARING_SELECTOR", message: "Only G/, O/ and Q/ select a local Bearing attachment.", sourceSpan });
       return { annotation: { kind: "invalid", raw }, diagnostics };
     }
     const tokens = splitTokens(semicolonParts[0]);
     const anchor = tokens.length === 2 ? parseSingleRef(tokens[1]) : undefined;
     const handle = semicolonParts.length === 2 ? parseSingleRef(semicolonParts[1]) : undefined;
-    const combined = tokens.some(token => OP_TO_BEARING.has(token));
+    const combined = tokens.some(isRelationToken);
     const invalidSelector = tokens[0] !== role + "/" || tokens.length > 2 || (tokens.length === 2 && !anchor) || semicolonParts.length > 2;
     const invalidHandle = semicolonParts.length === 2 && !handle;
     const errors: ("selector" | "handle")[] = [];
     if (invalidSelector) {
       errors.push("selector");
-      diagnostics.push({ severity: "error", code: combined ? "LOCAL_SELECTOR_WITH_EXPLICIT_CLAUSE" : "MALFORMED_LOCAL_BEARING_SELECTOR", message: combined ? "A local selector and an explicit operator clause are mutually exclusive; use G +> @route or O /> @route instead." : "Local selectors must look like [G/], [O/ @id], or [O/ @id; @attack]." + markCaseHint(tokens[0]), sourceSpan });
+      diagnostics.push({ severity: "error", code: combined ? "LOCAL_SELECTOR_WITH_EXPLICIT_CLAUSE" : "MALFORMED_LOCAL_BEARING_SELECTOR", message: combined ? "A local selector and an explicit operator clause are mutually exclusive; use a complete clause such as G +> @route, O /> @route or Q ~> @route instead." : "Local selectors must look like [G/], [O/ @id], or [Q/ @id; @question-route]." + markCaseHint(tokens[0]), sourceSpan });
     }
     if (invalidHandle) {
       errors.push("handle");
@@ -258,7 +284,7 @@ function parseCurrentAnnotation(raw: string, sourceSpan?: SourceSpan): Annotatio
       sourceSpan
     });
     return {
-      annotation: edgeIntent ? { kind: "edge", raw, syntaxErrors: ["operator"] } : undefined,
+      annotation: edgeIntent ? { kind: "explicitBearing", raw, syntaxErrors: [isBearingModeUnselected(trimmed) ? "mode" : "operator"] } : undefined,
       diagnostics
     };
   }
@@ -288,6 +314,18 @@ function parseCurrentAnnotation(raw: string, sourceSpan?: SourceSpan): Annotatio
     return { diagnostics };
   }
 
+  // Only a role letter or an @reference starts a construction. Any other first
+  // token selects no mode, so neither local nor explicit rules are assumed.
+  if (edgeIntent && isBearingModeUnselected(main)) {
+    diagnostics.push({
+      severity: "error",
+      code: "MALFORMED_BEARING_MODE",
+      message: "The first token after _, bearing or edge selects the mode: G, O, R or D for local construction ([_ G]), @ref for explicit construction ([_ @a +> @claim]), use ([_ use @route]) or note ([_ note])." + localKindHint(tokens[1]) + proseHint(tokens),
+      sourceSpan
+    });
+    return { annotation: { kind: "explicitBearing", syntaxErrors: invalidHandle ? ["mode", "handle"] : ["mode"], handle, raw }, diagnostics };
+  }
+
   // Retain the failed constructor and its handle so descendants and references
   // cannot silently attach elsewhere. This is a migration error, never an alias.
   if (edgeIntent && tokens.includes("undercuts")) {
@@ -297,10 +335,15 @@ function parseCurrentAnnotation(raw: string, sourceSpan?: SourceSpan): Annotatio
       message: "The named undercuts spelling is retired. To preserve a challenge to a Bearing, replace undercuts with /> and recompile the original source. This does not classify a theory-specific undercut.",
       sourceSpan
     });
-    return { annotation: { kind: "edge", raw, handle, syntaxErrors: syntaxErrors(true, invalidHandle) }, diagnostics };
+    return { annotation: { kind: "explicitBearing", raw, handle, syntaxErrors: syntaxErrors(true, invalidHandle) }, diagnostics };
+  }
+  if (edgeIntent && tokens.includes("about")) {
+    diagnostics.push({ severity: "error", code: "RETIRED_BEARING_KIND",
+      message: "The named about spelling is retired. Use concerns or ~> and recompile the original source; do not relabel old JSON.", sourceSpan });
+    return { annotation: { kind: "explicitBearing", raw, handle, syntaxErrors: syntaxErrors(true, invalidHandle) }, diagnostics };
   }
 
-  const opIndex = tokens.findIndex((token) => (edgeIntent ? EDGE_TO_BEARING : OP_TO_BEARING).has(token));
+  const opIndex = tokens.findIndex(isRelationToken);
   if (opIndex >= 0) {
     const prefix = tokens.slice(0, opIndex);
     const targets = tokens.slice(opIndex + 1);
@@ -314,13 +357,13 @@ function parseCurrentAnnotation(raw: string, sourceSpan?: SourceSpan): Annotatio
         diagnostics.push({
           severity: "error",
           code: "MALFORMED_EXPLICIT_BEARING",
-          message: "Edge annotations must begin with the lowercase edge keyword.",
+          message: "Bearing family spellings are lowercase: write _, bearing or edge.",
           sourceSpan
         });
       }
       return {
         annotation: {
-          kind: "edge",
+          kind: "explicitBearing",
           operatorClause: operatorClause as (OperatorClause & { sources: Ref[] }) | undefined,
           syntaxErrors: syntaxErrors(!operatorClause, invalidHandle),
           handle,
@@ -351,13 +394,13 @@ function parseCurrentAnnotation(raw: string, sourceSpan?: SourceSpan): Annotatio
   if (edgeIntent) {
     diagnostics.push({
       severity: "error",
-      code: "MALFORMED_EDGE_ANNOTATION",
-      message: "Edge annotations require sources, a symbolic operator or canonical kind, and one target." + edgeKindHint(tokens) + proseHint(tokens),
+      code: "MALFORMED_EXPLICIT_BEARING",
+      message: "Explicit Bearings require sources, a symbolic operator or canonical kind, and one target." + edgeKindHint(tokens) + proseHint(tokens),
       sourceSpan
     });
     return {
       annotation: {
-        kind: "edge",
+        kind: "explicitBearing",
         syntaxErrors: syntaxErrors(true, invalidHandle),
         handle,
         raw
@@ -373,7 +416,7 @@ function parseCurrentAnnotation(raw: string, sourceSpan?: SourceSpan): Annotatio
       diagnostics.push({
         severity: "error",
         code: "MALFORMED_ROLE_ANNOTATION",
-        message: "Role annotations must look like [C], [G], or [C @id]." + (namedKindHint(tokens.slice(anchor ? 2 : 1), tokens.slice(0, anchor ? 2 : 1).join(" "), anchor ? tokens[1] : undefined) || proseHint(tokens)),
+        message: "Role annotations must look like [C], [G @id], or [Q @id repliesTo @target]." + proseHint(tokens),
         sourceSpan
       });
       return { diagnostics };
@@ -396,37 +439,13 @@ function parseCurrentAnnotation(raw: string, sourceSpan?: SourceSpan): Annotatio
     return { diagnostics };
   }
 
-  if (first === "?") {
-    const anchor = tokens[1] ? parseSingleRef(tokens[1]) : undefined;
-    if (tokens.length > 2 || (tokens[1] && !anchor)) {
-      diagnostics.push({
-        severity: "error",
-        code: "MALFORMED_GAP_ANNOTATION",
-        message: "Gap annotations must look like [?] or [? @id]." + namedKindHint(tokens.slice(anchor ? 2 : 1), tokens.slice(0, anchor ? 2 : 1).join(" "), anchor ? tokens[1] : undefined),
-        sourceSpan
-      });
-      return { diagnostics };
-    }
-    return {
-      annotation: {
-        kind: "gap",
-        status: "open",
-        anchor,
-        syntaxErrors: invalidHandle ? ["handle"] : undefined,
-        handle,
-        raw
-      },
-      diagnostics
-    };
-  }
-
   const anchor = tokens[1] ? parseSingleRef(tokens[1]) : undefined;
   if (first === ".") {
     if (tokens.length > 2 || (tokens[1] && !anchor)) {
       diagnostics.push({
         severity: "error",
         code: "MALFORMED_ANCHOR_ANNOTATION",
-        message: "Neutral Point declarations must look like [.], [. @id], or [. @id +> @target]." + namedKindHint(tokens.slice(anchor ? 2 : 1), tokens.slice(0, anchor ? 2 : 1).join(" "), anchor ? tokens[1] : undefined),
+        message: "Neutral Point declarations must look like [.], [. @id], or [. @id +> @target].",
         sourceSpan
       });
       return { diagnostics };
@@ -459,12 +478,12 @@ function parseOperatorClause(
   sourceSpan: SourceSpan | undefined,
   diagnostics: Diagnostic[]
 ): OperatorClause | undefined {
-  const op = EDGE_TO_BEARING.get(opToken);
+  const op = RELATION_TOKENS.get(opToken);
   if (!op || (sourceTokens !== "self" && sourceTokens.length === 0) || targetTokens.length === 0) {
     diagnostics.push({
       severity: "error",
       code: "MALFORMED_EXPLICIT_BEARING",
-      message: "Operator clause must include sources, an operator, and one target.",
+      message: "Operator clause must include sources, a symbolic operator or canonical kind, and one target." + (!op ? kindHint(opToken) : ""),
       sourceSpan
     });
     return undefined;
@@ -518,23 +537,17 @@ function parseOperatorClause(
   }
 
   const refs = { sources, target: targets[0] };
-  if (op === "supports" || op === "about") return { ...refs, op, targetKind: "either" };
+  if (op === "supports" || op === "concerns") return { ...refs, op, targetKind: "either" };
   if (op === "challenges") {
-    const targetKind = opToken === "->" ? "point"
-      : opToken === "/>" ? "bearing" : "either";
+    const targetKind = opToken === "/>" ? "bearing" : "either";
     return { ...refs, op, targetKind };
   }
   return { ...refs, op, targetKind: "point" };
 }
 
 function pointOperatorClause(clause: OperatorClause): PointOperatorClause {
-  if (clause.sources === "self") {
-    if (clause.op === "supports" || clause.op === "about") return { ...clause, sources: "self" };
-    if (clause.op === "challenges" && clause.targetKind !== "either") {
-      return { ...clause, sources: "self", targetKind: clause.targetKind };
-    }
-  }
-  throw new Error("Parser invariant violated: a Point clause must use a symbolic operator and self source.");
+  if (clause.sources === "self") return { ...clause, sources: "self" };
+  throw new Error("Parser invariant violated: a Point clause must use a self source.");
 }
 
 function duplicateRefIds(refs: Ref[]): string[] {
@@ -596,7 +609,7 @@ function parseBearingHost(
   raw: string,
   sourceSpan: SourceSpan | undefined,
   diagnostics: Diagnostic[]
-): (Extract<Annotation, { kind: "role" | "gap" | "material" }> & { selector?: never }) | undefined {
+): (Extract<Annotation, { kind: "role" | "material" }> & { selector?: never }) | undefined {
   const first = prefix[0];
   const parsedRole = first ? parseRoleToken(first) : undefined;
 
@@ -624,20 +637,6 @@ function parseBearingHost(
     return undefined;
   }
 
-  if (first === "?") {
-    const anchor = prefix[1] ? parseSingleRef(prefix[1]) : undefined;
-    if (prefix.length > 2 || (prefix[1] && !anchor)) {
-      diagnostics.push({
-        severity: "error",
-        code: "MALFORMED_GAP_BEARING",
-        message: "Gap Bearing annotations must look like [? ~> @target] or [? @id ~> @target]." + jointSourceHint(prefix, clause),
-        sourceSpan
-      });
-      return undefined;
-    }
-    return { kind: "gap", status: "open", anchor, raw };
-  }
-
   const anchor = prefix[1] ? parseSingleRef(prefix[1]) : undefined;
   if (first === "." && prefix.length <= 2 && (!prefix[1] || anchor)) {
     return { kind: "material", anchor, raw };
@@ -646,19 +645,18 @@ function parseBearingHost(
   diagnostics.push({
     severity: "error",
     code: "MALFORMED_EXPLICIT_BEARING",
-    message: "Operator clauses must begin with a role, ?, ., edge or _." + (first === "." ? jointSourceHint(prefix, clause) : markCaseHint(first)),
+    message: "Operator clauses must begin with a role, ., edge or _." + (first === "." ? jointSourceHint(prefix, clause) : markCaseHint(first)),
     sourceSpan
   });
   return undefined;
 }
 
-const KIND_NAMES = [...EDGE_TO_BEARING.keys()].filter(key => /^[a-z]/i.test(key));
-const KIND_SYMBOLS = new Map<string, string>([["supports", "+>"], ["challenges", "->"], ["about", "~>"]]);
+const KIND_NAMES = [...RELATION_TOKENS.keys()].filter(key => /^[a-z]/i.test(key));
+const KIND_SYMBOLS = new Map<string, string>([["supports", "+>"], ["challenges", "->"], ["concerns", "~>"]]);
 
-/** The symbolic operator for a kind that a Point annotation can state, if any. */
+/** The symbolic spelling for a canonical kind, if it has one. */
 export function operatorSymbol(kind: BearingKind, targetKind?: OperatorClause["targetKind"]): string | undefined {
   if (kind === "challenges" && targetKind === "bearing") return "/>";
-  if (kind === "challenges" && targetKind === "either") return undefined;
   return KIND_SYMBOLS.get(kind);
 }
 
@@ -670,22 +668,14 @@ function markCaseHint(token: string | undefined): string {
 }
 
 function proseHint(tokens: string[]): string {
-  return tokens[1] && !tokens[1].startsWith("@") && !EDGE_TO_BEARING.has(tokens[1])
+  return tokens[1] && !tokens[1].startsWith("@") && !isRelationToken(tokens[1])
     ? " To keep bracketed prose at the start of a block, remove the brackets or place other text before them." : "";
 }
 
-function namedKindHint(rest: string[], mark: string, source: string | undefined, use = false): string {
-  const kind = rest.find(token => KIND_NAMES.includes(token));
-  if (!kind) return "";
-  const target = rest[rest.indexOf(kind) + 1] ?? "@target";
-  if (kind === "challenges") {
-    return ` Named challenges is written in an edge and accepts either target kind. On a Point, use -> ${target} for a Point or /> ${target} for a Bearing.`;
-  }
-  const symbol = KIND_SYMBOLS.get(kind);
-  if (symbol) return ` Named kinds are written only in an edge; on a Point write the operator: [${mark} ${symbol} ${target}].`;
-  const named = source ?? "@name";
-  const declare = use ? "Connect the existing Point" : `Declare [${source ? mark : mark + " " + named}] and connect it`;
-  return ` ${kind} has no Point-attached form. ${declare} with [_ ${named} ${kind} ${target}], placed where no indentation default adds a second relation.`;
+// Case-mismatched names still select a clause boundary; parsing diagnoses them
+// instead of letting the occurrence acquire a default attachment.
+function isRelationToken(token: string): boolean {
+  return RELATION_TOKENS.has(token) || KIND_NAMES.some(kind => kind.toLowerCase() === token.toLowerCase());
 }
 
 function jointSourceHint(prefix: string[], clause: string): string {
@@ -694,9 +684,38 @@ function jointSourceHint(prefix: string[], clause: string): string {
     ? ` A Point clause has only the Point itself as its source; write joint sources in an edge: [_ ${sources.join(", ")} ${clause}].` : "";
 }
 
+/** Whether a Bearing-family construction header has no role letter or @reference after its family spelling. */
+export function isBearingModeUnselected(header: string): boolean {
+  const head = recognizeAnnotationHead(header);
+  if (head.family !== "bearing" || head.mode !== "explicit") return false;
+  const first = splitTokens(head.canonicalRaw.split(";")[0])[1];
+  return !first?.startsWith("@");
+}
+
+const LOCAL_ROLE_FOR_KIND = new Map<string, string>([
+  ["+>", "G"], ["supports", "G"], ["->", "O"], ["/>", "O"], ["challenges", "O"], ["repliesTo", "R"], ["clarifies", "D"]
+]);
+
+function localKindHint(token: string | undefined): string {
+  if (!token) return "";
+  const role = LOCAL_ROLE_FOR_KIND.get(token);
+  if (role) return ` To take sources and target from the outline, write the role letter: [_ ${role}].`;
+  return token === "answers" || token === "concerns" || token === "~>"
+    ? " Joint answers and concerns have no local header; name their endpoints explicitly." : "";
+}
+
+function gluedRoleHint(token: string | undefined): string {
+  const glued = token && /^(_|bearing|edge)([QCGORD])/i.exec(token);
+  return glued ? ` Separate the family spelling from the role with a space: [${glued[1]} ${glued[2]}].` : "";
+}
+
 function edgeKindHint(tokens: string[]): string {
   const word = tokens.slice(1).find(token => !token.startsWith("@") && token !== ",");
   if (!word || !tokens[1]?.startsWith("@")) return "";
+  return kindHint(word);
+}
+
+function kindHint(word: string): string {
   const exact = KIND_NAMES.find(kind => kind.toLowerCase() === word.toLowerCase());
   return exact
     ? ` Kind names are case-sensitive: write ${exact}, not ${word}.`
@@ -717,7 +736,7 @@ function openStatusDiagnostic(sourceSpan: SourceSpan | undefined): Diagnostic {
   return {
     severity: "error",
     code: "ROLE_OPENNESS_UNSUPPORTED",
-    message: "Role-level open status is unsupported. Use ? only for a Gap; keep tentative Claim wording in its content.",
+    message: "Role-level open status is unsupported. Keep tentative wording in Point content and author tasks in notes.",
     sourceSpan
   };
 }

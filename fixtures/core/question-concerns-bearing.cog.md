@@ -3,4 +3,4 @@
     - [G] Error logs show repeated connection acquisition failures.
     - [O] Upstream latency may be the actual cause.
       - [R; @temporal-rebuttal] Connection failures begin before upstream latency.
-        - [? ~> @temporal-rebuttal] Need timestamp ordering across services.
+        - [Q/] Do timestamps across services establish this ordering?

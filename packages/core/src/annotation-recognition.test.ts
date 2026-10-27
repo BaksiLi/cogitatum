@@ -36,9 +36,9 @@ describe("annotation recognition boundaries", () => {
     ["[g]", "MALFORMED_ANNOTATION", "Marks are uppercase: write G, not g."],
     ["[c @claim]", "MALFORMED_ANNOTATION", "write C, not c"],
     ["[C?]", "RETIRED_CLAIM_OPENNESS", "C? is retired"],
-    ["[Q?]", "ROLE_OPENNESS_UNSUPPORTED", "Use ? only for a Gap"],
-    ["[C/]", "UNSUPPORTED_LOCAL_BEARING_SELECTOR", "Only G/ and O/"],
-    ["[?/]", "UNSUPPORTED_LOCAL_BEARING_SELECTOR", "Only G/ and O/"],
+    ["[Q?]", "ROLE_OPENNESS_UNSUPPORTED", "Keep tentative wording"],
+    ["[C/]", "UNSUPPORTED_LOCAL_BEARING_SELECTOR", "Only G/, O/ and Q/"],
+    ["[?/]", "RETIRED_GAP_ANNOTATION", "Gap [?] is retired"],
     ["[C major]", "MALFORMED_ROLE_ANNOTATION", "remove the brackets"],
     ["[O-> @outer", "MALFORMED_ANNOTATION_PREFIX", "closing ']'"]
   ])("keeps genuine intent in %s diagnosed as a failed boundary", (prefix, code, text) => {
@@ -61,7 +61,7 @@ describe("annotation recognition boundaries", () => {
   it.each([
     ["[O->@outer]", "[O -> @outer]", "role"],
     ["[O/>@outer]", "[O /> @outer]", "role"],
-    ["[? @gap~>@outer]", "[? @gap ~> @outer]", "gap"],
+    ["[Q @question~>@outer]", "[Q @question ~> @outer]", "role"],
     ["[G use @outer+>@outer]", "[G use @outer +> @outer]", "use"]
   ])("rejects only the clause of the spacing error in %s", (prefix, spaced, kind) => {
     const ast = parseDocument(`- [C @outer] Outer.\n- ${prefix} Text.\n  - [G] Child.`);
@@ -86,7 +86,7 @@ describe("annotation recognition boundaries", () => {
 
   it("keeps a spacing error in an edge as a failed edge boundary", () => {
     const { graph } = compileGraphWithExplain(parseDocument("- [C @a] A.\n- [C @b] B.\n- [C @c] C.\n- [_ @a,@b+>@c] Joint.\n  - [G] Child."));
-    expect(codes(graph)).toEqual(["MALFORMED_EXPLICIT_BEARING", "EDGE_DESCENDANT_REQUIRES_EXPLICIT_TARGET"]);
+    expect(codes(graph)).toEqual(["MALFORMED_EXPLICIT_BEARING", "EXPLICIT_BEARING_DESCENDANT_REQUIRES_TARGET"]);
     expect(message(graph, "MALFORMED_EXPLICIT_BEARING")).toContain("[_ @a,@b +> @c]");
     expect(graph.bearings).toEqual([]);
   });
@@ -101,9 +101,9 @@ describe("clean edge annotations require an operator clause", () => {
     const clauseless = structuredClone(ast);
     delete clauseless.blocks[1].children[0].annotation.operatorClause;
     expect(validateAst(clauseless)).toBe(false);
-    for (const malformed of ["- [edge] Missing clause.", "- [_ @a +>] Missing target.", "- [edge @a +> @c", "- [_ @a,@b+>@c]"]) {
+    for (const [malformed, error] of [["- [edge] Missing clause.", "mode"], ["- [_ @a +>] Missing target.", "operator"], ["- [edge @a +> @c", "operator"], ["- [_ @a,@b+>@c]", "operator"]]) {
       const parsed = json(parseDocument(malformed));
-      expect(parsed.blocks[0].annotation, malformed).toMatchObject({ kind: "edge", syntaxErrors: expect.arrayContaining(["operator"]) });
+      expect(parsed.blocks[0].annotation, malformed).toMatchObject({ kind: "explicitBearing", syntaxErrors: expect.arrayContaining([error]) });
       expect(parsed.blocks[0].annotation.operatorClause, malformed).toBeUndefined();
       expect(parsed.diagnostics.length, malformed).toBeGreaterThan(0);
       expect(validateAst(parsed), malformed).toBe(true);
@@ -131,7 +131,7 @@ describe("clean edge annotations require an operator clause", () => {
     expect(ast).toEqual(before);
     expect(compileGraph(ast)).toEqual(graph);
     expect(graph.bearings).toEqual([]);
-    expect(codes(graph)).toEqual(["MALFORMED_EXPLICIT_BEARING", "EDGE_DESCENDANT_REQUIRES_EXPLICIT_TARGET", "DISCONNECTED_ANCHORED_MATERIAL"]);
+    expect(codes(graph)).toEqual(["MALFORMED_EXPLICIT_BEARING", "EXPLICIT_BEARING_DESCENDANT_REQUIRES_TARGET"]);
     expect(explain.entries[2].effects).toEqual([{ kind: "rejectBearing", reason: "annotation-syntax-error" }]);
   });
 });
@@ -140,18 +140,18 @@ describe("actionable parser messages", () => {
   const diagnosticFor = (source: string) => parseDocument(source).diagnostics;
 
   it.each([
-    ["- [G @x supports @c]", "MALFORMED_ROLE_ANNOTATION", "on a Point write the operator: [G @x +> @c]."],
-    ["- [O challenges @x]", "MALFORMED_ROLE_ANNOTATION", "use -> @x for a Point or /> @x for a Bearing"],
-    ["- [R repliesTo @o]", "MALFORMED_ROLE_ANNOTATION", "repliesTo has no Point-attached form. Declare [R @name] and connect it with [_ @name repliesTo @o]"],
-    ["- [O use @p repliesTo @o]", "MALFORMED_POINT_USE", "Connect the existing Point with [_ @p repliesTo @o]"],
+    ["- [G @x Supports @c]", "MALFORMED_EXPLICIT_BEARING", "Kind names are case-sensitive: write supports, not Supports."],
+    ["- [O Challenges @x]", "MALFORMED_EXPLICIT_BEARING", "write challenges, not Challenges"],
+    ["- [R repliesto @o]", "MALFORMED_EXPLICIT_BEARING", "write repliesTo, not repliesto"],
+    ["- [O use @p repliesto @o]", "MALFORMED_EXPLICIT_BEARING", "write repliesTo, not repliesto"],
     ["- [G @a, @b +> @c]", "MALFORMED_ROLE_BEARING", "write joint sources in an edge: [_ @a, @b +> @c]."],
     ["- [. @a, @b ~> @c]", "MALFORMED_EXPLICIT_BEARING", "[_ @a, @b ~> @c]"],
-    ["- [_ @a repliesto @b]", "MALFORMED_EDGE_ANNOTATION", "Kind names are case-sensitive: write repliesTo, not repliesto."],
-    ["- [_ @a refutes @b]", "MALFORMED_EDGE_ANNOTATION", "refutes is not a canonical kind"],
+    ["- [_ @a repliesto @b]", "MALFORMED_EXPLICIT_BEARING", "Kind names are case-sensitive: write repliesTo, not repliesto."],
+    ["- [_ @a refutes @b]", "MALFORMED_EXPLICIT_BEARING", "refutes is not a canonical kind"],
     ["- [g/]", "MALFORMED_LOCAL_BEARING_SELECTOR", "write G/, not g/"],
     ["- [g +> @c]", "MALFORMED_EXPLICIT_BEARING", "write G, not g"],
-    ["- [edge cases]", "MALFORMED_EDGE_ANNOTATION", "remove the brackets"],
-    ["- [linked list]", "MALFORMED_LINKED_ANNOTATION", "remove the brackets"],
+    ["- [edge cases]", "MALFORMED_BEARING_MODE", "remove the brackets"],
+    ["- [linked list]", "RETIRED_LINKED_ANNOTATION", "neutral"],
     ["- [note to self]", "MALFORMED_NOTE", "remove the brackets"]
   ])("explains %s without changing its code", (source, code, text) => {
     const diagnostics = diagnosticFor(source);
@@ -160,7 +160,7 @@ describe("actionable parser messages", () => {
   });
 
   it("keeps a duplicate anchor an error and suggests reuse that matches the colliding declaration", () => {
-    for (const [line, reuse] of [["[G @x] Again.", "[G use @x]"], ["[? @x ~> @c] Again.", "[. use @x ~> @c]"], ["[. @x; @r] Again.", "[. use @x; @r]"]]) {
+    for (const [line, reuse] of [["[G @x] Again.", "[G use @x]"], ["[Q @x ~> @c] Again.", "[Q use @x ~> @c]"], ["[. @x; @r] Again.", "[. use @x; @r]"]]) {
       const graph = compileGraph(parseDocument(`- [C @c] C.\n- [C @x] First.\n  - [G] Reason.\n- ${line}`));
       const duplicate = graph.diagnostics.find(diagnostic => diagnostic.code === "DUPLICATE_ID");
       expect(duplicate, line).toMatchObject({ severity: "error", message: "Duplicate anchor @x.", sourceSpan: { startLine: 4 } });
@@ -168,6 +168,18 @@ describe("actionable parser messages", () => {
       expect(ids(graph), line).toEqual(["c", "role"]);
       expect(graph.bearings, line).toEqual([]);
     }
+  });
+
+  it("retains a named clause, local role and handle in duplicate-declaration reuse advice", () => {
+    const source = "- [C @p] Shared.\n- [O @target] Objection.\n- [Q @p repliesTo @target; @route] Which scale?";
+    const { graph } = compileGraphWithExplain(parseDocument(source));
+    const spelling = "[Q use @p repliesTo @target; @route]";
+    expect(graph.diagnostics.find(diagnostic => diagnostic.code === "DUPLICATE_ID")?.explanation).toContain(`reuse it with ${spelling}`);
+    const followed = compileGraph(parseDocument(source.replace("[Q @p repliesTo @target; @route]", spelling)));
+    expect(followed.diagnostics).toEqual([]);
+    expect(followed.points).toHaveLength(2);
+    expect(followed.points[0].declaration.role).toBe("C");
+    expect(followed.bearings[0]).toMatchObject({ kind: "repliesTo", handle: "route" });
   });
 
   it.each([["O", "challenges"], ["G", "supports"]])("keeps the %s/ selector in the suggested reuse and its typed endpoint", (role, kind) => {

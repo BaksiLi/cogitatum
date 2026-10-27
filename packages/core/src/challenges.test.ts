@@ -16,9 +16,9 @@ const schemas = Object.fromEntries(["ast", "graph-ir", "explain", "source"].map(
   return [name, schema];
 }));
 
-describe("format 0.5 unified challenges", () => {
+describe("format 0.6 unified challenges", () => {
   it.each([
-    ["->", "point", "claim", "route", "CHALLENGE_REQUIRES_POINT_TARGET"],
+    ["->", "either", "claim", "missing", "UNKNOWN_TARGET"],
     ["/>", "bearing", "route", "claim", "CHALLENGE_REQUIRES_BEARING_TARGET"]
   ] as const)("preserves the authored target requirement of %s through AST JSON", (spelling, targetKind, valid, invalid, code) => {
     const source = declarations + `\n- [edge @b ${spelling} @${valid}; @attack]`;
@@ -31,7 +31,7 @@ describe("format 0.5 unified challenges", () => {
     expect(ajv.validate(schemas.ast, ast)).toBe(true);
     const graph = compileGraph(ast);
     expect(graph.diagnostics).toEqual([]);
-    expect(graph.bearings[1]).toMatchObject({ kind: "challenges", target: { kind: targetKind } });
+    expect(graph.bearings[1]).toMatchObject({ kind: "challenges", target: { kind: targetKind === "either" ? "point" : targetKind } });
     expect(graph.bearings[1]).not.toHaveProperty("targetKind");
     annotation.operatorClause.target.id = invalid;
     expect(compileGraph(ast).diagnostics.map(d => d.code)).toContain(code);
@@ -55,10 +55,10 @@ describe("format 0.5 unified challenges", () => {
     expect(graph.bearings.map(b => b.handle)).toEqual(["route", "outer-route", "kept"]);
     expect(graph.bearings[2].target).toEqual({ kind: "bearing", key: graph.bearings[0].key });
     expect(graph.points.some(p => p.id === "child")).toBe(true);
-    expect(graph.diagnostics.map(d => d.code)).toEqual(["RETIRED_BEARING_KIND", "NO_LOCAL_BEARING_ATTACHMENT", "EDGE_DESCENDANT_REQUIRES_EXPLICIT_TARGET", "UNKNOWN_TARGET"]);
-    expect(graph.diagnostics.map(d => d.code)).toContain("EDGE_DESCENDANT_REQUIRES_EXPLICIT_TARGET");
+    expect(graph.diagnostics.map(d => d.code)).toEqual(["RETIRED_BEARING_KIND", "NO_LOCAL_BEARING_ATTACHMENT", "EXPLICIT_BEARING_DESCENDANT_REQUIRES_TARGET", "UNKNOWN_TARGET"]);
+    expect(graph.diagnostics.map(d => d.code)).toContain("EXPLICIT_BEARING_DESCENDANT_REQUIRES_TARGET");
     const entry = explain.entries.find(e => e.sourceSpan.startLine === 7)!;
-    expect(entry.recognition).toEqual({ kind: "edge" });
+    expect(entry.recognition).toEqual({ kind: "explicitBearing" });
     expect(entry.effects.some(e => e.kind === "emitBearing")).toBe(false);
     for (const [schema, value] of [[schemas.ast, ast], [schemas["graph-ir"], graph], [schemas.explain, explain]]) {
       expect(ajv.validate(schema, JSON.parse(JSON.stringify(value))), JSON.stringify(ajv.errors)).toBe(true);
@@ -94,8 +94,8 @@ describe("format 0.5 unified challenges", () => {
   });
 
   it("retains target checks on Point declarations and uses, including anonymous sources", () => {
-    for (const mark of ["O", "G", "?", ".", "O use @a", "G use @b", ". use @a"]) {
-      expect(errors(declarations + `\n- [${mark} -> @route]`)).toEqual(["CHALLENGE_REQUIRES_POINT_TARGET"]);
+    for (const mark of ["O", "G", "Q", ".", "O use @a", "G use @b", ". use @a"]) {
+      expect(errors(declarations + `\n- [${mark} -> @route]`)).toEqual([]);
       expect(errors(declarations + `\n- [${mark} /> @claim]`)).toEqual(["CHALLENGE_REQUIRES_BEARING_TARGET"]);
       const { graph } = compile(declarations + `\n- [${mark} /> @route]`);
       expect(graph.bearings[1]).toMatchObject({ kind: "challenges", target: { kind: "bearing" } });
@@ -103,42 +103,42 @@ describe("format 0.5 unified challenges", () => {
   });
 
   it("keeps suffix-only local selection and never crosses a failed constructor", () => {
-    const linked = "- [C @claim] Claim.\n  - [linked; @route]\n    - [G] Reason.\n    - [O/] Challenge the step.\n      - [R] Reply.";
+    const linked = "- [C @claim] Claim.\n  - [_ G; @route]\n    - [.] Reason.\n    - [O/] Challenge the step.\n      - [R] Reply.";
     const { graph } = compile(linked);
     expect(graph.diagnostics).toEqual([]);
     expect(graph.bearings.map(b => [b.kind, b.target.kind])).toEqual([
       ["supports", "point"], ["challenges", "bearing"], ["repliesTo", "point"]
     ]);
-    expect(errors(linked.replace("[O/]", "[O]"))).toContain("INVALID_LINKED_MEMBER");
-    expect(errors(declarations + "\n  - [O] Bare objection.")).toContain("EDGE_DESCENDANT_REQUIRES_EXPLICIT_TARGET");
+    expect(errors(linked.replace("[O/]", "[O]"))).toContain("INVALID_LOCAL_BEARING_MEMBER");
+    expect(errors(declarations + "\n  - [O] Bare objection.")).toContain("EXPLICIT_BEARING_DESCENDANT_REQUIRES_TARGET");
     expect(errors(declarations + "\n- [_ use @route]\n  - [O] Bare objection.")).toContain("BEARING_USE_REQUIRES_EXPLICIT_TARGET");
-    const failed = compile(declarations + "\n- [edge @a -> @route; @failed]\n  - [O/] No outward fallback.\n- [O /> @failed] Dependent.\n- [O -> @claim] Independent.").graph;
+    const failed = compile(declarations + "\n- [edge @a /> @claim; @failed]\n  - [O/] No outward fallback.\n- [O /> @failed] Dependent.\n- [O -> @claim] Independent.").graph;
     expect(failed.bearings.map(b => b.handle)).toEqual(["route", undefined]);
     expect(failed.bearings[1].target.kind).toBe("point");
     expect(failed.diagnostics.filter(d => d.code === "UNRESOLVED_BEARING_TARGET")).toHaveLength(2);
   });
 
-  it.each(["O", "?", ".", "O use @a", ". use @a"])("rejects an unrestricted challenge in the %s AST schema", mark => {
+  it.each(["O", "Q", ".", "O use @a", ". use @a"])("accepts current target constraints in the %s AST schema", mark => {
     const ast = JSON.parse(JSON.stringify(parseDocument(declarations + `\n- [${mark} /> @route] Objection.`)));
     const clause = ast.blocks[4].annotation.operatorClause;
     for (const targetKind of ["point", "bearing", "either"]) {
       clause.targetKind = targetKind;
-      expect(ajv.validate(schemas.ast, ast), targetKind).toBe(targetKind !== "either");
+      expect(ajv.validate(schemas.ast, ast), targetKind).toBe(targetKind !== "point");
     }
   });
 
-  it.each(["supports", "about", "answers", "repliesTo", "clarifies"])("keeps %s target requirements aligned with the AST schema", op => {
+  it.each(["supports", "concerns", "answers", "repliesTo", "clarifies"])("keeps %s target requirements aligned with the AST schema", op => {
     const ast = JSON.parse(JSON.stringify(parseDocument(declarations + `\n- [edge @a ${op} @claim]`)));
     for (const targetKind of ["point", "bearing", "either"]) {
       ast.blocks[4].annotation.operatorClause.targetKind = targetKind;
-      expect(ajv.validate(schemas.ast, ast), targetKind).toBe(targetKind === (op === "supports" || op === "about" ? "either" : "point"));
+      expect(ajv.validate(schemas.ast, ast), targetKind).toBe(targetKind === (op === "supports" || op === "concerns" ? "either" : "point"));
     }
   });
 
   it("requires target constraints and rejects old JSON instead of relabelling it", () => {
     const ast = JSON.parse(JSON.stringify(parseDocument(declarations + "\n- [O /> @route] Objection.")));
     const clause = ast.blocks[4].annotation.operatorClause;
-    clause.targetKind = "either";
+    clause.targetKind = "point";
     expect(ajv.validate(schemas.ast, ast)).toBe(false);
     delete clause.targetKind;
     expect(ajv.validate(schemas.ast, ast)).toBe(false);
