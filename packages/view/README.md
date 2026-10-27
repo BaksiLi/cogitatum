@@ -1,6 +1,6 @@
 # @cogitatum/view
 
-Experimental, framework-neutral Map and Reading views of compiler-produced Cogitatum structure.
+Experimental, framework-neutral Map, Reading and Strands views of compiler-produced Cogitatum structure.
 Core owns parsing and relation semantics; View owns presentation and temporary selection.
 Currently available from this checkout, not the published Core/CLI release.
 The 0.6 checkout requires matching Core/format 0.6 projections.
@@ -16,7 +16,7 @@ Hosts using only `createGraphView` receive `GraphNode.noteCount` and must use th
 
 ## Host code blocks
 
-`@cogitatum/view/block` composes Reading and Map into one optional code-block preview.
+`@cogitatum/view/block` composes Reading, Map and Strands into one optional code-block preview.
 It owns the toolbar, diagnostics, local-occurrence selection, lazy Map, full wording, expansion and cleanup.
 Use the lower-level views below for other workflows such as a full document editor.
 
@@ -37,7 +37,8 @@ block.destroy();
 
 Supply one document-mode inquiry fragment, without its host Markdown fence.
 Each changed source is compiled once and clears selection and pending navigation from the old revision.
-Reading/Map mode and the live Map instance survive updates; an empty fragment returns to Reading.
+The chosen mode (`reading`, `map` or `strands`) and the live Map instance survive updates; an empty fragment returns to Reading.
+Selection is shared across the three modes; Challenge Focus stays within Strands.
 `initialMode` is resolved again after DOM attachment for hosts that construct previews off-DOM.
 `onMode` reports user choices so the host can remember a view preference across render-child replacement.
 Optional `version: { label, detail }` adds a quiet, expandable build stamp below the preview.
@@ -80,8 +81,17 @@ Callbacks receive a projected node with its typed compilation `ref`, optional au
 Mount once in a React effect, call `update` for each compiled revision, and return `destroy` from cleanup. Recreate the view or use current refs when callback closures change. Each instance appends/removes only its own SVG and has independent markers and event handlers. No DOM access occurs at module import, so server-side imports work.
 
 `update(graph, scope)` takes **one** source unit and requires a host-owned scope identifier. Change `scope` when switching units or artefacts. Named selection is retained within a scope and `onSelect` receives the refreshed node; otherwise `onClear` clears obsolete details. Anonymous keys never retain selection or positions across updates. Initial layouts are deterministic. Same-scope updates may preserve a user-adjusted camera when the previous layout has authored names; otherwise the view fits the graph. It also re-frames when the revised graph would no longer read in view. Map is one workflow: automatic placement puts what is borne upon above what bears on it, keeping siblings in source order.
+Placement uses contest geometry: support stacks beneath its target, which stands centred over what supports it,
+while a challenge sits one layer down on the target's right flank, so disagreement reads as an approach from the side.
+Unconnected Points wait on their own shelf beneath the connected argument.
+Endings (Points that bear on nothing and have something bearing on them) are drawn larger with weighted wording and always get the wide measure.
+Below reading scale the overview keeps an ending's wording on one line and every other Point's authored `@name`; anonymous Points show their mark only.
+A challenge ends in a bar across its line rather than an arrowhead. A collapsed Bearing rests as a small tone dot on its line
+and opens to its full glyph on hover, focus, selection or guidance; its line remains the selection target.
+`GraphLink.kind` carries the Bearing's relation for renderers and layouts.
 Every Point and junction can then be dragged, or nudged with Alt + arrow keys.
-During pointer dragging, the connected component follows with damped attraction and repulsion, including across joint Bearings.
+During pointer dragging, only the junctions of the held mark's own Bearings re-centre, so the rest of the Map stays where the reader is inspecting it.
+Hold Shift to pull the step instead: those Bearings' other endpoints follow with damped attraction and repulsion, but nothing further than one step.
 Earlier manual placements and separate fragments stay fixed.
 Motion settles within 900 ms of the last movement and stops scheduling frames; reduced motion and keyboard nudges move only the chosen mark.
 Reduced motion keeps neighbours still during direct manipulation.
@@ -128,6 +138,42 @@ The pre-release layout selector, `GraphLayout`, `setLayout`, `layoutFlow`, `layo
 
 Map CSS is scoped to `.cog-graph` and `.cog-chip`, themed only through `--cog-ink`, `--cog-surface`, `--cog-canvas`, `--cog-muted`, `--cog-line`, `--cog-focus`, `--cog-support` and `--cog-objection` (`--cog-bearing-surface` and `--cog-accent` are no longer read). The host controls container size, full-text/evidence UI and diagnostics. This is a small renderer for inquiry fragments, not a graph editor or a large-workspace layout engine.
 
+
+## Strands
+
+Strands follows one focus Point through its supporting and answering paths.
+
+```ts
+import { createStrandsView } from '@cogitatum/view';
+
+const strands = createStrandsView(container, {
+  onSelect(ref) { showDetails(ref); },
+  onClear() { clearDetails(); },
+  onNavigate(ref) { openSource(ref); }
+});
+strands.update(compiled.graphs[0]);
+strands.select(ref); // Silent; follows an unseen entity's target to the appropriate focus Point.
+```
+
+A strand follows `supports` and `answers` Bearings with a Point target, downward from the focus Point.
+Each Point occupies one row, above the sources that support or answer it; a lane carries each path, a shared Point merges lanes,
+and a joint step meets at one junction. A cycle is reported on the row instead of repeating a Point.
+Every other Bearing that bears on a strand is a **knot** placed where it bears: a challenge, concern or support of a step sits
+on that step's lane, directly above its source; a relation to a Point sits on that Point's row.
+A knot lists direct relations one level deep, naming the Point or step each addresses, and counts distinct further relations.
+Each displayed Point and Bearing can be selected independently; Left and Right cycle through the objects within a row.
+Selecting a challenge enters **Challenge Focus**: the contested Point or step, its sources and the paths to the focus stay lit,
+including lane segments through other rows. Everything else dims until Escape or the contextual Show all control.
+Focus tracks Bearing identities as well as Points: sharing a Ground does not put an alternative route under the same objection.
+The header offers each Point that bears on nothing and has something bearing on it as an ending; the footer counts what lies outside.
+A closed cycle starts at its first Point, labelled as a focus rather than an ending.
+Only authored Point names retain the focus across updates; compilation-local keys do not carry identity between revisions.
+`projectStrands(graph, focus?)`, `strandRoots`, `strandRootOf` and `projectContest` are the pure projections behind the view.
+Each Point's own mark sits on its lane, and the focus is drawn larger as the heading. A lane takes its relation's tone.
+A knot appears on its lane with the same Bearing glyph Map draws on a line, joined to its card by a hairline.
+Below 480px the lanes draw closer together; dense inquiries cap the lane gutter to preserve a usable text column.
+An externally selected objection or response follows its actual relation targets to the ending it concerns.
+Strands adds no weight, strength, resolution or outcome; its layout is a reading aid like Map's.
 
 ## Reading
 
@@ -179,6 +225,18 @@ Explicit sources use their named operands' canonical declarations.
 A local Bearing use remains a local row; a target at the Bearing's construction reaches its junction.
 These display locations do not create extra graph entities, independent evidence or inferred relations.
 Repeated names and keys in different source units remain separate.
+
+`ReadingUnit.commitments` records active occurrences' relation and note decisions, taken from Explain alone:
+`indentation` (the nearest context selected the target, with that context row and any crossed body rows),
+`explicit` (a clause fixed it), `member` (a local Bearing source, adding no relation of its own), `note`,
+`none` (for example Q, C or a neutral Point, which create no relation) or `failed` (no surviving Bearing, with Core's reason).
+A local Bearing header also lists its ordered source rows. A failed candidate never supplies a target.
+An eligible member of a rejected local Bearing is identified as such; it is not presented as an established joint relation.
+The view draws a **commitment rail** for the hovered or selected row: a guide in the indentation from the selected context row,
+marking each crossed body row and bracketing a local Bearing's sources; a failed selection is dashed.
+The selected row also shows an **inspection line**, `describeCommitment(unit, commitment)`, linked by `aria-describedby`.
+It restates Core's decision, including a failed row's own error message, and does not assess the prose or propose another target.
+The line leads with the relation's glyph. A row's diagnostic badge reads as words, and the exact code stays in its tooltip and the diagnostics list.
 
 Rendering uses safe plain text by default.
 An optional `renderProse` hook on Reading and Block lets a host render the compiler-selected prose with its Markdown engine.

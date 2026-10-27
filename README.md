@@ -121,7 +121,7 @@ Website deployments and the private experimental View have separate readiness ch
 | --- | --- | --- |
 | Language and Core | Authored constructors, target requirements, name resolution, diagnostics, versioned AST/Graph IR/Explain/source envelopes | Truth, defeat, acceptability or resolution of the inquiry |
 | Graph IR and graph-text inspection | Individual typed entities, ordered sources and resolved targets; the text view follows its bounded `structure-v1` projection | Original prose, literal notes, local use marks or the source constraint distinguishing `/>` from named `challenges` |
-| Experimental Reading and Map | Source occurrences projected from the exact input plus one `explainSource` result; visual topology, selection and local geometry | A new language or persisted inquiry model; moving a mark never edits source or a Bearing |
+| Experimental Reading, Map and Strands | Source occurrences projected from the exact input plus one `explainSource` result; visual topology, selection and local geometry | A new language or persisted inquiry model; moving a mark never edits source or a Bearing |
 | Host application | Input revision and mode, source navigation, native editing, storage, evidence and build provenance | Consumer compatibility merely because the public compiler's CI passed |
 | Future Cogitatio | Ongoing inquiry, revision, review and continuity require separate contracts | A runtime, resolution protocol or theory API delivered by this Core/CLI release |
 

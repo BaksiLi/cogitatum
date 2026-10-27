@@ -44,10 +44,10 @@ describe("joint concerns in Reading and Map", () => {
       expect(display.links.filter(link => link.bearingKey === bearing.key)).toEqual([
         ...bearing.sources.map(source => ({
           source: referenceKey(source), target: referenceKey({ kind: "bearing", key: bearing.key }),
-          bearingKey: bearing.key, segment: "input"
+          bearingKey: bearing.key, segment: "input", kind: bearing.kind
         })),
         { source: referenceKey({ kind: "bearing", key: bearing.key }), target: referenceKey(bearing.target),
-          bearingKey: bearing.key, segment: "output" }
+          bearingKey: bearing.key, segment: "output", kind: bearing.kind }
       ]);
     }
     expect(focusNeighborhood(topology, { kind: "bearing", key: joint.key }).bearingKeys).toEqual([joint.key, context.key]);

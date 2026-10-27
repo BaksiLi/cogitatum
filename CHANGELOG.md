@@ -20,6 +20,20 @@ Use the complete released schema set and [migrate retained source](docs/syntax.m
   Recompile the complete proposed input and verify identities, content, declaration marks, ordered endpoints, literal subtrees, note ownership and unrelated diagnostics.
   Explain source movements, introduced uses and future attachment differences; decline missing names, changed roles and mismatched local targets.
   Keep the existing single-insertion `previewExplicitTarget` contract.
+- Add **Strands**, a third View mode for the lines of reasoning that end at one Point.
+  Supports and answers form lanes; every other relation is a knot placed on the Point or step it bears on, so a contest sits on the line it contests.
+  Selecting a challenge enters Challenge Focus, tracking particular Bearings even when routes share sources; Show all also leaves focus on touch devices.
+  `projectStrands`, `strandRoots`, `strandRootOf`, `projectContest` and `createStrandsView` are exported; Block adds a Strands mode.
+  Centralise Block selection so the same shared entity retains its selected source occurrence across modes.
+  Preserve Point and Bearing selection across modes, label knot relations with their actual targets, retain focus only by authored names, and render closed cycles without requiring an ending.
+- Arrange the Map by contest geometry: support stacks beneath its centred target, a challenge arrives on the right flank, and unconnected Points form a shelf below.
+  Emphasise endings, keep their wording in the overview, end challenges in a bar, and quiet collapsed Bearing glyphs to tone dots until inspected.
+  Add `GraphLink.kind`; Map and Strands share structural endings, and positions remain a reading aid and never change the graph.
+- Bound drag calculations to the moving neighbourhood and its fixed neighbours.
+  Keep the Map still while dragging: only the held mark's own junctions re-centre, and Shift pulls that step's other endpoints, never further than one step.
+- Show in Reading what indentation commits each occurrence to.
+  `ReadingUnit.commitments` indexes Explain evidence per occurrence (indentation, explicit, member, note, none or failed, with context row, crossed body and local sources);
+  the view draws a commitment rail for the hovered or selected row and an inspection line from `describeCommitment`.
 - Use the same annotation boundaries for Point/Bearing family spellings and role marks, including `@` and symbolic operators.
   Retain malformed headers such as `[point@p]`, `[_@a+>@b]` and `[_G->@claim]`, including unclosed forms.
   Diagnose them instead of interpreting them as body and attaching descendants to an outer Point; preserve ordinary words such as `[_O-ring]`.

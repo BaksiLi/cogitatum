@@ -1,7 +1,7 @@
 import { FORMAT_VERSION } from "@cogitatum/core";
 import type {
-  AstBlock, Bearing, BearingRef, BearingTarget, Diagnostic, ExplainedSource,
-  ExplainEntry, ExplainRecognition, GraphIR, ObjectNote, PointRef, SourceParseMode, SourceSpan
+  AstBlock, Bearing, BearingKind, BearingRef, BearingTarget, Diagnostic, ExplainedSource, ExplainEffect,
+  ExplainEntry, ExplainRecognition, GraphIR, LocalBearingChildFunction, ObjectNote, PointRef, SourceParseMode, SourceSpan
 } from "@cogitatum/core";
 import { referenceKey } from "./projection.js";
 
@@ -50,11 +50,36 @@ export type ReadingBearing = {
   target: ReadingEndpoint;
 };
 
+/**
+ * What one active occurrence commits to through its position, taken from Core's Explain trace.
+ * `indentation`: the nearest local context chose the target. `explicit`: a clause fixed it.
+ * `member`: a source in a local Bearing header, adding no relation of its own.
+ * `note`: a note annotating the object its context exposes.
+ * `none`: no relation, such as Q, C or a neutral Point. `failed`: no surviving Bearing.
+ */
+export type ReadingCommitment = {
+  occurrenceId: string;
+  basis: "indentation" | "explicit" | "member" | "note" | "none" | "failed";
+  /** The row whose Point or exposed Bearing was selected, or a member's local Bearing header. */
+  contextOccurrenceId?: string;
+  /** A surviving graph entity only; a failed candidate has none. */
+  target?: BearingTarget;
+  kind?: BearingKind;
+  /** Ordinary body rows the selection passed through, outermost first. */
+  crossedOccurrenceIds: string[];
+  /** For a local Bearing header: its ordered source member rows. */
+  memberOccurrenceIds: string[];
+  memberFunction?: LocalBearingChildFunction;
+  reason?: Extract<ExplainEffect, { kind: "rejectBearing" | "skipBearing" }>["reason"];
+};
+
 export type ReadingUnit = {
   graph: GraphIR;
   occurrences: ReadingOccurrence[];
   bearings: ReadingBearing[];
   notes: ReadingNote[];
+  /** Relation and note decisions at active, non-body occurrences, in source order. */
+  commitments: ReadingCommitment[];
 };
 
 export type ReadingNote = {
@@ -247,7 +272,46 @@ export function projectReading(source: string, explained: ExplainedSource): Read
       }
       return { record, occurrenceId: occurrence!.id, content };
     });
-    return { graph, occurrences, bearings, notes };
+    const occurrenceAt = (span?: SourceSpan) => span ? bySpan.get(spanKey(span))?.id : undefined;
+    const commitments = occurrences.flatMap((occurrence): ReadingCommitment[] => {
+      const entry = entryByOccurrence.get(occurrence.id);
+      if (!entry || entry.recognition.kind === "body") return [];
+      const effects = entry.effects;
+      const find = <K extends ExplainEffect["kind"]>(kind: K) =>
+        effects.find((effect): effect is Extract<ExplainEffect, { kind: K }> => effect.kind === kind);
+      const crossed = (spans: SourceSpan[]) => spans.map(span => occurrenceAt(span) ?? mismatch("crossed body occurrence"));
+      const base = { occurrenceId: occurrence.id, crossedOccurrenceIds: [] as string[], memberOccurrenceIds: [] as string[] };
+      const membership = find("localBearingMember");
+      if (membership && membership.function === "source") {
+        return [{ ...base, basis: "member", contextOccurrenceId: occurrenceAt(membership.localBearingSpan), memberFunction: membership.function }];
+      }
+      const note = find("selectNoteTarget");
+      if (note) {
+        return [{ ...base, basis: note.target ? "note" : "failed", contextOccurrenceId: occurrenceAt(note.contextSpan),
+          ...(note.target ? { target: note.target } : {}), crossedOccurrenceIds: crossed(note.crossedBodySpans) }];
+      }
+      const emitted = find("emitBearing");
+      if (emitted) {
+        const route = bearings.find(item => item.bearing.key === emitted.ref.key)!;
+        const context = find("implicitAttachment");
+        return [{
+          ...base, basis: context ? "indentation" : "explicit", target: route.bearing.target, kind: route.bearing.kind,
+          ...(context ? { contextOccurrenceId: route.target.occurrenceId, crossedOccurrenceIds: crossed(context.crossedBodySpans) } : {}),
+          memberOccurrenceIds: route.sources.filter(source => source.basis === "local-bearing-member").map(source => source.occurrenceId),
+          ...(membership ? { memberFunction: membership.function } : {})
+        }];
+      }
+      const rejected = find("rejectBearing"), skipped = find("skipBearing");
+      const selection = find("selectAttachment"), use = find("selectBearing");
+      const contextOccurrenceId = occurrenceAt(selection?.ownerSpan ?? use?.contextSpan);
+      if (rejected) {
+        return [{ ...base, basis: "failed", reason: rejected.reason, ...(rejected.bearing ? { kind: rejected.bearing.kind } : {}),
+          ...(contextOccurrenceId ? { contextOccurrenceId } : {}), ...(membership ? { memberFunction: membership.function } : {}) }];
+      }
+      if (entry.recognition.kind === "note" || entry.recognition.kind === "bearingUse" || entry.recognition.kind === "explicitBearing") return [];
+      return [{ ...base, basis: "none", ...(skipped ? { reason: skipped.reason } : {}), ...(membership ? { memberFunction: membership.function } : {}) }];
+    });
+    return { graph, occurrences, bearings, notes, commitments };
   });
   const rows = lines.flatMap((raw, index): (ReadingOccurrence | ReadingSourceLine)[] =>
     continuationLines.has(index + 1) ? [] : [occurrencesByLine.get(index + 1) ?? {

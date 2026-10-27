@@ -83,6 +83,16 @@ try {
 
     const joint = "- [C @claim] Claim.\n  - [_ G]\n    - [. @first] First.\n    - [. @second] Second.\n- [C @separate] Separate.\n";
     await page.evaluate(source => window.mount(source), joint);
+    const claimAt = await point('_p1').getAttribute('transform'), secondAt = await point('_p3').getAttribute('transform');
+    await drag('_p2');
+    for (let frame = 0; frame < 30; frame++) await advance(1000 / 60);
+    assert.equal(await point('_p1').getAttribute('transform'), claimAt, 'a plain drag leaves the target Point in place');
+    assert.equal(await point('_p3').getAttribute('transform'), secondAt, 'a plain drag leaves the co-source in place');
+    await page.keyboard.down('Shift'); await drag('_p2'); await page.keyboard.up('Shift');
+    for (let frame = 0; frame < 30; frame++) await advance(1000 / 60);
+    assert.notEqual(await point('_p1').getAttribute('transform'), claimAt, 'Shift-drag pulls the step\'s target');
+
+    await page.evaluate(source => window.mount(source), joint);
     await drag('_p2');
     for (let frame = 0; frame < 9; frame++) await advance(100);
     assert.equal(await page.evaluate(() => window.pendingFrames()), 0, '10 Hz frame delivery stops scheduling at the wall-time deadline');
@@ -142,7 +152,7 @@ try {
     await page.close();
   }
   assert.deepEqual(errors, []);
-  console.log('Map motion browser checks passed: 2 viewports; dragging, insertion, low-frame expiry, suspension, entrance inspection, reduced motion, cleanup and idle scheduling.');
+  console.log('Map motion browser checks passed: 2 viewports; plain and Shift dragging, insertion, low-frame expiry, suspension, entrance inspection, reduced motion, cleanup and idle scheduling.');
 } finally {
   await browser.close();
 }

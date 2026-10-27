@@ -1,8 +1,9 @@
 import type { BearingTarget, Diagnostic, SourceSpan } from "@cogitatum/core";
 import { bearingMark, createBearingChip, createMarkChip, drawBearingGlyph } from "./marks.js";
 import { focusNeighborhood, guidanceSubject, projectExploration, projectGraph, referenceKey, type GraphProjection } from "./projection.js";
-import type { ReadingEndpoint, ReadingOccurrence, ReadingProjection } from "./reading-projection.js";
-import { createProseScope, type ProseRenderer } from "./prose.js";
+import type { ReadingCommitment, ReadingEndpoint, ReadingOccurrence, ReadingProjection } from "./reading-projection.js";
+import { describeCommitment } from "./commitment.js";
+import { createProseScope, isProseInteraction, type ProseRenderer } from "./prose.js";
 
 export type ReadingSelection = {
   unitIndex: number;
@@ -65,6 +66,9 @@ export function readingPorts(ends: readonly { lane: number; up: boolean }[]): nu
   return ports;
 }
 
+let instances = 0;
+const humanCode = (code: string) => code.charAt(0) + code.slice(1).toLowerCase().replace(/_/g, " ");
+
 /** Render compiler-owned occurrences; all temporary state belongs to this instance. */
 export function createReadingView(container: HTMLElement, options: ReadingViewOptions = {}): ReadingView {
   const doc = container.ownerDocument, win = doc.defaultView;
@@ -78,6 +82,7 @@ export function createReadingView(container: HTMLElement, options: ReadingViewOp
     parent.append(element); return element;
   };
   const root = html("div", "cog-reading", container);
+  root.dataset.instance = `cog-reading-${++instances}`;
   const diagnostics = html("details", "cog-reading-diagnostics", root);
   const page = html("div", "cog-reading-page", root);
   const svg = svgElement("svg", { class: "cog-reading-connections", "aria-hidden": "true" }, page);
@@ -86,6 +91,7 @@ export function createReadingView(container: HTMLElement, options: ReadingViewOp
   let projection: ReadingProjection | undefined, rows = new Map<string, Row>(), order: string[] = [];
   let full: GraphProjection[] = [], inline: Set<string>[] = [];
   let selected: ReadingSelection | undefined, hovered: ReadingSelection | undefined;
+  let commitments = new Map<string, ReadingCommitment>(), inspected: string | undefined;
   let destroyed = false, frame = 0;
   const abort = new AbortController(), on = { signal: abort.signal };
   let diagnosticControls = new AbortController();
@@ -131,6 +137,77 @@ export function createReadingView(container: HTMLElement, options: ReadingViewOp
     for (const group of svg.querySelectorAll<SVGGElement>("[data-bearing]")) {
       group.dataset.active = String(!active || Number(group.dataset.unit) === active.unitIndex && bearingKeys.has(group.dataset.bearing!));
     }
+    inspect(selected?.occurrenceId);
+    drawCommitment(active?.occurrenceId);
+  }
+  /** The selected row states what its position commits it to, in words, below its content. */
+  function inspect(id: string | undefined): void {
+    if (id === inspected && (!id || rows.get(id)?.element.querySelector(".cog-reading-inspection"))) return;
+    if (inspected) {
+      const previous = rows.get(inspected);
+      previous?.element.querySelector(".cog-reading-inspection")?.remove();
+      previous?.element.removeAttribute("aria-describedby");
+    }
+    inspected = id;
+    const row = id ? rows.get(id) : undefined, commitment = id ? commitments.get(id) : undefined;
+    if (!row || !commitment || !projection) return;
+    const line = html("p", "cog-reading-inspection", row.element.querySelector(".cog-reading-content")!);
+    line.id = `${root.dataset.instance}-inspection`;
+    line.dataset.basis = commitment.basis;
+    // Lead with the relation's own glyph, so the decision is legible before the sentence is read.
+    if (commitment.kind) {
+      const chip = createBearingChip(doc, commitment.kind, 14, commitment.memberOccurrenceIds.length > 1);
+      chip.classList.add(`cog-tone-${bearingMark(commitment.kind).tone}`);
+      line.append(chip);
+    } else html("span", "cog-reading-inspection-glyph", line).textContent = commitment.basis === "member" ? "◇" : commitment.basis === "note" ? "¶" : "∅";
+    html("span", "", line).textContent = describeCommitment(projection.units[row.occurrence.unitIndex], commitment);
+    row.element.setAttribute("aria-describedby", line.id);
+  }
+  /**
+   * The commitment rail: a guide from the row whose Point or step was selected down to the active row,
+   * drawn in the indentation itself. Crossed body rows are marked on it; a local Bearing header also
+   * brackets its source rows. It only redraws Core's decision.
+   */
+  function drawCommitment(id: string | undefined): void {
+    svg.querySelector(".cog-reading-commitment")?.remove();
+    let commitment = id ? commitments.get(id) : undefined;
+    if (!commitment || !projection) return;
+    // A source member shows its header's commitment, with its own row emphasised.
+    const member = commitment.basis === "member" ? commitment.occurrenceId : undefined;
+    if (member && commitment.contextOccurrenceId) commitment = commitments.get(commitment.contextOccurrenceId) ?? commitment;
+    const subject = rows.get(commitment.occurrenceId), context = commitment.contextOccurrenceId ? rows.get(commitment.contextOccurrenceId) : undefined;
+    if (!subject) return;
+    const box = page.getBoundingClientRect();
+    const textX = (row: Row) => {
+      const content = row.element.querySelector<HTMLElement>(".cog-reading-content")!;
+      return content.getBoundingClientRect().left - box.left + (parseFloat(win?.getComputedStyle(content).paddingLeft ?? "0") || 0);
+    };
+    const midY = (row: Row) => { const rect = row.mark.getBoundingClientRect(); return rect.top - box.top + rect.height / 2; };
+    const tone = commitment.kind && commitment.basis !== "failed" ? bearingMark(commitment.kind).tone : "neutral";
+    const group = svgElement("g", { class: `cog-reading-commitment cog-tone-${tone}`, "data-basis": commitment.basis }, svg);
+    if (context && context !== subject) {
+      const x = textX(context) + 5, top = context.element.getBoundingClientRect().bottom - box.top - 3;
+      // Compact Reading caps indentation, so the corner shrinks to the room left beside the text.
+      const y = midY(subject), end = textX(subject) - 4, r = Math.max(0, Math.min(CORNER, (y - top) / 2, (end - x) / 2));
+      if (end > x) svgElement("path", { class: "cog-reading-commitment-rail", d: `M${x} ${top}V${y - r}Q${x} ${y} ${x + r} ${y}H${end}` }, group);
+      if (commitment.basis !== "failed") svgElement("path", { class: "cog-reading-arrow", d: `M${x} ${top - 1}L${x - 3} ${top + 5}L${x + 3} ${top + 5}Z` }, group);
+      for (const crossed of commitment.crossedOccurrenceIds) {
+        const row = rows.get(crossed);
+        if (row) svgElement("circle", { class: "cog-reading-commitment-crossed", cx: String(x), cy: String(midY(row)), r: "2.5" }, group);
+      }
+    }
+    const members = commitment.memberOccurrenceIds.map(item => rows.get(item)).filter((row): row is Row => !!row);
+    if (members.length) {
+      const x = textX(subject) + 5, top = subject.element.getBoundingClientRect().bottom - box.top - 3;
+      const last = midY(members.at(-1)!);
+      let d = `M${x} ${top}V${last}`;
+      for (const row of members) d += `M${x} ${midY(row)}H${textX(row) - 4}`;
+      svgElement("path", { class: "cog-reading-commitment-members", d }, group);
+      if (member) {
+        const row = rows.get(member);
+        if (row) svgElement("circle", { class: "cog-reading-commitment-member", cx: String(x), cy: String(midY(row)), r: "2.5" }, group);
+      }
+    }
   }
   function choose(selection?: ReadingSelection, notify = true): void {
     selected = selection; hovered = undefined; guide();
@@ -162,7 +239,9 @@ export function createReadingView(container: HTMLElement, options: ReadingViewOp
     control.type = "button";
     control.dataset.readingReference = endpoint.occurrenceId;
     control.dataset.ref = ref.key; control.dataset.refKind = ref.kind;
-    control.textContent = label;
+    // The excerpt is a separate span so a compact Reading can keep only the line label.
+    if (name || !excerpt) control.textContent = label;
+    else { control.textContent = `L${occurrence.line}`; html("span", "cog-reading-excerpt", control).textContent = ` · ${excerpt}`; }
     control.title = `${ref.kind === "point" ? "Point" : "Bearing"} ${label}; select passage at line ${occurrence.line}. Enter ${options.onNavigate ? "opens source" : "selects"}.`;
     control.setAttribute("aria-label", `${ref.kind === "point" ? "Point" : "Bearing"} ${label}, line ${occurrence.line}`);
   }
@@ -290,8 +369,12 @@ export function createReadingView(container: HTMLElement, options: ReadingViewOp
       if (source.diagnostics.length) {
         row.dataset.error = String(source.diagnostics.some(diagnostic => diagnostic.severity === "error"));
         const badge = html("span", "cog-reading-diagnostic", content);
-        badge.textContent = source.diagnostics.map(diagnostic => diagnostic.code).join(" · ");
-        badge.title = source.diagnostics.map(diagnostic => diagnostic.message).join("\n");
+        // Words in the prose; the exact code stays in the tooltip and the diagnostics list.
+        badge.textContent = source.diagnostics.map(diagnostic => humanCode(diagnostic.code)).join(" · ");
+        badge.dataset.codes = source.diagnostics.map(diagnostic => diagnostic.code).join(" ");
+        badge.dataset.severity = source.diagnostics.some(diagnostic => diagnostic.severity === "error") ? "error"
+          : source.diagnostics.some(diagnostic => diagnostic.severity === "warning") ? "warning" : "suggestion";
+        badge.title = source.diagnostics.map(diagnostic => `${diagnostic.code}: ${diagnostic.message}`).join("\n");
       }
     }
     observer?.disconnect();
@@ -337,7 +420,7 @@ export function createReadingView(container: HTMLElement, options: ReadingViewOp
     const hasJunction = projection.units.some((unit, unitIndex) => unit.bearings.some(route => !inline[unitIndex].has(route.bearing.key)));
     const laneCount = Math.max(0, ...units.flatMap(unit => unit.lanes.map(lane => lane + 1)));
     const inset = INSET + (hasJunction ? 12 : 0);
-    const maxRail = compact ? 96 : 200;
+    const maxRail = compact ? 68 : 200;
     const step = laneCount ? Math.min(compact ? 7 : 10, (maxRail - inset - 8) / laneCount) : 0;
     const rail = laneCount ? Math.max(RAIL_MIN, Math.ceil(inset + (laneCount - 1) * step + 10)) : hasJunction ? inset + 10 : 0;
     root.style.setProperty("--cog-reading-rail", `${rail}px`);
@@ -423,11 +506,7 @@ export function createReadingView(container: HTMLElement, options: ReadingViewOp
     return row ? selectionFor(row.occurrence, element?.dataset.ref ? { kind: "bearing", key: element.dataset.ref } :
       selected?.occurrenceId === row.occurrence.id ? selected.ref : undefined) : undefined;
   };
-  // Native prose links and controls keep their own mouse and keyboard behavior.
-  const proseInteraction = (event: Event) => {
-    const control = (event.target as Element).closest("a, button, input, select, textarea, summary, [contenteditable], [role='button'], [role='link']");
-    return !!control && !control.matches(".cog-reading-select, [data-reading-reference]");
-  };
+  const proseInteraction = (event: Event) => isProseInteraction(event.target, ".cog-reading-select, [data-reading-reference]");
   root.addEventListener("click", event => {
     if (proseInteraction(event)) return;
     if (!(event.target as Element).closest(".cog-reading-select, [data-reading-reference]") && doc.getSelection()?.type === "Range") return;
@@ -475,6 +554,8 @@ export function createReadingView(container: HTMLElement, options: ReadingViewOp
       projection = next; selected = undefined; hovered = undefined;
       full = next.units.map(unit => projectGraph(unit.graph));
       inline = full.map(graph => new Set(projectExploration(graph).inlineBearings.map(node => node.ref.key)));
+      commitments = new Map(next.units.flatMap(unit => unit.commitments.map(item => [item.occurrenceId, item] as const)));
+      inspected = undefined;
       build(); guide(); schedule(); options.onClear?.();
       if (hadFocus) root.querySelector<HTMLElement>('[tabindex="0"]')?.focus({ preventScroll: true });
     },
@@ -501,7 +582,7 @@ export function createReadingView(container: HTMLElement, options: ReadingViewOp
       if (destroyed) return;
       destroyed = true; abort.abort(); diagnosticControls.abort(); observer?.disconnect(); if (frame) win?.cancelAnimationFrame(frame);
       prose.destroy();
-      root.remove(); rows.clear(); projection = undefined; full = []; inline = []; selected = undefined; hovered = undefined;
+      root.remove(); rows.clear(); commitments.clear(); projection = undefined; full = []; inline = []; selected = undefined; hovered = undefined;
     }
   };
 }
