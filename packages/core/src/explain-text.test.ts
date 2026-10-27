@@ -20,7 +20,7 @@ describe("readable compiler decisions", () => {
     expect(result).toContain("through ordinary body at 2:5-2:13");
     expect(result).toContain("supports([point @first");
     expect(result).toContain(", point @second");
-    expect(result).toContain("commentary; does not contribute a source");
+    expect(result).toContain("commentary, not a source");
     expect(result).toContain("Object note belongs to bearing @review");
     expect(result).toContain("respondsTo([");
     expect(result).toContain("Select referenced Bearing from use at");
@@ -36,6 +36,31 @@ describe("readable compiler decisions", () => {
     expect(result).toContain("Reject Bearing: validation-error");
     expect(result).toContain("No Bearing: no-eligible-ancestor");
     expect(result).not.toContain("Construct bearing @bad");
+  });
+
+  it("identifies the surviving header for each occurrence of a reused source", () => {
+    const result = formatExplain(explainSource(`- [. @shared] Shared source.
+- [C] Claim.
+  - [_ G; @first]
+    - [. use @shared]
+  - [_ G; @second]
+    - [. use @shared]`));
+    const memberships = result.split("\n").filter(line => line.includes("eligible;"));
+    expect(memberships).toHaveLength(2);
+    expect(memberships[0]).toContain("included in bearing @first at 3:");
+    expect(memberships[1]).toContain("included in bearing @second at 5:");
+  });
+
+  it.each([
+    ["  - [_ G; @joint]\n    - [. @a] Source.\n    - [O] Invalid member.", "invalid-local-bearing"],
+    ["  - [_ G; @joint]\n    - [. @a] Source.\n    - [. use @missing] Missing source.", "validation-error"],
+    ["  - [_ G; @joint]\n    - [. @a] Source.\n    - [. use @a] Repeated identity.", "validation-error"]
+  ])("separates source eligibility from a rejected construction", (body, reason) => {
+    const result = formatExplain(explainSource("- [C] Claim.\n" + body));
+    const memberships = result.split("\n").filter(line => line.includes("eligible;"));
+    expect(memberships.length).toBeGreaterThan(0);
+    expect(memberships.every(line => line.includes(`no Bearing was created by the rejected header (${reason})`))).toBe(true);
+    expect(result).not.toContain("included in bearing @joint");
   });
 
   it("includes independent namespaces and host selection failures, even without any selected unit", () => {

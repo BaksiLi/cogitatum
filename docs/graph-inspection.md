@@ -247,6 +247,8 @@ It distinguishes a failed candidate from a surviving graph entity.
 Ordinary body crossings and failed nearest contexts stay visible; nothing silently searches outward.
 Literal note descendants remain owned by their note header and have no active decisions.
 
+A local Bearing member's syntactic eligibility and the header's outcome are reported separately.
+Explain names the surviving Bearing that includes the source, or states that the rejected header created none.
 Unlike graph text, Explain text accepts host input.
 It prints each independent selected unit and all aggregate diagnostics, including an unclosed fence that produced no unit.
 Names and compilation-local keys are shown with source locations.

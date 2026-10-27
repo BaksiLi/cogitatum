@@ -17,10 +17,14 @@ export function formatExplain(source: ExplainedSource): string {
   ];
   source.units.forEach((unit, index) => {
     const graph = source.graphs[index];
+    const points = new Map(graph.points.map(point => [point.key, point]));
+    const bearings = new Map(graph.bearings.map(bearing => [bearing.key, bearing]));
+    const entries = source.explanations[index].entries;
+    const entriesByLine = new Map(entries.map(entry => [entry.sourceSpan.startLine, entry]));
     const reference = (ref: ExplainReference | undefined): string => {
       if (!ref) return "unavailable";
       if ("id" in ref) return "unresolved @" + ref.id;
-      const entity = ref.kind === "point" ? graph.points.find(p => p.key === ref.key) : graph.bearings.find(b => b.key === ref.key);
+      const entity = ref.kind === "point" ? points.get(ref.key) : bearings.get(ref.key);
       if (!entity) return `unavailable ${ref.kind} ${quote(ref.key)}`;
       const name = "declaration" in entity ? entity.id : entity.handle;
       return `${ref.kind} ${name ? "@" + name : quote(ref.key)}${entity.sourceSpan ? " at " + location(entity.sourceSpan) : ""}`;
@@ -31,7 +35,15 @@ export function formatExplain(source: ExplainedSource): string {
         case "preserveNote": return `Preserve a literal note subtree${effect.parentSpan ? " under " + location(effect.parentSpan) : ""}.`;
         case "attachNote": return `${effect.note.origin === "constructor-description" ? "Constructor description" : "Object note"} belongs to ${reference(effect.note.target)}.`;
         case "selectNoteTarget": return `Select ${effect.targetKind} note slot from ${effect.contextSpan ? location(effect.contextSpan) : "no local context"}: ${reference(effect.target)}${crossings(effect.crossedBodySpans)}.`;
-        case "localBearingMember": return `In local Bearing at ${location(effect.localBearingSpan)}: ${effect.function}; ${effect.eligible ? "contributes one ordered source" : "does not contribute a source"}.`;
+        case "localBearingMember": {
+          const membership = `In local Bearing at ${location(effect.localBearingSpan)}: ${effect.function}`;
+          if (!effect.eligible) return membership + ", not a source.";
+          const outcome = entriesByLine.get(effect.localBearingSpan.startLine)?.effects
+            .find(e => e.kind === "emitBearing" || e.kind === "rejectBearing");
+          if (outcome?.kind === "emitBearing") return membership + `, eligible; included in ${reference(outcome.ref)}.`;
+          if (outcome?.kind === "rejectBearing") return membership + `, eligible; no Bearing was created by the rejected header (${outcome.reason}).`;
+          return membership + ", eligible; no header outcome available.";
+        }
         case "focusPoint": return `Reuse Point @${effect.operand.id}: ${reference(effect.ref)}; this occurrence does not copy its shared content.`;
         case "focusBearing": return `Reuse Bearing @${effect.operand.id}: ${reference(effect.ref)}; its endpoints remain fixed.`;
         case "rejectFocus": return `Reject reuse${effect.operand ? " @" + effect.operand.id : ""}: ${effect.reason}.`;
@@ -46,7 +58,7 @@ export function formatExplain(source: ExplainedSource): string {
       }
     };
     lines.push("", `unit ${index + 1}: ${unit.kind} at lines ${unit.startLine}-${unit.endLine} (independent namespace)`);
-    for (const entry of source.explanations[index].entries) {
+    for (const entry of entries) {
       const r = entry.recognition;
       const mark = "role" in r && r.role ? " " + r.role + ("selector" in r && r.selector ? "/" : "") : "";
       lines.push(`  ${location(entry.sourceSpan)} ${r.kind}${mark}`);

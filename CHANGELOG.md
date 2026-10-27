@@ -26,6 +26,8 @@ Use the complete released schema set and [migrate retained source](docs/syntax.m
   Explain the Point-only target restriction consistently for `R/`, `D/`, `[_ R/]` and `[_ D/]`.
   A selector beneath a Point without an attachment names the Point-targeted spelling; a direct R or D in a local Bearing explains that the header creates no Point.
   Incomplete explicit clauses keep their syntax guidance, and `/>` suggests `[_ O/]`.
+- Explain text distinguishes a local member's syntactic eligibility from the header's validated outcome.
+  Name the actual Bearing that includes each source, or state why the rejected header creates none, including invalid membership, unresolved references and repeated source identities.
 - Add `formatExplain` / `EXPLAIN_TEXT_VERSION` and `cog explain --format text`, including host input.
   Show every compiler effect, including membership, selection, non-emission, failed candidates and note ownership, with aggregate source-selection diagnostics.
   Reuse the existing Explain evidence rather than introducing another interpretation model.
