@@ -527,6 +527,31 @@ try {
       }
       await style.evaluate(node => node.remove());
     }
+    await mount([
+      '- [C @c] Claim.', '  - [G @g; @step] Ground.', '    - Context.', '      - [O] Through body.',
+      '    - [_ O/; @r] Together.', '      - [. @x] X.', '      - [. @y] Y.', '- [C] Other.', '  - [_ G/]', '    - [.] Fails.',
+    ].join('\n'));
+    await row(4).locator('.cog-reading-select').click(); await flush();
+    const inspection = row(4).locator('.cog-reading-inspection');
+    assert.equal(await inspection.locator('.cog-chip').count(), 1, 'the relation glyph leads the inspection');
+    assert.match(await inspection.locator('span').last().textContent(), /^From indentation: challenges @g \(L2\), the nearest enclosing Point\. It passes through ordinary body at L3\./);
+    assert.equal(await row(4).getAttribute('aria-describedby'), await inspection.getAttribute('id'), 'the inspection line describes its row');
+    const rail = page.locator('#reading .cog-reading-commitment');
+    assert.equal(await rail.getAttribute('data-basis'), 'indentation');
+    assert.equal(await rail.locator('.cog-reading-commitment-crossed').count(), 1, 'the crossed body row is marked on the rail');
+    const railBox = await rail.locator('.cog-reading-commitment-rail').boundingBox();
+    const [contextBox, subjectBox] = [await row(2).boundingBox(), await row(4).boundingBox()];
+    assert.ok(railBox.y >= contextBox.y && railBox.y + railBox.height <= subjectBox.y + subjectBox.height, 'the rail spans from the selected context to the row');
+    await row(6).locator('.cog-reading-select').click(); await flush();
+    assert.equal(await page.locator('#reading .cog-reading-inspection').count(), 1, 'only the selected row is described');
+    assert.equal(await row(6).locator('.cog-reading-inspection-glyph').textContent(), '◇', 'a joint source leads with the junction glyph');
+    assert.match(await row(6).locator('.cog-reading-inspection > span').last().textContent(), /^Source of the local Bearing at L5/);
+    assert.equal(await rail.locator('.cog-reading-commitment-member').count(), 1, 'a member shows its header bracket with itself marked');
+    await row(9).locator('.cog-reading-select').click(); await flush();
+    assert.equal(await rail.getAttribute('data-basis'), 'failed');
+    assert.match(await row(9).locator('.cog-reading-inspection').textContent(), /\[_ G\]/, 'a failed row repeats its remedy');
+    await page.keyboard.press('Escape'); await flush();
+    assert.equal(await page.locator('#reading .cog-reading-inspection').count(), 0);
     await page.evaluate(() => { window.views.reading.destroy(); window.views.map.destroy(); });
     assert.equal(await page.locator('.cog-reading, .cog-graph').count(), 0);
     await page.close(); runs++;
@@ -549,7 +574,7 @@ try {
   assert.equal(await page.locator('#map svg').getAttribute('data-guided'), 'false', 'tapping the background clears the focus');
   await touch.close();
   assert.deepEqual(errors, []);
-  console.log(`View selection browser checks passed: ${runs} viewports and touch; occurrence echoes, keyboard refs, Map Fit and focus reveal, host typography, assistive clicks, selected-route guidance, local question/reply targets, partial compilation, cycles, duplicate Bearings, unit scope and cleanup.`);
+  console.log(`View selection browser checks passed: ${runs} viewports and touch; occurrence echoes, keyboard refs, Map Fit and focus reveal, host typography, assistive clicks, selected-route guidance, local question/reply targets, commitment rails and inspection, partial compilation, cycles, duplicate Bearings, unit scope and cleanup.`);
 } finally {
   await browser.close();
 }

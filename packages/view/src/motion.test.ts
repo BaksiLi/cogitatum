@@ -16,10 +16,21 @@ function setup() {
 }
 
 describe('drag settling', () => {
-  it('pulls through a joint, keeps held nodes and other fragments fixed, then stops', () => {
+  it('moves only the held mark\'s junction by default, so every other Point stays put', () => {
+    const { topology, positions, dragged, claim, separate } = setup();
+    const before = structuredClone(positions);
+    const junction = topology.nodes.find(node => node.ref.kind === 'bearing')!.id;
+    const second = topology.nodes.find(node => node.text === 'Second.')!.id;
+    const motion = createDragMotion(topology, positions, dragged, new Set([dragged]));
+    for (let i = 1; i <= 60; i++) motion.step(i * 1000 / 60);
+    expect(positions.get(junction)).not.toEqual(before.get(junction));
+    for (const id of [claim, second, separate]) expect(positions.get(id)).toEqual(before.get(id));
+  });
+
+  it('pulls the step\'s other endpoints with Shift, keeps held nodes and other fragments fixed, then stops', () => {
     const { topology, positions, dragged, claim, separate } = setup();
     const before = structuredClone(positions), original = structuredClone(topology);
-    const motion = createDragMotion(topology, positions, dragged, new Set([dragged]));
+    const motion = createDragMotion(topology, positions, dragged, new Set([dragged]), 'down', 'step');
     const first = motion.step(100);
     expect(first.active).toBe(true);
     expect(first.moved).toContainEqual(topology.nodes.find(node => node.id === claim));
@@ -39,8 +50,8 @@ describe('drag settling', () => {
     const a = setup(), b = setup();
     const pinned = new Set([a.dragged, a.claim]);
     const claim = { ...a.positions.get(a.claim)! };
-    const one = createDragMotion(a.topology, a.positions, a.dragged, pinned);
-    const two = createDragMotion(b.topology, b.positions, b.dragged, pinned);
+    const one = createDragMotion(a.topology, a.positions, a.dragged, pinned, 'down', 'step');
+    const two = createDragMotion(b.topology, b.positions, b.dragged, pinned, 'down', 'step');
     for (let i = 1; i <= 60; i++) one.step(i * 1000 / 60);
     for (let i = 1; i <= 120; i++) two.step(i * 1000 / 120);
     expect(a.positions).toEqual(b.positions);
@@ -100,5 +111,34 @@ describe('drag settling', () => {
       expect(Math.abs(point.x - before.get(id)!.x)).toBeLessThan(27);
       expect(Math.abs(point.y - before.get(id)!.y)).toBeLessThan(27);
     }
+  });
+
+  it('excludes remote branches from the forces on a local junction', () => {
+    const graph = compileSource('- [C] Top.\n  - [_ G]\n    - [.] First.\n    - [.] Second.\n      - [G @remote] Remote.\n        - [G @distant] Distant.', 'document').graphs[0];
+    const topology = projectGraph(graph);
+    const remote = new Set(topology.nodes.filter(node => ['remote', 'distant'].includes(node.name ?? '')).map(node => node.id));
+    for (const link of topology.links) if (link.segment === 'input' && remote.has(link.source)) remote.add(link.target);
+    const local = { nodes: topology.nodes.filter(node => !remote.has(node.id)), links: topology.links.filter(link => !remote.has(link.source) && !remote.has(link.target)) };
+    const positions = new Map(layoutGraph(topology).map(node => [node.id, { x: node.x, y: node.y }]));
+    const dragged = topology.nodes.find(node => node.text === 'First.')!.id;
+    positions.get(dragged)!.x += 100;
+    const second = structuredClone(positions);
+    const one = createDragMotion(topology, positions, dragged, new Set([dragged]));
+    const two = createDragMotion(local, second, dragged, new Set([dragged]));
+    for (let i = 1; i <= 60; i++) { one.step(i * 1000 / 60); two.step(i * 1000 / 60); }
+    for (const node of local.nodes) expect(positions.get(node.id)).toEqual(second.get(node.id));
+  });
+
+  it('does not reach past one step even with Shift', () => {
+    const graph = compileSource("- [C] Top.\n  - [G] Middle.\n    - [G] Bottom.\n", 'document').graphs[0];
+    const topology = projectGraph(graph);
+    const positions = new Map(layoutGraph(topology).map(n => [n.id, { x: n.x, y: n.y }]));
+    const id = (text: string) => topology.nodes.find(n => n.text === text)!.id;
+    positions.get(id('Bottom.'))!.x += 200;
+    const before = structuredClone(positions);
+    const motion = createDragMotion(topology, positions, id('Bottom.'), new Set([id('Bottom.')]), 'down', 'step');
+    for (let i = 1; i <= 60; i++) motion.step(i * 1000 / 60);
+    expect(positions.get(id('Middle.'))).not.toEqual(before.get(id('Middle.')));
+    expect(positions.get(id('Top.'))).toEqual(before.get(id('Top.')));
   });
 });

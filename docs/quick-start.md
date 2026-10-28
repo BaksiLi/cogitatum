@@ -63,8 +63,9 @@ An explicit target keeps this Objection connected to `@cause` even if you move i
 
 ## Read the connections
 
-Switch between Reading and Map.
-Reading retains the context and wording; Map makes the selected connections easier to follow.
+Switch between Reading, Map and Strands.
+Reading retains the context and wording; Map makes the selected connections easier to follow;
+Strands follows the paths that support or answer a chosen Point, with challenges placed where they bear.
 Select a Point or a Bearing to inspect what it connects.
 
 For the next step, [Bearings](bearings.md#argument-structures) distinguishes three common structures:

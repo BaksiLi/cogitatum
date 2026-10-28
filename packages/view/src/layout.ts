@@ -7,6 +7,9 @@ const sourceLine = (node: GraphNode) => node.sourceSpan?.startLine ?? Number.MAX
 // Named junctions need a text column too; anonymous junctions only need glyph spacing.
 const footprint = (node: GraphNode) => node.ref.kind === "point" || node.name ? 168 : 64;
 const GAP = 18;
+/** How far a challenge sits to the right of what it contests: support stacks beneath, contest arrives from the side. */
+const FLANK = 108;
+const contests = (kind?: string) => kind === "challenges";
 
 /**
  * Place each node in a row, keeping its order and the minimum spacing.
@@ -40,6 +43,9 @@ export function layoutGraph(topology: GraphProjection, options: LayoutOptions = 
   for (const link of topology.links) if (link.source !== link.target && rank.has(link.source) && rank.has(link.target)) outgoing.get(link.source)!.push(link.target);
   const targets = new Map(ordered.map(node => [node.id, new Set<string>()]));
   const sources = new Map(ordered.map(node => [node.id, new Set<string>()]));
+  // A link arriving as a contest: an output segment (or a collapsed Bearing's single link) of a challenge.
+  const contesting = new Set(topology.links.filter(link => link.segment === "output" && contests(link.kind)).map(link => `${link.source}>${link.target}`));
+  const contest = (source: string, target: string) => contesting.has(`${source}>${target}`);
   const state = new Map<string, "open" | "done">();
   const visit = (id: string) => {
     state.set(id, "open");
@@ -63,30 +69,47 @@ export function layoutGraph(topology: GraphProjection, options: LayoutOptions = 
   for (const [id, set] of targets) for (const target of set) { const a = rootOf(id), b = rootOf(target); if (a !== b) fragment.set(rank.get(a)! < rank.get(b)! ? b : a, rank.get(a)! < rank.get(b)! ? a : b); }
   const fragments = new Map<string, GraphNode[]>();
   for (const node of ordered) { const root = rootOf(node.id); fragments.set(root, [...fragments.get(root) ?? [], node]); }
+  // A lone, unconnected Point waits after the connected argument instead of interrupting it.
+  const ordering = [...fragments.values()].sort((a, b) => Number(a.length === 1) - Number(b.length === 1));
 
   const placed = new Map<string, Point2>();
   const mean = (ids: Iterable<string>, x: Map<string, number>) => { const xs = [...ids].map(id => x.get(id)!); return xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : undefined; };
-  let cursorX = 0, cursorY = 0, rowHeight = 0;
-  for (const nodes of fragments.values()) {
+  // Downward: under what it bears on, shifted to the flank when it contests it.
+  const below = (id: string, x: Map<string, number>) => {
+    const xs = [...targets.get(id)!].map(target => x.get(target)! + (contest(id, target) ? FLANK : 0));
+    return xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : undefined;
+  };
+  // Upward: over what supports it; a target is not pulled toward its challengers unless nothing else bears on it.
+  const above = (id: string, x: Map<string, number>) => {
+    const all = [...sources.get(id)!], carrying = all.filter(source => !contest(source, id));
+    return carrying.length ? mean(carrying, x) : all.length ? mean(all, x)! - FLANK : undefined;
+  };
+  let cursorX = 0, cursorY = 0, rowHeight = 0, shelved = false;
+  for (const nodes of ordering) {
     const layers: GraphNode[][] = [];
     for (const node of nodes) (layers[layerOf(node.id)] ??= []).push(node);
     const x = new Map<string, number>();
     // Downward: each node under the mean of what it bears on. Upward: each target over its sources.
     // The top layer keeps source order, so the reading begins where the text begins.
     layers.forEach((row, depth) => {
-      const wish = new Map(row.map((node, i) => [node.id, depth ? mean(targets.get(node.id)!, x) ?? i * 200 : i * 200]));
+      const wish = new Map(row.map((node, i) => [node.id, depth ? below(node.id, x) ?? i * 200 : i * 200]));
       row.sort((a, b) => depth ? wish.get(a.id)! - wish.get(b.id)! || byRank(a, b) : byRank(a, b));
       settle(row, wish).forEach((value, id) => x.set(id, value));
     });
     for (let pass = 0; pass < 3; pass++) {
       for (let depth = layers.length - 2; depth >= 0; depth--) {
         const row = layers[depth];
-        settle(row, new Map(row.map(node => [node.id, mean(sources.get(node.id)!, x) ?? x.get(node.id)!]))).forEach((value, id) => x.set(id, value));
+        settle(row, new Map(row.map(node => [node.id, above(node.id, x) ?? x.get(node.id)!]))).forEach((value, id) => x.set(id, value));
       }
       for (let depth = 1; depth < layers.length; depth++) {
         const row = layers[depth];
-        settle(row, new Map(row.map(node => [node.id, mean(targets.get(node.id)!, x) ?? x.get(node.id)!]))).forEach((value, id) => x.set(id, value));
+        settle(row, new Map(row.map(node => [node.id, below(node.id, x) ?? x.get(node.id)!]))).forEach((value, id) => x.set(id, value));
       }
+    }
+    // Finish upward, so every target stands centred over what supports it.
+    for (let depth = layers.length - 2; depth >= 0; depth--) {
+      const row = layers[depth];
+      settle(row, new Map(row.map(node => [node.id, above(node.id, x) ?? x.get(node.id)!]))).forEach((value, id) => x.set(id, value));
     }
     // Wording hangs below a point, up to three lines, so whatever comes next sits clear of it: a junction
     // just beneath the wording, a point further on. Below a layer of junctions alone the next sits closer.
@@ -96,7 +119,10 @@ export function layoutGraph(topology: GraphProjection, options: LayoutOptions = 
     layers.forEach((row, depth) => { ys[depth] = depth ? ys[depth - 1] + step(layers[depth - 1], row) : 0; });
     const left = Math.min(...nodes.map(node => x.get(node.id)! - footprint(node) / 2));
     const w = Math.max(...nodes.map(node => x.get(node.id)! + footprint(node) / 2)) - left, h = ys[ys.length - 1];
-    if (cursorX > 0 && cursorX + w > wrapWidth) { cursorX = 0; cursorY += rowHeight + 110; rowHeight = 0; }
+    // Unconnected Points start their own shelf beneath the connected argument.
+    const tray = nodes.length === 1 && !shelved && placed.size > 0;
+    if (tray) shelved = true;
+    if (cursorX > 0 && (tray || cursorX + w > wrapWidth)) { cursorX = 0; cursorY += rowHeight + 110; rowHeight = 0; }
     for (const node of nodes) placed.set(node.id, { x: cursorX + x.get(node.id)! - left, y: cursorY + ys[layer.get(node.id)!] });
     cursorX += w + 72; rowHeight = Math.max(rowHeight, h);
   }

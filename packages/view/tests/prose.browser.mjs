@@ -9,6 +9,10 @@ const bundle = await build({
   stdin: {
     contents: `
       import { createProseScope } from './prose.ts';
+      import { compileSource } from '@cogitatum/core';
+      import { createGraphView } from './index.ts';
+      window.compileSource = compileSource;
+      window.createGraphView = createGraphView;
       import { createBlockView } from './block.ts';
       window.createProseScope = createProseScope;
       window.createBlockView = createBlockView;
@@ -118,7 +122,7 @@ try {
   });
   for (const [name, passed] of Object.entries(result)) assert.equal(passed, true, name);
 
-  // The shared block uses the same scope for full Map detail, while compact SVG labels stay plain.
+  // Rich detail uses the host prose scope; compact SVG labels do not accept host markup.
   const source = '- [C @first] **First** complete prose.\n- [C @second] Second prose.';
   await page.evaluate(source => {
     window.renders = [];
@@ -212,6 +216,41 @@ try {
     assert.equal(await page.locator('.cog-block-note-source').count(), 0);
     await page.evaluate(() => window.block.destroy());
   }
+  await page.addStyleTag({ path: fileURLToPath(new URL('../src/style.css', import.meta.url)) });
+  for (const width of [1000, 390]) {
+    await page.setViewportSize({ width, height: 900 });
+    const inlineSource = '- [C @code] Call `answer()`.\n  - [G] The result uses `data`.\n- [C @only] `only()`';
+    await page.evaluate(source => {
+      const host = document.querySelector('#host'); host.style.height = '600px';
+      window.map = window.createGraphView(host, { onSelect: node => { window.selected = node; } });
+      window.map.update(window.compileSource(source).graphs[0], 'inline');
+      window.map.zoom(2);
+    }, inlineSource);
+    const point = page.locator('.cog-node.point').filter({ hasText: 'Call' });
+    await point.locator('.cog-code').waitFor();
+    assert.equal(await point.locator('.cog-text').textContent(), 'Call answer().');
+    assert.equal(await point.locator('.cog-code').textContent(), 'answer()');
+    assert.match(await point.evaluate(node => getComputedStyle(node.querySelector('.cog-code')).fontFamily), /mono/i);
+    assert.match(await point.getAttribute('aria-label'), /Call `answer\(\)`\./);
+    const clearance = await point.evaluate(node => node.querySelector('.cog-text').getBoundingClientRect().top
+      - node.querySelector('.cog-focus-ring').getBoundingClientRect().bottom);
+    assert.ok(clearance >= 2, `wording clears the full scaled focus ring (${clearance}px)`);
+    await point.dispatchEvent('click', { detail: 0 });
+    assert.equal(await page.evaluate(() => window.selected.text), 'Call `answer()`.');
+    const only = page.locator('.cog-node.point').filter({ hasText: 'only()' });
+    await only.dispatchEvent('click', { detail: 0 });
+    assert.equal(await only.locator('.cog-text').textContent(), 'only()');
+    await page.evaluate(() => window.map.update(window.compileSource('- [C @only] Call `next()`.').graphs[0], 'inline'));
+    await page.waitForFunction(() => document.querySelector('.cog-code')?.textContent === 'next()');
+    assert.equal(await page.evaluate(() => window.selected.text), 'Call `next()`.');
+    await page.evaluate(() => window.map.update(window.compileSource('- [C @only] ```ts `literal` ```').graphs[0], 'inline'));
+    await page.waitForFunction(() => document.querySelector('.cog-text')?.textContent === '```ts `literal` ```');
+    assert.equal(await page.locator('.cog-code').count(), 0, 'longer delimiters remain literal and stale code spans are removed');
+    await page.evaluate(() => window.map.update(window.compileSource('- [C @only] `<img>`').graphs[0], 'inline'));
+    await page.waitForFunction(() => document.querySelector('.cog-code')?.textContent === '<img>');
+    assert.equal(await page.locator('#host img, #host foreignObject').count(), 0, 'code is safe SVG text');
+    await page.evaluate(() => window.map.destroy());
+  }
   assert.deepEqual(errors, [], 'browser runtime errors');
-  console.log(`Prose browser checks passed: ${Object.keys(result).length} scope invariants; Map detail lifecycle, asynchronous note isolation, block markup and compact labels.`);
+  console.log(`Prose browser checks passed: ${Object.keys(result).length} scope invariants; Map detail lifecycle, asynchronous note isolation, block markup and inline-code Map labels on desktop/mobile.`);
 } finally { await browser.close(); }
