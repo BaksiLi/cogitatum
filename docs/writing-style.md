@@ -19,6 +19,9 @@ Mark the parts whose role or connection helps the reader; leave other prose unma
 Within a Cogitatum source unit, both marked material and body start with outline bullets.
 Indent continuation lines to the block's content column, without adding a bullet.
 Two spaces per level is a readable convention, not a language requirement.
+Hard tabs also work for bullet indentation; keep one kind per source unit.
+A continuation repeats its bullet's indentation, then adds spaces in place of the marker and separator.
+For a tab-indented `- ` bullet, that is the same tabs followed by two spaces.
 
 Keep a Point focused enough that another passage can refer to it without ambiguity.
 Do not split every sentence into a Point, or delete qualifications to make a diagram smaller.

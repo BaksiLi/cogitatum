@@ -127,12 +127,12 @@ assert.ok(retiredKind.graph.diagnostics.some(diagnostic => diagnostic.code === '
 assert.equal(retiredKind.explain.entries[3].recognition.kind, 'edge');
 const malformedUse = parseDocument('- [use] Missing operand.');
 assert.deepEqual(malformedUse.blocks[0].annotation.syntaxErrors, ['reference', 'retired']);
-const layout = compileGraphWithExplain(parseDocument('-    [C @outer] Outer.\\n\\t- [C @failed] Failed.\\n    - [G @inner] Inner.\\n      - [G @detail] Detail.'));
+const layout = compileGraphWithExplain(parseDocument('-    [C @outer] Outer.\\n  - Spaced.\\n\\t- [C @failed] Failed.\\n    - [G @inner] Inner.\\n      - [G @detail] Detail.'));
 assert.equal(layout.graph.points[0].sourceSpan.startColumn, 6);
 assert.deepEqual(layout.graph.points.map(point => point.id), ['outer', 'inner', 'detail']);
 assert.equal(layout.graph.bearings.length, 1);
 assert.deepEqual(layout.graph.bearings[0].target, { key: layout.graph.points[1].key, kind: 'point' });
-assert.deepEqual(layout.graph.diagnostics.map(diagnostic => diagnostic.code), ['TAB_INDENTATION_UNSUPPORTED', 'FAILED_CONTEXT_REQUIRES_EXPLICIT_TARGET']);
+assert.deepEqual(layout.graph.diagnostics.map(diagnostic => diagnostic.code), ['MIXED_INDENTATION', 'FAILED_CONTEXT_REQUIRES_EXPLICIT_TARGET']);
 const referenceText = '- [_ use @route] Review.\\n- [_ @reason supports @claim; @route] Support.\\n- [C @claim] Claim.\\n- [G @reason] Reason.';
 const inventory = analyzeSourceReferences(referenceText);
 assert.equal(inventory.references.status, 'complete');

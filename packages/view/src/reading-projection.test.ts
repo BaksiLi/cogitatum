@@ -12,16 +12,18 @@ const lineOf = (reading: ReadingProjection, id: string) =>
   reading.units.flatMap(unit => unit.occurrences).find(item => item.id === id)!.line;
 
 describe("source-aware Reading projection", () => {
-  it.each(["document", "host"] as const)("presents each multiline %s occurrence once with its complete source span", mode => {
+  it.each([
+    ["document", "  "], ["host", "  "], ["document", "\t"], ["host", "\t"]
+  ] as const)("presents each multiline %s occurrence once with %j indentation and complete spans", (mode, indent) => {
     const content = [
       "- [C @p] The method may work",
       "  under room-temperature conditions.",
-      "  - [. note] A note",
-      "    with a second line.",
+      `${indent}- [. note] A note`,
+      `${indent}  with a second line.`,
       "",
-      "    And another paragraph.",
-      "    - [G @hidden] Literal child",
-      "      continued here.",
+      `${indent}  And another paragraph.`,
+      `${indent.repeat(2)}- [G @hidden] Literal child`,
+      `${indent.repeat(2)}  continued here.`,
       "- [point use @p] This occurrence",
       "  has local prose."
     ];

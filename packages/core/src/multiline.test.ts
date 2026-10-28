@@ -109,9 +109,9 @@ describe("contiguous multiline block content", () => {
     }));
   });
 
-  it.each(["", " ", "\t"])("does not accept an underindented or tab-indented continuation: %j", indent => {
+  it.each(["", " ", "\t"])("requires the owning block's continuation prefix: %j", indent => {
     const source = `- [C] Claim.\n${indent}Continued?\n  - [G] Still a child.`;
-    expect(errors(source)).toEqual([indent === "\t" ? "TAB_INDENTATION_UNSUPPORTED" : "UNSUPPORTED_LINE"]);
+    expect(errors(source)).toEqual(["UNSUPPORTED_LINE"]);
     expect(explainSource(source).graphs[0].points[0].text).toBe("Claim.");
   });
 
@@ -185,5 +185,98 @@ describe("contiguous multiline block content", () => {
     const ast = parseDocument(source, { lineOffset: 5, lineColumnOffsets: [2, 4] });
     expect(ast.blocks[0].sourceSpan).toEqual({ startLine: 6, startColumn: 5, endLine: 7, endColumn: 12 });
     expect(() => parseDocument(source, { lineColumnOffsets: [0, Number.MAX_SAFE_INTEGER] })).toThrow(RangeError);
+  });
+
+  it.each(["\t", "  ", "    "])("preserves note ownership and reuse with %j bullet indentation", indent => {
+    const source = [
+      "- [C @q] Claim.",
+      "  A qualification before any indented bullet.",
+      `${indent}- [G @p; @r] Ground.`,
+      `${indent}  Continued ground.`,
+      `${indent.repeat(2)}- [_ note] Route note.`,
+      `${indent.repeat(2)}  Continued note.`,
+      "",
+      `${indent.repeat(2)}  Another paragraph.`,
+      `${indent.repeat(3)}- [O @hidden] Literal child.`,
+      `${indent.repeat(3)}  Continued literal.`,
+      `${indent.repeat(2)}- [O/] Active challenge.`,
+      "- [. use @p] Local reuse.",
+      "  Continued local prose.",
+      "- [_ use @r]",
+      `${indent}- [_ note] A second note.`,
+      `${indent}  At the reused route.`
+    ].join("\n");
+    const result = explainSource(source), graph = result.graphs[0];
+    expect(result.diagnostics).toEqual([]);
+    expect(graph.points.map(point => point.text)).toEqual([
+      "Claim.\nA qualification before any indented bullet.",
+      "Ground.\nContinued ground.",
+      "Active challenge."
+    ]);
+    expect(graph.bearings).toHaveLength(2);
+    expect(graph.bearings[1].target).toEqual({ kind: "bearing", key: graph.bearings[0].key });
+    expect(graph.notes.map(note => [note.target.key, note.sourceSpan.startLine, note.sourceSpan.endLine])).toEqual([
+      [graph.bearings[0].key, 5, 8], [graph.bearings[0].key, 15, 16]
+    ]);
+    const note = result.documents[0].blocks[0].children[0].children[0];
+    expect(note.text).toBe("Route note.\nContinued note.\n\nAnother paragraph.");
+    expect(note.children[0].text).toBe("[O @hidden] Literal child.\nContinued literal.");
+    expect(note.children[0].annotation).toBeUndefined();
+    expect(result.documents[0].blocks[1].text).toBe("Local reuse.\nContinued local prose.");
+    expect(previewExplicitTarget(source, { line: 4 })).toMatchObject({
+      status: "ready", proposedSource: source.replace("[G @p; @r]", "[G @p +> @q; @r]")
+    });
+  });
+
+  it("rejects a wrong continuation prefix without changing the tab-indented outline", () => {
+    const source = "- [C] Claim.\n\t- [G] Ground.\n    Spaces cannot replace the tab.\n\t- [O] Objection.";
+    const result = explainSource(source);
+    expect(errors(source)).toEqual(["UNSUPPORTED_LINE"]);
+    expect(result.graphs[0].points.map(point => point.text)).toEqual(["Claim.", "Ground.", "Objection."]);
+    expect(result.graphs[0].bearings).toHaveLength(2);
+  });
+
+  it("does not mistake a mixed-indentation bullet for a continuation or activate its note subtree", () => {
+    const source = "- [C] Claim.\n\t- [G] Ground.\n\t  - [_ note] Mixed bullet indentation.\n\t\t\t\t- [G @hidden] Literal.";
+    const result = explainSource(source);
+    expect(errors(source)).toEqual(["MIXED_INDENTATION", "MALFORMED_NOTE"]);
+    expect(result.graphs[0].points.map(point => point.text)).toEqual(["Claim.", "Ground."]);
+    expect(result.graphs[0].notes).toEqual([]);
+    expect(result.documents[0].blocks[0].children[0].children[0].children[0].annotation).toBeUndefined();
+  });
+
+  it("keeps extra whitespace after the continuation prefix as prose rather than bullet indentation", () => {
+    const source = "- [C] Claim.\n  \tIndented prose.\n\t- [G] Ground.";
+    const result = explainSource(source);
+    expect(result.diagnostics).toEqual([]);
+    expect(result.graphs[0].points[0].text).toBe("Claim.\n\tIndented prose.");
+  });
+
+  it.each(["\n", "\r\n", "\r"])("maps tab continuations through host margins with %j endings", ending => {
+    const source = [
+      "  ```cog",
+      "  - [C @q] Claim.",
+      "  \t- [G; @r] Ground.",
+      "  \t  Continued.",
+      "  \t\t- [_ note] Note.",
+      "  \t\t  Continued note.",
+      "  ```",
+      "```cog",
+      "- [C] Other unit.",
+      "  - [G] Independent space indentation.",
+      "```"
+    ].join(ending);
+    const result = explainSource(source, "host");
+    expect(result.diagnostics).toEqual([]);
+    expect(result.graphs).toHaveLength(2);
+    expect(result.graphs[0].points[1].sourceSpan).toEqual({
+      startLine: 3, startColumn: 6, endLine: 4, endColumn: 16
+    });
+    expect(result.graphs[0].notes[0].sourceSpan).toEqual({
+      startLine: 5, startColumn: 7, endLine: 6, endColumn: 22
+    });
+    expect(previewExplicitTarget(source, { mode: "host", line: 4 })).toMatchObject({
+      status: "ready", proposedSource: source.replace("[G; @r]", "[G +> @q; @r]")
+    });
   });
 });
