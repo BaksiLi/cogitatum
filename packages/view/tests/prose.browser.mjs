@@ -232,6 +232,9 @@ try {
     assert.equal(await point.locator('.cog-code').textContent(), 'answer()');
     assert.match(await point.evaluate(node => getComputedStyle(node.querySelector('.cog-code')).fontFamily), /mono/i);
     assert.match(await point.getAttribute('aria-label'), /Call `answer\(\)`\./);
+    const clearance = await point.evaluate(node => node.querySelector('.cog-text').getBoundingClientRect().top
+      - node.querySelector('.cog-focus-ring').getBoundingClientRect().bottom);
+    assert.ok(clearance >= 2, `wording clears the full scaled focus ring (${clearance}px)`);
     await point.dispatchEvent('click', { detail: 0 });
     assert.equal(await page.evaluate(() => window.selected.text), 'Call `answer()`.');
     const only = page.locator('.cog-node.point').filter({ hasText: 'only()' });

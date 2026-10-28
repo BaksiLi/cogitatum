@@ -38,7 +38,7 @@ export type GraphView = {
 const NS = "http://www.w3.org/2000/svg";
 /** An ending's mark is drawn this much larger, so the conclusions anchor the drawing. */
 const ENDING = 1.3;
-const POINT_R = 9, RING_GAP = 3.2, JUNCTION_R = 10, LABEL_K = .6, READ_K = .78, DRAG_SLOP = 4, MIN_K = .3, MAX_K = 2.2;
+const POINT_R = 9, FOCUS_R = 15, RING_GAP = 3.2, JUNCTION_R = 10, LABEL_K = .6, READ_K = .78, DRAG_SLOP = 4, MIN_K = .3, MAX_K = 2.2;
 type Camera = { k: number; tx: number; ty: number };
 type Shape = { id: string; node: GraphNode; g: SVGGElement; glyph?: SVGGElement; label?: SVGTextElement; labelHit?: SVGRectElement; inline: boolean };
 
@@ -123,7 +123,7 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
       const isPoint = node.ref.kind === "point";
       const g = element("g", { class: `cog-node ${isPoint ? "point" : "bearing cog-junction-node"} cog-${node.label.replace("?", "-open")}`, role: "button", tabindex: "-1", "data-node": node.id }, nodeLayer);
       element("circle", { class: "cog-hit", r: isPoint ? "22" : "16" }, g);
-      const ring = element("circle", { class: "cog-focus-ring", r: isPoint ? "15" : "16" }, g);
+      const ring = element("circle", { class: "cog-focus-ring", r: String(isPoint ? FOCUS_R : 16) }, g);
       // A point's glyph and focus ring scale together with the drawing; see pointScale.
       const glyph = isPoint ? element("g", { class: "cog-point-scale" }, g) : undefined;
       // A marked point is drawn as a star on an engraved chart: the disc, and a hairline ring a little apart.
@@ -245,7 +245,7 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
         const overview = isPoint && camera.k < LABEL_K && shape.id !== selected && shape.id !== hovered;
         label.classList.toggle("cog-overview", overview && !endings.has(shape.id));
         label.classList.toggle("cog-overview-ending", overview && endings.has(shape.id));
-        const top = pointR() * (endings.has(shape.id) ? ENDING : 1) + (overview ? 14 : 18);
+        const top = FOCUS_R * pointScale() * (endings.has(shape.id) ? ENDING : 1) + (overview ? 14 : lineHeight);
         lines.forEach((runs, i) => {
           const line = element("tspan", isPoint ? { x: "0", y: String(top + i * lineHeight) } : { x: String(JUNCTION_R + 5), y: "4" }, label);
           for (const run of runs) {

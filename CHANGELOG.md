@@ -9,6 +9,7 @@ Use the complete released schema set and [migrate retained source](docs/syntax.m
 ## Unreleased
 
 - Render single-backtick inline code in Map wording, measuring its monospace runs for wrapping and keeping authored text in callbacks and accessible labels.
+  Keep wording below the complete scaled mark, including its focus ring.
 
 - Use **Response / `respondsTo`**, retaining `R`, for a passage addressing another Point in a static artefact.
   It requires no chronological conversation and certifies no answer, rebuttal or resolution.
