@@ -127,6 +127,26 @@ describe("reading layout", () => {
   });
 });
 
+describe("contest geometry", () => {
+  it("stacks support under its target and brings a challenge in from the right flank", () => {
+    const { topology } = explore([
+      "- [C @claim] The claim.",
+      "  - [G @first] First reason.",
+      "  - [G @second] Second reason.",
+      "  - [O @doubt] A challenge.",
+      "- [Q @aside] An unconnected question.",
+    ].join("\n"));
+    const placed = new Map(layoutGraph(topology).map(n => [n.name, n]));
+    const claim = placed.get("claim")!, doubt = placed.get("doubt")!;
+    const supporters = [placed.get("first")!, placed.get("second")!];
+    expect(Math.abs(claim.x - (supporters[0].x + supporters[1].x) / 2)).toBeLessThan(1);
+    for (const support of supporters) expect(doubt.x).toBeGreaterThan(support.x);
+    expect(doubt.y).toBeGreaterThan(claim.y);
+    // A lone Point waits after the connected argument.
+    expect(placed.get("aside")!.y).toBeGreaterThan(Math.max(...[claim, doubt, ...supporters].map(n => n.y)));
+  });
+});
+
 describe("reading rail", () => {
   it("nests overlapping spans in distinct lanes and reuses a lane only for disjoint spans", () => {
     const spans = [[0, 6], [1, 2], [3, 5], [2, 4], [7, 9]] as const;

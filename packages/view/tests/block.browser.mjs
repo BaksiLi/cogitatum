@@ -320,7 +320,12 @@ try {
       assert.match(await root.locator('.cog-block-detail-text').textContent(), /^Main content\./);
       assert.equal(await root.locator('.cog-block-note').count(), 1);
       assert.equal(await root.evaluate(node => node.scrollWidth <= node.clientWidth + 1), true);
-      await page.evaluate(() => window.block.update('- [C] Fresh source.'));
+      await page.evaluate(() => {
+        window.oldNoteControl = document.querySelector('.cog-block-note-source');
+        window.block.update('- [C] Fresh source.');
+        window.oldNoteControl.click();
+      });
+      assert.equal(await button('Edit').getAttribute('title'), 'Edit source beside this preview', 'retired note controls cannot restore an old source span');
       assert.equal(await root.locator('.cog-block-note').count(), 0);
       assert.equal(await root.locator('.cog-reading-note-source').count(), 0);
     });

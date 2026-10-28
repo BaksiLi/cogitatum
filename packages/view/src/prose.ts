@@ -1,3 +1,9 @@
+/** Host prose controls keep their native interaction; only the view's own controls select objects. */
+export function isProseInteraction(target: EventTarget | null, ownControls: string): boolean {
+  const control = (target as Element | null)?.closest?.("a, button, input, select, textarea, summary, [contenteditable], [role='button'], [role='link']");
+  return !!control && !control.matches(ownControls);
+}
+
 export type ProseRenderRequest = {
   text: string;
   container: HTMLElement;

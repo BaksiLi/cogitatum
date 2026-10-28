@@ -1,4 +1,4 @@
-import type { BearingTarget, GraphIR, SourceSpan } from "@cogitatum/core";
+import type { BearingKind, BearingTarget, GraphIR, Point, SourceSpan } from "@cogitatum/core";
 import { FORMAT_VERSION } from "@cogitatum/core";
 import { declarationMark } from "./marks.js";
 
@@ -11,14 +11,28 @@ export type GraphNode = {
   sourceSpan?: SourceSpan;
   noteCount?: number;
 };
-export type GraphLink = { source: string; target: string; bearingKey: string; segment: "input" | "output" };
+/** `kind` is the Bearing's relation, so a renderer or layout can tell support from contest without a lookup. */
+export type GraphLink = { source: string; target: string; bearingKey: string; segment: "input" | "output"; kind?: BearingKind };
 export type GraphProjection = { nodes: GraphNode[]; links: GraphLink[] };
 export type PositionedNode = GraphNode & { x: number; y: number };
 export const referenceKey = (ref: BearingTarget): string => `${ref.kind}:${ref.key}`;
 
+function requireCurrentGraph(graph: GraphIR): void {
+  if (graph.version !== FORMAT_VERSION) throw new Error(`Unsupported graph format ${graph.version}; expected ${FORMAT_VERSION}. Recompile retained source.`);
+}
+
+/** Structural endings, never a judgment of whether the inquiry has been resolved. */
+export function endingPoints(graph: GraphIR): Point[] {
+  requireCurrentGraph(graph);
+  const sources = new Set(graph.bearings.flatMap(bearing => bearing.sources.map(source => source.key)));
+  const targets = new Set(graph.bearings.filter(bearing => bearing.target.kind === "point").map(bearing => bearing.target.key));
+  return graph.points.filter(point => !sources.has(point.key) && targets.has(point.key))
+    .sort((a, b) => (a.sourceSpan?.startLine ?? Infinity) - (b.sourceSpan?.startLine ?? Infinity));
+}
+
 /** Incidence projection: a Bearing stays an addressable node, including joint sources. */
 export function projectGraph(graph: GraphIR): GraphProjection {
-  if (graph.version !== FORMAT_VERSION) throw new Error(`Unsupported graph format ${graph.version}; expected ${FORMAT_VERSION}. Recompile retained source.`);
+  requireCurrentGraph(graph);
   const nodes: GraphNode[] = [
     ...graph.points.map(p => ({ id: referenceKey({ kind: "point", key: p.key }), ref: { kind: "point" as const, key: p.key },
       name: p.id, label: declarationMark(p.declaration).label,
@@ -36,8 +50,8 @@ export function projectGraph(graph: GraphIR): GraphProjection {
   }
   for (const node of nodes) if (noteCounts.has(node.id)) node.noteCount = noteCounts.get(node.id);
   const links: GraphLink[] = graph.bearings.flatMap(b => [
-    ...b.sources.map(p => ({ source: referenceKey(p), target: referenceKey({ kind: "bearing", key: b.key }), bearingKey: b.key, segment: "input" as const })),
-    { source: referenceKey({ kind: "bearing", key: b.key }), target: referenceKey(b.target), bearingKey: b.key, segment: "output" as const }
+    ...b.sources.map(p => ({ source: referenceKey(p), target: referenceKey({ kind: "bearing", key: b.key }), bearingKey: b.key, segment: "input" as const, kind: b.kind })),
+    { source: referenceKey({ kind: "bearing", key: b.key }), target: referenceKey(b.target), bearingKey: b.key, segment: "output" as const, kind: b.kind }
   ]);
   if (links.some(l => !ids.has(l.source) || !ids.has(l.target))) throw new Error("Graph contains a dangling reference.");
   return { nodes, links };

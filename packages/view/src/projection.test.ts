@@ -65,7 +65,7 @@ describe("exploration presentation", () => {
     const display = projectExploration(canonical);
     expect(display.nodes).toHaveLength(2);
     expect(display.inlineBearings).toHaveLength(1);
-    expect(display.links).toEqual([{ source: referenceKey(graph.bearings[0].sources[0]), target: referenceKey(graph.bearings[0].target), bearingKey: graph.bearings[0].key, segment: 'output' }]);
+    expect(display.links).toEqual([{ source: referenceKey(graph.bearings[0].sources[0]), target: referenceKey(graph.bearings[0].target), bearingKey: graph.bearings[0].key, segment: 'output', kind: graph.bearings[0].kind }]);
     expect(display.inlineBearings[0].ref).toEqual({kind: 'bearing', key: graph.bearings[0].key});
     expect(canonical).toEqual(before);
   });

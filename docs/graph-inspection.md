@@ -256,6 +256,11 @@ The header `cogitatum-explain-text 1` identifies this readable trace notation; i
 Core provides `formatExplain(explainSource(source, mode))` and `EXPLAIN_TEXT_VERSION`.
 JSON Explain and the complete `export` envelope remain available.
 
+The View package's Reading presents the same evidence beside the source:
+selecting a row draws a rail from the context row that indentation selected, marks crossed body,
+and states the decision in one line, such as `From indentation: challenges @g (L2), the nearest enclosing Point.`
+Rows that create no relation say so, which makes Q, C and neutral Points' lack of implicit relations visible.
+
 ## Preview local and explicit forms
 
 ```sh

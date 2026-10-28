@@ -1,14 +1,15 @@
 import { explainSource, type BearingTarget, type GraphIR, type SourceSpan } from "@cogitatum/core";
 import { createGraphView, type GraphView } from "./index.js";
 import { createReadingView } from "./reading.js";
+import { createStrandsView, type StrandsView } from "./strands.js";
 import { projectReading } from "./reading-projection.js";
-import { bearingMark, pointMark } from "./marks.js";
-import type { GraphNode } from "./projection.js";
+import { bearingMark, declarationMark } from "./marks.js";
+import { referenceKey } from "./projection.js";
 import { createProseScope, type ProseRenderer } from "./prose.js";
 
 export type { ProseRenderer } from "./prose.js";
 
-export type BlockMode = "reading" | "map";
+export type BlockMode = "reading" | "map" | "strands";
 export type BlockEditRequest = {
   source: string;
   sourceSpan?: SourceSpan;
@@ -61,7 +62,7 @@ export function createBlockView(container: HTMLElement, options: BlockViewOption
   const modes = element("div", "modes", toolbar);
   modes.setAttribute("role", "group"); modes.setAttribute("aria-label", "View");
   const modeButtons = new Map<BlockMode, HTMLButtonElement>();
-  for (const [mode, label] of [["reading", "Reading"], ["map", "Map"]] as const) {
+  for (const [mode, label] of [["reading", "Reading"], ["map", "Map"], ["strands", "Strands"]] as const) {
     modeButtons.set(mode, button(modes, label, () => showMode(mode)));
   }
   const issues = button(toolbar, "", () => {
@@ -81,6 +82,7 @@ export function createBlockView(container: HTMLElement, options: BlockViewOption
   const body = element("div", "body", root);
   const readingSurface = element("div", "reading", body);
   const mapPanel = element("div", "map-panel", body);
+  const strandsSurface = element("div", "strands", body);
   const mapToolbar = element("div", "map-toolbar", mapPanel);
   mapToolbar.setAttribute("role", "group"); mapToolbar.setAttribute("aria-label", "Map controls");
   button(mapToolbar, "Fit", () => map?.fit(), "Fit the whole map");
@@ -110,36 +112,50 @@ export function createBlockView(container: HTMLElement, options: BlockViewOption
   }
 
   let mode: BlockMode = "reading", source: string | undefined, graph: GraphIR | undefined, map: GraphView | undefined;
+  let strands: StrandsView | undefined;
   let projection: ReturnType<typeof projectReading> | undefined;
   let selected: BearingTarget | undefined, selectedSpan: SourceSpan | undefined;
   let syncing = false, destroyed = false, interacted = false;
   let dialog: HTMLDialogElement | undefined, reservedHeight = "", editing: AbortController | undefined;
-  const sync = (action: () => void) => { syncing = true; try { action(); } finally { syncing = false; } };
+  const sync = (action: () => void) => { const previous = syncing; syncing = true; try { action(); } finally { syncing = previous; } };
   const updateEditTitle = () => {
     if (edit) edit.title = selectedSpan ? `Edit selected passage at line ${selectedSpan.startLine}` : "Edit source beside this preview";
   };
   const reading = createReadingView(readingSurface, {
     renderProse: options.renderProse,
-    onSelect(selection) {
-      selected = selection.ref; selectedSpan = selection.sourceSpan; updateEditTitle();
-      if (!syncing) sync(() => { if (selected) map?.select(selected); else map?.clear(); });
-    },
-    onClear() {
-      selected = undefined; selectedSpan = undefined; clearDetail(); updateEditTitle();
-      if (!syncing) sync(() => map?.clear());
-    },
+    onSelect: selection => choose(selection.ref, selection.sourceSpan),
+    onClear: () => choose(),
     onNavigate: options.onEdit ? selection => { void revealSource(selection.sourceSpan); } : undefined,
     onNavigateDiagnostic: options.onEdit ? diagnostic => { void revealSource(diagnostic.sourceSpan); } : undefined
   });
-  function selectNode(node: GraphNode) {
-    if (!selected || selected.kind !== node.ref.kind || selected.key !== node.ref.key) selectedSpan = node.sourceSpan;
-    selected = node.ref; updateEditTitle();
-    const name = node.ref.kind === "point" ? pointMark(node.label).name : bearingMark(node.label).name;
-    detailHeading.textContent = `${name}${node.name ? ` @${node.name}` : ""}`;
+  /** The block owns selection; view callbacks are echoes while it synchronises the other surfaces. */
+  function choose(ref?: BearingTarget, span?: SourceSpan) {
+    if (syncing || destroyed) return;
+    const same = selected && ref && referenceKey(selected) === referenceKey(ref);
+    const entity = ref?.kind === "point" ? graph?.points.find(point => point.key === ref.key)
+      : ref ? graph?.bearings.find(bearing => bearing.key === ref.key) : undefined;
+    selectedSpan = span ?? (same ? selectedSpan : entity?.sourceSpan);
+    selected = ref; updateEditTitle();
+    sync(() => {
+      if (ref) { reading.select(ref); map?.select(ref); strands?.select(ref); }
+      else { if (!span) reading.clear(); map?.clear(); strands?.clear(); }
+    });
+    showDetail();
+  }
+  function showDetail() {
     clearDetail();
-    const prose = node.ref.kind === "point" ? node.text : graph?.bearings.find(bearing => bearing.key === node.ref.key)?.text;
+    if (!map || !selected || !graph) return;
+    const ref = selected;
+    const point = ref.kind === "point" ? graph.points.find(point => point.key === ref.key) : undefined;
+    const bearing = ref.kind === "bearing" ? graph.bearings.find(bearing => bearing.key === ref.key) : undefined;
+    const entity = point ?? bearing;
+    if (!entity) return;
+    const mark = point ? declarationMark(point.declaration).name : bearingMark(bearing!.kind).name;
+    const name = point ? point.id : bearing!.handle;
+    detailHeading.textContent = `${mark}${name ? ` @${name}` : ""}`;
+    const prose = entity.text;
     const occurrence = projection?.units[0]?.occurrences.find(row => row.references.some(reference =>
-      (reference.kind === "declares" || reference.kind === "constructs") && reference.ref.kind === node.ref.kind && reference.ref.key === node.ref.key));
+      (reference.kind === "declares" || reference.kind === "constructs") && reference.ref.kind === ref.kind && reference.ref.key === ref.key));
     if (prose !== undefined) {
       // A host renderer can finish later and replace its own container.
       // Keep it separate from note controls and their independently rendered prose.
@@ -148,16 +164,17 @@ export function createBlockView(container: HTMLElement, options: BlockViewOption
       else detailProse.render(passage, prose);
     }
     for (const note of projection?.units[0]?.notes ?? []) {
-      if (note.record.target.kind !== node.ref.kind || note.record.target.key !== node.ref.key) continue;
+      if (note.record.target.kind !== ref.kind || note.record.target.key !== ref.key) continue;
       const section = element("div", "note", detailText);
       const sourceLink = element("button", "button", section);
       sourceLink.classList.add("cog-block-note-source");
       sourceLink.type = "button";
       sourceLink.textContent = `${note.record.origin === "note" ? "Note" : "Description"} · line ${note.record.sourceSpan.startLine}`;
       sourceLink.onclick = () => {
+        if (destroyed || !detail.contains(sourceLink)) return;
         showMode("reading");
         reading.selectOccurrence(note.occurrenceId, note.record.target);
-        selectedSpan = note.record.sourceSpan; updateEditTitle();
+        choose(note.record.target, note.record.sourceSpan);
         readingSurface.querySelector<HTMLElement>('.cog-reading-row[data-selected="true"]')?.focus({ preventScroll: true });
       };
       // Constructor prose is already the Bearing's displayed description.
@@ -169,7 +186,6 @@ export function createBlockView(container: HTMLElement, options: BlockViewOption
       }
     }
     detail.hidden = false;
-    if (!syncing) sync(() => reading.select(node.ref));
   }
   async function revealSource(span?: SourceSpan) {
     if (!options.onEdit || source === undefined || destroyed || editing) return;
@@ -195,21 +211,28 @@ export function createBlockView(container: HTMLElement, options: BlockViewOption
     status.hidden = true;
   }
   function showMode(next: BlockMode, remember = true) {
-    mode = next === "map" && modeButtons.get("map")!.disabled ? "reading" : next;
+    mode = next !== "reading" && modeButtons.get(next)!.disabled ? "reading" : next;
     root.dataset.mode = mode;
     if (remember) { interacted = true; options.onMode?.(mode); }
     for (const [key, node] of modeButtons) node.setAttribute("aria-pressed", String(key === mode));
-    readingSurface.hidden = mode !== "reading"; mapPanel.hidden = mode !== "map";
+    readingSurface.hidden = mode !== "reading"; mapPanel.hidden = mode !== "map"; strandsSurface.hidden = mode !== "strands";
+    if (mode === "strands" && !strands && graph) {
+      strands = createStrandsView(strandsSurface, {
+        renderProse: options.renderProse,
+        onSelect: ref => choose(ref),
+        onClear: () => choose(),
+        onNavigate: options.onEdit ? ref => { choose(ref); void revealSource(selectedSpan); } : undefined
+      });
+      sync(() => { strands!.update(graph!); if (selected) strands!.select(selected); });
+    }
     if (mode === "map" && !map && graph) {
       map = createGraphView(mapSurface, {
-        onSelect: selectNode,
-        onClear() {
-          clearDetail();
-          if (!syncing) { selected = undefined; selectedSpan = undefined; updateEditTitle(); sync(() => reading.clear()); }
-        },
+        onSelect: node => choose(node.ref),
+        onClear: () => choose(),
         onNavigate: options.onEdit ? () => { void revealSource(selectedSpan); } : undefined
       });
       sync(() => { map!.update(graph!, "code-block"); if (selected) map!.select(selected); });
+      showDetail();
     }
   }
   function openExpanded() {
@@ -250,16 +273,17 @@ export function createBlockView(container: HTMLElement, options: BlockViewOption
         const explained = explainSource(next, "document");
         graph = explained.graphs[0];
         projection = projectReading(next, explained);
-        if (!graph) { map?.destroy(); map = undefined; }
-        sync(() => { reading.update(projection!); map?.clear(); if (graph) map?.update(graph, "code-block"); });
+        if (!graph) { map?.destroy(); map = undefined; strands?.destroy(); strands = undefined; }
+        sync(() => { reading.update(projection!); map?.clear(); if (graph) { map?.update(graph, "code-block"); strands?.update(graph); } });
         modeButtons.get("map")!.disabled = !graph || (!graph.points.length && !graph.bearings.length);
+        modeButtons.get("strands")!.disabled = !graph?.points.length;
         issues.textContent = `${explained.diagnostics.length} issue${explained.diagnostics.length === 1 ? "" : "s"}`;
         issues.hidden = !explained.diagnostics.length;
         failure.hidden = true; body.hidden = false;
         if (first) restoreMode(); else showMode(mode, false);
       } catch (error) {
-        graph = undefined; projection = undefined; map?.destroy(); map = undefined;
-        modeButtons.get("map")!.disabled = true; issues.hidden = true; showMode("reading", false);
+        graph = undefined; projection = undefined; map?.destroy(); map = undefined; strands?.destroy(); strands = undefined;
+        modeButtons.get("map")!.disabled = true; modeButtons.get("strands")!.disabled = true; issues.hidden = true; showMode("reading", false);
         failure.textContent = `Could not render this block: ${error instanceof Error ? error.message : String(error)}`;
         failure.hidden = false; body.hidden = true;
       }
@@ -267,7 +291,7 @@ export function createBlockView(container: HTMLElement, options: BlockViewOption
     destroy() {
       if (destroyed) return;
       destroyed = true; cancelEdit(); abort.abort(); win.cancelAnimationFrame(readyFrame);
-      closeExpanded(false); detailProse.destroy(); map?.destroy(); reading.destroy(); root.remove();
+      closeExpanded(false); detailProse.destroy(); map?.destroy(); strands?.destroy(); reading.destroy(); root.remove();
     }
   };
 }

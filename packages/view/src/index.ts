@@ -1,13 +1,17 @@
 import type { BearingTarget, GraphIR } from "@cogitatum/core";
-import { focusNeighborhood, guidanceSubject, projectExploration, projectGraph, referenceKey, type GraphLink, type GraphNode, type GraphProjection } from "./projection.js";
+import { endingPoints, focusNeighborhood, guidanceSubject, projectExploration, projectGraph, referenceKey, type GraphLink, type GraphNode, type GraphProjection } from "./projection.js";
 import { layoutGraph, type Point2 } from "./layout.js";
-import { createDragMotion } from "./motion.js";
+import { createDragMotion, type DragReach } from "./motion.js";
+import { labelWidth, wrapMapLabel, type LabelLine } from "./map-label.js";
 import { bearingMark, drawBearingGlyph, drawPointGlyph, MARK_TYPE, pointMark } from "./marks.js";
 export * from "./projection.js";
 export * from "./layout.js";
 export * from "./marks.js";
 export * from "./reading-projection.js";
 export * from "./reading.js";
+export * from "./commitment.js";
+export * from "./strands-projection.js";
+export * from "./strands.js";
 export type { ProseRenderer, ProseRenderRequest } from "./prose.js";
 
 export type GraphViewOptions = {
@@ -32,7 +36,9 @@ export type GraphView = {
 };
 
 const NS = "http://www.w3.org/2000/svg";
-const POINT_R = 9, RING_GAP = 3.2, JUNCTION_R = 10, LABEL_K = .6, READ_K = .78, DRAG_SLOP = 4, MIN_K = .3, MAX_K = 2.2;
+/** An ending's mark is drawn this much larger, so the conclusions anchor the drawing. */
+const ENDING = 1.3;
+const POINT_R = 9, FOCUS_R = 15, RING_GAP = 3.2, JUNCTION_R = 10, LABEL_K = .6, READ_K = .78, DRAG_SLOP = 4, MIN_K = .3, MAX_K = 2.2;
 type Camera = { k: number; tx: number; ty: number };
 type Shape = { id: string; node: GraphNode; g: SVGGElement; glyph?: SVGGElement; label?: SVGTextElement; labelHit?: SVGRectElement; inline: boolean };
 
@@ -55,9 +61,17 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
 
   let full: GraphProjection = { nodes: [], links: [] }, topology: GraphProjection = { nodes: [], links: [] };
   let inline = new Map<string, GraphLink>(), shapes = new Map<string, Shape>(), order: string[] = [];
+  /** Points that bear on nothing yet have something bearing on them: the inquiry's conclusions. */
+  let endings = new Set<string>();
   let world = new Map<string, Point2>(), camera: Camera = { k: 1, tx: 0, ty: 0 }, size = { w: 0, h: 0 };
   let scope = "", selected: string | undefined, hovered: string | undefined;
   let destroyed = false, cameraTouched = false, frame = 0, settleFrame = 0;
+  /**
+   * While a pinch or wheel zoom is in motion, wording keeps the line breaks it had when the zoom began and
+   * links keep their curves, so nothing reflows under the fingers; both settle once, when the zoom rests.
+   */
+  let zoomHold = false, zoomRest = 0;
+  const bends = new Map<string, number>();
   /** Positions to restore after an update; `held` are the marks the reader placed directly. */
   const arrangement = new Map<string, Point2>();
   const held = new Set<string>();
@@ -79,33 +93,19 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
 
   // ── text measurement (fixed CSS pixel sizes from the shared mark type scale) ──
   // Line height follows the host's label type, so a host may set the wording larger than the shared scale.
-  let measure: CanvasRenderingContext2D | null | undefined, font = "", lineHeight: number = MARK_TYPE.lineHeight;
-  const wrapCache = new Map<string, string[]>();
-  function textWidth(s: string): number {
+  let measure: CanvasRenderingContext2D | null | undefined, font = "", codeFont = "", lineHeight: number = MARK_TYPE.lineHeight;
+  const wrapCache = new Map<string, LabelLine[]>();
+  function textWidth(s: string, code = false): number {
     measure ??= doc.createElement("canvas").getContext?.("2d") ?? null;
-    if (measure) { measure.font = font; return measure.measureText(s).width; }
-    return s.length * MARK_TYPE.text * .55;
+    if (measure) { measure.font = code ? codeFont : font; return measure.measureText(s).width; }
+    return s.length * MARK_TYPE.text * (code ? .6 : .55);
   }
-  function wrap(text: string, width: number, lines: number): string[] {
+  const lineWidth = (line: LabelLine) => labelWidth(line, textWidth);
+  const literalLine = (text: string): LabelLine[] => [[{ text }]];
+  function wrap(text: string, width: number, lines: number): LabelLine[] {
     const key = `${width}|${lines}|${text}`;
-    if (wrapCache.has(key)) return wrapCache.get(key)!;
-    const w = textWidth;
-    const tokens = text.match(/[⺀-鿿豈-﫿　-〿＀-￯]|[^\s⺀-鿿豈-﫿　-〿＀-￯]+|\s+/g) ?? [];
-    const out: string[] = []; let line = "", used = 0;
-    for (const token of tokens) {
-      if (w(line + token) <= width || !line.trim()) { line += token; used += token.length; continue; }
-      out.push(line.trim()); line = token.trimStart();
-      if (out.length === lines) { line = ""; break; }
-      used += token.length;
-    }
-    if (out.length < lines && line.trim()) out.push(line.trim());
-    if (used < text.length && out.length) {
-      let last = out[out.length - 1];
-      while (last.length && w(last + "…") > width) last = last.slice(0, -1);
-      out[out.length - 1] = last.replace(/[\s,.;:，。；：、]+$/u, "") + "…";
-    }
-    wrapCache.set(key, out);
-    return out;
+    if (!wrapCache.has(key)) wrapCache.set(key, wrapMapLabel(text, width, lines, textWidth));
+    return wrapCache.get(key)!;
   }
 
   // ── build DOM for the current topology ──
@@ -115,13 +115,15 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
     const probe = element("text", { class: "cog-text" }, nodeLayer), style = win?.getComputedStyle(probe);
     const fontSize = style?.fontSize || `${MARK_TYPE.text}px`;
     font = `${fontSize} ${style?.fontFamily || "serif"}`;
+    const codeStyle = win?.getComputedStyle(element("tspan", { class: "cog-code" }, probe));
+    codeFont = `${codeStyle?.fontSize || fontSize} ${codeStyle?.fontFamily || "monospace"}`;
     lineHeight = Math.max(MARK_TYPE.lineHeight, Math.round(parseFloat(fontSize) * 1.28));
     probe.remove(); wrapCache.clear();
     for (const node of topology.nodes) {
       const isPoint = node.ref.kind === "point";
       const g = element("g", { class: `cog-node ${isPoint ? "point" : "bearing cog-junction-node"} cog-${node.label.replace("?", "-open")}`, role: "button", tabindex: "-1", "data-node": node.id }, nodeLayer);
       element("circle", { class: "cog-hit", r: isPoint ? "22" : "16" }, g);
-      const ring = element("circle", { class: "cog-focus-ring", r: isPoint ? "15" : "16" }, g);
+      const ring = element("circle", { class: "cog-focus-ring", r: String(isPoint ? FOCUS_R : 16) }, g);
       // A point's glyph and focus ring scale together with the drawing; see pointScale.
       const glyph = isPoint ? element("g", { class: "cog-point-scale" }, g) : undefined;
       // A marked point is drawn as a star on an engraved chart: the disc, and a hairline ring a little apart.
@@ -143,6 +145,7 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
     }
     const line = (id: string) => nodeById(id)?.sourceSpan?.startLine ?? Number.MAX_SAFE_INTEGER;
     order = [...shapes.keys()].sort((a, b) => line(a) - line(b));
+    for (const id of endings) shapes.get(id)?.g.classList.add("cog-ending");
   }
   function describe(g: SVGGElement, node: GraphNode): void {
     const name = node.ref.kind === "point" ? pointMark(node.label).name : bearingMark(node.label).name;
@@ -176,32 +179,41 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
   /** Links stop at a marked point's ring, not its disc, so arrowheads touch the ring. */
   const ringR = (k = camera.k) => (POINT_R + RING_GAP) * pointScale(k);
   const pointLabelWidth = (k: number) => roomy(k) ? Math.min(200, 200 * k - 14) : Math.max(96, Math.min(150, 168 * k - 14));
-  function labelLines(shape: Shape, k = camera.k, focused = shape.id === selected || shape.id === hovered): string[] {
+  function labelLines(shape: Shape, k = camera.k, focused = shape.id === selected || shape.id === hovered): LabelLine[] {
     const node = shape.node;
     if (shape.inline) return [];
-    if (node.ref.kind === "bearing") return node.name && (k >= LABEL_K || focused) ? [`@${node.name}`] : [];
-    if (k < LABEL_K && !focused) return [];
+    if (node.ref.kind === "bearing") return node.name && (k >= LABEL_K || focused) ? literalLine(`@${node.name}`) : [];
+    // The overview keeps a conclusion's wording, the subject of the drawing, and every other authored name,
+    // so a wide inquiry is still navigable without all of its wording.
+    if (k < LABEL_K && !focused) return endings.has(shape.id) ? wrap(node.text, 240, 1) : node.name ? literalLine(`@${node.name}`) : [];
+    // A conclusion always gets the wide measure, with as many lines as the layers below leave room for.
+    if (endings.has(shape.id)) return wrap(node.text, 200, k >= .75 ? 3 : 2);
     const width = pointLabelWidth(k);
-    return wrap(node.text, focused ? Math.max(width, roomy(k) ? 200 : 150) : width, roomy(k) ? 3 : 2);
+    // Three lines once the layers have room for them beneath a point; two in a denser drawing.
+    return wrap(node.text, focused ? Math.max(width, roomy(k) ? 200 : 150) : width, k >= .75 ? 3 : 2);
   }
   /** Screen-pixel reach of a mark and its unfocused wording on either side of the mark's centre. */
   function reach(shape: Shape, k: number): { left: number; right: number } {
     const lines = labelLines(shape, k, false);
     if (!lines.length) return { left: 13, right: 13 };
-    if (shape.node.ref.kind === "bearing") return { left: 13, right: JUNCTION_R + 7 + textWidth(lines[0]) };
-    const half = Math.max(14, ...lines.map(line => textWidth(line) / 2 + 4));
+    if (shape.node.ref.kind === "bearing") return { left: 13, right: JUNCTION_R + 7 + lineWidth(lines[0]) };
+    const half = Math.max(14, ...lines.map(line => lineWidth(line) / 2 + 4));
     return { left: half, right: half };
   }
+  /** The drawn baseline remains authoritative while a zoom holds the wording in place. */
+  const wordingBottom = (shape?: Shape) => {
+    const last = shape?.label?.lastElementChild;
+    return last ? Number(last.getAttribute("y")) + 5 : undefined;
+  };
   /**
    * Route links around a Point's wording whenever the other endpoint lies below it.
    * `port` shifts the end sideways so links sharing a side of one mark fan out instead of bundling.
    */
   function anchor(id: string, toward: Point2, port = 0): Point2 {
     const p = screen(world.get(id)!), shape = shapes.get(id);
-    const isPoint = shape?.node.ref.kind === "point", r = isPoint ? ringR() + 1.5 : JUNCTION_R + 1;
+    const isPoint = shape?.node.ref.kind === "point", r = isPoint ? ringR() * (endings.has(id) ? ENDING : 1) + 1.5 : JUNCTION_R + 1;
     if (isPoint && shape?.label && toward.y > p.y + r) {
-      const lines = shape.label.childNodes.length;
-      return { x: p.x + port, y: p.y + (lines ? pointR() + 5 + lines * lineHeight : Math.sqrt(r * r - port * port)) };
+      return { x: p.x + port, y: p.y + (wordingBottom(shape) ?? Math.sqrt(r * r - port * port)) };
     }
     if (port && Math.abs(toward.y - p.y) > r) return { x: p.x + port, y: p.y + Math.sign(toward.y - p.y) * Math.sqrt(r * r - port * port) };
     const dx = toward.x - p.x, dy = toward.y - p.y, d = Math.hypot(dx, dy) || 1;
@@ -226,12 +238,22 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
       shape.g.style.opacity = entrance ? String(shown) : "";
       if (shape.glyph) shape.glyph.style.scale = entrance ? String(.4 + .6 * shown) : "";
       shape.g.setAttribute("transform", `translate(${p.x.toFixed(1)} ${p.y.toFixed(1)})`);
-      const lines = labelLines(shape), label = shape.label!;
-      label.replaceChildren();
-      const isPoint = shape.node.ref.kind === "point";
-      shape.glyph?.setAttribute("transform", `scale(${pointScale().toFixed(3)})`);
-      const top = pointR() + 18;
-      lines.forEach((text, i) => { const t = element("tspan", isPoint ? { x: "0", y: String(top + i * lineHeight) } : { x: String(JUNCTION_R + 5), y: "4" }, label); t.textContent = text; });
+      shape.glyph?.setAttribute("transform", `scale(${(pointScale() * (endings.has(shape.id) ? ENDING : 1)).toFixed(3)})`);
+      if (!zoomHold) {
+        const lines = labelLines(shape), label = shape.label!, isPoint = shape.node.ref.kind === "point";
+        label.replaceChildren();
+        const overview = isPoint && camera.k < LABEL_K && shape.id !== selected && shape.id !== hovered;
+        label.classList.toggle("cog-overview", overview && !endings.has(shape.id));
+        label.classList.toggle("cog-overview-ending", overview && endings.has(shape.id));
+        const top = FOCUS_R * pointScale() * (endings.has(shape.id) ? ENDING : 1) + (overview ? 14 : lineHeight);
+        lines.forEach((runs, i) => {
+          const line = element("tspan", isPoint ? { x: "0", y: String(top + i * lineHeight) } : { x: String(JUNCTION_R + 5), y: "4" }, label);
+          for (const run of runs) {
+            if (run.code) element("tspan", { class: "cog-code" }, line).textContent = run.text;
+            else line.append(doc.createTextNode(run.text));
+          }
+        });
+      }
       shape.g.dataset.related = String(!guided || related.has(shape.id));
     }
     edgeLayer.replaceChildren();
@@ -243,8 +265,8 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
         const right = lines ? JUNCTION_R + 7 + textWidth(shape.label!.textContent ?? "") : 13;
         return { id: shape.id, x0: p.x - 13, x1: p.x + right, y0: p.y - 13, y1: p.y + 13 };
       }
-      const half = lines ? Math.max(14, ...[...shape.label!.childNodes].map(t => textWidth(t.textContent ?? "") / 2 + 4)) : 13;
-      return { id: shape.id, x0: p.x - half, x1: p.x + half, y0: p.y - pointR() - 4, y1: p.y + pointR() + 5 + lines * lineHeight };
+      const half = lines ? Math.max(14, ...[...shape.label!.children].map(line => (line as SVGTSpanElement).getComputedTextLength() / 2 + 4)) : 13;
+      return { id: shape.id, x0: p.x - half, x1: p.x + half, y0: p.y - pointR() - 4, y1: p.y + (wordingBottom(shape) ?? pointR() + 5) };
     });
     const at = (a: Point2, c1: Point2, c2: Point2, t: Point2, s: number) => {
       const u = 1 - s;
@@ -295,12 +317,19 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
       };
       let [c1, c2] = curveFor(nth ? (nth % 2 ? 1 : -1) * Math.ceil(nth / 2) * .22 : 0);
       if (!nth) {
-        let best = crossings([link.source, link.target], a, c1, c2, t);
-        for (const bend of [.2, -.2, .38, -.38]) {
-          if (!best) break;
-          const [d1, d2] = curveFor(bend), hits = crossings([link.source, link.target], a, d1, d2, t);
-          if (hits < best) { best = hits; c1 = d1; c2 = d2; }
+        const key = `${link.source}>${link.target}`;
+        let bend = zoomHold ? bends.get(key) : undefined;
+        if (bend === undefined) {
+          bend = 0;
+          let best = crossings([link.source, link.target], a, c1, c2, t);
+          for (const option of [.2, -.2, .38, -.38]) {
+            if (!best) break;
+            const [d1, d2] = curveFor(option), hits = crossings([link.source, link.target], a, d1, d2, t);
+            if (hits < best) { best = hits; bend = option; }
+          }
+          bends.set(key, bend);
         }
+        if (bend) [c1, c2] = curveFor(bend);
       }
       const d = `M${a.x.toFixed(1)} ${a.y.toFixed(1)}C${c1.x.toFixed(1)} ${c1.y.toFixed(1)} ${c2.x.toFixed(1)} ${c2.y.toFixed(1)} ${t.x.toFixed(1)} ${t.y.toFixed(1)}`;
       const on = !guided || active.has(link.bearingKey);
@@ -313,9 +342,13 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
       }
       if (link.segment === "output") {
         const hx = t.x - c2.x, hy = t.y - c2.y, hl = Math.hypot(hx, hy) || 1, ux = hx / hl, uy = hy / hl;
-        // A slim engraved barb: long and narrow, notched at the back where the line enters it.
-        const head = element("path", { class: `cog-arrow cog-tone-${mark.tone}`, "data-active": String(on), "aria-hidden": "true",
-          d: `M${t.x} ${t.y}L${t.x - ux * 9 - uy * 3.2} ${t.y - uy * 9 + ux * 3.2}L${t.x - ux * 6.4} ${t.y - uy * 6.4}L${t.x - ux * 9 + uy * 3.2} ${t.y - uy * 9 - ux * 3.2}Z` }, edgeLayer);
+        // Support arrives as a slim engraved barb, notched where the line enters it.
+        // A challenge ends in a bar across its line, the notation for a check rather than a push.
+        const contest = bearing.label === "challenges";
+        const head = element("path", { class: `cog-arrow${contest ? " cog-arrow-bar" : ""} cog-tone-${mark.tone}`, "data-active": String(on), "aria-hidden": "true",
+          d: contest
+            ? `M${t.x - ux * 1.5 - uy * 5.5} ${t.y - uy * 1.5 + ux * 5.5}L${t.x - ux * 1.5 + uy * 5.5} ${t.y - uy * 1.5 - ux * 5.5}`
+            : `M${t.x} ${t.y}L${t.x - ux * 9 - uy * 3.2} ${t.y - uy * 9 + ux * 3.2}L${t.x - ux * 6.4} ${t.y - uy * 6.4}L${t.x - ux * 9 + uy * 3.2} ${t.y - uy * 9 - ux * 3.2}Z` }, edgeLayer);
         if (entrance) head.style.opacity = String(Math.max(0, traced * 4 - 3));
       }
       if (isInline) {
@@ -336,8 +369,9 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
     }
     // Measure after all text and selected font weights are applied. Batch reads before writes
     // so label hit areas include actual host fonts and line gaps without a layout flush per node.
+    // Held wording keeps its hit areas; measuring forces a layout, which a zoom cannot afford on every frame.
     const visible = svg.getClientRects().length > 0;
-    const labelHits = [...shapes.values()].flatMap(shape => shape.labelHit ? [{
+    const labelHits = zoomHold ? [] : [...shapes.values()].flatMap(shape => shape.labelHit ? [{
       hit: shape.labelHit,
       bounds: visible && shape.label!.childNodes.length ? shape.label!.getBBox() : undefined,
     }] : []);
@@ -365,7 +399,7 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
   function fitCamera(readingScale = true): Camera {
     // Wording keeps its pixel size while the drawing scales, so the fit must include it:
     // the widest scale at which every mark keeps `room` for links bowing around it and its wording stays inside.
-    // Below LABEL_K the wording disappears, so a wide inquiry falls back to an unlabelled overview.
+    // Below LABEL_K, endings and authored names remain as compact orientation labels.
     const b = bounds(), room = size.w < 600 ? 40 : 96, margin = size.w < 600 ? 16 : 48, padTop = 40, padBottom = 76;
     const placed = [...world].flatMap(([id, p]) => { const shape = shapes.get(id); return shape && !shape.inline ? [{ shape, x: p.x }] : []; });
     const span = (k: number) => {
@@ -390,11 +424,26 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
     const s = span(k);
     return { k, tx: (size.w - (s.x1 - s.x0)) / 2 - s.x0, ty: Math.max(padTop, (size.h - padBottom + padTop - b.h * k) / 2) - b.y * k };
   }
-  function fit(): void { finishEntrance(); stopMotion(); cameraTouched = true; camera = fitCamera(false); schedule(); }
-  function zoomAt(factor: number, x: number, y: number): void {
-    finishEntrance();
-    // Fit may use a smaller scale than manual zoom; zooming out must never jump inward from it.
-    const k = Math.max(Math.min(MIN_K, camera.k), Math.min(MAX_K, camera.k * factor));
+  function fit(): void {
+    finishEntrance(); stopMotion(); resetGesture(); finishZoom();
+    cameraTouched = true; camera = fitCamera(false); schedule();
+  }
+  // Fit may use a smaller scale than manual zoom; zooming out must never jump inward from it.
+  const clampK = (k: number, from = camera.k) => Math.max(Math.min(MIN_K, from), Math.min(MAX_K, k));
+  function finishZoom(): void {
+    win?.clearTimeout(zoomRest); zoomRest = 0; zoomHold = false;
+  }
+  /** A wheel settles after a pause; a pinch keeps its wording until a finger leaves. */
+  function holdWording(untilRelease = false): void {
+    if (!win) return;
+    zoomHold = true;
+    win.clearTimeout(zoomRest); zoomRest = 0;
+    if (!untilRelease) zoomRest = win.setTimeout(() => { finishZoom(); schedule(); }, 180);
+  }
+  function zoomAt(factor: number, x: number, y: number, continuous = false): void {
+    finishEntrance(); stopMotion(); resetGesture();
+    if (continuous) holdWording(); else finishZoom();
+    const k = clampK(camera.k * factor);
     camera = { k, tx: x - (x - camera.tx) * (k / camera.k), ty: y - (y - camera.ty) * (k / camera.k) };
     cameraTouched = true; schedule();
   }
@@ -443,7 +492,7 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
 
   // ── selection ──
   function select(id: string | undefined, notify = true): void {
-    finishEntrance();
+    finishEntrance(); finishZoom();
     selected = id;
     // Selection state is announced synchronously (aria-pressed), not on the next frame.
     if (frame) { win?.cancelAnimationFrame(frame); frame = 0; }
@@ -454,7 +503,7 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
   }
   function focusShape(id: string): void { const shape = shapes.get(id); if (shape) { selected = id; paint(); shape.g.focus({ preventScroll: true }); } }
 
-  let motion: ReturnType<typeof createDragMotion> | undefined;
+  let motion: ReturnType<typeof createDragMotion> | undefined, motionReach: DragReach = "junctions";
   function stopMotion(): void {
     win?.cancelAnimationFrame(settleFrame);
     settleFrame = 0; motion = undefined;
@@ -470,16 +519,21 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
     else { settleFrame = 0; motion = undefined; }
   }
 
-  /** The held mark follows the pointer exactly; its unheld component settles around it. */
-  function moveNode(node: GraphNode, position: Point2, follow: boolean): void {
+  /**
+   * The held mark follows the pointer exactly. Only its own junctions re-centre, so the rest of the
+   * Map stays still for inspection; with Shift, the step's other endpoints follow too.
+   */
+  function moveNode(node: GraphNode, position: Point2, follow: boolean, reach: DragReach = "junctions"): void {
     if (!follow) stopMotion();
     const before = world.get(node.id);
     if (before && before.x === position.x && before.y === position.y) return;
     world.set(node.id, position); arrangement.set(positionKey(node), { ...position }); held.add(positionKey(node));
     if (!follow || reduced() || !win) return;
+    if (motion && motionReach !== reach) stopMotion();
     if (!motion) {
+      motionReach = reach;
       motion = createDragMotion(topology, world, node.id,
-        new Set(topology.nodes.filter(n => held.has(positionKey(n))).map(n => n.id)), options.direction);
+        new Set(topology.nodes.filter(n => held.has(positionKey(n))).map(n => n.id)), options.direction, reach);
       settleFrame = win.requestAnimationFrame(settle);
     }
     motion.reheat(win.performance.now());
@@ -487,66 +541,91 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
 
   // ── pointer: drag a mark, pan the background, pinch to zoom; a click is a press that did not move ──
   const pointers = new Map<number, Point2>();
-  let gesture: { id: number; start: Point2; moved: boolean; target?: string; node?: string; origin?: Point2; camera: Camera; pinch?: { d: number; k: number } } | undefined;
+  let gesture: { start: Point2; moved: boolean; target?: string; node?: string; origin?: Point2; camera: Camera; pinch?: { d: number; k: number; at: Point2 } } | undefined;
   let suppressClick = false;
   const local = (event: PointerEvent | WheelEvent | MouseEvent) => { const r = svg.getBoundingClientRect(); return { x: event.clientX - r.left, y: event.clientY - r.top }; };
+  /** Retire every captured contact before replacement nodes or a different camera action can receive it. */
+  function resetGesture(): void {
+    suppressClick ||= !!gesture?.moved;
+    gesture = undefined; delete svg.dataset.dragging;
+    const captured = [...pointers.keys()]; pointers.clear();
+    for (const id of captured) if (svg.hasPointerCapture?.(id)) svg.releasePointerCapture(id);
+  }
   svg.addEventListener("pointerdown", event => {
-    if (event.button !== 0) return;
+    if (event.button !== 0 || pointers.size >= 2 || pointers.has(event.pointerId)) return;
     if (entrance) { finishEntrance(); schedule(); }
     stopMotion(); // A new gesture supersedes the previous settling or Arrange transition.
-    pointers.set(event.pointerId, local(event));
-    if (pointers.size === 2 && gesture) {
+    const at = local(event);
+    pointers.set(event.pointerId, at);
+    svg.setPointerCapture?.(event.pointerId);
+    if (gesture) {
       const [p, q] = [...pointers.values()];
-      gesture.pinch = { d: Math.hypot(p.x - q.x, p.y - q.y), k: camera.k }; gesture.node = undefined; gesture.moved = true;
+      // The world point under the fingers' midpoint stays under it, so a pinch zooms and pans as one motion.
+      const mid = { x: (p.x + q.x) / 2, y: (p.y + q.y) / 2 };
+      gesture = { start: gesture.start, moved: true, camera: { ...camera },
+        pinch: { d: Math.hypot(p.x - q.x, p.y - q.y) || 1, k: camera.k,
+          at: { x: (mid.x - camera.tx) / camera.k, y: (mid.y - camera.ty) / camera.k } } };
+      hovered = undefined; svg.dataset.dragging = "camera"; holdWording(true);
       return;
     }
+    finishZoom();
     const target = (event.target as Element).closest<SVGElement>("[data-node]")?.dataset.node;
     const draggable = target && shapes.has(target) && !shapes.get(target)!.inline ? target : undefined;
-    gesture = { id: event.pointerId, start: local(event), moved: false, target, node: draggable, origin: draggable ? { ...world.get(draggable)! } : undefined, camera: { ...camera } };
+    gesture = { start: at, moved: false, target, node: draggable, origin: draggable ? { ...world.get(draggable)! } : undefined, camera: { ...camera } };
     suppressClick = false;
-    svg.setPointerCapture?.(event.pointerId);
   }, on);
   svg.addEventListener("pointermove", event => {
-    if (pointers.has(event.pointerId)) pointers.set(event.pointerId, local(event));
     if (!gesture) {
+      if (event.pointerType === "touch") return;
       const target = (event.target as Element).closest<SVGElement>("[data-node]")?.dataset.node;
       if (target !== hovered) { hovered = target; schedule(); }
       return;
     }
-    if (gesture.pinch && pointers.size === 2) {
-      const [p, q] = [...pointers.values()], d = Math.hypot(p.x - q.x, p.y - q.y);
-      zoomAt(gesture.pinch.k * d / gesture.pinch.d / camera.k, (p.x + q.x) / 2, (p.y + q.y) / 2); return;
+    if (!pointers.has(event.pointerId)) return;
+    pointers.set(event.pointerId, local(event));
+    if (gesture.pinch) {
+      const [p, q] = [...pointers.values()], { at } = gesture.pinch;
+      const k = clampK(gesture.pinch.k * Math.hypot(p.x - q.x, p.y - q.y) / gesture.pinch.d, gesture.pinch.k);
+      camera = { k, tx: (p.x + q.x) / 2 - at.x * k, ty: (p.y + q.y) / 2 - at.y * k };
+      cameraTouched = true; schedule(); return;
     }
-    if (event.pointerId !== gesture.id) return;
     const at = local(event), dx = at.x - gesture.start.x, dy = at.y - gesture.start.y;
     if (!gesture.moved && Math.hypot(dx, dy) < DRAG_SLOP) return;
     if (!gesture.moved) { gesture.moved = true; svg.dataset.dragging = gesture.node ? "node" : "camera"; }
     if (gesture.node) {
       const node = shapes.get(gesture.node)!.node, p = { x: gesture.origin!.x + dx / camera.k, y: gesture.origin!.y + dy / camera.k };
-      moveNode(node, p, true);
+      moveNode(node, p, true, event.shiftKey ? "step" : "junctions");
       schedule();
     } else { camera = { ...gesture.camera, tx: gesture.camera.tx + dx, ty: gesture.camera.ty + dy }; cameraTouched = true; schedule(); }
   }, on);
   const end = (event: PointerEvent) => {
+    if (!pointers.has(event.pointerId) || !gesture) return;
+    if (event.type !== "pointerup") {
+      stopMotion(); resetGesture(); finishZoom(); schedule(); return;
+    }
+    const { moved, target, pinch } = gesture;
     pointers.delete(event.pointerId);
-    if (!gesture || event.pointerId !== gesture.id) { if (pointers.size < 2 && gesture) gesture.pinch = undefined; return; }
-    // With pointer capture the event target is the svg; the press target decides what a click selects.
-    const { moved, target } = gesture;
-    gesture = undefined; delete svg.dataset.dragging;
-    if (event.type === "pointercancel") stopMotion();
+    if (pinch) { finishZoom(); schedule(); }
+    const remaining = pointers.entries().next().value;
+    // Either finger can leave first. The survivor pans from the pinched camera, never drags the original mark.
+    if (remaining) gesture = { start: remaining[1], moved: true, camera: { ...camera } };
+    else { gesture = undefined; delete svg.dataset.dragging; }
+    // Clear ownership before releasing capture: lostpointercapture must not cancel the surviving finger.
     if (svg.hasPointerCapture?.(event.pointerId)) svg.releasePointerCapture(event.pointerId);
+    if (remaining) return;
     if (moved) { suppressClick = true; return; }
-    if (event.type !== "pointerup") return;
+    // With pointer capture the event target is the svg; the press target decides what a click selects.
     const pressed = target && shapes.has(target) ? target : undefined;
-    // A background press dismisses the preview too: after a tap the previous mark can keep focus without a hovering pointer.
     if (!pressed) hovered = undefined;
     select(pressed);
   };
   svg.addEventListener("pointerup", end, on);
   svg.addEventListener("pointercancel", end, on);
+  svg.addEventListener("lostpointercapture", end, on);
   svg.addEventListener("pointerleave", () => { if (!gesture && hovered) { hovered = undefined; schedule(); } }, on);
   svg.addEventListener("click", event => {
-    if (suppressClick) { event.stopPropagation(); suppressClick = false; return; }
+    if (suppressClick && event.detail !== 0) { event.stopPropagation(); suppressClick = false; return; }
+    suppressClick = false;
     // Assistive activation has no preceding pointerup; a pointer click is already handled there.
     if (event.detail === 0) {
       const id = (event.target as Element).closest<SVGElement>("[data-node]")?.dataset.node;
@@ -559,12 +638,12 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
   }, on);
   svg.addEventListener("wheel", event => {
     if (!(event.ctrlKey || event.metaKey)) return; // ordinary wheel scrolls the host page
-    event.preventDefault(); const p = local(event); zoomAt(Math.exp(-event.deltaY * .01), p.x, p.y);
+    event.preventDefault(); const p = local(event); zoomAt(Math.exp(-event.deltaY * .01), p.x, p.y, true);
   }, { passive: false, signal: abort.signal });
   svg.addEventListener("focusin", event => {
     const id = (event.target as Element).closest<SVGElement>("[data-node]")?.dataset.node, shape = id && shapes.get(id);
     if (!shape) return;
-    stopMotion(); hovered = id;
+    stopMotion(); finishZoom(); hovered = id;
     if (frame) { win?.cancelAnimationFrame(frame); frame = 0; }
     paint(); revealShape(shape);
   }, on);
@@ -628,11 +707,7 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
   const view: GraphView = {
     update(graph, nextScope) {
       if (destroyed) throw new Error("This graph view has been destroyed.");
-      stopMotion(); // a pending transition must not overwrite the new frame
-      // Host editors can replace this revision during a captured pointer gesture.
-      gesture = undefined; delete svg.dataset.dragging; hovered = undefined;
-      for (const id of pointers.keys()) if (svg.hasPointerCapture?.(id)) svg.releasePointerCapture(id);
-      pointers.clear();
+      stopMotion(); resetGesture(); finishZoom(); bends.clear(); hovered = undefined;
       const previous = nodeById(selected), hadFocus = svg.contains(doc.activeElement);
       const sameScope = nextScope === scope;
       if (!sameScope) { arrangement.clear(); held.clear(); world = new Map(); cameraTouched = false; }
@@ -641,6 +716,7 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
       const carried = new Map<string, Point2>();
       if (sameScope) for (const node of topology.nodes) { const p = world.get(node.id); if (p && node.name) carried.set(positionKey(node), p); }
       full = projectGraph(graph);
+      endings = new Set(endingPoints(graph).map(point => referenceKey({ kind: "point", key: point.key })));
       const exploration = projectExploration(full);
       topology = { nodes: exploration.nodes, links: exploration.links };
       inline = new Map(exploration.inlineBearings.map(node => [node.id, exploration.links.find(link => link.bearingKey === node.ref.key)!]));
@@ -651,7 +727,7 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
       const next = applyArrangement(baseLayout());
       const retained = sameScope && previous?.name ? full.nodes.find(node => node.ref.kind === previous.ref.kind && node.name === previous.name) : undefined;
       selected = retained?.id;
-      if (!carried.size) { world = next; camera = fitCamera(); paint(); }
+      if (!topology.nodes.some(node => carried.has(positionKey(node)))) { world = next; camera = fitCamera(); paint(); }
       else {
         world = new Map(topology.nodes.map(node => [node.id, { ...(carried.get(positionKey(node)) ?? next.get(node.id)!) }]));
         moveTo(next, needsRefit(next));
@@ -662,7 +738,7 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
     },
     resetLayout() {
       if (destroyed) throw new Error("This graph view has been destroyed.");
-      finishEntrance();
+      finishEntrance(); resetGesture(); finishZoom();
       arrangement.clear(); held.clear(); measureSize(); moveTo(baseLayout(), true); cameraTouched = false;
     },
     select(ref) { const id = referenceKey(ref); if (shapes.has(id)) select(id); },
@@ -674,8 +750,8 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
     },
     destroy() {
       destroyed = true; abort.abort(); observer?.disconnect();
-      win?.cancelAnimationFrame(frame); stopMotion();
-      svg.remove(); shapes.clear(); world.clear(); arrangement.clear(); held.clear();
+      win?.cancelAnimationFrame(frame); stopMotion(); resetGesture(); finishZoom();
+      svg.remove(); shapes.clear(); world.clear(); arrangement.clear(); held.clear(); bends.clear();
     }
   };
   return view;
