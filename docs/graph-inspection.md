@@ -186,12 +186,15 @@ Several Bearings may state one commitment; they stay distinct entities when some
 Entailment between commitments has exactly two rules:
 
 - A commitment entails itself.
-- Every kind is a species of relevance.
-  Commitments to one target, whose sources lie within a set and together cover it, entail that the set jointly concerns that target.
+- Every relation commits each of its sources to bearing on its target.
+  So a set jointly concerns a target once each member is a source of some relation to it, of any kind.
 
-Nothing else follows.
+Only relevance distributes.
 Joint support gives no member support of its own, separate supports are not one joint support,
-a joint relation entails nothing about a subset of its sources, and bearing on a step is not bearing on its conclusion.
+and bearing on a step is not bearing on its conclusion.
+Linked support is therefore a commitment of its own, while grouping under `[_]` adds none:
+`[_]` leaves open how its members bear, and refining it may decide that they bear together, separately or with a further premise.
+A grouping still matters as an entity when another relation addresses it.
 So `[_]` refined to `[_ +> ^]`, or split into sibling `[G]` occurrences, is a refinement,
 while merging two `[G]` into one `[_ +> ^]` is a revision.
 Selecting a Point is also counted: adding one refines and removing one retracts.
@@ -202,6 +205,8 @@ Selecting a Point is also counted: adding one refines and removing one retracts.
 | `[_]` with members a, b | `[G] a` and `[G] b` | refinement |
 | `[G] a` and `[G] b` | `[_ +> ^]` with members a, b | revision |
 | `[_ +> ^]` with members a, b | `[_]` with members a, b | weakening |
+| `[_]` with member a | `[_ +> ^]` with members a, b | refinement |
+| `[_]` with members a, b | `[_]` with member a | weakening |
 | `[O/]` on a step | `[O]` on its conclusion | revision |
 | `[G]` | `[G +> @claim]` | equivalent |
 

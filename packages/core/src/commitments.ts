@@ -86,16 +86,16 @@ export function graphCommitments(graph: GraphIR): Commitment[] {
  * Exactly two rules hold:
  *
  * - A commitment entails itself.
- * - Every kind is a species of relevance, so commitments to one target whose
- *   source sets lie within S, of any kinds, entail that S concerns it once
- *   their sources together cover S. Joint relevance asserts no member is
- *   necessary, so it holds of any set whose members are each committed as
- *   relevant; the cover keeps an uncommitted Point from joining.
+ * - Every relation commits each of its sources to bearing on its target, so
+ *   a set concerns a target once each member is a source of some relation to
+ *   it, of any kind and with any other sources. Relevance has no force that
+ *   members could share, so grouping adds nothing to it: [_] leaves open how
+ *   its members bear, and refining it may decide that they bear together,
+ *   separately or with further sources.
  *
- * Nothing else follows. Joint support gives no member support of its own;
- * separate supports are not one joint support; a joint relation entails
- * nothing about a subset of its sources; and bearing on a step is not
- * bearing on its conclusion.
+ * Nothing else follows. Only relevance distributes: joint support gives no
+ * member support of its own, separate supports are not one joint support,
+ * and bearing on a step is not bearing on its conclusion.
  */
 export function entailment(
   stated: readonly Omit<Commitment, "bearings">[],
@@ -105,10 +105,14 @@ export function entailment(
   const exact = stated.find(c => commitmentKey(c) === key);
   if (exact) return [exact];
   if (commitment.kind !== "concerns") return undefined;
-  const wanted = new Set(commitment.sources);
-  const parts = stated.filter(c => sameTarget(c.target, commitment.target) && c.sources.every(s => wanted.has(s)));
-  const covered = new Set(parts.flatMap(c => c.sources));
-  return covered.size === wanted.size ? parts : undefined;
+  const toTarget = stated.filter(c => sameTarget(c.target, commitment.target));
+  const witnesses = new Set<Omit<Commitment, "bearings">>();
+  for (const source of commitment.sources) {
+    const witness = toTarget.find(c => c.sources.includes(source));
+    if (!witness) return undefined;
+    witnesses.add(witness);
+  }
+  return [...witnesses];
 }
 
 /**

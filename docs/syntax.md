@@ -599,6 +599,9 @@ Here each version separately concerns the Question:
 ```
 
 The first example does not also create these two independent Bearings.
+Both record that each version bears on the Question; relevance has no force that the versions could share.
+The difference is what can be addressed: the first records one relation, `comparison`, that another relation can target, as below.
+Force is shared once it is decided: `[_ +> ^]` records Linked support, which separate `[G]` occurrences do not.
 Choose between them according to the connection you intend to record, not according to how many source Points are visible.
 The source list preserves written order without implying a sequence of inference.
 Sources must be distinct existing Points: a missing source, repeated source or Bearing used as a source rejects the whole Bearing rather than leaving a smaller joint relation.

@@ -58,14 +58,40 @@ describe("the commitment order", () => {
     expect(compare(claim + "  - [Q] A remark?\n", claim + "  - [_]\n    - [.] A remark?\n").relation).toBe("equivalent");
   });
 
-  it("draws nothing from a joint relation about a subset, and nothing stronger than relevance", () => {
+  it("distributes relevance alone over a joint relation's sources", () => {
     const [joint] = graphCommitments(graph(linked));
     const [a, b] = joint.sources;
     expect(entailment([joint], { ...joint, kind: "concerns" })).toEqual([joint]);
-    expect(entailment([joint], { kind: "concerns", sources: [a], target: joint.target })).toBeUndefined();
+    expect(entailment([joint], { kind: "concerns", sources: [a], target: joint.target })).toEqual([joint]);
     expect(entailment([joint], { kind: "supports", sources: [b], target: joint.target })).toBeUndefined();
     const separate = graphCommitments(graph(convergent));
     expect(entailment(separate, { kind: "supports", sources: [...separate.flatMap(c => c.sources)].sort(), target: separate[0].target })).toBeUndefined();
+  });
+
+  it("treats grouping as no commitment of relevance", () => {
+    const together = claim + "  - [_]\n    - [.] Most cases are near the pump.\n    - [.] Distant cases drank its water.\n";
+    const apart = claim + "  - [. ~> ^] Most cases are near the pump.\n  - [. ~> ^] Distant cases drank its water.\n";
+    expect(compare(together, apart)).toMatchObject({ relation: "equivalent", bearings: { removed: ["_b1"] } });
+  });
+
+  it("refines an undecided grouping into a linked support with a further premise", () => {
+    const sketch = "- [C] Socrates is mortal.\n  - [_]\n    - [.] Socrates is a man.\n";
+    const explicit = "- [C] Socrates is mortal.\n  - [_ +> ^]\n    - [.] Socrates is a man.\n    - [.] All men are mortal.\n";
+    expect(compare(sketch, explicit).relation).toBe("refinement");
+    // A stated unary support is a different commitment from the completed one.
+    const unary = "- [C] Socrates is mortal.\n  - [G] Socrates is a man.\n";
+    expect(compare(unary, explicit).relation).toBe("revision");
+  });
+
+  it("weakens a joint relevance by dropping a member", () => {
+    const fewer = claim + "  - [_]\n    - [.] Most cases are near the pump.\n- [.] Distant cases drank its water.\n";
+    expect(compare(undecided, fewer).relation).toBe("weakening");
+  });
+
+  it("keeps a grouping that something addresses as an entity", () => {
+    const addressed = claim + "  - [_]\n    - [.] Most cases are near the pump.\n    - [.] Distant cases drank its water.\n    - [O/] They are not comparable.\n";
+    const apart = claim + "  - [. ~> ^] Most cases are near the pump.\n  - [. ~> ^] Distant cases drank its water.\n- [.] They are not comparable.\n";
+    expect(compare(addressed, apart).retracted.map(c => c.kind)).toEqual(["challenges"]);
   });
 
   it("keeps an uncommitted Point out of joint relevance", () => {

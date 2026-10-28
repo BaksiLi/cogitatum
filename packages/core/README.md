@@ -229,7 +229,7 @@ if (result.status === 'compared') console.log(result.relation); // refinement
 
 `graphCommitments(graph)` lists the distinct commitments a graph states: kind, sorted source Point keys, target and the Bearings stating it.
 `entailment(stated, commitment)` returns the stated commitments that entail one commitment, or `undefined`.
-A commitment entails itself; commitments to one target whose sources cover a set entail that the set jointly `concerns` it; nothing else follows.
+A commitment entails itself, and a set jointly `concerns` a target once each member is a source of some relation to it; nothing else follows, so linked support is its own commitment while `[_]` grouping adds none.
 `compareCommitments(before, after, correspondence)` returns `equivalent`, `refinement`, `weakening` or `revision` with the retracted and added commitments, removed, added and changed Points, and Bearings without continuation.
 It is `indeterminate` for graphs with errors, another format version or an invalid correspondence.
 `suggestCorrespondence` proposes a correspondence by name, unique text and continued endpoints, and reports ambiguity instead of choosing.
