@@ -221,6 +221,31 @@ Graphs with errors, other format versions and invalid correspondences are `indet
 The order classifies what an author committed to, never whether a reading is correct.
 Notes, body prose, names, marks, source order and positions are presentation; review their changes separately.
 
+## Preview relation edits
+
+```sh
+cog relation-edit --line 2 --decide supports inquiry.cog.md
+cog relation-edit --line 2 --separate inquiry.cog.md
+cog relation-edit --join 2,4 inquiry.cog.md
+```
+
+Three edits change recorded relations without touching Point text:
+
+- `--decide <kind>` gives the relation on a line another kind, such as `[_]` to `[_ +> ^]` or `[G]` to `[O]`.
+  A pure relation mark exchanges its letter; `Q`, `C` and neutral headers keep their mark and write the clause, as `[Q/]` to `[Q -> ^/]`.
+- `--separate` replaces a group whose sources are its direct members with one relation per member, each keeping the group's kind and target.
+- `--join` is its inverse: adjacent sibling relations of one kind and written target become the members of one new group.
+
+Each preview knows which entity continues which, so it supplies its own correspondence to `compareCommitments` and reports the resulting relation.
+The author sees whether the edit is a refinement, which only adds, or a weakening or revision, which retracts something already recorded.
+So deciding `[_]` as joint support, or separating it into supports, is a refinement; joining two supports is a revision.
+
+The preview recompiles the complete proposed source.
+It is unavailable when the input or result has errors, when Points would be added, removed or reworded, or when anything beyond the edited relations would change.
+Groups with a handle, a description or children other than members cannot be separated, and relations with a handle cannot be joined, because another relation may address them as entities.
+`Q` and `C` occurrences cannot be joined either: a member keeps only its operand, and their marks also declare the Point.
+Core provides `previewRelationEdit(source, { operation, line | lines, kind?, mode? })`; the command prints JSON and never writes to the input file.
+
 ## Preview named and positional targets
 
 ```sh

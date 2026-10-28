@@ -1,4 +1,6 @@
 import { expandedClause, isRelationSpelling, respellTarget, targetSpelling } from "./annotation.js";
+import { annotationOffset, findBlock, minimalEdit, same } from "./source-edit.js";
+import type { SourceEdit } from "./source-edit.js";
 import { explainSource } from "./source.js";
 import { FORMAT_VERSION, isNamedTarget } from "./types.js";
 import type { Annotation, AstBlock, Diagnostic, ExplainedSource, OperatorClause, SourceParseMode, TargetTerm } from "./types.js";
@@ -9,8 +11,7 @@ export type TargetFormOptions = { line: number; form: TargetForm; mode?: SourceP
 export type TargetFormUnavailableReason =
   | "invalid-line" | "invalid-form" | "source-errors" | "no-bearing"
   | "already-named" | "already-positional" | "unnamed-target" | "preservation-failed";
-/** offset counts UTF-16 code units in originalSource. */
-export type SourceEdit = { offset: number; remove: string; insert: string };
+export type { SourceEdit };
 export type TargetFormPreview = {
   version: string;
   mode: SourceParseMode;
@@ -73,8 +74,8 @@ export function previewTargetForm(source: string, options: TargetFormOptions): T
     target = { local: bearing.target.kind };
   }
 
-  const offset = lineStart(source, block.sourceSpan.startLine, before.mode) + block.sourceSpan.startColumn;
-  if (source.slice(offset - 1, offset + annotation.raw.length + 1) !== "[" + annotation.raw + "]") {
+  const offset = annotationOffset(source, block, before.mode);
+  if (offset === undefined) {
     return unavailable("preservation-failed", "The original annotation cannot be located exactly; no edit is offered.");
   }
   const respelled = respellTarget(annotation, target);
@@ -99,38 +100,8 @@ export function previewTargetForm(source: string, options: TargetFormOptions): T
   return { ...base, status: "ready", originalSource: source, proposedSource, edit, proposedDiagnostics: after.diagnostics, consequence: consequence + relation + " Sources, members and their order are unchanged." };
 }
 
-
-/** The smallest replacement turning before into after, located in source at offset. */
-function minimalEdit(before: string, after: string, offset: number): SourceEdit {
-  let start = 0;
-  while (start < before.length && start < after.length && before[start] === after[start]) start++;
-  let end = 0;
-  while (end < before.length - start && end < after.length - start && before[before.length - 1 - end] === after[after.length - 1 - end]) end++;
-  return { offset: offset + start, remove: before.slice(start, before.length - end), insert: after.slice(start, after.length - end) };
-}
-
 function hasWrittenClause(annotation: Annotation): boolean {
   return "operatorClause" in annotation && annotation.operatorClause !== undefined;
-}
-
-function findBlock(blocks: AstBlock[], line: number): AstBlock | undefined {
-  for (const block of blocks) {
-    if (block.sourceSpan.startLine <= line && line <= block.sourceSpan.endLine) return block;
-    if (block.annotation?.kind !== "note") {
-      const found = findBlock(block.children, line);
-      if (found) return found;
-    }
-  }
-  return undefined;
-}
-
-function lineStart(source: string, line: number, mode: SourceParseMode): number {
-  let offset = 0, current = 1;
-  for (const ending of source.matchAll(mode === "host" ? /\r\n|\r|\n/g : /\r?\n/g)) {
-    if (current++ === line) break;
-    offset = ending.index + ending[0].length;
-  }
-  return offset;
 }
 
 /**
@@ -174,9 +145,3 @@ function stable(annotation: Annotation | undefined) {
   };
 }
 
-function same(left: unknown, right: unknown, omitted: string[] = []): boolean {
-  const normalize = (_key: string, value: unknown): unknown => value && typeof value === "object" && !Array.isArray(value)
-    ? Object.fromEntries(Object.entries(value).filter(([key, v]) => !omitted.includes(key) && v !== undefined).sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0))
-    : value;
-  return JSON.stringify(left, normalize) === JSON.stringify(right, normalize);
-}

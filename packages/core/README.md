@@ -227,6 +227,10 @@ const result = compareCommitments(before, after, correspondence);
 if (result.status === 'compared') console.log(result.relation); // refinement
 ```
 
+`previewRelationEdit(source, edit)` previews deciding a relation's kind, separating a member-sourced group into one relation per member, or joining adjacent sibling relations into a group.
+A ready preview carries the proposed source, one minimal `SourceEdit`, the correspondence the edit implies and its commitment comparison; it never writes source.
+Public types are `RelationEdit`, `RelationEditOptions`, `RelationEditPreview` and `RelationEditUnavailableReason`.
+
 `graphCommitments(graph)` lists the distinct commitments a graph states: kind, sorted source Point keys, target and the Bearings stating it.
 `entailment(stated, commitment)` returns the stated commitments that entail one commitment, or `undefined`.
 A commitment entails itself, and a set jointly `concerns` a target once each member is a source of some relation to it; nothing else follows, so linked support is its own commitment while `[_]` grouping adds none.

@@ -8,6 +8,8 @@ export type { WrittenReference, ReferencedName, SourceReferenceAnalysis } from "
 export { formatGraph, GRAPH_TEXT_VERSION } from "./graph-text.js";
 export { compareCommitments, entailment, graphCommitments, suggestCorrespondence } from "./commitments.js";
 export type { Commitment, CommitmentComparison, CommitmentRelation, Correspondence, CorrespondenceBasis, CorrespondenceSuggestion } from "./commitments.js";
+export { previewRelationEdit } from "./relation-edit.js";
+export type { RelationEdit, RelationEditOptions, RelationEditPreview, RelationEditUnavailableReason } from "./relation-edit.js";
 export { previewTargetForm } from "./target-form.js";
 export type { TargetForm, TargetFormOptions, TargetFormPreview, TargetFormUnavailableReason, SourceEdit } from "./target-form.js";
 export { formatExplain, EXPLAIN_TEXT_VERSION } from "./explain-text.js";
