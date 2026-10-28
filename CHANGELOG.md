@@ -20,6 +20,8 @@ Use the complete released schema set and [migrate retained source](docs/syntax.m
   Recompile the complete proposed input and verify identities, content, declaration marks, ordered endpoints, literal subtrees, note ownership and unrelated diagnostics.
   Explain source movements, introduced uses and future attachment differences; decline missing names, changed roles and mismatched local targets.
   Keep the existing single-insertion `previewExplicitTarget` contract.
+- Add a host-owned Map `caption(text)` hook (`mapCaption` on Block) for compact plain-text excerpts.
+  Retain full authored text in Graph IR, accessibility wording and selection callbacks; failures fall back to the original text.
 - Add **Strands**, a third View mode for the lines of reasoning that end at one Point.
   Supports and answers form lanes; every other relation is a knot placed on the Point or step it bears on, so a contest sits on the line it contests.
   Selecting a challenge enters Challenge Focus, tracking particular Bearings even when routes share sources; Show all also leaves focus on touch devices.

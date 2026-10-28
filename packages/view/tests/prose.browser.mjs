@@ -212,6 +212,37 @@ try {
     assert.equal(await page.locator('.cog-block-note-source').count(), 0);
     await page.evaluate(() => window.block.destroy());
   }
+  await page.evaluate(() => {
+    window.captionCalls = [];
+    window.block = window.createBlockView(document.querySelector('#host'), {
+      mapCaption: text => {
+        window.captionCalls.push(text);
+        if (text.startsWith('Fallback')) throw Error('Host caption failed');
+        if (text.startsWith('Invalid')) return 17;
+        return text.split('\n')[0];
+      },
+    });
+    window.block.update('- [C @excerpt] First excerpt.\n\n  The complete passage.\n- [C @fallback] Fallback wording.\n- [C @invalid] Invalid wording.');
+  });
+  await page.getByRole('button', { name: 'Map', exact: true }).click();
+  const captionPoints = page.locator('.cog-node.point');
+  await captionPoints.nth(0).dispatchEvent('click', { detail: 0 });
+  assert.equal(await captionPoints.nth(0).locator('.cog-text').textContent(), 'First excerpt.');
+  assert.match(await captionPoints.nth(0).getAttribute('aria-label'), /First excerpt\.\n\nThe complete passage\./);
+  assert.equal(await page.locator('.cog-block-detail-prose').textContent(), 'First excerpt.\n\nThe complete passage.');
+  for (const [index, text] of [[1, 'Fallback wording.'], [2, 'Invalid wording.']]) {
+    await captionPoints.nth(index).dispatchEvent('click', { detail: 0 });
+    assert.equal(await captionPoints.nth(index).locator('.cog-text').textContent(), text, 'a failed host caption falls back to authored text');
+  }
+  const calls = await page.evaluate(() => window.captionCalls.length);
+  await page.getByRole('button', { name: 'Zoom in', exact: true }).click();
+  await page.getByRole('button', { name: 'Zoom out', exact: true }).click();
+  assert.equal(await page.evaluate(() => window.captionCalls.length), calls, 'camera changes do not reparse captions');
+  await page.evaluate(() => window.block.update('- [C @excerpt] Revised excerpt.\n  Complete new wording.'));
+  await captionPoints.first().dispatchEvent('click', { detail: 0 });
+  assert.equal(await captionPoints.first().locator('.cog-text').textContent(), 'Revised excerpt.');
+  assert.equal(await page.locator('.cog-block-detail-prose').textContent(), 'Revised excerpt.\nComplete new wording.');
+  await page.evaluate(() => window.block.destroy());
   assert.deepEqual(errors, [], 'browser runtime errors');
   console.log(`Prose browser checks passed: ${Object.keys(result).length} scope invariants; Map detail lifecycle, asynchronous note isolation, block markup and compact labels.`);
 } finally { await browser.close(); }

@@ -76,6 +76,11 @@ view.clear();
 view.destroy();
 ```
 
+An optional synchronous `caption(text)` hook supplies plain-text Point excerpts for the drawing.
+The default is the full authored text; a throwing or invalid callback falls back to that text.
+Captions are resolved once per graph rebuild and do not change Graph IR, accessibility wording, selections or callback content.
+Block exposes the same hook as `mapCaption`.
+
 Callbacks receive a projected node with its typed compilation `ref`, optional authored `name`, full text and source span. The renderer neither accepts nor stores evidence. A host resolves evidence against its own proposal or accepted revision, then shows it beside the diagram. Names are scoped to a source unit; compilation keys are not persistent IDs. Compiler spans and transcript/audio evidence remain separate.
 
 Mount once in a React effect, call `update` for each compiled revision, and return `destroy` from cleanup. Recreate the view or use current refs when callback closures change. Each instance appends/removes only its own SVG and has independent markers and event handlers. No DOM access occurs at module import, so server-side imports work.

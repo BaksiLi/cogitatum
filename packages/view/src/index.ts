@@ -14,6 +14,8 @@ export * from "./strands.js";
 export type { ProseRenderer, ProseRenderRequest } from "./prose.js";
 
 export type GraphViewOptions = {
+  /** Plain-text Point excerpts; full wording remains in nodes, accessibility labels and callbacks. */
+  caption?: (text: string) => string;
   direction?: "down" | "right";
   /** The host may additionally disable motion; system reduced-motion is always respected. */
   reducedMotion?: () => boolean;
@@ -39,7 +41,7 @@ const NS = "http://www.w3.org/2000/svg";
 const ENDING = 1.3;
 const POINT_R = 9, RING_GAP = 3.2, JUNCTION_R = 10, LABEL_K = .6, READ_K = .78, DRAG_SLOP = 4, MIN_K = .3, MAX_K = 2.2;
 type Camera = { k: number; tx: number; ty: number };
-type Shape = { id: string; node: GraphNode; g: SVGGElement; glyph?: SVGGElement; label?: SVGTextElement; labelHit?: SVGRectElement; inline: boolean };
+type Shape = { id: string; node: GraphNode; g: SVGGElement; glyph?: SVGGElement; label?: SVGTextElement; labelHit?: SVGRectElement; caption?: string; inline: boolean };
 
 /**
  * Framework-neutral mount/update/destroy lifecycle. Positions live in a world space; the camera maps
@@ -121,6 +123,13 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
     return out;
   }
 
+  function caption(text: string): string {
+    try {
+      const result = options.caption?.(text);
+      return typeof result === "string" ? result : text;
+    } catch { return text; }
+  }
+
   // ── build DOM for the current topology ──
   function build(): void {
     nodeLayer.replaceChildren(); glyphLayer.replaceChildren(); shapes = new Map();
@@ -143,7 +152,7 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
       const labelHit = element("rect", { class: "cog-hit cog-label-hit", width: "0", height: "0", "aria-hidden": "true" }, g);
       const label = element("text", { class: isPoint ? "cog-text" : "cog-label", "text-anchor": isPoint ? "middle" : "start" }, g);
       describe(g, node);
-      shapes.set(node.id, { id: node.id, node, g, glyph, label, labelHit, inline: false });
+      shapes.set(node.id, { id: node.id, node, g, glyph, label, labelHit, caption: isPoint ? caption(node.text) : undefined, inline: false });
     }
     for (const [id] of inline) {
       const node = nodeById(id)!;
@@ -191,17 +200,17 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
   const ringR = (k = camera.k) => (POINT_R + RING_GAP) * pointScale(k);
   const pointLabelWidth = (k: number) => roomy(k) ? Math.min(200, 200 * k - 14) : Math.max(96, Math.min(150, 168 * k - 14));
   function labelLines(shape: Shape, k = camera.k, focused = shape.id === selected || shape.id === hovered): string[] {
-    const node = shape.node;
+    const node = shape.node, text = shape.caption ?? node.text;
     if (shape.inline) return [];
     if (node.ref.kind === "bearing") return node.name && (k >= LABEL_K || focused) ? [`@${node.name}`] : [];
     // The overview keeps a conclusion's wording, the subject of the drawing, and every other authored name,
     // so a wide inquiry is still navigable without all of its wording.
-    if (k < LABEL_K && !focused) return endings.has(shape.id) ? wrap(node.text, 240, 1) : node.name ? [`@${node.name}`] : [];
+    if (k < LABEL_K && !focused) return endings.has(shape.id) ? wrap(text, 240, 1) : node.name ? [`@${node.name}`] : [];
     // A conclusion always gets the wide measure, with as many lines as the layers below leave room for.
-    if (endings.has(shape.id)) return wrap(node.text, 200, k >= .75 ? 3 : 2);
+    if (endings.has(shape.id)) return wrap(text, 200, k >= .75 ? 3 : 2);
     const width = pointLabelWidth(k);
     // Three lines once the layers have room for them beneath a point; two in a denser drawing.
-    return wrap(node.text, focused ? Math.max(width, roomy(k) ? 200 : 150) : width, k >= .75 ? 3 : 2);
+    return wrap(text, focused ? Math.max(width, roomy(k) ? 200 : 150) : width, k >= .75 ? 3 : 2);
   }
   /** Screen-pixel reach of a mark and its unfocused wording on either side of the mark's centre. */
   function reach(shape: Shape, k: number): { left: number; right: number } {
