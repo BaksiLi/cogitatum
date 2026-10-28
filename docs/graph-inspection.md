@@ -218,8 +218,10 @@ An edit tool knows what it moved and passes its own correspondence to `compareCo
 Continuity establishes identity only: a continued Point whose text or declaration changed is reported, not weighed.
 Graphs with errors, other format versions and invalid correspondences are `indeterminate`.
 
-The order classifies what an author committed to, never whether a reading is correct.
-Notes, body prose, names, marks, source order and positions are presentation; review their changes separately.
+The order classifies recorded connections and Point selection, never whether a reading is correct.
+`equivalent` is limited to those commitments: a continued Point can change from a question to a claim, or change its wording, without changing this classification.
+The result reports changed Point content and declarations for separate review; it does not judge their meaning.
+Notes, body prose, names, marks, source order and positions are outside this order, and changes to them may still alter how the argument is read.
 
 ## Preview relation edits
 
@@ -339,7 +341,10 @@ JSON Explain and the complete `export` envelope remain available.
 The View package's Reading presents the same evidence beside the source:
 selecting a row draws a rail from the context row that indentation selected, marks crossed body,
 and states the decision in one line, such as `From indentation: challenges @g (L2), the nearest enclosing Point.`
-Rows that create no relation say so, which makes Q, C and neutral Points' lack of implicit relations visible.
+It also distinguishes how the relation is stated: `[G]` supplies it through the mark, `[G +> ^]` through a written clause, and `[_]` through the constructor's `concerns` default.
+Moving a positional occurrence can change its target; changing a mark does not override a written clause.
+Rows that create no relation say so, including bare `C` and neutral Points.
+A nested `Q` instead records `concerns` toward its nearest Point.
 
 ## Core API and compatibility
 

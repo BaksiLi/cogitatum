@@ -114,7 +114,7 @@ a Point occurrence is the sole source of its own clause,
 a constructor with listed sources uses those named Points,
 and a constructor without listed sources uses its direct neutral children.
 
-A mark abbreviates a clause toward a position, and the long spelling compiles to the same graph:
+Within a context supplying its target, a mark abbreviates a clause toward a position, and the long spelling compiles to the same graph:
 
 | Written | Means | Relation |
 | --- | --- | --- |
@@ -126,6 +126,10 @@ A mark abbreviates a clause toward a position, and the long spelling compiles to
 | `[G/]`, `[O/]`, `[Q/]`, `[D/]` | the same relation toward `^/` | the exposed Bearing |
 | `[_]` | `[_ ~> ^]` | joint `concerns` from the children to the nearest Point |
 | `[_/]` | `[_ ~> ^/]` | joint `concerns` from the children to the exposed Bearing |
+
+At document root, a bare role mark labels a Point without recording its default relation.
+Writing a positional clause still requires its target to exist: a root `[G]` is legal, while a root `[G +> ^]` receives `NO_LOCAL_POINT_TARGET`.
+This lets an isolated Ground remain a Point while diagnosing an explicitly requested target that is missing.
 
 `C` and `.` abbreviate no relation; write a clause, such as `[C answers @question]`, when one is intended.
 There is no `R/`: `respondsTo` and `answers` require a Point target.
@@ -374,7 +378,7 @@ See [connections from indentation](bearings.md#connections-from-indentation) for
 
 A constructor writes one relation whose sources are other Points.
 `[_ +> ^]`, `[_ -> ^]`, `[_ ~> ^]`, `[_ respondsTo ^]`, `[_ clarifies ^]` and `[_ answers ^]` each construct one Bearing of that kind from the direct neutral children to the nearest enclosing Point.
-`[_]` abbreviates `[_ ~> ^]`, and `[_/]` abbreviates `[_ ~> ^/]`: a joint relevance whose force is not yet decided.
+`[_]` abbreviates `[_ ~> ^]`, and `[_/]` abbreviates `[_ ~> ^/]`: a complete joint relation of relevance, without specifying support or opposition.
 The `bearing` and `edge` spellings work identically.
 An optional `; @route` names it: `[_ +> ^; @route]`.
 The target term works as it does on a Point occurrence:
@@ -601,7 +605,8 @@ Here each version separately concerns the Question:
 The first example does not also create these two independent Bearings.
 Both record that each version bears on the Question; relevance has no force that the versions could share.
 The difference is what can be addressed: the first records one relation, `comparison`, that another relation can target, as below.
-Force is shared once it is decided: `[_ +> ^]` records Linked support, which separate `[G]` occurrences do not.
+Choosing support adds a further commitment: `[_ +> ^]` records Linked support, which separate `[G]` occurrences do not.
+A `concerns` Bearing is complete as relevance; it need not be a draft awaiting support or challenge.
 Choose between them according to the connection you intend to record, not according to how many source Points are visible.
 The source list preserves written order without implying a sequence of inference.
 Sources must be distinct existing Points: a missing source, repeated source or Bearing used as a source rejects the whole Bearing rather than leaving a smaller joint relation.
@@ -696,11 +701,20 @@ Uses do not copy subtrees, inherit remote roles, create aliases, or enter a decl
 
 `[. use @p]` owns no default attachment, even when p has relations elsewhere.
 Its children focus p; their own marks select any local relation, without importing p's declaration mark.
-An R child replies to p beneath a neutral, Q, O or other Point use alike.
-`[Q use @p]` presents the same content as a local inquiry without an automatic relevance relation.
-Its neutral and C children remain unattached unless they state an explicit clause.
+An `R` child responds to `p` beneath a neutral, `Q`, `O` or other Point use alike.
+`[Q use @p]` presents the same content as a local inquiry.
+Beneath a Point, it records `concerns` toward that nearest Point, just as `[Q]` does; at the root it remains unattached.
+Its neutral and `C` children remain unattached unless they state an explicit clause.
 It does not generate whether/why question text, transform the Point or assign a resolution state.
 The author chooses the content/mark fit; declare a separate Question when different question content is intended.
+
+```md cog-check require=concerns points=2 bearings=1 diagnostics=0
+- [. @scale] How fast is "fast"?
+- [C @review] The response-time requirement needs a bound.
+  - [Q use @scale] Examine this question here.
+```
+
+The use concerns `@review`; it does not change `@scale` into a Question declaration or copy its subtree.
 
 ```md cog-check require=answers points=3 bearings=1 diagnostics=0
 - [. @scale] How fast is "fast"?
@@ -712,7 +726,7 @@ The author chooses the content/mark fit; declare a separate Question when differ
 
 Only `answer` explicitly answers `scale`; the shared Neutral Point keeps `declaration.form: "material"` and its text.
 A complete explicit override, such as `[. use @p +> @claim; @step]` or `[Q use @p respondsTo @objection; @step]`, constructs exactly one local attachment.
-`G/`, `O/` or `Q/` beneath that occurrence selects `step`; beneath a bare use or local source member they fail.
+`G/`, `O/`, `Q/` and `D/` beneath that occurrence select `step`; beneath `[. use @p]` without a clause or a local source member they fail.
 A handle without a locally constructed attachment is diagnosed.
 
 ```md cog-check require=supports,challenges,respondsTo points=4 bearings=3 diagnostics=0
@@ -753,8 +767,8 @@ A referenced Bearing is a focus, not a newly owned attachment.
 Point contexts shadow outer Bearing contexts; neutral Point uses and local source members expose no unary attachment.
 An ordinary O defaults to a Point; beneath a Bearing use it needs O/ or an explicit clause, whose target may be a Point or Bearing.
 An O beneath O/ challenges that new O Point, while a sibling O/ selects its local attack Bearing.
-R beneath O/ replies to that O Point.
-Likewise, R beneath Q/ replies to that Question Point, while a further Q/ concerns its locally constructed `concerns` Bearing.
+`R` beneath `O/` responds to that Objection Point.
+Likewise, `R` beneath `Q/` responds to that Question Point, while a further `Q/` concerns its locally constructed `concerns` Bearing.
 G, O, Q and D have selectors; C states no relation, and `respondsTo` requires a Point target.
 Existing explicit graph cycles remain possible; references never recursively expand source.
 

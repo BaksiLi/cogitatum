@@ -8,6 +8,10 @@ Use the complete released schema set and [migrate retained source](docs/syntax.m
 
 ## Unreleased
 
+- Keep Point-only guidance for `answers` and `respondsTo` when a requested `^/` slot is missing; suggest a Point target rather than another Bearing.
+  Reading distinguishes a mark-supplied relation, a written clause and a constructor default independently of positional target selection.
+  Correct the Q-use documentation and clarify that commitment equivalence does not establish unchanged prose or declaration marks.
+
 - Add a commitment order for classifying revisions (#63).
   `graphCommitments`, `entailment`, `compareCommitments` and `suggestCorrespondence` compare two compiled graphs through an explicit entity correspondence and report `equivalent`, `refinement`, `weakening` or `revision`, with retracted and added commitments and Points.
   Every relation commits each source to bearing on its target, so joint relevance holds of any set whose members are each sources of relations to it; nothing else is entailed.

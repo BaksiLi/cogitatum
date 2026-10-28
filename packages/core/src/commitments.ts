@@ -46,6 +46,8 @@ export type CommitmentComparison =
       status: "compared";
       /**
        * refinement only adds; weakening only retracts; revision does both.
+       * This order concerns recorded connections and Point selection only;
+       * equivalent does not certify unchanged prose or declaration marks.
        * It says what changed, never which reading is right.
        */
       relation: CommitmentRelation;
