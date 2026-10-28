@@ -528,6 +528,17 @@ try {
       await style.evaluate(node => node.remove());
     }
     await mount([
+      '- [C @c] Claim.', '  - [G @g] Marked reason.', '  - [G +> ^] Written reason.',
+      '  - [_]', '    - [.] Relevant material.', '  - [Q use @g] Examine the reason here.',
+    ].join('\n'));
+    for (const [line, message] of [[2, 'The mark states the relation.'], [3, 'The written clause states the relation.'], [4, 'The constructor defaults to concerns.']]) {
+      await row(line).locator('.cog-reading-select').click(); await flush();
+      const inspection = row(line).locator('.cog-reading-inspection');
+      assert.ok((await inspection.textContent()).endsWith(`Moving it can change the target. ${message}`));
+      assert.equal(await row(line).getAttribute('aria-describedby'), await inspection.getAttribute('id'));
+    }
+    assert.equal(await row(6).locator('.cog-reading-relation').getAttribute('data-kind'), 'concerns', 'Q use has the same local default as Q');
+    await mount([
       '- [C @c] Claim.', '  - [G @g; @step] Ground.', '    - Context.', '      - [O] Through body.',
       '    - [_ -> ^/; @r] Together.', '      - [. @x] X.', '      - [. @y] Y.', '- [C] Other.', '  - [_ +> ^/]', '    - [.] Fails.',
     ].join('\n'));

@@ -36,7 +36,10 @@ export function describeCommitment(unit: ReadingUnit, commitment: ReadingCommitm
       const nearest = commitment.target!.kind === "point" ? "the nearest enclosing Point" : "the nearest exposed step";
       const members = commitment.memberOccurrenceIds;
       const joint = members.length ? `, with source${members.length > 1 ? "s" : ""} ${lines(members)}` : "";
-      return `From indentation${joint}: ${relation} ${name(commitment.target!, commitment.contextOccurrenceId)}, ${nearest}.${crossed} Moving it or changing its mark can change this.`;
+      const stated = commitment.relationBy === "mark" ? " The mark states the relation."
+        : commitment.relationBy === "clause" ? " The written clause states the relation."
+        : commitment.relationBy === "default" ? " The constructor defaults to concerns." : "";
+      return `From indentation${joint}: ${relation} ${name(commitment.target!, commitment.contextOccurrenceId)}, ${nearest}.${crossed} Moving it can change the target.${stated}`;
     }
     case "explicit":
       return `Named target: ${bearingMark(commitment.kind!).name} ${name(commitment.target!)}. Indentation does not choose this target.`;

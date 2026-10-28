@@ -51,11 +51,11 @@ export type ReadingBearing = {
 };
 
 /**
- * What one active occurrence commits to through its position, taken from Core's Explain trace.
- * `indentation`: the nearest local context chose the target. `explicit`: a clause fixed it.
+ * What one active occurrence commits to, from Core's Explain trace and matching AST syntax.
+ * `indentation`: the nearest local context chose the target. `explicit`: a named target fixed it.
  * `member`: a source in a local Bearing header, adding no relation of its own.
  * `note`: a note annotating the object its context exposes.
- * `none`: no relation, such as Q, C or a neutral Point. `failed`: no surviving Bearing.
+ * `none`: no relation, such as a bare C or neutral Point. `failed`: no surviving Bearing.
  */
 export type ReadingCommitment = {
   occurrenceId: string;
@@ -65,6 +65,8 @@ export type ReadingCommitment = {
   /** A surviving graph entity only; a failed candidate has none. */
   target?: BearingTarget;
   kind?: BearingKind;
+  /** How the emitted relation is stated, independently of how its target is selected. */
+  relationBy?: "mark" | "clause" | "default";
   /** Ordinary body rows the selection passed through, outermost first. */
   crossedOccurrenceIds: string[];
   /** For a local Bearing header: its ordered source member rows. */
@@ -144,7 +146,7 @@ export function projectReading(source: string, explained: ExplainedSource): Read
     }
     const entries = new Map(explanation.entries.map(entry => [spanKey(entry.sourceSpan), entry]));
     if (entries.size !== explanation.entries.length) mismatch("duplicate Explain locations");
-    const entryByOccurrence = new Map<string, ExplainEntry>();
+    const evidenceByOccurrence = new Map<string, { entry: ExplainEntry; block: AstBlock }>();
     const occurrences: ReadingOccurrence[] = [];
     const graphRefs = new Set([
       ...graph.points.map(point => referenceKey({ kind: "point", key: point.key })),
@@ -204,7 +206,7 @@ export function projectReading(source: string, explained: ExplainedSource): Read
       occurrences.push(occurrence);
       occurrencesByLine.set(occurrence.line, occurrence);
       bySpan.set(key, occurrence);
-      if (entry) { entryByOccurrence.set(occurrence.id, entry); entries.delete(key); }
+      if (entry) { evidenceByOccurrence.set(occurrence.id, { entry, block }); entries.delete(key); }
       for (const child of block.children) visit(child, depth + 1, literal || block.annotation?.kind === "note");
     }
     document.blocks.forEach(block => visit(block, 0, false));
@@ -218,7 +220,7 @@ export function projectReading(source: string, explained: ExplainedSource): Read
     };
     const members = new Map<string, Map<string, ReadingOccurrence>>();
     for (const occurrence of occurrences) {
-      const membership = entryByOccurrence.get(occurrence.id)?.effects.find(effect => effect.kind === "localBearingMember");
+      const membership = evidenceByOccurrence.get(occurrence.id)?.entry.effects.find(effect => effect.kind === "localBearingMember");
       if (!membership?.eligible || membership.function !== "source") continue;
       const group = spanKey(membership.localBearingSpan);
       const points = members.get(group) ?? new Map<string, ReadingOccurrence>();
@@ -230,7 +232,7 @@ export function projectReading(source: string, explained: ExplainedSource): Read
     }
     const bearings = graph.bearings.map((bearing): ReadingBearing => {
       const occurrence = origin({ kind: "bearing", key: bearing.key });
-      const entry = entryByOccurrence.get(occurrence.id)!;
+      const entry = evidenceByOccurrence.get(occurrence.id)!.entry;
       const emitted = entry.effects.find(effect => effect.kind === "emitBearing")!;
       const sources = bearing.sources.map(ref => {
         if (refers(occurrence, ref)) return endpoint(occurrence, ref, "self");
@@ -253,12 +255,12 @@ export function projectReading(source: string, explained: ExplainedSource): Read
       return { bearing, occurrenceId: occurrence.id, sources, target };
     });
     const noteOrigins = new Set(graph.notes.map(record => spanKey(record.sourceSpan)));
-    const attachedNotes = [...entryByOccurrence.values()].flatMap(entry => entry.effects.filter(effect => effect.kind === "attachNote"));
+    const attachedNotes = [...evidenceByOccurrence.values()].flatMap(({ entry }) => entry.effects.filter(effect => effect.kind === "attachNote"));
     if (noteOrigins.size !== graph.notes.length || attachedNotes.length !== graph.notes.length) mismatch("incomplete or duplicate note evidence");
     const notes = graph.notes.map((record): ReadingNote => {
       const occurrence = bySpan.get(spanKey(record.sourceSpan));
       if (!occurrence || !graphRefs.has(referenceKey(record.target))) mismatch("note source or target missing");
-      const effects = entryByOccurrence.get(occurrence!.id)?.effects;
+      const effects = evidenceByOccurrence.get(occurrence!.id)?.entry.effects;
       if (!effects?.some(effect => effect.kind === "attachNote" &&
         effect.note.origin === record.origin && sameRef(effect.note.target, record.target) &&
         spanKey(effect.note.sourceSpan) === spanKey(record.sourceSpan))) mismatch("note / Explain disagreement");
@@ -274,7 +276,8 @@ export function projectReading(source: string, explained: ExplainedSource): Read
     });
     const occurrenceAt = (span?: SourceSpan) => span ? bySpan.get(spanKey(span))?.id : undefined;
     const commitments = occurrences.flatMap((occurrence): ReadingCommitment[] => {
-      const entry = entryByOccurrence.get(occurrence.id);
+      const evidence = evidenceByOccurrence.get(occurrence.id);
+      const entry = evidence?.entry;
       if (!entry || entry.recognition.kind === "body") return [];
       const effects = entry.effects;
       const find = <K extends ExplainEffect["kind"]>(kind: K) =>
@@ -294,8 +297,11 @@ export function projectReading(source: string, explained: ExplainedSource): Read
       if (emitted) {
         const route = bearings.find(item => item.bearing.key === emitted.ref.key)!;
         const context = find("implicitAttachment");
+        const annotation = evidence!.block.annotation;
+        const written = annotation && "operatorClause" in annotation && annotation.operatorClause;
         return [{
           ...base, basis: context ? "indentation" : "explicit", target: route.bearing.target, kind: route.bearing.kind,
+          relationBy: written ? "clause" : entry.recognition.kind === "bearing" ? "default" : "mark",
           ...(context ? { contextOccurrenceId: route.target.occurrenceId, crossedOccurrenceIds: crossed(context.crossedBodySpans) } : {}),
           memberOccurrenceIds: route.sources.filter(source => source.basis === "local-bearing-member").map(source => source.occurrenceId),
           ...(membership ? { memberFunction: membership.function } : {})

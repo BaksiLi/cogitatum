@@ -54,14 +54,36 @@ describe("Reading commitments", () => {
 
   it("describes each commitment without judging the prose", () => {
     const text = (line: number) => describeCommitment(unit, at(line)!);
-    expect(text(4)).toBe("From indentation: challenges @g (L2), the nearest enclosing Point. It passes through ordinary body at L3. Moving it or changing its mark can change this.");
-    expect(text(5)).toBe("From indentation, with sources L6, L7: challenges @step (L2), the nearest exposed step. Moving it or changing its mark can change this.");
+    expect(text(4)).toBe("From indentation: challenges @g (L2), the nearest enclosing Point. It passes through ordinary body at L3. Moving it can change the target. The mark states the relation.");
+    expect(text(5)).toBe("From indentation, with sources L6, L7: challenges @step (L2), the nearest exposed step. Moving it can change the target. The written clause states the relation.");
     expect(text(6)).toBe("Source of the constructor at L5; it adds no relation of its own.");
     expect(text(8)).toBe("From indentation: a note on @r (L5).");
     expect(text(9)).toBe("C states no relation; its position creates none.");
     expect(text(10)).toBe("Named target: challenges @g. Indentation does not choose this target.");
     expect(text(1)).toBe("No enclosing Point or step; its position creates no relation.");
     expect(text(12)).toMatch(/^No relation: the constructor or its members are invalid\. Its context is L11\. The nearest enclosing Point has no attachment, so \^\/ has no step to support\. To support the Point itself, write \[_ \+> \^\]/);
+  });
+
+  it.each([
+    ["G", "mark", "The mark states the relation."],
+    ["G +> ^", "clause", "The written clause states the relation."],
+    ["G -> ^", "clause", "The written clause states the relation."],
+    ["G/", "mark", "The mark states the relation."],
+    ["G +> ^/", "clause", "The written clause states the relation."],
+    [". use @shared ~> ^", "clause", "The written clause states the relation."],
+    ["_ +> ^", "clause", "The written clause states the relation."],
+    ["_", "default", "The constructor defaults to concerns."],
+    ["_/", "default", "The constructor defaults to concerns."]
+  ])("distinguishes the target's locality from how [%s] states its relation", (header, relationBy, message) => {
+    const source = `- [. @shared] Shared.\n- [C @c] Claim.\n  - [G; @step] Ground.\n    - [${header}] Detail.\n` +
+      (header.startsWith("_") ? "      - [.] Source.\n" : "");
+    const explained = explainSource(source);
+    expect(explained.diagnostics).toEqual([]);
+    const unit = projectReading(source, explained).units[0];
+    const occurrence = unit.occurrences.find(item => item.line === 4)!;
+    const commitment = unit.commitments.find(item => item.occurrenceId === occurrence.id)!;
+    expect(commitment).toMatchObject({ basis: "indentation", relationBy });
+    expect(describeCommitment(unit, commitment)).toContain(`Moving it can change the target. ${message}`);
   });
 
   it.each([
