@@ -11,9 +11,11 @@ const bundle = await build({
     contents: `
       import { compileSource } from '../../core/src/index.ts';
       import { createGraphView } from './index.ts';
-      window.mount = source => {
+      window.mount = (source, options = {}) => {
         window.view?.destroy();
-        window.view = createGraphView(document.querySelector('#map'));
+        window.view = createGraphView(document.querySelector('#map'), {
+          ...options, reducedMotion: () => !!window.hostReduced
+        });
         window.update = source => window.view.update(compileSource(source, 'document').graphs[0], 'test');
         window.update(source);
       };
@@ -38,6 +40,11 @@ try {
       window.requestAnimationFrame = callback => { frames.set(++id, callback); return id; };
       window.cancelAnimationFrame = id => frames.delete(id);
       window.ResizeObserver = class { observe() {} disconnect() {} };
+      window.IntersectionObserver = class {
+        constructor(callback) { this.callback = callback; }
+        observe() { window.intersect = () => this.callback([{ isIntersecting: true }]); }
+        disconnect() { window.intersect = () => {}; }
+      };
       window.advance = elapsed => {
         time += elapsed;
         const work = [...frames.values()]; frames.clear();
@@ -74,7 +81,7 @@ try {
     assert.notEqual(unrelatedAt, insertedAt, 'an untouched named node follows the revised layout rather than overlapping the inserted node');
     assert.equal(await page.evaluate(() => window.pendingFrames()), 0);
 
-    const joint = '- [C @claim] Claim.\n  - [linked]\n    - [G @first] First.\n    - [G @second] Second.\n- [C @separate] Separate.\n';
+    const joint = "- [C @claim] Claim.\n  - [_ G]\n    - [. @first] First.\n    - [. @second] Second.\n- [C @separate] Separate.\n";
     await page.evaluate(source => window.mount(source), joint);
     await drag('_p2');
     for (let frame = 0; frame < 9; frame++) await advance(100);
@@ -88,11 +95,54 @@ try {
     const suspended = await positions();
     assert.equal(await advance(1000), 0, 'a suspended frame expires without another scheduled frame');
     assert.deepEqual(await positions(), suspended, 'resuming after the deadline does not apply stale physics');
+
+    // Entrance is optional decoration: inspecting a route must immediately restore normal guidance.
+    await page.addStyleTag({ content: '.cog-graph * { transition: none !important; }' });
+    await page.mouse.move(0, 0);
+    await page.evaluate(source => window.mount(source, { entrance: true }), joint);
+    assert.equal(await point('_p1').evaluate(node => node.style.opacity), '0');
+    await page.evaluate(() => window.view.select({ kind: 'bearing', key: '_b1' }));
+    assert.equal(await point('_p1').evaluate(node => node.style.opacity), '', 'programmatic selection reveals a not-yet-intersecting map');
+    assert.equal(await point('_p4').evaluate(node => getComputedStyle(node).opacity), '0.28', 'unrelated points dim immediately');
+    await advance(1000);
+    assert.equal(await page.evaluate(() => window.pendingFrames()), 0);
+
+    await page.evaluate(source => { window.mount(source, { entrance: true }); window.intersect(); }, joint);
+    await advance(250);
+    const appearing = Number(await point('_p1').evaluate(node => node.style.opacity));
+    assert.ok(appearing > 0 && appearing < 1, 'uninterrupted entrance actually animates');
+    await point('_p1').focus();
+    assert.equal(await point('_p1').evaluate(node => node.style.opacity), '', 'keyboard focus completes entrance before revealing the mark');
+    assert.equal(await page.locator('#map path[pathLength]').count(), 0, 'inspection shows complete routes');
+
+    await page.evaluate(source => { window.mount(source, { entrance: true }); window.intersect(); }, joint);
+    await advance(250);
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await advance(0);
+    assert.equal(await point('_p1').evaluate(node => node.style.opacity), '', 'reduced motion ends an active entrance');
+    assert.equal(await page.evaluate(() => window.pendingFrames()), 0, 'reduced motion leaves no entrance frames');
+    await page.evaluate(source => window.mount(source, { entrance: true }), joint);
+    assert.equal(await point('_p1').evaluate(node => node.style.opacity), '', 'reduced motion also bypasses a pending entrance');
+    await page.emulateMedia({ reducedMotion: 'no-preference' });
+
+    await page.evaluate(source => { window.mount(source, { entrance: true }); window.intersect(); }, joint);
+    await advance(250);
+    await page.evaluate(() => { window.hostReduced = true; });
+    await advance(0);
+    assert.equal(await point('_p1').evaluate(node => node.style.opacity), '', 'a host motion preference is respected on the next frame');
+    await page.evaluate(() => { window.hostReduced = false; });
+
+    await page.evaluate(source => { window.mount(source, { entrance: true }); window.intersect(); }, joint);
+    await advance(5000); await advance(0);
+    assert.equal(await point('_p1').evaluate(node => node.style.opacity), '', 'completed entrance releases inline opacity');
+    assert.equal(await page.evaluate(() => window.pendingFrames()), 0, 'completed entrance becomes idle');
+    await page.evaluate(source => { window.mount(source, { entrance: true }); window.intersect(); }, joint);
     await page.evaluate(() => window.view.destroy());
+    assert.equal(await page.evaluate(() => window.pendingFrames()), 0, 'destroy cancels active entrance');
     await page.close();
   }
   assert.deepEqual(errors, []);
-  console.log('Map motion browser checks passed: 2 viewports; real pointer dragging, disconnected source insertion, low-frame expiry, suspension and idle scheduling.');
+  console.log('Map motion browser checks passed: 2 viewports; dragging, insertion, low-frame expiry, suspension, entrance inspection, reduced motion, cleanup and idle scheduling.');
 } finally {
   await browser.close();
 }

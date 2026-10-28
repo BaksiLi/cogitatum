@@ -18,8 +18,8 @@
         },
         {
           "line": 4,
-          "form": "gap",
-          "status": "open",
+          "form": "role",
+          "role": "Q",
           "id": "equity-gap"
         }
       ],
@@ -39,7 +39,7 @@
         },
         {
           "line": 4,
-          "kind": "about",
+          "kind": "concerns",
           "sources": [
             4
           ],

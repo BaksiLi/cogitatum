@@ -40,7 +40,7 @@ export type ReadingEndpoint = {
   occurrenceId: string;
   ref: BearingTarget;
   /** Evidence for a display location; does not create another graph identity. */
-  basis: "self" | "linked-member" | "context" | "declaration";
+  basis: "self" | "local-bearing-member" | "context" | "declaration";
 };
 
 export type ReadingBearing = {
@@ -193,9 +193,9 @@ export function projectReading(source: string, explained: ExplainedSource): Read
     };
     const members = new Map<string, Map<string, ReadingOccurrence>>();
     for (const occurrence of occurrences) {
-      const membership = entryByOccurrence.get(occurrence.id)?.effects.find(effect => effect.kind === "linkedMember");
+      const membership = entryByOccurrence.get(occurrence.id)?.effects.find(effect => effect.kind === "localBearingMember");
       if (!membership?.eligible || membership.function !== "source") continue;
-      const group = spanKey(membership.linkedSpan);
+      const group = spanKey(membership.localBearingSpan);
       const points = members.get(group) ?? new Map<string, ReadingOccurrence>();
       for (const reference of occurrence.references) if (reference.ref.kind === "point") {
         // Duplicate sources invalidate the entire joint Bearing in Core.
@@ -209,10 +209,10 @@ export function projectReading(source: string, explained: ExplainedSource): Read
       const emitted = entry.effects.find(effect => effect.kind === "emitBearing")!;
       const sources = bearing.sources.map(ref => {
         if (refers(occurrence, ref)) return endpoint(occurrence, ref, "self");
-        if (emitted.reason === "linked-containment") {
+        if (emitted.reason === "local-bearing-containment") {
           const member = members.get(spanKey(occurrence.sourceSpan))?.get(referenceKey(ref));
           if (!member) mismatch("missing Linked source occurrence");
-          return endpoint(member!, ref, "linked-member");
+          return endpoint(member!, ref, "local-bearing-member");
         }
         return endpoint(origin(ref), ref, "declaration");
       });

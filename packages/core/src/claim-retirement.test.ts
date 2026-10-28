@@ -18,10 +18,10 @@ describe("explicit Claim openness retirement", () => {
     expect(result.graph.diagnostics.map(diagnostic => diagnostic.code)).toEqual(expect.arrayContaining(["UNMATCHED_DEDENT", "RETIRED_CLAIM_OPENNESS", "FAILED_CONTEXT_REQUIRES_EXPLICIT_TARGET"]));
   });
 
-  it("leaves Q and Gap distinct while C carries no openness metadata", () => {
-    const { graph } = compileGraphWithExplain(parseDocument("- [Q @q] What happened?\n  - [C @candidate] The pool may be exhausted.\n    - [? @record] Calibration record missing.\n- [G use @record +> @candidate] Existing gap as a reason."));
+  it("keeps Question and Claim declarations free of openness metadata", () => {
+    const { graph } = compileGraphWithExplain(parseDocument("- [Q @q] What happened?\n  - [C @candidate] The pool may be exhausted.\n    - [. @record ~> @candidate] Calibration record missing.\n- [G use @record +> @candidate] The absence is used as a reason here."));
     expect(graph.diagnostics).toEqual([]);
-    expect(graph.points.map(point => point.declaration)).toEqual([{ form: "role", role: "Q" }, { form: "role", role: "C" }, { form: "gap", status: "open" }]);
-    expect(graph.bearings.map(bearing => bearing.kind)).toEqual(["answers", "about", "supports"]);
+    expect(graph.points.map(point => point.declaration)).toEqual([{ form: "role", role: "Q" }, { form: "role", role: "C" }, { form: "material" }]);
+    expect(graph.bearings.map(bearing => bearing.kind)).toEqual(["concerns", "supports"]);
   });
 });

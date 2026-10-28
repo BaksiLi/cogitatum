@@ -9,7 +9,7 @@ const selections = (source: string) => explainSource(source).explanations[0].ent
     .map(effect => ({ line: entry.sourceSpan.startLine, ...effect })));
 
 describe("source occurrence evidence", () => {
-  it.each([["C", "G"], ["C", "O"], ["C", "?"], ["C", "D"], ["Q", "C"], ["O", "R"]])(
+  it.each([["C", "G"], ["C", "O"], ["C", "D"], ["Q", "R"], [".", "R"]])(
     "records direct %s > %s attachment without advisory noise", (parent, child) => {
       const source = `- [${parent}] Parent.\n  - [${child}] Child.`;
       const result = explainSource(source);
@@ -28,7 +28,7 @@ describe("source occurrence evidence", () => {
   });
 
   it("records Linked targets and local selectors through Bearing uses", () => {
-    const source = "- [C @p] Original.\n- [. use @p] Here.\n  - [linked; @b]\n    - [G] First.\n    - [O/] Concern.\n- [_ use @b] Elsewhere.\n  - [O/] Another concern.";
+    const source = "- [C @p] Original.\n- [. use @p] Here.\n  - [_ G; @b]\n    - [.] First.\n    - [O/] Concern.\n- [_ use @b] Elsewhere.\n  - [O/] Another concern.";
     expect(explainSource(source).diagnostics).toEqual([]);
     expect(selections(source)).toMatchObject([
       { line: 3, target: { kind: "point" }, targetSpan: { startLine: 1 }, contextSpan: { startLine: 2 } },

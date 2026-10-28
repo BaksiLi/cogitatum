@@ -25,7 +25,7 @@ describe("one Point/Bearing family grammar", () => {
     for (const value of values) expect(value).toEqual(values[0]);
   });
 
-  it.each(["+>", "->", "/>", "~>", "supports", "challenges", "about", "answers", "repliesTo", "clarifies"])(
+  it.each(["+>", "->", "/>", "~>", "supports", "challenges", "concerns", "answers", "respondsTo", "clarifies"])(
     "shares every Bearing kind and authored target requirement: %s", kind => {
       const results = families.bearing.map(alias => semantics(parseAnnotation(`${alias} @p, @q ${kind} @target; @route`)));
       results.forEach(result => expect(result).toEqual(results[0]));

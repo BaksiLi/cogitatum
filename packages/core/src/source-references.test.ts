@@ -26,7 +26,7 @@ describe("source reference analysis", () => {
     const graph = explainSource(disconnected).graphs[0];
     expect(measurement.ref).toEqual({ kind: "point", key: graph.points[0].key });
     expect(graph.bearings).toEqual([]);
-    expect(graph.diagnostics.map(diagnostic => diagnostic.code)).toEqual(["DISCONNECTED_ANCHORED_MATERIAL"]);
+    expect(graph.diagnostics).toEqual([]);
   });
 
   it("retains ordered explicit sources, forward Point/Bearing uses and typed targets", () => {
@@ -81,9 +81,9 @@ describe("source reference analysis", () => {
   it("does not invent references for linked members or count prose and literal note descendants", () => {
     const source = [
       "- [C @sampling] See @measurement in ordinary prose.",
-      "  - [linked; @route] Joint explanation.",
-      "    - [G @measurement] Measured drift.",
-      "    - [G @calibration] Calibration record.",
+      "  - [_ G; @route] Joint explanation.",
+      "    - [. @measurement] Measured drift.",
+      "    - [. @calibration] Calibration record.",
       "    - [note] Quoted markup.",
       "      - [C @sampling] A literal duplicate.",
       "      - [_ use @route] Literal reuse.",

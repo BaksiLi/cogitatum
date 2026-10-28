@@ -3,7 +3,7 @@
   "diagnostics": [
     {
       "line": 6,
-      "code": "EDGE_DESCENDANT_REQUIRES_EXPLICIT_TARGET",
+      "code": "EXPLICIT_BEARING_DESCENDANT_REQUIRES_TARGET",
       "severity": "error"
     }
   ],

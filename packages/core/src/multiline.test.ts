@@ -75,10 +75,10 @@ describe("contiguous multiline block content", () => {
   it("gives linked and explicit constructors complete descriptions without adding sources", () => {
     const source = [
       "- [C @q] Claim.",
-      "  - [linked; @joint] These reasons",
+      "  - [_ G; @joint] These reasons",
       "    are offered together.",
-      "    - [G @a] A.",
-      "    - [G @b] B.",
+      "    - [. @a] A.",
+      "    - [. @b] B.",
       "- [edge @a, @b +> @q; @explicit] The same sources",
       "  in another authored route.",
       "  - [_ note] Explanation",

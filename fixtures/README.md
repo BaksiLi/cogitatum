@@ -11,7 +11,10 @@ Each case specifies observable behavior of the current language: an input, its m
 | `diagnostics/` | Invalid or suspicious input, severity, location, and surviving graph structure |
 | `host/` | Fence selection, unit isolation, and locations in the host document |
 
-Expected results compare the selected input mode, the full ordered diagnostics list, and every graph's complete ordered Point and Bearing lists. Points retain their form, role, authored name, and open status. Bearings retain their kind, source list, target kind, derivation mechanism, and authored handle. An empty list means no such output is permitted; a diagnostic alone is not enough to pass a rejection case.
+Expected results compare the selected input mode, the full ordered diagnostics list, and every graph's complete ordered Point and Bearing lists.
+Points retain their declaration form, applicable role and authored name.
+Bearings retain their kind, source list, target kind, derivation mechanism and authored handle.
+An empty list means no such output is permitted; a diagnostic alone is not enough to pass a rejection case.
 Cases marked `notes: true` also compare every source-backed note record in order,
 including origin, resolved target, source text and complete literal subtree.
 This joins Graph IR records to their owning AST blocks; it does not infer note text from the graph.

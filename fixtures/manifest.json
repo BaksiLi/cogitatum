@@ -59,7 +59,7 @@
     {
       "file": "core/authored-route-reference.cog.md",
       "input": "document",
-      "purpose": "An authored gap refers to a named structural route within one compilation; no revision stability is asserted.",
+      "purpose": "An authored Question refers to a named structural route within one compilation; no revision stability is asserted.",
       "expected": "core/authored-route-reference.expected.json"
     },
     {
@@ -111,10 +111,10 @@
       "expected": "core/forward-route-reference.expected.json"
     },
     {
-      "file": "core/gap-about-bearing.cog.md",
+      "file": "core/question-concerns-bearing.cog.md",
       "input": "document",
-      "purpose": "A gap can refer to a named reply connection rather than its enclosing Point.",
-      "expected": "core/gap-about-bearing.expected.json"
+      "purpose": "Q/ concerns the locally exposed reply Bearing rather than its enclosing Point.",
+      "expected": "core/question-concerns-bearing.expected.json"
     },
     {
       "file": "core/grouped-route-pressure.cog.md",
@@ -149,7 +149,7 @@
     {
       "file": "core/nested-grouping.cog.md",
       "input": "document",
-      "purpose": "Two questions under ordinary groups receive their own answers without cross-group connections.",
+      "purpose": "Two questions under ordinary groups receive explicit answers without cross-group connections.",
       "expected": "core/nested-grouping.expected.json"
     },
     {
@@ -183,10 +183,10 @@
       "expected": "diagnostics/bearing-used-as-source.expected.json"
     },
     {
-      "file": "diagnostics/disconnected-anchored-material.cog.md",
+      "file": "syntax/neutral-point-with-body.cog.md",
       "input": "document",
-      "purpose": "Unconnected named material remains a Point and receives a suggestion, not an error.",
-      "expected": "diagnostics/disconnected-anchored-material.expected.json"
+      "purpose": "A named neutral Point with ordinary body is complete without any Bearing or isolation diagnostic.",
+      "expected": "syntax/neutral-point-with-body.expected.json"
     },
     {
       "file": "diagnostics/duplicate-bearing-handle.cog.md",
@@ -227,7 +227,7 @@
     {
       "file": "diagnostics/malformed-bearing-source.cog.md",
       "input": "document",
-      "purpose": "One malformed source rejects the entire new edge while an independent about connection survives.",
+      "purpose": "One malformed source rejects the entire new edge while an independent concerns connection survives.",
       "expected": "diagnostics/malformed-bearing-source.expected.json"
     },
     {
@@ -357,22 +357,22 @@
       "expected": "syntax/tab-indentation.expected.json"
     },
     {
-      "file": "core/local-linked.cog.md",
+      "file": "core/local-bearing.cog.md",
       "input": "document",
       "purpose": "Local joint support coexists with ordinary unary support, premise objections, route challenges, and a shared premise edge.",
-      "expected": "core/local-linked.expected.json"
+      "expected": "core/local-bearing.expected.json"
     },
     {
-      "file": "diagnostics/invalid-linked-members.cog.md",
+      "file": "diagnostics/invalid-local-bearing-members.cog.md",
       "input": "document",
-      "purpose": "Invalid linked membership rejects the joint atomically, suppresses unary recovery, and preserves explicit operators and independent subtrees.",
-      "expected": "diagnostics/invalid-linked-members.expected.json"
+      "purpose": "Invalid local Bearing membership rejects the joint atomically, suppresses unary recovery, and preserves explicit operators and independent subtrees.",
+      "expected": "diagnostics/invalid-local-bearing-members.expected.json"
     },
     {
-      "file": "host/local-linked.md",
+      "file": "host/local-bearing.md",
       "input": "host",
-      "purpose": "A named singleton linked retains its route and original host locations after fence indentation normalization.",
-      "expected": "host/local-linked.expected.json"
+      "purpose": "A named singleton local Bearing retains its route and original host locations after fence indentation normalization.",
+      "expected": "host/local-bearing.expected.json"
     }
   ]
 }

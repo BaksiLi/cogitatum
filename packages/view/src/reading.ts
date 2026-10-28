@@ -141,11 +141,10 @@ export function createReadingView(container: HTMLElement, options: ReadingViewOp
   function mark(occurrence: ReadingOccurrence, parent: HTMLElement): void {
     const recognized = occurrence.recognition;
     if (recognized.kind === "role") parent.append(createMarkChip(doc, recognized.role));
-    else if (recognized.kind === "gap") parent.append(createMarkChip(doc, "Gap"));
     else if (recognized.kind === "material") parent.append(createMarkChip(doc, "Material"));
     else if (recognized.kind === "use") {
       parent.append(createMarkChip(doc, recognized.role ?? "Material"));
-    } else if (recognized.kind === "edge" || recognized.kind === "linked" || recognized.kind === "bearingUse") {
+    } else if (recognized.kind === "explicitBearing" || recognized.kind === "localBearing" || recognized.kind === "bearingUse") {
       const ref = occurrence.references.find(reference => reference.ref.kind === "bearing")?.ref;
       const bearing = ref && projection?.units[occurrence.unitIndex].graph.bearings.find(bearing => bearing.key === ref.key);
       if (bearing) parent.append(createBearingChip(doc, bearing.kind, 16, !inline[occurrence.unitIndex].has(bearing.key)));
@@ -247,14 +246,14 @@ export function createReadingView(container: HTMLElement, options: ReadingViewOp
               occurrenceId: source.id, ref: declared.ref, basis: "self"
             }, declared.name);
           }
-          if (["edge", "linked"].includes(source.recognition.kind)) relation(source, content);
+          if (["explicitBearing", "localBearing"].includes(source.recognition.kind)) relation(source, content);
         }
         // Reading presents prose and authored names; raw syntax remains available for inspection.
         // Failed lines keep their complete annotation so the defect is never hidden by presentation.
         const text = html("div", "cog-reading-text", content);
         if (failed) text.textContent = authored;
         else prose.render(text, source.text);
-        if (!failed && !["edge", "linked"].includes(source.recognition.kind)) relation(source, content);
+        if (!failed && !["explicitBearing", "localBearing"].includes(source.recognition.kind)) relation(source, content);
         if (!failed) {
           const unit = projection.units[source.unitIndex];
           for (const annotated of source.references.filter(item => item.kind === "annotates")) {

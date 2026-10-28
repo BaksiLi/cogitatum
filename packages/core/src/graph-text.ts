@@ -1,5 +1,6 @@
 import { FORMAT_VERSION } from "./types.js";
-import type { BearingTarget, Diagnostic, GraphIR, PointDeclaration } from "./types.js";
+import type { BearingTarget, GraphIR, PointDeclaration } from "./types.js";
+import { formatDiagnostic, quote } from "./inspection-text.js";
 
 /** Version of the inspection notation, independent of the compiler's JSON format. */
 export const GRAPH_TEXT_VERSION = "1";
@@ -58,26 +59,9 @@ function labels(entities: { key: string }[], prefix: "p" | "b"): Map<string, str
 
 function declaration(value: PointDeclaration): string {
   if (value.form === "role") return `role(${value.role})`;
-  if (value.form === "gap") return "gap(open)";
   return "material";
 }
 
 function field(name: string, value: string | undefined): string {
   return value === undefined ? "" : ` ${name}=${quote(value)}`;
-}
-
-function formatDiagnostic(diagnostic: Diagnostic): string[] {
-  const span = diagnostic.sourceSpan;
-  const location = span ? ` at ${span.startLine}:${span.startColumn}-${span.endLine}:${span.endColumn}` : "";
-  const lines = [`  ${diagnostic.severity} ${quote(diagnostic.code)}${location}: ${quote(diagnostic.message)}`];
-  if (diagnostic.explanation !== undefined) lines.push(`    explanation: ${quote(diagnostic.explanation)}`);
-  return lines;
-}
-
-function quote(value: string): string {
-  // JSON quoting preserves Unicode while keeping a record on one physical line.
-  // Also escape terminal/format controls (including bidi overrides) so text
-  // cannot visually impersonate another entity or rearrange a relation.
-  return JSON.stringify(value).replace(/[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/gu, character =>
-    character.split("").map(unit => "\\u" + unit.charCodeAt(0).toString(16).padStart(4, "0")).join(""));
 }

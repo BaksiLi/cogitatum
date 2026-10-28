@@ -63,8 +63,8 @@
         },
         {
           "line": 17,
-          "form": "gap",
-          "status": "open"
+          "form": "role",
+          "role": "Q"
         }
       ],
       "bearings": [
@@ -94,7 +94,7 @@
         },
         {
           "line": 8,
-          "kind": "about",
+          "kind": "concerns",
           "sources": [
             8
           ],
@@ -144,7 +144,7 @@
         },
         {
           "line": 16,
-          "kind": "about",
+          "kind": "concerns",
           "sources": [
             16
           ],
@@ -156,7 +156,7 @@
         },
         {
           "line": 17,
-          "kind": "about",
+          "kind": "concerns",
           "sources": [
             17
           ],

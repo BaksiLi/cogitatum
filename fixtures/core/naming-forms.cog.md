@@ -14,4 +14,4 @@
     - [C] A claim whose ground and route are both discussed.
       - [G @named-ground; @named-route] A reusable ground with a named support Bearing.
       - [. @ground-source ~> @named-ground] Source context for the ground.
-      - [? ~> @named-route] An open question about the route.
+      - [Q ~> @named-route] An open question about the route.
