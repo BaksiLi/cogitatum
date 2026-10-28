@@ -96,7 +96,7 @@
             { "$ref": "#/$defs/authoredRef" }
           ]
         },
-        "derivedBy": { "enum": ["operator", "structural"] }
+        "derivedBy": { "enum": ["operator", "structural"], "description": "structural: the target was selected by position (^, ^/ or a mark default); operator: the target was named." }
       },
       "additionalProperties": false
     },
@@ -111,7 +111,7 @@
           },
           "allOf": [
             {
-              "if": { "properties": { "kind": { "enum": ["answers", "respondsTo", "clarifies"] } }, "required": ["kind"] },
+              "if": { "properties": { "kind": { "enum": ["answers", "respondsTo"] } }, "required": ["kind"] },
               "then": { "properties": { "target": { "$ref": "#/$defs/pointRef" } } }
             }
           ]
@@ -136,7 +136,7 @@
           "type": "object",
           "required": ["kind"],
           "properties": { "kind": { "const": "use" }, "ref": { "$ref": "#/$defs/authoredRef" }, "role": { "enum": ["Q", "C", "G", "O", "R", "D"] }, "selector": { "const": "attachment" } },
-          "allOf": [{ "if": { "required": ["selector"] }, "then": { "required": ["role"], "properties": { "role": { "enum": ["G", "O", "Q"] } } } }],
+          "allOf": [{ "if": { "required": ["selector"] }, "then": { "required": ["role"], "properties": { "role": { "enum": ["G", "O", "Q", "D"] } } } }],
           "additionalProperties": false
         },
         {
@@ -162,7 +162,7 @@
           "allOf": [
             {
               "if": { "required": ["selector"] },
-              "then": { "properties": { "role": { "enum": ["G", "O", "Q"] } } }
+              "then": { "properties": { "role": { "enum": ["G", "O", "Q", "D"] } } }
             }
           ],
           "additionalProperties": false
@@ -175,21 +175,9 @@
         },
         {
           "type": "object",
-          "required": ["kind"],
-          "properties": { "kind": { "const": "explicitBearing" } },
-          "additionalProperties": false
-        },
-        {
-          "type": "object",
-          "required": ["kind"],
-          "properties": { "kind": { "const": "localBearing" }, "role": { "enum": ["G", "O", "R", "D", "Q"] }, "selector": { "const": "attachment" } },
-          "allOf": [
-            {
-              "if": { "required": ["selector"] },
-              "then": { "required": ["role"], "properties": { "role": { "enum": ["G", "O", "Q"] } } },
-              "else": { "properties": { "role": { "enum": ["G", "O", "R", "D"] } } }
-            }
-          ],
+          "required": ["kind", "members"],
+          "properties": { "kind": { "const": "bearing" }, "members": { "type": "boolean" }, "selector": { "const": "attachment" } },
+          "allOf": [{ "if": { "required": ["selector"] }, "then": { "properties": { "members": { "const": true } } } }],
           "additionalProperties": false
         }
       ]
@@ -326,7 +314,7 @@
             "kind": { "const": "rejectBearing" },
             "bearing": { "$ref": "#/$defs/bearingSummary" },
             "reason": {
-              "enum": ["annotation-syntax-error", "explicit-bearing-descendant-requires-target", "bearing-use-requires-explicit-target", "failed-context-requires-explicit-target", "validation-error", "invalid-local-bearing", "no-local-attachment"]
+              "enum": ["annotation-syntax-error", "explicit-bearing-descendant-requires-target", "bearing-use-requires-explicit-target", "failed-context-requires-explicit-target", "validation-error", "invalid-local-bearing", "no-local-attachment", "no-local-point"]
             }
           },
           "additionalProperties": false

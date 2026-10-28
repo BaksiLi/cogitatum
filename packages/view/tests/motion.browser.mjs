@@ -81,7 +81,7 @@ try {
     assert.notEqual(unrelatedAt, insertedAt, 'an untouched named node follows the revised layout rather than overlapping the inserted node');
     assert.equal(await page.evaluate(() => window.pendingFrames()), 0);
 
-    const joint = "- [C @claim] Claim.\n  - [_ G]\n    - [. @first] First.\n    - [. @second] Second.\n- [C @separate] Separate.\n";
+    const joint = "- [C @claim] Claim.\n  - [_ +> ^]\n    - [. @first] First.\n    - [. @second] Second.\n- [C @separate] Separate.\n";
     await page.evaluate(source => window.mount(source), joint);
     const claimAt = await point('_p1').getAttribute('transform'), secondAt = await point('_p3').getAttribute('transform');
     await drag('_p2');

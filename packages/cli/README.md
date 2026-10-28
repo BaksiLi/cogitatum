@@ -42,8 +42,7 @@ An agent can call the same commands as a person; no model account, API key or mo
 | `explain` | Inspect why the compiler emitted or rejected a construction |
 | `explain --format text` | Read every compiler effect, including local choices and host selection errors |
 | `export` | Preserve selected source units, AST, graph, notes and Explain together |
-| `explicit-target --line N` | Preview one checked source edit, including its consequences |
-| `bearing-form --line N --to local\|explicit` | Preview a checked local/explicit structural equivalent |
+| `target-form --line N --to named\|positional` | Preview naming one relation's target, or making it positional again |
 
 Choose the command for the result you need: `ast` for parsed source, `graph` for compiled connections, `check` for diagnostics, and `explain` for the compilation trace.
 Use `export` for a source-backed artifact containing all four projections, in both document and host modes.
@@ -84,8 +83,7 @@ This command explains how the markup was compiled, without interpreting the pros
 | `export` | Complete `explainSource` envelope | Complete `explainSource` envelope |
 | `explain` | One Explain trace | `{ version, mode, units, explanations, diagnostics }` |
 | `check --references` | Reference-analysis result | Reference-analysis result, with independent units |
-| `explicit-target` | Ready/unavailable preview | Ready/unavailable preview, using complete-file line numbers |
-| `bearing-form` | Ready/unavailable structural preview | Same, using complete-file line numbers |
+| `target-form` | Ready/unavailable preview | Ready/unavailable preview, using complete-file line numbers |
 
 Host `explain` is a command-specific projection without `documents` or `graphs`, so it is not a source-envelope schema instance.
 Validate each `explanations[i]` with the Explain schema, or call Core `explainSource` for the complete envelope.
@@ -125,48 +123,34 @@ Host graph text is an argument error (exit 2); use host JSON to retain all units
 `cog explain --format text` instead prints every active compiler effect, selected context, ordered sources, target, membership and note ownership.
 It accepts `--input host` and retains all units and aggregate selection diagnostics, including failures that produced no unit.
 
-## Explicit target preview
-
-`cog explicit-target --line 3 inquiry.cog.md` previews one checked insertion that fixes an ordinary implicit attachment to its current named Point target.
-For Markdown, use `cog explicit-target --input host --line 12 notes.md`; the line refers to the complete file.
-Output is JSON and the input file is never overwritten.
-The same operation is available as Core `previewExplicitTarget`.
-
-A ready preview retains prose, names, occurrence ownership and current relations, but deliberately changes future editing: moving the occurrence retains the explicit target, and changing its role retains the explicit operator.
-Compare `originalSource` with the current complete file before applying `proposedSource`; regenerate the preview if the file changed.
-The single `edit.offset` uses UTF-16 code units.
-The preview supports ordinary implicit G / O / R / D attachments (`supports`, `challenges`, `respondsTo`, `clarifies`), retaining the local mark, handle and children.
-Unattached Q, C and neutral occurrences have no implicit relation to make explicit.
-Unnamed targets, selectors, local Bearing constructions and already explicit clauses receive an unavailable result with no proposed source.
-Errors anywhere in the complete input also withhold the edit.
-Exit 0 means ready; 1 means unavailable or an I/O failure; 2 means invalid options.
-`--line` is required and accepts one positive integer; `--format` and `--references` do not apply to this command.
-
-## Local / explicit structural preview
+## Target form preview
 
 ```sh
-cog bearing-form --line 3 --to explicit inquiry.cog.md
-cog bearing-form --input host --line 12 --to local notes.md
+cog target-form --line 3 --to named inquiry.cog.md
+cog target-form --input host --line 12 --to positional notes.md
 ```
 
-This calls Core `previewBearingForm` and prints ready/unavailable JSON without writing.
-It supports G/O/R/D attachments, G/O/Q selectors and Bearing constructors with ordered neutral sources.
-It reparses and recompiles the complete proposal, checking identities, content, declaration marks, ordered endpoints, literal subtrees, note ownership and unrelated diagnostics.
-Required endpoints must already be named, and the selected Point role and local target must remain the same.
-`answers` and Point-targeted `concerns` have no local equivalent.
+Every relation ends in one target term; this previews exchanging a positional `^` / `^/` for the name it currently resolves to, or back.
+It calls Core `previewTargetForm` and prints ready/unavailable JSON; the input file is never overwritten.
+For host input the line refers to the complete file.
 
-Local → explicit fixes endpoints and may move neutral source subtrees outside an enclosing Bearing.
-Explicit → local introduces ordered neutral uses while retaining declarations.
-The returned `consequence` describes future editing differences; this does not restore an earlier outline or establish equivalent reasoning.
-Ready JSON has original/proposed source, diagnostics and ordered `edits: { offset, remove, insert }[]`.
-Offsets address original UTF-16 code units; compare the complete current source with `originalSource`, then apply edits in reverse order.
-Exit status and unavailable results follow `explicit-target`.
-The [inspection reference](../../docs/graph-inspection.md#preview-local-and-explicit-forms) gives the full preservation scope.
+With `--to named`, `[G]` beneath `@claim` becomes `[G +> @claim]`: moving the occurrence keeps that target, and changing the mark keeps the written relation.
+With `--to positional`, the clause shortens back to the mark when the result is its own default, and the target follows the outline again.
+The returned `consequence` states both effects; a constructor changes only its header, leaving its members in place.
+The preview reparses and recompiles the complete proposal, checking identities, content, declaration marks, ordered endpoints, literal subtrees, note ownership and unrelated diagnostics.
+Anonymous targets, occurrences that state no relation, constructor source members and errors anywhere in the input receive an unavailable result with no proposed source.
+
+Ready JSON has original/proposed source, diagnostics and one minimal `edit: { offset, remove, insert }` in original UTF-16 code units.
+Compare `originalSource` with the current complete file before applying it; regenerate the preview if the file changed.
+Exit 0 means ready; 1 means unavailable or an I/O failure; 2 means invalid options.
+`--line` and `--to` are required; `--format` and `--references` do not apply to this command.
+The published `explicit-target` command is retired and exits 2 with `RETIRED_COMMAND`, naming `target-form --to named`.
+The [inspection reference](../../docs/graph-inspection.md#preview-named-and-positional-targets) gives the full preservation scope.
 
 ## Using the CLI from an assistant
 
 An LLM can propose a reconstruction, a wording revision or a reading of a passage, then call `check`, `graph` and `explain` to inspect the represented result.
-`check --references` helps it locate written dependencies; `explicit-target` provides one deterministic edit with its own preservation checks.
+`check --references` helps it locate written dependencies; `target-form` provides one deterministic edit with its own preservation checks.
 Keep original source and complete command results, and distinguish a valid compilation from a faithful reconstruction or sound inference.
 Graph text omits ordinary body, notes and occurrence-local prose, so it cannot substitute for the source when reviewing meaning.
 

@@ -32,7 +32,8 @@ The child's mark selects the relation; indentation supplies the nearest enclosin
 | `O` | `challenges` |
 | `R` | `respondsTo` |
 | `D` | `clarifies` |
-| `.`, `Q`, `C` | No default connection |
+| `Q` | `concerns` |
+| `.`, `C` | No connection |
 
 The enclosing Point's mark does not change these rules.
 For example, `R` beneath a Question responds to that Question.
@@ -66,22 +67,22 @@ This says how the reasons are offered, without asserting that either is enough o
 
 ### Linked: joint reasons
 
-For a **Linked** structure, use one `[_ G]` header with neutral source Points:
+For a **Linked** structure, use one `[_ +> ^]` header with neutral source Points:
 
 ```md cog-check require=supports points=3 bearings=1 diagnostics=0
 - [C] Inspect the valve under the maintenance rule.
-  - [_ G] Apply the rule to this valve.
+  - [_ +> ^] Apply the rule to this valve.
     - [.] Every leaking valve requires inspection under the rule.
     - [.] This valve is leaking.
 ```
 
 The header constructs one supporting Bearing.
 Its direct `[.]` children supply the sources together; they do not create separate supporting steps.
-The words after `[_ G]` describe that connection without adding another Point.
+The words after `[_ +> ^]` describe that connection without adding another Point.
 
 The same constructor permits a single source.
 It is still a complete Bearing; the source count does not tell us whether the author has finished.
-The [local construction reference](syntax.md#local-bearing-constructions) covers other relation roles and member restrictions.
+The [local construction reference](syntax.md#bearing-constructors) covers other relation roles and member restrictions.
 
 ### Serial: a reason for a reason
 
@@ -148,7 +149,7 @@ Neither removes the original support or records that it has failed.
 ### Ask about a step
 
 `Q/` records a question concerning that local step, without supporting or challenging it.
-Its relation is `concerns`; bare `Q` has no default relation.
+Its relation is `concerns`, as for bare `Q`, which concerns the nearest Point instead.
 See the [selector reference](syntax.md#ask-about-a-step) for examples, reuse and the distinction from explicit operators.
 
 ## Naming routes

@@ -39,9 +39,9 @@ describe("advice from actual implicit selection", () => {
   });
 
   it("advises on linked target lookup and slash attachment through body", () => {
-    const result = compile("- [C @c] Claim.\n  - Group\n    - [_ G; @route]\n      - [note] Literal\n      - [. @g] Ground.\n      - Commentary\n        - [O/] Rejected linked body member.");
+    const result = compile("- [C @c] Claim.\n  - Group\n    - [_ +> ^; @route]\n      - [note] Literal\n      - [. @g] Ground.\n      - Commentary\n        - [O/] Rejected linked body member.");
     expect(advice(result)).toEqual([]);
-    const valid = compile("- [C @c] Claim.\n  - Group\n    - [_ G; @route]\n      - [note] Detail.\n      - [. @g] Ground.\n        - Text\n          - [G/] Ground has no attachment.\n- [_ use @route]\n  - Commentary\n    - [O/] Route concern.\n- [_ use @route]\n  - [O/] Direct concern.");
+    const valid = compile("- [C @c] Claim.\n  - Group\n    - [_ +> ^; @route]\n      - [note] Detail.\n      - [. @g] Ground.\n        - Text\n          - [G/] Ground has no attachment.\n- [_ use @route]\n  - Commentary\n    - [O/] Route concern.\n- [_ use @route]\n  - [O/] Direct concern.");
     expect(throughBodySelections(valid).map(effect => [effect.line, effect.target.kind])).toEqual([[3, "point"], [10, "bearing"]]);
     expect(valid.graph.bearings.map(bearing => bearing.kind)).toEqual(["supports", "challenges", "challenges"]);
     const selected = throughBodySelections(valid)[1];
@@ -56,7 +56,7 @@ describe("advice from actual implicit selection", () => {
   });
 
   it.each([
-    "- [C] Claim.\n  - Body\n    - [_ G]\n      - [.] First.\n      - [.] Second.",
+    "- [C] Claim.\n  - Body\n    - [_ +> ^]\n      - [.] First.\n      - [.] Second.",
     "- [C] Claim.\n  - [G] Reason.\n    - Body\n      - [O/] Concern.",
     "- [C @c] Claim.\n  - [G @g; @route] Reason.\n- [_ use @route]\n  - Body\n    - [G/] Warrant."
   ])("preserves complete graph projection when transparent body is removed from %s", source => {
@@ -83,14 +83,13 @@ describe("advice from actual implicit selection", () => {
     "- Organisation\n  - [C] Claim.\n    - [G] Reason.\n  - Leaf prose",
     "- [C @c] Claim.\n  - Body\n    - [C] Inner.\n      - [G] Reason.",
     "- [Q @q] Question.\n  - Body\n    - [C] Seconds.\n    - [.] Background.",
-    "- [C @c] Claim.\n  - Body\n    - [Q] Which scale?",
     "- [C @c] Claim.\n  - Body\n    - [G +> @c] Explicit.\n    - [_ @c +> @c] Explicit edge.",
     "- [C] Claim.\n  - [note]\n    - Body\n      - [G] Literal.",
     "- [C] Claim.\n  - Body\n    - [O/] No exposed attachment.",
     "- [C @duplicate] One.\n- [C @duplicate] Two.\n  - Body\n    - [G] Cannot select duplicate.",
     "- [C] Claim.\n  - [_ use @future]\n    - Body\n      - [O/] Forward invalid.\n- [_ @missing +> @missing; @future]",
     "- [C @c] Claim.\n  - [G use @missing; @route]\n    - Body\n      - [O/] Dependent on rejected source.",
-    "- [C @c] Claim.\n  - [_ G]\n    - [. use @missing]\n    - [O/] Commentary.\n      - Body\n        - [G/] Dependent on rejected linked."
+    "- [C @c] Claim.\n  - [_ +> ^]\n    - [. use @missing]\n    - [O/] Commentary.\n      - Body\n        - [G/] Dependent on rejected linked."
   ])("does not invent successful advice for %s", source => {
     const result = compile(source);
     expect(advice(result)).toEqual([]);
@@ -105,10 +104,13 @@ describe("advice from actual implicit selection", () => {
   };
   it.each([
     ["- [C @c] Claim.\n  - Body\n    - [G @g; @step] Reason.", "[G @g +> @c; @step]", "- [C @c] Claim.\n  - Body\n    - [G @g +> @c; @step] Reason."],
-    ["- [C @c] Claim.\n  - [G @g; @step] Reason.\n    - Body\n      - [O/ @o] Concern.", "[O @o /> @step]", "- [C @c] Claim.\n  - [G @g; @step] Reason.\n    - Body\n      - [O @o /> @step] Concern."],
+    ["- [C @c] Claim.\n  - [G @g; @step] Reason.\n    - Body\n      - [O/ @o] Concern.", "[O @o -> @step]", "- [C @c] Claim.\n  - [G @g; @step] Reason.\n    - Body\n      - [O @o -> @step] Concern."],
     ["- [O @o] Objection.\n  - Body\n    - [R @r] Reply.", "[R @r respondsTo @o]", "- [O @o] Objection.\n  - Body\n    - [R @r respondsTo @o] Reply."],
     ["- [C @c] Claim.\n  - Body\n    - [D use @d] Local distinction.\n- [. @d] Shared distinction.", "[D use @d clarifies @c]", "- [C @c] Claim.\n  - Body\n    - [D use @d clarifies @c] Local distinction.\n- [. @d] Shared distinction."],
-    ["- [C @c] Claim.\n  - Body\n    - [_ G; @route]\n      - [. @a] A.\n      - [. @b] B.", "write [_ @a, @b +> @c; @route] in place of the local Bearing header, move its neutral source occurrences with their subtrees before the constructor, outside enclosing Bearing contexts", "- [C @c] Claim.\n- Body\n  - [. @a] A.\n  - [. @b] B.\n- [_ @a, @b +> @c; @route]"]
+    ["- [C @c] Claim.\n  - Body\n    - [_ +> ^; @route]\n      - [. @a] A.\n      - [. @b] B.", "write [_ +> @c; @route]; its sources stay where they are", "- [C @c] Claim.\n  - Body\n    - [_ +> @c; @route]\n      - [. @a] A.\n      - [. @b] B."],
+    ["- [C @c] Claim.\n  - Body\n    - [Q] Which scale?", "write [Q ~> @c]", "- [C @c] Claim.\n  - Body\n    - [Q ~> @c] Which scale?"],
+    ["- [C @c] Claim.\n  - Body\n    - [G supports ^] Reason.", "write [G supports @c]", "- [C @c] Claim.\n  - Body\n    - [G supports @c] Reason."],
+    ["- [C @c] Claim.\n  - Body\n    - [. @r +> ^] Reason.", "write [. @r +> @c]", "- [C @c] Claim.\n  - Body\n    - [. @r +> @c] Reason."]
   ])("teaches an existing explicit spelling for %s", (source, suggestion, followed) => {
     const result = compile(source);
     expect(advice(result)).toHaveLength(1);
@@ -119,44 +121,40 @@ describe("advice from actual implicit selection", () => {
     expect(topology(explicit)).toEqual(topology(result));
   });
 
-  it.each([["G", "C", "+>"], ["O", "C", "->"], ["R", "O", "respondsTo"], ["D", "C", "clarifies"]])(
-    "keeps the %s linked relation and neutral declarations when following its advice",
-    (role, parent, operator) => {
-      const before = compile(`- [${parent} @target] Target.
-  - Body
-    - [_ ${role}; @route] Description.
+  it.each([["+> ^", "C", "+>"], ["-> ^", "C", "->"], ["respondsTo ^", "O", "respondsTo"], ["clarifies ^", "C", "clarifies"], ["~> ^", "C", "~>"]])(
+    "keeps the [_ %s] relation, its members and their descendants when following its advice",
+    (clause, parent, operator) => {
+      const members = `
       - [. @a] First.
         - [O @doubt] Doubt about the source.
-      - [. @b] Second.`);
-      expect(advice(before)[0].explanation).toContain(`write [_ @a, @b ${operator} @target; @route]`);
+      - [. @b] Second.`;
+      const before = compile(`- [${parent} @target] Target.
+  - Body
+    - [_ ${clause}; @route] Description.${members}`);
+      expect(advice(before)[0].explanation).toContain(`write [_ ${operator} @target; @route]`);
       const after = compile(`- [${parent} @target] Target.
   - Body
-    - [_ @a, @b ${operator} @target; @route] Description.
-    - [. @a] First.
-      - [O @doubt] Doubt about the source.
-    - [. @b] Second.`);
+    - [_ ${operator} @target; @route] Description.${members}`);
       expect(after.graph.diagnostics).toEqual([]);
       expect(topology(after)).toEqual(topology(before));
-      expect(after.graph.points.map(({ id, declaration, text }) => ({ id, declaration, text })))
-        .toEqual(before.graph.points.map(({ id, declaration, text }) => ({ id, declaration, text })));
+      expect(after.graph.points).toEqual(before.graph.points);
       expect(after.graph.bearings.map(bearing => bearing.text)).toEqual(before.graph.bearings.map(bearing => bearing.text));
     }
   );
 
   it("names the missing names instead of inventing them for anonymous Points", () => {
     expect(advice(compile("- [Q] Question.\n  - Body\n    - [R] Reply."))[0].explanation).toContain("[R respondsTo @target] after naming the target");
-    const linked = advice(compile("- [C] Claim.\n  - Body\n    - [_ G]\n      - [.] First.\n      - [.] Second."))[0].explanation;
-    expect(linked).toContain("[_ @source, @source2 +> @target] in place of the local Bearing header after naming each placeholder Point");
+    const joint = advice(compile("- [C] Claim.\n  - Body\n    - [_ +> ^]\n      - [.] First.\n      - [.] Second."))[0].explanation;
+    expect(joint).toContain("[_ +> @target] after naming the target; its sources stay where they are");
     expect(advice(compile("- [C] Claim.\n  - Body\n    - [O] Concern."))[0].explanation).toContain("[O -> @target] after naming the target");
   });
 
-  it("derives linked advice from the surviving joint sources and keeps independent members", () => {
+  it("names only the target of a joint, keeping independent members and commentary in place", () => {
     const declarations = "- [G @a] A.\n- [G @b] B.\n- [C @other] Other.\n- [C @c] Claim.\n  - grouping\n";
-    const result = compile(declarations + "    - [_ G; @joint]\n      - [. use @a]\n      - [G use @b +> @other]\n      - [note] Kept with the step.\n      - [O/ @doubt] The step needs a mechanism.");
-    const explanation = advice(result)[0].explanation ?? "";
-    expect(explanation).toContain("write [_ @a +> @c; @joint] in place of the local Bearing header");
-    expect(explanation).not.toContain("@b +>");
-    const followed = compile(declarations + "    - [_ @a +> @c; @joint]\n      - [G use @b +> @other]\n      - [note] Kept with the step.\n      - [O/ @doubt] The step needs a mechanism.\n- [. use @a]");
+    const members = "\n      - [. use @a]\n      - [G use @b +> @other]\n      - [note] Kept with the step.\n      - [O/ @doubt] The step needs a mechanism.";
+    const result = compile(declarations + "    - [_ +> ^; @joint]" + members);
+    expect(advice(result)[0].explanation).toContain("write [_ +> @c; @joint]; its sources stay where they are");
+    const followed = compile(declarations + "    - [_ +> @c; @joint]" + members);
     expect(followed.graph.diagnostics).toEqual([]);
     expect(topology(followed)).toEqual(topology(result));
     expect(topology(result)).toEqual([[["@a"], "supports", "@c", "joint"], [["@b"], "supports", "@other", undefined], [["@doubt"], "challenges", "@joint", undefined]]);
@@ -166,7 +164,7 @@ describe("advice from actual implicit selection", () => {
     const result = compile("- [Q @q] Question.\n  - grouping\n    - [R @a; @answer] Reply.\n      - [G] Reason for the reply.\n      - [O/ @o] Concern about replying.");
     const explanation = advice(result)[0].explanation ?? "";
     expect(explanation).toContain("write [R @a respondsTo @q; @answer]");
-    expect(explanation).toContain("the clause replaces the default rather than adding a second Bearing");
+    expect(explanation).toContain("the named target replaces the positional one rather than adding a second Bearing");
     const followed = compile("- [Q @q] Question.\n  - grouping\n    - [R @a respondsTo @q; @answer] Reply.\n      - [G] Reason for the reply.\n      - [O/ @o] Concern about replying.");
     expect(followed.graph.diagnostics).toEqual([]);
     expect(topology(followed)).toEqual(topology(result));
@@ -174,17 +172,10 @@ describe("advice from actual implicit selection", () => {
     expect(topology(result)).toHaveLength(3);
   });
 
-  it("keeps placeholders clear of every authored name in the source unit", () => {
-    const names = "- [G @source] Named.\n- [C @c] Claim.\n  - [G @source2; @target] Also named.\n  - body\n";
-    const linked = compile(names + "    - [_ G]\n      - [.] Anonymous.\n      - [. use @source]");
-    expect(advice(linked)[0].explanation).toContain("write [_ @source3, @source +> @c] in place of the local Bearing header after naming each placeholder Point");
-    const reply = compile("- [. @target] Taken.\n- [. @source] Taken.\n- [C @c] Claim.\n  - [G; @source2] Taken route.\n- [Q] Question.\n  - body\n    - [R] Reply.");
-    expect(advice(reply)[0].explanation).toContain("[R respondsTo @target2] after naming the target");
-    // Following the advice with those spellings reproduces the joint support without diagnostics.
-    const followed = compile(names + "    - [_ @source3, @source +> @c]\n- [. @source3] Anonymous.");
-    expect(followed.graph.diagnostics).toEqual([]);
-    const ids = (result: GraphCompilation) => result.graph.bearings.map(bearing => [bearing.sources.length, bearing.kind, bearing.handle]);
-    expect(ids(followed)).toEqual(ids(linked));
-    expect(followed.graph.bearings.at(-1)?.sources.map(source => followed.graph.points.find(point => point.key === source.key)?.id)).toEqual(["source3", "source"]);
+  it("keeps the target placeholder clear of every authored name in the source unit", () => {
+    const reply = compile("- [. @target] Taken.\n- [. @source] Taken.\n- [C @c] Claim.\n  - [G; @target2] Taken route.\n- [Q] Question.\n  - body\n    - [R] Reply.");
+    expect(advice(reply)[0].explanation).toContain("[R respondsTo @target3] after naming the target");
+    const joint = compile("- [C @target] Named.\n- [C] Claim.\n  - body\n    - [_ +> ^]\n      - [.] Anonymous.");
+    expect(advice(joint)[0].explanation).toContain("[_ +> @target2] after naming the target");
   });
 });

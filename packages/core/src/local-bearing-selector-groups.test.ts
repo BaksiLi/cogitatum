@@ -13,9 +13,9 @@ const names = (source: string) => {
 
 describe("local Bearing selector constructors", () => {
   it.each(["_", "bearing", "edge"])("shares scalar selection and joint construction through %s", family => {
-    for (const [role, op, kind] of [["G", "+>", "supports"], ["O", "->", "challenges"], ["Q", "~>", "concerns"]]) {
+    for (const [header, op, kind] of [["+> ^/", "+>", "supports"], ["-> ^/", "->", "challenges"], ["clarifies ^/", "clarifies", "clarifies"], ["~> ^/", "~>", "concerns"], ["/", "~>", "concerns"]]) {
       const prefix = "- [C @claim] Claim.\n  - [G @reason; @step] Reason.\n";
-      const local = prefix + `    - [${family} ${role}/; @review] Review the step.
+      const local = prefix + `    - [${header === "/" ? family + "/" : family + " " + header}; @review] Review the step.
       - [. @a] First source.
         - [G @detail] Reason for this source.
       - [. @b] Second source.
@@ -31,7 +31,7 @@ describe("local Bearing selector constructors", () => {
       expect(result.graph.diagnostics, local).toEqual([]);
       expect(names(local)).toEqual(names(explicit));
       expect(result.graph.bearings[1]).toMatchObject({ kind, sources: result.graph.points.slice(2).filter(p => p.id === "a" || p.id === "b").map(p => ({ kind: "point", key: p.key })) });
-      expect(result.explain.entries[2].recognition).toEqual({ kind: "localBearing", role, selector: "attachment" });
+      expect(result.explain.entries[2].recognition).toEqual(header === "/" ? { kind: "bearing", members: true, selector: "attachment" } : { kind: "bearing", members: true });
       expect(result.explain.entries[2].effects).toContainEqual({
         kind: "selectAttachment", ownerSpan: result.graph.points[1].sourceSpan,
         target: { kind: "bearing", key: result.graph.bearings[0].key }
@@ -41,12 +41,12 @@ describe("local Bearing selector constructors", () => {
 
   it("keeps nested selector groups as commentary without enlarging either source set", () => {
     const { graph, explain } = compile(`- [C] Claim.
-  - [_ G; @outer]
+  - [_ +> ^; @outer]
     - [.] Original source.
-    - [_ O/; @review]
+    - [_ -> ^/; @review]
       - [.] First objection source.
       - [.] Second objection source.
-      - [_ G/; @backing]
+      - [_ +> ^/; @backing]
         - [.] Backing source.`);
     expect(graph.diagnostics).toEqual([]);
     expect(graph.bearings.map(b => [b.handle, b.sources.length, b.target])).toEqual([
@@ -62,10 +62,10 @@ describe("local Bearing selector constructors", () => {
 - [C @claim] Claim.
 - [_ @a +> @claim; @step]
   - Context.
-    - [_ G/]
+    - [_ +> ^/]
       - [.] Warrant.
 - [_ use @step]
-  - [_ Q/]
+  - [_ ~> ^/]
     - [.] Which conditions?
     - [.] Which scope?`;
     const { graph, explain } = compile(source);
@@ -79,9 +79,9 @@ describe("local Bearing selector constructors", () => {
     });
   });
 
-  it.each(["[_ G/ @a +> @c]", "[_ O/;", "[_ Q/ @a]", "[_ G/", "[_ g/]", "[_G/]", "[bearingQ/]", "[_ G/@a]"])("retains malformed %s commentary and its failed boundary", header => {
+  it.each(["[_ +> ^/ @a +> @c]", "[_ -> ^/;", "[_ ~> ^/ @a]", "[_ G/", "[_ g/]", "[_G/]", "[bearingQ/]", "[_ G/@a]"])("retains malformed %s commentary and its failed boundary", header => {
     const { graph } = compile(`- [C @c] Claim.
-  - [_ G; @outer]
+  - [_ +> ^; @outer]
     - [. @source] Original source.
     - ${header}
       - [. @a] Active material.
@@ -93,9 +93,9 @@ describe("local Bearing selector constructors", () => {
   });
 
   it.each([
-    "- [C] Unattached.\n  - [_ O/]\n    - [.] Source.",
-    "- [C] Outer.\n  - [G] Ground.\n    - [C] Nearer unattached Point.\n      - [_ G/]\n        - [.] Source.",
-    "- [C] Claim.\n  - [_ G]\n    - [.] Member.\n      - [_ Q/]\n        - [.] Question."
+    "- [C] Unattached.\n  - [_ -> ^/]\n    - [.] Source.",
+    "- [C] Outer.\n  - [G] Ground.\n    - [C] Nearer unattached Point.\n      - [_ +> ^/]\n        - [.] Source.",
+    "- [C] Claim.\n  - [_ +> ^]\n    - [.] Member.\n      - [_ ~> ^/]\n        - [.] Question."
   ])("never looks past the nearest context", source => {
     const { graph } = compile(source);
     expect(graph.diagnostics.map(d => d.code)).toEqual(["NO_LOCAL_BEARING_ATTACHMENT"]);
@@ -105,11 +105,11 @@ describe("local Bearing selector constructors", () => {
   it("propagates failed reused and constructed targets without partial joints", () => {
     const { graph } = compile(`- [C @claim] Claim.
   - [G +> @missing; @bad] Failed relation.
-    - [_ O/; @review]
+    - [_ -> ^/; @review]
       - [.] First.
       - [.] Second.
 - [_ use @bad]
-  - [_ G/]
+  - [_ +> ^/]
     - [.] Backing.`);
     expect(graph.bearings).toEqual([]);
     expect(graph.diagnostics.map(d => d.code)).toEqual([
@@ -117,40 +117,52 @@ describe("local Bearing selector constructors", () => {
     ]);
   });
 
-  it.each(["_ Q", "_ R/", "_ D/", "_ C/"])("does not invent a relation for %s", header => {
-    expect(parseAnnotation(header).diagnostics.map(d => d.code)).toContain("MALFORMED_LOCAL_BEARING");
+  it.each([["_ Q", "[_ ~> ^]"], ["_ D/", "[_ clarifies ^/]"], ["_ C/", "Write an operator and target"]])("names the relation instead of accepting the role header %s", (header, hint) => {
+    const { diagnostics } = parseAnnotation(header);
+    expect(diagnostics.map(d => d.code)).toEqual(["MALFORMED_BEARING_MODE"]);
+    expect(diagnostics[0].message).toContain(hint);
   });
 
-  it.each([["R", "respondsTo"], ["D", "clarifies"]])("explains the same Point target boundary for %s/ and its group form", (role, kind) => {
-    for (const prefix of ["", "_ "]) {
-      const header = prefix + role + "/";
+  it("explains the same Point target boundary for R/ and its group form", () => {
+    for (const [header, local, named] of [["R/", "[R]", "[R respondsTo @target]"], ["_ R/", "[_ respondsTo ^]", "[_ @source respondsTo @target]"]]) {
       const message = parseAnnotation(header).diagnostics[0].message;
-      expect(message).toContain(`${kind} requires a Point target`);
-      expect(message).toContain(`write [${prefix}${role}]`);
-      expect(message).toContain(prefix ? `[_ @source ${kind} @target]` : `[${role} ${kind} @target]`);
+      expect(message).toContain("respondsTo requires a Point target");
+      expect(message).toContain(`write ${local}`);
+      expect(message).toContain(named);
     }
   });
 
-  it("suggests the Bearing-targeted mark for a bare />", () => {
-    expect(parseAnnotation("_ />").diagnostics[0].message).toContain("[_ O/]");
+  it("lets [D/] clarify the exposed step, like its constructor form [_ clarifies ^/]", () => {
+    const step = "- [C @claim] Claim.\n  - [G; @step] Reason.\n";
+    expect(names(step + "    - [D/ @meaning] What the step means.")).toContainEqual(
+      { kind: "clarifies", handle: undefined, text: undefined, sources: ["meaning"], target: ["bearing", "step"] });
+    expect(names(step + "    - [_ clarifies ^/]\n      - [. @meaning] What the step means.")).toContainEqual(
+      { kind: "clarifies", handle: undefined, text: undefined, sources: ["meaning"], target: ["bearing", "step"] });
+  });
+
+  it("migrates a bare retired /> to -> and asks for its target", () => {
+    const codes = parseAnnotation("_ />").diagnostics.map(d => d.code);
+    expect(codes).toEqual(["RETIRED_AUTHORING_SYNTAX", "MALFORMED_EXPLICIT_BEARING"]);
+    expect(parseAnnotation("_ />").diagnostics[0].message).toContain("^/ for the locally exposed Bearing");
   });
 
   it("names the Point-targeted spelling when the nearest Point has no step", () => {
     const message = (source: string) => compile(source).graph.diagnostics.find(d => d.code === "NO_LOCAL_BEARING_ATTACHMENT")!.message;
-    expect(message("- [C] Claim.\n  - [_ O/]\n    - [.] Source.")).toContain("write [_ O]");
+    expect(message("- [C] Claim.\n  - [_ -> ^/]\n    - [.] Source.")).toContain("write [_ -> ^]");
     expect(message("- [C] Claim.\n  - [O/] Single.")).toContain("write [O]");
-    expect(message("- [C] Claim.\n  - [Q/] Why?")).toContain("explicit ~> or concerns target");
+    expect(message("- [C] Claim.\n  - [Q/ @q; @h] Why?")).toContain("write [Q @q; @h]");
+    expect(message("- [C] Claim.\n  - [_/]\n    - [.] Source.")).toContain("write [_]");
   });
 
   it("explains that a group header offers no Point for a direct response", () => {
-    const { graph } = compile("- [C] Claim.\n  - [G; @step] Ground.\n    - [_ Q/] Why?\n      - [.] Source.\n      - [R] Response.");
+    const { graph } = compile("- [C] Claim.\n  - [G; @step] Ground.\n    - [_ ~> ^/] Why?\n      - [.] Source.\n      - [R] Response.");
     const message = graph.diagnostics.find(d => d.code === "INVALID_LOCAL_BEARING_MEMBER")!.message;
     expect(message).toContain("creates no Point, so a direct R has no Point to respond to");
     expect(message).toContain("write [Q/]");
   });
 
   it.each(["R +>", "D respondsTo", "R use @p +>"])("does not interpret incomplete [%s] as an ordinary local role", header => {
-    const { graph } = compile(`- [. @p] Shared.\n- [C] Claim.\n  - [_ G]\n    - [.] Source.\n    - [${header}] Incomplete.`);
+    const { graph } = compile(`- [. @p] Shared.\n- [C] Claim.\n  - [_ +> ^]\n    - [.] Source.\n    - [${header}] Incomplete.`);
     const message = graph.diagnostics.find(d => d.code === "INVALID_LOCAL_BEARING_MEMBER")!.message;
     expect(message).toContain("complete independent clauses");
     expect(message).not.toContain("has no Point to");
@@ -158,11 +170,11 @@ describe("local Bearing selector constructors", () => {
   });
 
   it("retains the target selector when suggesting a missing header space", () => {
-    expect(parseAnnotation("_G/").diagnostics[0].message).toContain("[_ G/]");
+    expect(parseAnnotation("_G/").diagnostics[0].message).toContain("[_ +> ^/]");
   });
 
   it("retains host locations and ordered reused sources", () => {
-    const result = explainSource("Intro.\r\n  ```cog\r\n  - [. @p] Shared.\r\n  - [C] Claim.\r\n    - [G; @step] Ground.\r\n      - [_ O/]\r\n        - [. use @p]\r\n        - [.] Other.\r\n  ```", "host");
+    const result = explainSource("Intro.\r\n  ```cog\r\n  - [. @p] Shared.\r\n  - [C] Claim.\r\n    - [G; @step] Ground.\r\n      - [_ -> ^/]\r\n        - [. use @p]\r\n        - [.] Other.\r\n  ```", "host");
     expect(result.diagnostics).toEqual([]);
     expect(result.explanations[0].entries[3].sourceSpan.startColumn).toBe(9);
     expect(result.graphs[0].bearings[1].sources[0].key).toBe(result.graphs[0].points[0].key);

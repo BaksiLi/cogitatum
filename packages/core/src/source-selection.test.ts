@@ -121,7 +121,7 @@ describe("explicit Markdown source selection", () => {
   });
 
   it.each(["\n", "\r\n", "\r"])("preserves original UTF-16 columns with line ending %j", lineEnding => {
-    const lines = ["Intro 😀.", "  " + fence + "cog", "  - [C @claim] 😀 Conclusion.", "    - [_ G; @route] 😀 Route.", "      - [. @premise] 😀 Premise.", "  " + fence];
+    const lines = ["Intro 😀.", "  " + fence + "cog", "  - [C @claim] 😀 Conclusion.", "    - [_ +> ^; @route] 😀 Route.", "      - [. @premise] 😀 Premise.", "  " + fence];
     const explained = explainSource(lines.join(lineEnding), "host");
     expect(explained.diagnostics).toEqual([]);
     expect(explained.units[0]).toMatchObject({ startLine: 3, endLine: 5 });
@@ -150,7 +150,7 @@ describe("explicit Markdown source selection", () => {
   });
 
   it("retains constructor failure boundaries inside a selected unit", () => {
-    const source = [fence + "cog", "- [C @claim] Conclusion.", "  - [join]", "    - [.] Premise.", "  - [edge]", "    - [G] No explicit target.", fence].join("\n");
+    const source = [fence + "cog", "- [C @claim] Conclusion.", "  - [join]", "    - [.] Premise.", "  - [edge cases]", "    - [G] No explicit target.", fence].join("\n");
     const explained = explainSource(source, "host");
     expect(explained.graphs[0].points).toHaveLength(3);
     expect(explained.graphs[0].bearings).toEqual([]);

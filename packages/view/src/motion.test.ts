@@ -5,7 +5,7 @@ import { layoutGraph } from "./layout.js";
 import { createDragMotion } from "./motion.js";
 
 function setup() {
-  const graph = compileSource("- [C] Claim.\n  - [_ G]\n    - [.] First.\n    - [.] Second.\n- [C] Separate.\n", 'document').graphs[0];
+  const graph = compileSource("- [C] Claim.\n  - [_ +> ^]\n    - [.] First.\n    - [.] Second.\n- [C] Separate.\n", 'document').graphs[0];
   const topology = projectExploration(projectGraph(graph));
   const positions = new Map(layoutGraph(topology).map(n => [n.id, { x: n.x, y: n.y }]));
   const dragged = topology.nodes.find(n => n.text === 'First.')!.id;
@@ -114,7 +114,7 @@ describe('drag settling', () => {
   });
 
   it('excludes remote branches from the forces on a local junction', () => {
-    const graph = compileSource('- [C] Top.\n  - [_ G]\n    - [.] First.\n    - [.] Second.\n      - [G @remote] Remote.\n        - [G @distant] Distant.', 'document').graphs[0];
+    const graph = compileSource('- [C] Top.\n  - [_ +> ^]\n    - [.] First.\n    - [.] Second.\n      - [G @remote] Remote.\n        - [G @distant] Distant.', 'document').graphs[0];
     const topology = projectGraph(graph);
     const remote = new Set(topology.nodes.filter(node => ['remote', 'distant'].includes(node.name ?? '')).map(node => node.id));
     for (const link of topology.links) if (link.segment === 'input' && remote.has(link.source)) remote.add(link.target);

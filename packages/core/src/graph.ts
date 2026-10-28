@@ -23,12 +23,11 @@ import type {
   PointRef,
   Ref,
   Role,
-  SourceSpan
+  SourceSpan,
+  TargetTerm
 } from "./types.js";
-import { FORMAT_VERSION } from "./types.js";
-import { operatorSymbol } from "./annotation.js";
-
-const LOCAL_SELECTOR_KINDS = { G: "supports", O: "challenges", Q: "concerns" } as const;
+import { FORMAT_VERSION, isNamedTarget } from "./types.js";
+import { clauseSpelling, expandedClause, respellTarget } from "./annotation.js";
 
 type Context = (
   | { kind: "point"; block: AstBlock; focus?: PointRef | Ref; exposedBearing?: BearingRef }
@@ -43,8 +42,8 @@ type CandidateBearing = {
   target: BearingTarget | Ref;
   derivedBy: BearingDerivedBy;
   sourceSpan?: SourceSpan;
+  // Set for a positional target: the slot that supplied it.
   targetFocusKind?: "point" | "bearing";
-  targetKind?: OperatorClause["targetKind"];
 };
 
 type SymbolKind = "point" | "bearing" | "invalid" | "unknown";
@@ -75,7 +74,7 @@ type BearingDraft =
     }
   | {
       outcome: "rejected";
-      reason: "annotation-syntax-error" | "explicit-bearing-descendant-requires-target" | "bearing-use-requires-explicit-target" | "failed-context-requires-explicit-target" | "invalid-local-bearing" | "no-local-attachment";
+      reason: "annotation-syntax-error" | "explicit-bearing-descendant-requires-target" | "bearing-use-requires-explicit-target" | "failed-context-requires-explicit-target" | "invalid-local-bearing" | "no-local-attachment" | "no-local-point";
     }
   | {
       outcome: "skipped";
@@ -196,9 +195,9 @@ function compileBlock(
   diagnostics: Diagnostic[],
   sourceParent?: AstBlock
 ): void {
-  const localBearingAncestor = context?.kind === "bearing" && context.block.annotation?.kind === "localBearing" ? context.block : undefined;
-  const childFunction = context?.kind === "bearing" ? context.localBearingChildren?.get(block) : undefined;
-  const membership = localBearingAncestor ? { localBearingSpan: localBearingAncestor.sourceSpan, eligible: childFunction === "source", function: childFunction ?? "unclassified" as const } : undefined;
+  const memberContext = context?.kind === "bearing" && context.localBearingChildren ? context : undefined;
+  const childFunction = memberContext?.localBearingChildren?.get(block);
+  const membership = memberContext ? { localBearingSpan: memberContext.block.sourceSpan, eligible: childFunction === "source", function: childFunction ?? "unclassified" as const } : undefined;
   if (!block.annotation) {
     explainDrafts.push({ block, recognition: { kind: "body" }, membership });
     for (const child of block.children) {
@@ -215,6 +214,9 @@ function compileBlock(
     parentSpan: sourceParent?.sourceSpan
   };
   explainDrafts.push(draft);
+  const compileChildren = (childContext: Context) => {
+    for (const child of block.children) compileBlock(child, childContext, pointKeys, points, bearings, explainDrafts, diagnostics, block);
+  };
 
   if (annotation.kind === "note") {
     if (annotation.targetKind) {
@@ -222,9 +224,7 @@ function compileBlock(
         targetKind: annotation.targetKind,
         ...(context ? { contextSpan: context.block.sourceSpan } : {}),
         crossedBodySpans: context?.crossedBodySpans ?? [],
-        candidate: annotation.targetKind === "point"
-          ? context?.kind === "point" ? context.focus : undefined
-          : context?.exposedBearing
+        candidate: annotation.targetKind === "point" ? pointSlot(context) : context?.exposedBearing
       };
     }
     return;
@@ -232,111 +232,77 @@ function compileBlock(
 
   if (annotation.kind === "invalid") {
     draft.bearing = { outcome: "rejected", reason: "annotation-syntax-error" };
-    for (const child of block.children) {
-      compileBlock(child, { kind: "point", block }, pointKeys, points, bearings, explainDrafts, diagnostics, block);
-    }
-    return;
-  }
-
-  if (annotation.kind === "localBearing") {
-    compileLocalBearing(block, context, draft, pointKeys, points, bearings, explainDrafts, diagnostics);
+    compileChildren({ kind: "point", block });
     return;
   }
 
   if (annotation.kind === "bearingUse") {
     const syntaxFailed = Boolean(annotation.syntaxErrors?.length);
     draft.focus = { kind: "bearing", operand: annotation.ref, ...(syntaxFailed ? { reason: "annotation-syntax-error" as const } : {}) };
-    for (const child of block.children) {
-      compileBlock(child, { kind: "bearing", block, exposedBearing: syntaxFailed ? undefined : annotation.ref }, pointKeys, points, bearings, explainDrafts, diagnostics, block);
-    }
+    compileChildren({ kind: "bearing", block, exposedBearing: syntaxFailed ? undefined : annotation.ref });
     return;
   }
 
-  // A header that selected no mode states no explicit-target requirement; its
-  // own diagnostic suffices, and its descendants still cannot attach outward.
-  const edgeAncestor = context?.kind === "bearing" && context.block.annotation?.kind === "explicitBearing"
-    && !context.block.annotation.syntaxErrors?.includes("mode") ? context.block : undefined;
+  if (annotation.kind === "bearing") {
+    const { bearing: produced, memberFunctions } = compileBearingConstructor(block, context, draft, pointKeys, bearings, diagnostics);
+    compileChildren({
+      kind: "bearing",
+      block,
+      exposedBearing: produced ? { kind: "bearing", key: produced.key } : undefined,
+      ...(annotation.members ? { localBearingChildren: memberFunctions ?? classifyMembers(block) } : {})
+    });
+    return;
+  }
 
+  // A Point declaration or use.
   if (annotation.kind === "use") {
     draft.focus = { kind: "point", operand: annotation.ref, ...(annotation.syntaxErrors?.includes("reference") ? { reason: "annotation-syntax-error" as const } : {}) };
-  } else if (annotation.kind !== "explicitBearing") {
+  } else {
     const point = pointFromBlock(block, pointKeys);
     points.push(point);
     draft.point = { key: point.key, ...(point.id ? { id: point.id } : {}), reason: pointReasonForBlock(block) };
   }
 
-  let producedBearing: CandidateBearing | undefined;
-  const bearingSyntaxFailed = Boolean(annotation.syntaxErrors && annotation.syntaxErrors.length > 0);
-  const implicitEdgeDescendant = Boolean(
-    edgeAncestor && annotation.kind !== "explicitBearing" && !annotation.operatorClause && !("selector" in annotation && annotation.selector) && !bearingSyntaxFailed
-  );
-  if (implicitEdgeDescendant) {
-    draft.bearing = {
-      outcome: "rejected",
-      reason: "explicit-bearing-descendant-requires-target"
-    };
-    diagnostics.push({
-      severity: "error",
-      code: "EXPLICIT_BEARING_DESCENDANT_REQUIRES_TARGET",
-      message:
-        "The first Point beneath an explicit Bearing constructor, including a neutral declaration or use, needs a local selector or an explicit target. Only a local Bearing constructor takes direct neutral source members; place an unconnected Point outside this Bearing context.",
-      sourceSpan: block.sourceSpan
-    });
-  } else if (context?.block.annotation?.kind === "bearingUse" && annotation.kind !== "explicitBearing" && !annotation.operatorClause && !("selector" in annotation && annotation.selector) && !bearingSyntaxFailed) {
-    draft.bearing = { outcome: "rejected", reason: "bearing-use-requires-explicit-target" };
-    diagnostics.push({ severity: "error", code: "BEARING_USE_REQUIRES_EXPLICIT_TARGET", message: "Bearing use exposes no Point target; the first Point, including a neutral declaration or use, needs a local selector or an explicit target. Place an unconnected Point outside this Bearing context.", sourceSpan: block.sourceSpan });
-  } else if (context?.kind === "point" && !context.focus && annotation.kind !== "explicitBearing" && !annotation.operatorClause && !("selector" in annotation && annotation.selector) && !bearingSyntaxFailed) {
-    draft.bearing = { outcome: "rejected", reason: "failed-context-requires-explicit-target" };
-    diagnostics.push({ severity: "error", code: "FAILED_CONTEXT_REQUIRES_EXPLICIT_TARGET", message: "This Point is beneath a failed constructor, so no implicit attachment to an outer Point is derived. Fix any layout or annotation errors in the enclosing constructor first; use an explicit target only if this Point is intended to attach independently.", sourceSpan: block.sourceSpan });
-  } else if (bearingSyntaxFailed) {
+  const relation = occurrenceRelation(annotation);
+  const source = annotation.kind === "use" ? annotation.ref : pointRef(pointKeyForBlock(block, pointKeys));
+  let produced: CandidateBearing | undefined;
+  let diagnosedContext = false;
+  if (annotation.syntaxErrors?.length) {
     draft.bearing = { outcome: "rejected", reason: "annotation-syntax-error" };
-  } else if ((annotation.kind === "role" || annotation.kind === "use") && annotation.selector) {
-    const selected = selectLocalBearing(context, draft);
+  } else if (isNamedTarget(relation.target)) {
+    produced = addBearing(bearings, candidate(block, relation.kind!, [source!], relation.target, "operator"));
+    draft.bearing = { outcome: "candidate", candidate: produced, reason: "operator-clause" };
+  } else if (relation.target.local === "bearing") {
+    const selected = resolveBearingSlot(context, draft);
     if (selected) {
-      const source = annotation.kind === "use" ? annotation.ref : pointKeyForBlock(block, pointKeys);
-      if (!source) throw new Error("Compiler invariant violated: a valid selector has no Point operand.");
-      const bearing = structural(block, LOCAL_SELECTOR_KINDS[annotation.role], [source], selected, "bearing");
-      bearing.key = "_b" + (bearings.length + 1);
-      bearings.push(bearing);
-      draft.bearing = { outcome: "candidate", candidate: bearing, reason: "local-attachment" };
-      producedBearing = bearing;
+      produced = addBearing(bearings, candidate(block, relation.kind!, [source!], selected, "structural", "bearing"));
+      draft.bearing = { outcome: "candidate", candidate: produced, reason: "local-attachment" };
     } else {
-      diagnostics.push({ severity: "error", code: "NO_LOCAL_BEARING_ATTACHMENT", message: noLocalBearingMessage(context, annotation.role, false), sourceSpan: block.sourceSpan });
+      diagnostics.push({ severity: "error", code: "NO_LOCAL_BEARING_ATTACHMENT", message: noLocalBearingMessage(context, annotation, relation.kind!), sourceSpan: block.sourceSpan });
       draft.bearing = { outcome: "rejected", reason: "no-local-attachment" };
     }
-  } else if (annotation.operatorClause) {
-    const bearing = bearingFromOperator(block, annotation.operatorClause, pointKeys);
-    if (bearing) {
-      bearing.key = `_b${bearings.length + 1}`;
-      bearings.push(bearing);
-      draft.bearing = { outcome: "candidate", candidate: bearing, reason: "operator-clause" };
-      producedBearing = bearing;
-    } else {
-      draft.bearing = { outcome: "rejected", reason: "annotation-syntax-error" };
-    }
-  } else if (annotation.kind === "explicitBearing") {
-    // The parser records an operator error on every edge without a clause. An
-    // edge is never a Point, so it must not reach the indentation defaults.
-    const at = block.sourceSpan.startLine + ":" + block.sourceSpan.startColumn;
-    throw new Error(`Invalid AST: the edge annotation at ${at} has no operatorClause and records no syntax error; validate imported AST JSON against the AST schema before compiling.`);
-  } else if (localBearingAncestor) {
-    draft.bearing = { outcome: "skipped", reason: "local-bearing-membership" };
   } else {
-    const bearing = deriveStructuralBearing(block, context?.kind === "point" ? context : undefined, pointKeys);
-    if (bearing) {
-      bearing.key = `_b${bearings.length + 1}`;
-      bearings.push(bearing);
-      draft.bearing = { outcome: "candidate", candidate: bearing, reason: "annotated-containment" };
-      producedBearing = bearing;
+    const slot = resolvePointSlot(context);
+    if ("target" in slot) {
+      if (relation.kind) {
+        produced = addBearing(bearings, candidate(block, relation.kind, [source!], slot.target, "structural", "point"));
+        draft.bearing = { outcome: "candidate", candidate: produced, reason: "annotated-containment" };
+      } else {
+        draft.bearing = { outcome: "skipped", reason: "no-structural-rule" };
+      }
     } else {
-      draft.bearing = {
-        outcome: "skipped",
-        reason: context ? "no-structural-rule" : "no-eligible-ancestor"
-      };
+      const outcome = POINT_SLOT_OUTCOMES[slot.failure][relation.by];
+      if (outcome.outcome === "rejected") {
+        diagnosedContext = outcome.reason === "explicit-bearing-descendant-requires-target";
+        diagnostics.push({ severity: "error", code: outcome.code, message: outcome.message, sourceSpan: block.sourceSpan });
+        draft.bearing = { outcome: "rejected", reason: outcome.reason };
+      } else {
+        draft.bearing = outcome;
+      }
     }
   }
 
-  if (annotation.handle && !producedBearing && !bearingSyntaxFailed && !implicitEdgeDescendant) {
+  if (annotation.handle && !produced && !annotation.syntaxErrors?.length && !diagnosedContext) {
     diagnostics.push({
       severity: "error",
       code: "BEARING_HANDLE_WITHOUT_BEARING",
@@ -344,17 +310,218 @@ function compileBlock(
       sourceSpan: block.sourceSpan
     });
   }
-
-  if (producedBearing?.derivedBy === "structural" && context) {
+  if (produced?.derivedBy === "structural" && context) {
     draft.implicit = { contextSpan: context.block.sourceSpan, crossedBodySpans: context.crossedBodySpans ?? [] };
   }
-  const childContext: Context =
-    annotation.kind === "explicitBearing"
-      ? { kind: "bearing", block, exposedBearing: producedBearing ? { kind: "bearing", key: producedBearing.key } : undefined }
-      : { kind: "point", block, focus: annotation.kind === "use" ? annotation.syntaxErrors?.includes("reference") ? undefined : annotation.ref : pointRef(pointKeyForBlock(block, pointKeys)), exposedBearing: producedBearing ? { kind: "bearing", key: producedBearing.key } : undefined };
-  for (const child of block.children) {
-    compileBlock(child, childContext, pointKeys, points, bearings, explainDrafts, diagnostics, block);
+  compileChildren({
+    kind: "point",
+    block,
+    focus: annotation.kind === "use" ? annotation.syntaxErrors?.includes("reference") ? undefined : annotation.ref : pointRef(pointKeyForBlock(block, pointKeys)),
+    exposedBearing: produced ? { kind: "bearing", key: produced.key } : undefined
+  });
+}
+
+// A mark without a relation (C, .) still occupies ^: its context decides
+// whether that is merely no relation or a diagnosed misplacement.
+type OccurrenceRelation = { kind?: BearingKind; target: TargetTerm; by: "mark" | "clause" };
+
+function occurrenceRelation(annotation: Extract<Annotation, { kind: "role" | "material" | "use" }>): OccurrenceRelation {
+  const clause = expandedClause(annotation);
+  return { kind: clause?.op, target: clause?.target ?? { local: "point" }, by: annotation.operatorClause ? "clause" : "mark" };
+}
+
+/** Why the nearest context has no Point slot. */
+type PointSlotFailure =
+  | "no-context"            // document root
+  | "failed-context"        // a Point context whose own occurrence failed
+  | "bearing-use"           // [_ use @route]
+  | "reference-constructor" // [_ @a +> @b], including a failed clause
+  | "member-constructor"    // [_ +> ^], whose direct children are its sources
+  | "unselected-constructor"; // a Bearing header whose first token selected no mode
+
+function pointSlot(context: Context): PointRef | Ref | undefined {
+  return context?.kind === "point" ? context.focus : undefined;
+}
+
+function resolvePointSlot(context: Context): { target: PointRef | Ref } | { failure: PointSlotFailure } {
+  if (!context) return { failure: "no-context" };
+  if (context.kind === "point") return context.focus ? { target: context.focus } : { failure: "failed-context" };
+  const annotation = context.block.annotation;
+  if (annotation?.kind !== "bearing") return { failure: "bearing-use" };
+  if (annotation.members) return { failure: "member-constructor" };
+  return { failure: annotation.syntaxErrors?.includes("mode") ? "unselected-constructor" : "reference-constructor" };
+}
+
+function resolveBearingSlot(context: Context, draft: ExplainDraft): BearingRef | Ref | undefined {
+  const selected = context?.exposedBearing;
+  draft.selection = {
+    ...(context?.block.annotation?.kind === "bearingUse" ? { contextSpan: context.block.sourceSpan } : context ? { ownerSpan: context.block.sourceSpan } : {}),
+    ...(selected ? { target: { ...selected } } : {})
+  };
+  return selected;
+}
+
+type SlotOutcome =
+  | { outcome: "rejected"; reason: Extract<BearingDraft, { outcome: "rejected" }>["reason"]; code: string; message: string }
+  | Extract<BearingDraft, { outcome: "skipped" }>;
+
+const NO_LOCAL_POINT: SlotOutcome = {
+  outcome: "rejected", reason: "no-local-point", code: "NO_LOCAL_POINT_TARGET",
+  message: "The nearest context exposes no Point for ^. Place this occurrence beneath a Point declaration or use, or name its target."
+};
+const EXPLICIT_DESCENDANT: SlotOutcome = {
+  outcome: "rejected", reason: "explicit-bearing-descendant-requires-target", code: "EXPLICIT_BEARING_DESCENDANT_REQUIRES_TARGET",
+  message: "The first Point beneath an explicit Bearing constructor, including a neutral declaration or use, needs a target: ^/ for the constructed Bearing, or a name. Only a constructor without listed sources takes direct neutral source members; place an unconnected Point outside this Bearing context."
+};
+const BEARING_USE: SlotOutcome = {
+  outcome: "rejected", reason: "bearing-use-requires-explicit-target", code: "BEARING_USE_REQUIRES_EXPLICIT_TARGET",
+  message: "Bearing use exposes no Point target; the first Point, including a neutral declaration or use, needs ^/ or a named target. Place an unconnected Point outside this Bearing context."
+};
+const FAILED_CONTEXT: SlotOutcome = {
+  outcome: "rejected", reason: "failed-context-requires-explicit-target", code: "FAILED_CONTEXT_REQUIRES_EXPLICIT_TARGET",
+  message: "This Point is beneath a failed constructor, so no implicit attachment to an outer Point is derived. Fix any layout or annotation errors in the enclosing constructor first; use a named target only if this Point is intended to attach independently."
+};
+
+// A missing Point slot is diagnosed by its context. Nesting alone places an
+// occurrence beneath ^, so even a mark without a default relation is checked;
+// an explicit ^ is additionally an error where nesting is merely inert.
+const POINT_SLOT_OUTCOMES: Record<PointSlotFailure, Record<OccurrenceRelation["by"], SlotOutcome>> = {
+  "no-context": { mark: { outcome: "skipped", reason: "no-eligible-ancestor" }, clause: NO_LOCAL_POINT },
+  "failed-context": { mark: FAILED_CONTEXT, clause: FAILED_CONTEXT },
+  "bearing-use": { mark: BEARING_USE, clause: BEARING_USE },
+  "reference-constructor": { mark: EXPLICIT_DESCENDANT, clause: EXPLICIT_DESCENDANT },
+  // The constructor classifies its direct children and diagnoses invalid members,
+  // whether a mark abbreviates the relation to ^ or a clause spells it.
+  "member-constructor": { mark: { outcome: "skipped", reason: "local-bearing-membership" }, clause: { outcome: "skipped", reason: "local-bearing-membership" } },
+  // The header's own diagnostic suffices; its descendants cannot attach outward.
+  "unselected-constructor": { mark: { outcome: "skipped", reason: "no-structural-rule" }, clause: NO_LOCAL_POINT }
+};
+
+// A constructor header that needs ^ reports the missing slot in its own terms.
+const CONSTRUCTOR_POINT_SLOT_CODES: Record<PointSlotFailure, [string, string]> = {
+  "no-context": ["LOCAL_BEARING_REQUIRES_POINT_TARGET", "^ requires a nearest enclosing Point target."],
+  "failed-context": ["LOCAL_BEARING_REQUIRES_POINT_TARGET", "^ requires a nearest enclosing Point target; the enclosing occurrence failed."],
+  "bearing-use": ["LOCAL_BEARING_REQUIRES_POINT_TARGET", "^ requires a nearest enclosing Point target; a Bearing use exposes only ^/."],
+  "reference-constructor": ["EXPLICIT_BEARING_DESCENDANT_REQUIRES_TARGET", "A Bearing constructor beneath an explicit Bearing cannot target ^; use ^/ or a name."],
+  "member-constructor": ["NESTED_LOCAL_BEARING_UNSUPPORTED", "A Bearing constructor directly beneath another member-sourced constructor has no Point for ^; use ^/ to address that Bearing, or add an intervening Point."],
+  "unselected-constructor": ["LOCAL_BEARING_REQUIRES_POINT_TARGET", "^ requires a nearest enclosing Point target; the enclosing header selected no mode."]
+};
+
+function addBearing(bearings: CandidateBearing[], bearing: CandidateBearing): CandidateBearing {
+  bearing.key = `_b${bearings.length + 1}`;
+  bearings.push(bearing);
+  return bearing;
+}
+
+// Member functions are compiler context for the children, never part of the Bearing.
+type ConstructedBearing = { bearing?: CandidateBearing; memberFunctions?: ReadonlyMap<AstBlock, LocalBearingChildFunction> };
+
+function compileBearingConstructor(
+  block: AstBlock,
+  context: Context,
+  draft: ExplainDraft,
+  pointKeys: WeakMap<AstBlock, string>,
+  bearings: CandidateBearing[],
+  diagnostics: Diagnostic[]
+): ConstructedBearing {
+  const annotation = block.annotation;
+  if (annotation?.kind !== "bearing") throw new Error("Compiler invariant violated: expected a Bearing constructor.");
+  const headerValid = !annotation.syntaxErrors?.length;
+  let valid = headerValid;
+  const reject = (code: string, message: string, location = block) => {
+    diagnostics.push({ severity: "error", code, message, sourceSpan: location.sourceSpan });
+    valid = false;
+  };
+  const clause = expandedClause(annotation);
+  if (!clause) {
+    if (!annotation.members && !annotation.syntaxErrors?.length) {
+      const at = block.sourceSpan.startLine + ":" + block.sourceSpan.startColumn;
+      throw new Error(`Invalid AST: the Bearing constructor at ${at} has listed sources but no operatorClause and records no syntax error; validate imported AST JSON against the AST schema before compiling.`);
+    }
+    // A failed member-sourced header rejects the joint as an invalid local Bearing, as an invalid member does.
+    draft.bearing = { outcome: "rejected", reason: annotation.members ? "invalid-local-bearing" : "annotation-syntax-error" };
+    return {};
   }
+
+  let target: BearingTarget | Ref | undefined;
+  let targetFocusKind: "point" | "bearing" | undefined;
+  if (isNamedTarget(clause.target)) {
+    target = { id: clause.target.id };
+  } else if (clause.target.local === "bearing") {
+    target = resolveBearingSlot(context, draft);
+    targetFocusKind = "bearing";
+    if (!target) reject("NO_LOCAL_BEARING_ATTACHMENT", noLocalBearingMessage(context, annotation, clause.op));
+  } else {
+    const slot = resolvePointSlot(context);
+    targetFocusKind = "point";
+    if ("target" in slot) target = slot.target;
+    else reject(...CONSTRUCTOR_POINT_SLOT_CODES[slot.failure]);
+  }
+
+  let sources: (PointRef | Ref)[];
+  let memberFunctions: ReadonlyMap<AstBlock, LocalBearingChildFunction> | undefined;
+  if (clause.sources === "members") {
+    memberFunctions = classifyAndDiagnoseMembers(block, headerValid, reject);
+    sources = block.children.filter(child => memberFunctions!.get(child) === "source")
+      .map(child => child.annotation?.kind === "use" ? { ...child.annotation.ref! } : pointRef(pointKeyForBlock(child, pointKeys)));
+  } else {
+    sources = (clause.sources as Ref[]).map(ref => ({ id: ref.id }));
+  }
+
+  const reason = clause.sources === "members" ? "local-bearing-containment" as const
+    : isNamedTarget(clause.target) ? "operator-clause" as const
+    : clause.target.local === "bearing" ? "local-attachment" as const : "annotated-containment" as const;
+  if (!valid || !target) {
+    draft.bearing = { outcome: "rejected", reason: clause.sources === "members" ? "invalid-local-bearing" : reason === "local-attachment" ? "no-local-attachment" : "no-local-point" };
+    return { memberFunctions };
+  }
+  const bearing = addBearing(bearings, candidate(block, clause.op, sources, target, targetFocusKind ? "structural" : "operator", targetFocusKind));
+  draft.bearing = { outcome: "candidate", candidate: bearing, reason };
+  if (targetFocusKind && context) draft.implicit = { contextSpan: context.block.sourceSpan, crossedBodySpans: context.crossedBodySpans ?? [] };
+  return { bearing, memberFunctions };
+}
+
+function classifyMembers(block: AstBlock): ReadonlyMap<AstBlock, LocalBearingChildFunction> {
+  return new Map(block.children.map(child => [child, classifyLocalBearingChild(child)]));
+}
+
+// A notes-only or empty constructor fails; any invalid member rejects the
+// whole joint rather than shrinking its source set.
+function classifyAndDiagnoseMembers(
+  block: AstBlock,
+  headerValid: boolean,
+  reject: (code: string, message: string, location?: AstBlock) => void
+): ReadonlyMap<AstBlock, LocalBearingChildFunction> {
+  const functions = classifyMembers(block);
+  if (!headerValid) return functions;
+  if (![...functions.values()].some(f => f === "source") && ![...functions.values()].includes("unclassified")) {
+    reject("EMPTY_LOCAL_BEARING", "A Bearing constructor without listed sources requires at least one direct neutral Point source, not only commentary or notes.");
+  }
+  for (const child of block.children) {
+    if (functions.get(child) === "unclassified") reject("INVALID_LOCAL_BEARING_MEMBER", localBearingMemberDiagnosticMessage(child, block), child);
+  }
+  return functions;
+}
+
+function candidate(
+  block: AstBlock,
+  kind: BearingKind,
+  sources: (PointRef | Ref)[],
+  target: BearingTarget | Ref,
+  derivedBy: BearingDerivedBy,
+  targetFocusKind?: "point" | "bearing"
+): CandidateBearing {
+  const handle = block.annotation && "handle" in block.annotation ? block.annotation.handle : undefined;
+  return {
+    key: "",
+    ...(handle ? { handle } : {}),
+    kind,
+    sources: sources.map(source => ({ ...source })),
+    target: { ...target },
+    derivedBy,
+    ...(targetFocusKind ? { targetFocusKind } : {}),
+    sourceSpan: block.sourceSpan
+  };
 }
 
 function classifyLocalBearingChild(block: AstBlock): LocalBearingChildFunction {
@@ -362,107 +529,59 @@ function classifyLocalBearingChild(block: AstBlock): LocalBearingChildFunction {
   if (!annotation) return "unclassified";
   if (annotation.kind === "note") return annotation.syntaxErrors?.length ? "unclassified" : "supplementary";
   if (annotation.kind === "bearingUse") return "independent";
-  if ("selector" in annotation && annotation.selector) return "commentary";
-  if (annotation.kind === "invalid" || annotation.kind === "localBearing") return "unclassified";
-  if ("operatorClause" in annotation && annotation.operatorClause) return "independent";
-  return (annotation.kind === "material" || (annotation.kind === "use" && !annotation.role)) && !annotation.handle && !annotation.syntaxErrors?.length ? "source" : "unclassified";
+  // Anything addressing ^/ comments on the joint being constructed. A failed
+  // selector keeps that intent, so it can never become a source instead.
+  const target = expandedClause(annotation)?.target;
+  if (("selector" in annotation && annotation.selector) || target?.local === "bearing") return "commentary";
+  if (annotation.kind === "invalid") return "unclassified";
+  // A member-sourced constructor cannot nest directly; a failed header of
+  // either mode is diagnosed once, at its own cause, and never joins this one.
+  if (annotation.kind === "bearing") return annotation.members && !annotation.syntaxErrors?.length ? "unclassified" : "independent";
+  // Only a named target leaves the joint. A relation to ^ is the same whether
+  // a mark abbreviates it or a clause spells it: there is no Point for it here.
+  if (target && isNamedTarget(target)) return "independent";
+  return (annotation.kind === "material" || (annotation.kind === "use" && !annotation.role)) && !target && !annotation.handle && !annotation.syntaxErrors?.length ? "source" : "unclassified";
 }
 
-function localBearingMemberDiagnosticMessage(block: AstBlock, header: Extract<Annotation, { kind: "localBearing" }>): string {
+function localBearingMemberDiagnosticMessage(block: AstBlock, constructor: AstBlock): string {
   const annotation = block.annotation;
-  if ((annotation?.kind === "role" || annotation?.kind === "use") && (annotation.role === "R" || annotation.role === "D")
-      && !annotation.selector && !annotation.operatorClause && !annotation.syntaxErrors?.length) {
-    const relation = annotation.role === "R" ? "respond to" : "clarify";
-    return `A local Bearing header creates no Point, so a direct ${annotation.role} has no Point to ${relation}. ` +
-      "Place it beneath the Point it addresses, or give it an explicit target." +
-      (header.selector && header.role === "Q" ? " For a Question Point that concerns this step and can receive responses, write [Q/] instead of the group header." : "");
+  const clause = expandedClause(annotation);
+  const towardPoint = clause?.target.local === "point";
+  if ((annotation?.kind === "role" || annotation?.kind === "use") && (annotation.role === "R" || annotation.role === "D" || annotation.role === "Q") && towardPoint) {
+    const relation = annotation.role === "R" ? "respond to" : annotation.role === "D" ? "clarify" : "concern";
+    return `A Bearing constructor creates no Point, so a direct ${annotation.role} has no Point to ${relation}. ` +
+      `Place it beneath the Point it addresses${annotation.role === "R" ? "" : `, write [${annotation.role}/] to address this Bearing`}, or give it a named target.` +
+      (annotation.role === "R" ? questionPointHint(constructor) : "");
   }
   if ((annotation?.kind === "role" || annotation?.kind === "use")
       && (annotation.role === "G" || annotation.role === "O")
-      && !annotation.selector && !annotation.operatorClause && !annotation.handle && !annotation.syntaxErrors?.length
-      && (annotation.kind !== "use" || annotation.ref)) {
+      && towardPoint && !annotation.handle && (annotation.kind !== "use" || annotation.ref)) {
     const operand = annotation.kind === "use" ? ` use @${annotation.ref!.id}` : annotation.anchor ? ` @${annotation.anchor}` : "";
     const action = annotation.role === "G" ? "support" : "challenge";
-    return `A direct ${annotation.role}-marked Point is not a local Bearing source. ` +
+    return `A direct ${annotation.role}-marked Point is not a joint source. ` +
       `Use [.${operand}] for a joint source, [${annotation.role}/${operand}] to ${action} this Bearing, ` +
-      "or a complete explicit target for an independent relation. These are different authoring choices; no default attachment is created here.";
+      "or a named target for an independent relation. These are different authoring choices; no default attachment is created here.";
   }
-  return "Direct local Bearing children must be neutral Point sources, local selector commentary, complete independent clauses or valid notes.";
+  return "Direct children of a Bearing constructor without listed sources must be neutral Point sources, ^/ commentary, complete independent clauses or valid notes.";
 }
 
-// A selector needs a step to bear on. Beneath a Point without an attachment,
-// name the Point-targeted spelling rather than a constructor that is not there.
-function noLocalBearingMessage(context: Context, role: "G" | "O" | "Q", group: boolean): string {
+// A joint concerns header asks nothing that can be answered: only a Question
+// Point can receive a response, so name the Q occurrence with the same target.
+function questionPointHint(constructor: AstBlock): string {
+  const clause = expandedClause(constructor.annotation);
+  if (clause?.op !== "concerns" || isNamedTarget(clause.target)) return "";
+  return ` For a Question Point that concerns ${clause.target.local === "bearing" ? "this step" : "this Point"} and can receive responses, write [${clause.target.local === "bearing" ? "Q/" : "Q"}] instead of the constructor.`;
+}
+
+// ^/ needs a step to bear on. Beneath a Point without an attachment, name the
+// same header retargeted to that Point rather than a step that is not there.
+function noLocalBearingMessage(context: Context, annotation: Annotation, kind: BearingKind): string {
   if (context?.kind === "point" && context.focus) {
-    const action = role === "G" ? "support" : role === "O" ? "challenge" : "concern";
-    const pointForm = role === "Q" ? "an explicit ~> or concerns target" : group ? `[_ ${role}]` : `[${role}]`;
-    return `The nearest enclosing Point has no attachment, so ${group ? `[_ ${role}/]` : `${role}/`} has no step to ${action}. ` +
-      `To ${action} the Point itself, write ${pointForm}; to address another step, name that Bearing explicitly.`;
+    const action = kind === "supports" ? "support" : kind === "challenges" ? "challenge" : kind === "clarifies" ? "clarify" : "concern";
+    return `The nearest enclosing Point has no attachment, so ^/ has no step to ${action}. ` +
+      `To ${action} the Point itself, write [${respellTarget(annotation, { local: "point" })}]; to address another step, name that Bearing explicitly.`;
   }
-  return "The nearest local context exposes no Bearing; use an explicit target instead.";
-}
-
-function compileLocalBearing(
-  block: AstBlock,
-  context: Context,
-  draft: ExplainDraft,
-  pointKeys: WeakMap<AstBlock, string>,
-  points: Point[],
-  bearings: CandidateBearing[],
-  explainDrafts: ExplainDraft[],
-  diagnostics: Diagnostic[]
-): void {
-  const annotation = block.annotation;
-  if (annotation?.kind !== "localBearing") throw new Error("Compiler invariant violated: expected a local Bearing annotation.");
-  const role = annotation.role;
-  let valid = Boolean(role) && !annotation.syntaxErrors?.length;
-  const headerValid = valid;
-  const reject = (code: string, message: string, location = block) => {
-    diagnostics.push({ severity: "error", code, message, sourceSpan: location.sourceSpan });
-    valid = false;
-  };
-  const target = annotation.selector ? selectLocalBearing(context, draft) : context?.kind === "point" ? context.focus : undefined;
-  if (annotation.selector) {
-    if (!target) reject("NO_LOCAL_BEARING_ATTACHMENT", noLocalBearingMessage(context, annotation.role, true));
-  } else {
-    if (!target && context?.block.annotation?.kind !== "localBearing") reject("LOCAL_BEARING_REQUIRES_POINT_TARGET", "A local Bearing requires a nearest enclosing Point target.");
-    if (context?.block.annotation?.kind === "explicitBearing") reject("EXPLICIT_BEARING_DESCENDANT_REQUIRES_TARGET",
-      "A local Bearing beneath an explicit Bearing cannot bypass the requirement for an explicitly targeted first Point.");
-    if (context?.block.annotation?.kind === "localBearing") reject("NESTED_LOCAL_BEARING_UNSUPPORTED",
-      "A local Bearing cannot be nested beneath another local Bearing without an intervening Point.");
-  }
-  const localBearingChildren = new Map(block.children.map(child => [child, classifyLocalBearingChild(child)]));
-  const sources = block.children.filter(child => localBearingChildren.get(child) === "source");
-  if (headerValid && !sources.length && ![...localBearingChildren.values()].includes("unclassified")) reject("EMPTY_LOCAL_BEARING", "A local Bearing requires at least one direct neutral Point source, not only commentary or notes.");
-  for (const child of block.children) {
-    if (headerValid && localBearingChildren.get(child) === "unclassified") reject("INVALID_LOCAL_BEARING_MEMBER",
-      localBearingMemberDiagnosticMessage(child, annotation), child);
-  }
-  let attachment: CandidateBearing | undefined;
-  const kind = annotation.selector ? LOCAL_SELECTOR_KINDS[annotation.role] : structuralKind(role);
-  if (valid && target && kind) {
-    const bearing = structural(block, kind, sources.map(child => child.annotation?.kind === "use" ? child.annotation.ref! : pointKeyForBlock(child, pointKeys)),
-      target, annotation.selector ? "bearing" : "point");
-    bearing.key = `_b${bearings.length + 1}`;
-    bearings.push(bearing);
-    draft.bearing = { outcome: "candidate", candidate: bearing, reason: "local-bearing-containment" };
-    if (context) draft.implicit = { contextSpan: context.block.sourceSpan, crossedBodySpans: context.crossedBodySpans ?? [] };
-    attachment = bearing;
-  } else {
-    draft.bearing = { outcome: "rejected", reason: "invalid-local-bearing" };
-  }
-  for (const child of block.children) {
-    compileBlock(child, { kind: "bearing", block, exposedBearing: attachment ? { kind: "bearing", key: attachment.key } : undefined, localBearingChildren }, pointKeys, points, bearings, explainDrafts, diagnostics, block);
-  }
-}
-
-function selectLocalBearing(context: Context, draft: ExplainDraft): BearingRef | Ref | undefined {
-  const selected = context?.exposedBearing;
-  draft.selection = {
-    ...(context?.block.annotation?.kind === "bearingUse" ? { contextSpan: context.block.sourceSpan } : context ? { ownerSpan: context.block.sourceSpan } : {}),
-    ...(selected ? { target: { ...selected } } : {})
-  };
-  return selected;
+  return "The nearest local context exposes no Bearing for ^/; use a named target instead.";
 }
 
 function recognitionForBlock(block: AstBlock): ExplainRecognition {
@@ -482,9 +601,7 @@ function recognitionForBlock(block: AstBlock): ExplainRecognition {
       ? { ...focus, role: annotation.role, selector: annotation.selector }
       : { ...focus, ...(annotation.role ? { role: annotation.role } : {}) };
   }
-  if (annotation.kind === "localBearing") return annotation.selector
-    ? { kind: "localBearing", role: annotation.role, selector: annotation.selector }
-    : { kind: "localBearing", ...(annotation.role ? { role: annotation.role } : {}) };
+  if (annotation.kind === "bearing") return { kind: "bearing", members: annotation.members, ...(annotation.selector ? { selector: annotation.selector } : {}) };
   return { kind: annotation.kind };
 }
 
@@ -493,34 +610,6 @@ function pointReasonForBlock(block: AstBlock): PointDraft["reason"] {
     return "role-annotation";
   }
   return "material-annotation";
-}
-
-function bearingFromOperator(
-  block: AstBlock,
-  operator: OperatorClause,
-  pointKeys: WeakMap<AstBlock, string>
-): CandidateBearing | undefined {
-  const handle = block.annotation && "handle" in block.annotation ? block.annotation.handle : undefined;
-  const sources =
-    operator.sources === "self"
-      ? block.annotation?.kind === "use" ? block.annotation.ref ? [{ ...block.annotation.ref }] : [] : [pointRef(pointKeyForBlock(block, pointKeys))]
-      : operator.sources.map((source) => ({ id: source.id }));
-
-  const target = operator.target;
-  if (!target) {
-    return undefined;
-  }
-
-  return {
-    key: "",
-    ...(handle ? { handle } : {}),
-    kind: operator.op,
-    targetKind: operator.targetKind,
-    sources,
-    target: { id: target.id },
-    derivedBy: "operator",
-    sourceSpan: block.sourceSpan
-  };
 }
 
 // Resolve only the nearest context's selected slot after graph validation.
@@ -547,7 +636,7 @@ function resolveNotes(drafts: ExplainDraft[], symbols: SymbolTable, bearings: Be
         });
       }
     } else if (draft.bearing?.outcome === "candidate" &&
-      (draft.recognition.kind === "explicitBearing" || draft.recognition.kind === "localBearing") && draft.block.text) {
+      draft.recognition.kind === "bearing" && draft.block.text) {
       const bearing = byKey.get(draft.bearing.candidate.key);
       if (bearing) {
         draft.note = { origin: "constructor-description", target: { kind: "bearing", key: bearing.key }, sourceSpan: draft.block.sourceSpan };
@@ -555,53 +644,6 @@ function resolveNotes(drafts: ExplainDraft[], symbols: SymbolTable, bearings: Be
       }
     }
   }
-}
-
-function deriveStructuralBearing(
-  block: AstBlock,
-  parent: Extract<Context, { kind: "point" }> | undefined,
-  pointKeys: WeakMap<AstBlock, string>
-): CandidateBearing | undefined {
-  if (!parent?.focus) {
-    return undefined;
-  }
-
-  const source = block.annotation?.kind === "use" ? block.annotation.ref : pointKeyForBlock(block, pointKeys);
-  if (!source) return undefined;
-  const kind = structuralKind(pointRole(block));
-  return kind ? structural(block, kind, [source], parent.focus, "point") : undefined;
-}
-
-// Point attachments and local Bearing constructors share relation rules.
-// The constructor grammar separately limits its permitted roles.
-function structuralKind(role: Role | undefined): BearingKind | undefined {
-  switch (role) {
-    case "G": return "supports";
-    case "O": return "challenges";
-    case "D": return "clarifies";
-    case "R": return "respondsTo";
-    default: return undefined;
-  }
-}
-
-function structural(
-  block: AstBlock,
-  kind: BearingKind,
-  sourceIds: (string | Ref)[],
-  target: BearingTarget | Ref,
-  targetFocusKind: "point" | "bearing"
-): CandidateBearing {
-  const handle = block.annotation && "handle" in block.annotation ? block.annotation.handle : undefined;
-  return {
-    key: "",
-    ...(handle ? { handle } : {}),
-    kind,
-    sources: sourceIds.map(source => typeof source === "string" ? pointRef(source) : { ...source }),
-    target,
-    targetFocusKind,
-    derivedBy: "structural",
-    sourceSpan: block.sourceSpan
-  };
 }
 
 function pointRef(key: string): PointRef {
@@ -725,15 +767,6 @@ function validateBearings(
       bearing.target = { key: resolveKey(bearing.target, symbols), kind: targetKind };
       if (bearing.targetFocusKind && targetKind !== bearing.targetFocusKind) {
         diagnostics.push({ severity: "error", code: bearing.targetFocusKind === "point" ? "POINT_FOCUS_REQUIRES_POINT" : "BEARING_FOCUS_REQUIRES_BEARING", message: bearing.targetFocusKind === "point" ? "The nearest Point use cannot supply a Bearing as its Point focus." : "The nearest Bearing use cannot supply a Point as its Bearing focus.", sourceSpan: bearing.sourceSpan });
-        isValid = false;
-      }
-      if (bearing.targetKind === "bearing" && targetKind !== "bearing") {
-        diagnostics.push({
-          severity: "error",
-          code: "CHALLENGE_REQUIRES_BEARING_TARGET",
-          message: `Challenge target ${targetLabel} is a Point; /> requires a Bearing.`,
-          sourceSpan: bearing.sourceSpan
-        });
         isValid = false;
       }
       if (requiresPointTarget(bearing.kind) && targetKind !== "point") {
@@ -905,7 +938,7 @@ function buildExplainEntries(
             severity: "suggestion",
             code: "IMPLICIT_ATTACHMENT_THROUGH_BODY",
             message: "Implicit " + canonical.kind + " selects " + targetLabel + " through ordinary body at " + draft.implicit.crossedBodySpans.map(spanLabel).join(", ") + ".",
-            explanation: implicitAttachmentAdvice(draft.block, canonical.kind, draft.bearing.reason, name || undefined, canonical.sources.map(source => pointTargets.get(source.key)?.id), authoredNames),
+            explanation: implicitAttachmentAdvice(draft.block, target.kind, name || undefined, authoredNames),
             sourceSpan: draft.block.sourceSpan
           });
         }
@@ -931,48 +964,27 @@ function buildExplainEntries(
   });
 }
 
-// Advice names an existing spelling that states the same relation explicitly.
-// It never proposes adding an edge beside a default that would still apply.
-// Sources come from the surviving canonical Bearing, never from a second
-// reading of the block's children, so independent relations stay out of it.
+// Advice names an existing spelling that states the same relation explicitly:
+// the same header with its positional target named. Only the target is
+// positional, so naming it is the whole edit: sources and members stay put,
+// and the named target replaces the positional one instead of adding a Bearing.
 function implicitAttachmentAdvice(
   block: AstBlock,
-  kind: BearingKind,
-  reason: Extract<BearingDraft, { outcome: "candidate" }>["reason"],
+  targetKind: "point" | "bearing",
   targetName: string | undefined,
-  sourceNames: (string | undefined)[],
   authoredNames: ReadonlySet<string>
 ): string {
-  // Placeholders for unnamed Points avoid every name in this source unit and each
-  // other, so following the advice never produces a duplicate or wrong reference.
-  const taken = new Set(authoredNames);
-  const placeholder = (base: string) => {
-    let name = base;
-    for (let index = 2; taken.has(name); index += 1) name = base + index;
-    taken.add(name);
-    return "@" + name;
-  };
   const keep = "This grouping is transparent to attachment. Keep it deliberately or move the active content beside its target.";
-  const target = targetName ? "@" + targetName : placeholder("target");
-  const naming = targetName ? "" : " after naming the target";
   const note = " Choosing note instead excludes the whole subtree from the graph.";
   const annotation = block.annotation;
-  const handle = annotation && "handle" in annotation && annotation.handle ? "; @" + annotation.handle : "";
-  if (reason === "local-bearing-containment") {
-    const sources = sourceNames.map(id => id ? "@" + id : placeholder("source"));
-    const unnamed = !targetName || sourceNames.some(id => !id);
-    const selector = annotation?.kind === "localBearing" && annotation.selector;
-    return keep + ` To state it explicitly, write [_ ${sources.join(", ")} ${operatorSymbol(kind, selector ? "bearing" : "point") ?? kind} ${target}${handle}] in place of the local Bearing header` +
-      `${unnamed ? selector ? " after naming every unnamed endpoint" : " after naming each placeholder Point" : ""}, move its neutral source occurrences with their subtrees before the constructor, outside enclosing Bearing contexts, and keep its other children, such as independent relations, notes and selector commentary, beneath the constructor.` + note;
-  }
-  if (!annotation || (annotation.kind !== "role" && annotation.kind !== "use")) return keep + note;
-  if (reason === "local-attachment" && "selector" in annotation && annotation.selector) {
-    const mark = annotation.kind === "use" ? `${annotation.role} use @${annotation.ref?.id}` : annotation.role + (annotation.anchor ? " @" + annotation.anchor : "");
-    return keep + ` To state it explicitly, write [${mark} ${operatorSymbol(kind, "bearing")} ${target}${handle}]${targetName ? "" : " after naming the selected Bearing"}; the operator replaces the selector rather than adding a second Bearing.` + note;
-  }
-  const mark = annotation.role ?? ".";
-  const source = annotation.kind === "use" ? `${mark} use @${annotation.ref?.id}` : mark + (annotation.anchor ? " @" + annotation.anchor : "");
-  return keep + ` To state it explicitly, write [${source} ${operatorSymbol(kind) ?? kind} ${target}${handle}]${naming}; the clause replaces the default rather than adding a second Bearing.` + note;
+  if (!annotation || !expandedClause(annotation)) return keep + note;
+  // A placeholder for an unnamed target avoids every name in this source unit,
+  // so following the advice never produces a duplicate or wrong reference.
+  let name = targetName ?? "target";
+  for (let index = 2; !targetName && authoredNames.has(name); index += 1) name = "target" + index;
+  const after = targetName ? "" : targetKind === "bearing" ? " after naming the selected Bearing" : " after naming the target";
+  const kept = annotation.kind === "bearing" ? "its sources stay where they are" : "the named target replaces the positional one rather than adding a second Bearing";
+  return keep + ` To state it explicitly, write [${respellTarget(annotation, { id: name })}]${after}; ${kept}.` + note;
 }
 
 function reuseSpelling(block: AstBlock, anchor: string): string {
@@ -980,7 +992,7 @@ function reuseSpelling(block: AstBlock, anchor: string): string {
   // A selector survives reuse: [O/ use @p] still challenges the local attachment.
   const mark = annotation?.kind === "role" ? annotation.role + (annotation.selector ? "/" : "") : ".";
   const clause = annotation && "operatorClause" in annotation && annotation.operatorClause
-    ? ` ${operatorSymbol(annotation.operatorClause.op, annotation.operatorClause.targetKind) ?? annotation.operatorClause.op} @${annotation.operatorClause.target.id}` : "";
+    ? " " + clauseSpelling(annotation.operatorClause) : "";
   const handle = annotation && "handle" in annotation && annotation.handle ? "; @" + annotation.handle : "";
   return `[${mark} use @${anchor}${clause}${handle}]`;
 }
@@ -993,10 +1005,6 @@ function summarizeEmittedBearing(bearing: Bearing): ExplainEmittedBearingSummary
 
 function pointAnchor(block: AstBlock): string | undefined {
   return block.annotation && "anchor" in block.annotation ? block.annotation.anchor : undefined;
-}
-
-function pointRole(block: AstBlock) {
-  return block.annotation?.kind === "role" || block.annotation?.kind === "use" ? block.annotation.role : undefined;
 }
 
 function summarizeCandidate(candidate: CandidateBearing): ExplainBearingSummary {
@@ -1035,7 +1043,7 @@ function toCanonicalBearing(bearing: CandidateBearing): Bearing {
     }
     return source;
   });
-  const { targetFocusKind: _focusKind, targetKind: _targetKind, ...canonicalFields } = bearing;
+  const { targetFocusKind: _focusKind, ...canonicalFields } = bearing;
   const base = { ...canonicalFields, sources };
   if (requiresPointTarget(bearing.kind)) {
     if (bearing.target.kind !== "point") {
@@ -1050,10 +1058,12 @@ function toCanonicalBearing(bearing: CandidateBearing): Bearing {
   return { ...base, kind: bearing.kind, target };
 }
 
+// Dialogical relations address a Point; evaluative and interpretive ones may
+// also address a Bearing.
 function requiresPointTarget(
   kind: BearingKind
-): kind is "answers" | "respondsTo" | "clarifies" {
-  return kind === "answers" || kind === "respondsTo" || kind === "clarifies";
+): kind is "answers" | "respondsTo" {
+  return kind === "answers" || kind === "respondsTo";
 }
 
 function classifyId(id: string, symbols: SymbolTable): SymbolKind {

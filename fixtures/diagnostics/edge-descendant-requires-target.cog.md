@@ -4,4 +4,4 @@
   - [edge @ground +> @claim; @route] The premise-to-conclusion route.
     - Explanatory prose about the route may remain body.
       - [O @implicit-objection] Something is wrong, but the target is not stated.
-    - [O @explicit-objection /> @route] The route assumes an unstated bridge premise.
+    - [O @explicit-objection -> @route] The route assumes an unstated bridge premise.

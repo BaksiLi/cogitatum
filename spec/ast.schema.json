@@ -41,15 +41,27 @@
       },
       "additionalProperties": false
     },
+    "targetTerm": {
+      "description": "A named reference, or a positional slot: the nearest semantic context's Point (^) or exposed Bearing (^/).",
+      "oneOf": [
+        { "$ref": "#/$defs/ref" },
+        {
+          "type": "object",
+          "required": ["local"],
+          "properties": { "local": { "enum": ["point", "bearing"] } },
+          "additionalProperties": false
+        }
+      ]
+    },
     "operatorClause": {
       "type": "object",
-      "required": ["op", "targetKind", "sources", "target"],
+      "required": ["op", "sources", "target"],
       "properties": {
         "op": { "enum": ["supports", "challenges", "concerns", "answers", "respondsTo", "clarifies"] },
-        "targetKind": { "enum": ["point", "bearing", "either"] },
         "sources": {
           "oneOf": [
             { "const": "self" },
+            { "const": "members" },
             {
               "type": "array",
               "items": { "$ref": "#/$defs/ref" },
@@ -58,13 +70,8 @@
             }
           ]
         },
-        "target": { "$ref": "#/$defs/ref" }
+        "target": { "$ref": "#/$defs/targetTerm" }
       },
-      "allOf": [
-        { "if": { "properties": { "op": { "enum": ["answers", "respondsTo", "clarifies"] } }, "required": ["op"] }, "then": { "properties": { "targetKind": { "const": "point" } } } },
-        { "if": { "properties": { "op": { "enum": ["supports", "concerns"] } }, "required": ["op"] }, "then": { "properties": { "targetKind": { "const": "either" } } } },
-        { "if": { "properties": { "op": { "const": "challenges" } }, "required": ["op"] }, "then": { "properties": { "targetKind": { "enum": ["bearing", "either"] } } } }
-      ],
       "additionalProperties": false
     },
     "selfOperatorClause": {
@@ -73,10 +80,10 @@
         { "type": "object", "properties": { "sources": { "const": "self" } } }
       ]
     },
-    "edgeOperatorClause": {
+    "bearingOperatorClause": {
       "allOf": [
         { "$ref": "#/$defs/operatorClause" },
-        { "type": "object", "properties": { "sources": { "type": "array" } } }
+        { "type": "object", "properties": { "sources": { "not": { "const": "self" } } } }
       ]
     },
     "annotationSyntaxErrors": {
@@ -85,15 +92,9 @@
       "minItems": 1,
       "uniqueItems": true
     },
-    "explicitBearingSyntaxErrors": {
+    "bearingSyntaxErrors": {
       "type": "array",
       "items": { "enum": ["operator", "handle", "selector", "retired", "mode"] },
-      "minItems": 1,
-      "uniqueItems": true
-    },
-    "localBearingSyntaxErrors": {
-      "type": "array",
-      "items": { "enum": ["localBearing", "handle"] },
       "minItems": 1,
       "uniqueItems": true
     },
@@ -139,7 +140,7 @@
           },
           "allOf": [
             { "if": { "not": { "required": ["syntaxErrors"] } }, "then": { "required": ["ref"] } },
-            { "if": { "required": ["selector"] }, "then": { "required": ["role"], "properties": { "role": { "enum": ["G", "O", "Q"] } }, "not": { "required": ["operatorClause"] } } }
+            { "if": { "required": ["selector"] }, "then": { "required": ["role"], "properties": { "role": { "enum": ["G", "O", "Q", "D"] } }, "not": { "required": ["operatorClause"] } } }
           ],
           "additionalProperties": false
         },
@@ -147,30 +148,6 @@
           "type": "object",
           "required": ["kind", "raw"],
           "properties": { "kind": { "const": "invalid" }, "raw": { "type": "string" }, "selector": { "const": "attachment" } },
-          "additionalProperties": false
-        },
-        {
-          "type": "object",
-          "required": ["kind", "raw"],
-          "properties": {
-            "kind": { "const": "localBearing" },
-            "role": { "enum": ["G", "O", "R", "D", "Q"] },
-            "selector": { "const": "attachment" },
-            "syntaxErrors": { "$ref": "#/$defs/localBearingSyntaxErrors" },
-            "handle": { "$ref": "#/$defs/authoredId" },
-            "raw": { "type": "string" }
-          },
-          "anyOf": [
-            { "required": ["role"] },
-            { "required": ["syntaxErrors"], "properties": { "syntaxErrors": { "type": "array", "contains": { "const": "localBearing" } } } }
-          ],
-          "allOf": [
-            {
-              "if": { "required": ["selector"] },
-              "then": { "required": ["role"], "properties": { "role": { "enum": ["G", "O", "Q"] } } },
-              "else": { "properties": { "role": { "enum": ["G", "O", "R", "D"] } } }
-            }
-          ],
           "additionalProperties": false
         },
         {
@@ -189,23 +166,28 @@
           "allOf": [
             {
               "if": { "required": ["selector"] },
-              "then": { "properties": { "role": { "enum": ["G", "O", "Q"] } }, "not": { "required": ["operatorClause"] } }
+              "then": { "properties": { "role": { "enum": ["G", "O", "Q", "D"] } }, "not": { "required": ["operatorClause"] } }
             }
           ],
           "additionalProperties": false
         },
         {
           "type": "object",
-          "required": ["kind", "raw"],
+          "required": ["kind", "members", "raw"],
           "properties": {
-            "kind": { "const": "explicitBearing" },
-            "operatorClause": { "$ref": "#/$defs/edgeOperatorClause" },
-            "syntaxErrors": { "$ref": "#/$defs/explicitBearingSyntaxErrors" },
+            "kind": { "const": "bearing" },
+            "members": { "type": "boolean", "description": "Whether the direct neutral children are the sources, recorded even on a failed header." },
+            "operatorClause": { "$ref": "#/$defs/bearingOperatorClause" },
+            "selector": { "const": "attachment" },
+            "syntaxErrors": { "$ref": "#/$defs/bearingSyntaxErrors" },
             "handle": { "$ref": "#/$defs/authoredId" },
             "raw": { "type": "string" }
           },
           "allOf": [
-            { "if": { "not": { "required": ["syntaxErrors"] } }, "then": { "required": ["operatorClause"] } }
+            { "if": { "required": ["selector"] }, "then": { "not": { "required": ["operatorClause"] }, "properties": { "members": { "const": true } } } },
+            { "if": { "required": ["operatorClause"], "properties": { "operatorClause": { "type": "object", "properties": { "sources": { "const": "members" } } } } }, "then": { "properties": { "members": { "const": true } } } },
+            { "if": { "required": ["operatorClause"], "properties": { "operatorClause": { "type": "object", "properties": { "sources": { "type": "array" } } } } }, "then": { "properties": { "members": { "const": false } } } },
+            { "if": { "not": { "anyOf": [{ "required": ["syntaxErrors"] }, { "required": ["operatorClause"] }] } }, "then": { "properties": { "members": { "const": true } } } }
           ],
           "additionalProperties": false
         },

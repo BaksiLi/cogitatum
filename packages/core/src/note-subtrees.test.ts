@@ -47,7 +47,7 @@ describe("literal note subtrees", () => {
   });
 
   it("uses the direct source parent for every placement and never imports remote notes", () => {
-    const source = ["- [C @c] Claim.", "  - [note] Declaration detail.", "  - [G @g; @route] Reason.", "    - [note] Point AND attachment occurrence.", "  - [_ G; @joint]", "    - [note] Linked detail.", "    - [. use @g] Inline Ground use prose.", "      - [note] Ground use detail.", "- [_ @g +> @c]", "  - [note] Explicit construction detail.", "- [_ use @route] Inline Bearing use prose.", "  - [note] Bearing use detail.", "- [. use @c] Inline Point use prose.", "  - [note] This use only.", "- Organisation", "  - [note] Body detail.", "- [note] Document detail."].join("\n");
+    const source = ["- [C @c] Claim.", "  - [note] Declaration detail.", "  - [G @g; @route] Reason.", "    - [note] Point AND attachment occurrence.", "  - [_ +> ^; @joint]", "    - [note] Linked detail.", "    - [. use @g] Inline Ground use prose.", "      - [note] Ground use detail.", "- [_ @g +> @c]", "  - [note] Explicit construction detail.", "- [_ use @route] Inline Bearing use prose.", "  - [note] Bearing use detail.", "- [. use @c] Inline Point use prose.", "  - [note] This use only.", "- Organisation", "  - [note] Body detail.", "- [note] Document detail."].join("\n");
     const ast = parseDocument(source);
     const { graph, explain } = compileGraphWithExplain(ast);
     expect(graph.diagnostics).toEqual([]);
@@ -61,15 +61,15 @@ describe("literal note subtrees", () => {
   });
 
   it("excludes notes from ordered linked sources without flattening wrappers", () => {
-    const valid = compile("- [C] Claim.\n  - [_ G]\n    - [. @first] First.\n    - [note]\n      - [G @fake] Literal.\n    - [. @last] Last.");
+    const valid = compile("- [C] Claim.\n  - [_ +> ^]\n    - [. @first] First.\n    - [note]\n      - [G @fake] Literal.\n    - [. @last] Last.");
     expect(valid.graph.diagnostics).toEqual([]);
     expect(valid.graph.bearings[0].sources).toEqual([{ kind: "point", key: "_p2" }, { kind: "point", key: "_p3" }]);
     for (const member of ["[note @bad]", "Ordinary body"]) {
-      const invalid = compile("- [C] Claim.\n  - [_ G]\n    - [.] First.\n    - " + member + "\n      - [G] Nested.");
+      const invalid = compile("- [C] Claim.\n  - [_ +> ^]\n    - [.] First.\n    - " + member + "\n      - [G] Nested.");
       expect(invalid.graph.bearings).toEqual([]);
       expect(invalid.graph.diagnostics.map(diagnostic => diagnostic.code)).toContain("INVALID_LOCAL_BEARING_MEMBER");
     }
-    expect(compile("- [C] Claim.\n  - [_ G]\n    - [note]\n      - [G] Literal.").graph.diagnostics.map(diagnostic => diagnostic.code)).toEqual(["EMPTY_LOCAL_BEARING"]);
+    expect(compile("- [C] Claim.\n  - [_ +> ^]\n    - [note]\n      - [G] Literal.").graph.diagnostics.map(diagnostic => diagnostic.code)).toEqual(["EMPTY_LOCAL_BEARING"]);
   });
 
   it("retains UTF-16 locations in an indented host fence", () => {

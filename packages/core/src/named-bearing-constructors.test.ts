@@ -32,15 +32,22 @@ describe("named canonical Bearing constructors", () => {
     expect(graph.bearings[1]).toMatchObject({ kind, target: { key: graph.bearings[0].key, kind: "bearing" } });
   });
 
-  it.each(["answers", "respondsTo", "clarifies"])("retains the Point target constraint for named %s", kind => {
+  it("lets clarifies address a Bearing, as when a route equivocates", () => {
+    const graph = compile(declarations + "\n- [edge @first clarifies @base; @sense]");
+    expect(codes(graph)).toEqual([]);
+    expect(graph.bearings[1]).toMatchObject({ kind: "clarifies", target: { key: graph.bearings[0].key, kind: "bearing" } });
+  });
+
+  it.each(["answers", "respondsTo"])("retains the Point target constraint for named %s", kind => {
     const graph = compile(declarations + "\n- [edge @first " + kind + " @base; @rejected]");
     expect(graph.bearings).toHaveLength(1);
     expect(codes(graph)).toEqual(["BEARING_KIND_REQUIRES_POINT_TARGET"]);
   });
 
-  it("retains the Bearing target constraint for symbolic />", () => {
-    const symbolic = compile(declarations + "\n- [edge @first /> @target]");
-    expect(codes(symbolic)).toEqual(["CHALLENGE_REQUIRES_BEARING_TARGET"]);
+  it("retires symbolic /> in a constructor rather than compiling it as ->", () => {
+    const symbolic = compile(declarations + "\n- [edge @first /> @base]");
+    expect(codes(symbolic)).toEqual(["RETIRED_AUTHORING_SYNTAX"]);
+    expect(symbolic.diagnostics[0].message).toContain("[_ @first -> @base]");
     expect(symbolic.bearings).toHaveLength(1);
   });
 
@@ -57,8 +64,8 @@ describe("named canonical Bearing constructors", () => {
     expect(graph.points).toHaveLength(5);
     expect(graph.bearings).toHaveLength(1);
     expect(codes(graph).length).toBeGreaterThan(0);
-    // Without a first @reference the header selects no mode, so it states no explicit-target requirement.
-    expect(codes(graph)).toContain(header === "[edge answers @target]" ? "MALFORMED_BEARING_MODE" : "EXPLICIT_BEARING_DESCENDANT_REQUIRES_TARGET");
+    // A leading kind takes the direct children as sources, so a G child is an invalid member.
+    expect(codes(graph)).toContain(header === "[edge answers @target]" ? "INVALID_LOCAL_BEARING_MEMBER" : "EXPLICIT_BEARING_DESCENDANT_REQUIRES_TARGET");
   });
 
   it("preserves a Question reply and a concession without converting either into a challenge", () => {

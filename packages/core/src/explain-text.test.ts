@@ -5,10 +5,10 @@ describe("readable compiler decisions", () => {
   it("shows selected context, transparent body, ordered members, commentary and exact note targets", () => {
     const result = formatExplain(explainSource(`- [C @claim] Claim.
   - Context.
-    - [_ G; @joint] Joint description.
+    - [_ +> ^; @joint] Joint description.
       - [. @first] First source.
       - [. @second] Second source.
-      - [_ O/; @review]
+      - [_ -> ^/; @review]
         - [.] Review source.
         - [_ note] Review note.
       - [Q/] Which scope?
@@ -16,7 +16,10 @@ describe("readable compiler decisions", () => {
 - [_ use @joint]
   - [G/] Backing.`));
     expect(result).toContain("status: no-errors");
-    expect(result).toContain("localBearing O/");
+    expect(result).toContain("3:7-3:42 bearing member sources");
+    expect(result).toContain("6:9-6:27 bearing member sources");
+    expect(result).toContain("9:9-9:26 role Q/");
+    expect(result).toContain("11:3-11:17 bearingUse");
     expect(result).toContain("through ordinary body at 2:5-2:13");
     expect(result).toContain("supports([point @first");
     expect(result).toContain(", point @second");
@@ -41,9 +44,9 @@ describe("readable compiler decisions", () => {
   it("identifies the surviving header for each occurrence of a reused source", () => {
     const result = formatExplain(explainSource(`- [. @shared] Shared source.
 - [C] Claim.
-  - [_ G; @first]
+  - [_ +> ^; @first]
     - [. use @shared]
-  - [_ G; @second]
+  - [_ +> ^; @second]
     - [. use @shared]`));
     const memberships = result.split("\n").filter(line => line.includes("eligible;"));
     expect(memberships).toHaveLength(2);
@@ -52,9 +55,9 @@ describe("readable compiler decisions", () => {
   });
 
   it.each([
-    ["  - [_ G; @joint]\n    - [. @a] Source.\n    - [O] Invalid member.", "invalid-local-bearing"],
-    ["  - [_ G; @joint]\n    - [. @a] Source.\n    - [. use @missing] Missing source.", "validation-error"],
-    ["  - [_ G; @joint]\n    - [. @a] Source.\n    - [. use @a] Repeated identity.", "validation-error"]
+    ["  - [_ +> ^; @joint]\n    - [. @a] Source.\n    - [O] Invalid member.", "invalid-local-bearing"],
+    ["  - [_ +> ^; @joint]\n    - [. @a] Source.\n    - [. use @missing] Missing source.", "validation-error"],
+    ["  - [_ +> ^; @joint]\n    - [. @a] Source.\n    - [. use @a] Repeated identity.", "validation-error"]
   ])("separates source eligibility from a rejected construction", (body, reason) => {
     const result = formatExplain(explainSource("- [C] Claim.\n" + body));
     const memberships = result.split("\n").filter(line => line.includes("eligible;"));

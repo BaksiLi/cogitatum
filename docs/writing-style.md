@@ -44,7 +44,7 @@ It does not create separate namespaces or make the compiler assign beliefs to th
 ## Choose connections for what they express
 
 Separate Grounds give separate supporting connections.
-Use `[_ G]` with neutral `[.]` members when the reasons participate together in one step.
+Use `[_ +> ^]` with neutral `[.]` members when the reasons participate together in one step.
 Nest a reason beneath another reason when the intermediate Point matters.
 [Bearings](bearings.md#argument-structures) shows these Convergent, Linked and Serial arrangements.
 
@@ -76,7 +76,7 @@ An unreferenced name may still have a purpose outside the current note.
 Moving a Ground can change which Point its indentation selects.
 Choose an explicit target when the connection should survive that move.
 Check the resulting source, then reread it: successful compilation does not establish an adequate interpretation.
-The CLI can [inspect names](graph-inspection.md#review-names-before-a-deliberate-edit) or [preview an explicit target](graph-inspection.md#preview-an-explicit-target) before a deliberate edit.
+The CLI can [inspect names](graph-inspection.md#review-names-before-a-deliberate-edit) or [preview a named target](graph-inspection.md#preview-named-and-positional-targets) before a deliberate edit.
 
 ## Work with an assistant
 
@@ -102,14 +102,14 @@ An issue or pull request can use a short Cog fence where the disputed step benef
 Keep status, reproduction steps and verification in ordinary Markdown:
 
 ```md cog-check require=supports,challenges,respondsTo points=4 bearings=3 diagnostics=0
-- [C] A single-source local Bearing can be complete.
+- [C] A single-source constructor can be complete.
   - [G] Its source, target and intended connection can already be fully specified.
   - [O] Readers may expect a group to contain several sources.
     - [R] Explain that the constructor records one connection and permits one source.
 ```
 
 For a syntax proposal, state the compiler version and distinguish implemented examples from proposed spellings.
-Use inline code when mentioning concrete syntax such as `[_ G]`, `use`, `+>` or `@route`.
+Use inline code when mentioning concrete syntax such as `[_ +> ^]`, `use`, `+>` or `@route`.
 Use quotation marks when discussing a word as a word: “support” has several ordinary meanings.
 Write Point, Bearing and Linked normally when referring to the concepts.
 

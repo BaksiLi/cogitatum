@@ -4,9 +4,9 @@ Experimental, framework-neutral Map, Reading and Strands views of compiler-produ
 Core owns parsing and relation semantics; View owns presentation and temporary selection.
 Currently available from this checkout, not the published Core/CLI release.
 The 0.6 checkout requires matching Core/format 0.6 projections.
-Core selects local or explicit Bearing construction, reuse or note mode from the first token after `bearing` / `edge` / `_`.
-Local `[_ G]`, `[_ O]`, `[_ R]` and `[_ D]` produce Bearings with direct neutral source members; a singleton is complete and header prose supplies `Bearing.text`.
-View consumes AST `kind: "localBearing"` / `"explicitBearing"` and Explain `localBearingMember` / `local-bearing-containment` membership classifications.
+Core selects Bearing construction, reuse or note mode from the first token after `bearing` / `edge` / `_`.
+A constructor such as `[_ +> ^]` produces a Bearing from its direct neutral members, or from listed sources in `[_ @a, @b +> ^]`; a singleton is complete and header prose supplies `Bearing.text`.
+View consumes AST `kind: "bearing"` with its `members` flag, and Explain `localBearingMember` / `local-bearing-containment` membership classifications.
 Convergent, Linked and Serial describe graph structures; source arrays and junctions convey participation, not strength or success.
 Reading retains typed notes in source order and provides links to their original passages from declarations and uses.
 `ReadingUnit.notes` joins each Core note record to existing source occurrences; reuse creates no copied note.
@@ -226,21 +226,21 @@ The host must pair the exact input and output, including host text outside selec
 
 For an implicit target, the endpoint is the occurrence identified by Core's `implicitAttachment.contextSpan`.
 For an explicit target or source operand, it is the canonical declaration/construction.
-Local Bearing sources use their own direct neutral member occurrences.
+Member sources use their own direct neutral occurrences.
 A neutral use presents the existing Point at that source location without creating another Point.
-Explicit sources use their named operands' canonical declarations.
+Listed sources use their named operands' canonical declarations.
 A local Bearing use remains a local row; a target at the Bearing's construction reaches its junction.
 These display locations do not create extra graph entities, independent evidence or inferred relations.
 Repeated names and keys in different source units remain separate.
 
 `ReadingUnit.commitments` records active occurrences' relation and note decisions, taken from Explain alone:
 `indentation` (the nearest context selected the target, with that context row and any crossed body rows),
-`explicit` (a clause fixed it), `member` (a local Bearing source, adding no relation of its own), `note`,
-`none` (for example Q, C or a neutral Point, which create no relation) or `failed` (no surviving Bearing, with Core's reason).
-A local Bearing header also lists its ordered source rows. A failed candidate never supplies a target.
-An eligible member of a rejected local Bearing is identified as such; it is not presented as an established joint relation.
+`explicit` (a named target fixed it), `member` (a constructor's member source, adding no relation of its own), `note`,
+`none` (for example C or a neutral Point, which state no relation) or `failed` (no surviving Bearing, with Core's reason).
+A member constructor's header also lists its ordered source rows. A failed candidate never supplies a target.
+An eligible member of a rejected constructor is identified as such; it is not presented as an established joint relation.
 The view draws a **commitment rail** for the hovered or selected row: a guide in the indentation from the selected context row,
-marking each crossed body row and bracketing a local Bearing's sources; a failed selection is dashed.
+marking each crossed body row and bracketing a constructor's member sources; a failed selection is dashed.
 The selected row also shows an **inspection line**, `describeCommitment(unit, commitment)`, linked by `aria-describedby`.
 It restates Core's decision, including a failed row's own error message, and does not assess the prose or propose another target.
 The line leads with the relation's glyph. A row's diagnostic badge reads as words, and the exact code stays in its tooltip and the diagnostics list.

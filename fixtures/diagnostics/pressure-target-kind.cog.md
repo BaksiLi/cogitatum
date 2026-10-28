@@ -1,6 +1,0 @@
-- Pressure target kinds
-  - [C @claim] The conclusion.
-  - [G @ground] The reason.
-  - [edge @ground +> @claim; @route] The inference route.
-  - [O @point-undercut /> @claim] This incorrectly targets a Point with />.
-  - [O @route-challenge -> @route] This incorrectly challenges a Bearing.

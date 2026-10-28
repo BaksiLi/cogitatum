@@ -9,7 +9,7 @@
   - Name the Bearing
     - [C] A claim whose support route is challenged.
       - [G; @route] A ground with a named support Bearing.
-      - [O /> @route] The route needs a bridge premise.
+      - [O -> @route] The route needs a bridge premise.
   - Name both
     - [C] A claim whose ground and route are both discussed.
       - [G @named-ground; @named-route] A reusable ground with a named support Bearing.

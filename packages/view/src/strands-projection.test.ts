@@ -8,7 +8,7 @@ const snow = [
   "    - [O/ @exceptions] The workhouse had almost no cases.",
   "      - [R @wells] It had its own well.",
   "  - [G @exposure; @route] Distant victims drank pump water.",
-  "    - [_ G]",
+  "    - [_ +> ^]",
   "      - [. @widow] A widow had pump water delivered.",
   "      - [. @niece] Her niece also died.",
   "    - [G use @cluster] The cluster fits exposure.",
@@ -86,7 +86,7 @@ describe("Strands projection", () => {
   it("keeps an alternative route distinct when it shares the contested route's Ground", () => {
     const source = [
       "- [C @water] Pump water.", "  - [G @cluster; @proximity] Nearby cases.",
-      "    - [O/ @exceptions] Nearby exceptions.", "  - [_ G; @route] Exposure.",
+      "    - [O/ @exceptions] Nearby exceptions.", "  - [_ +> ^; @route] Exposure.",
       "    - [. use @cluster]", "    - [. @exposure] Distant drinkers.",
       "    - [O/ @other] A different objection."
     ].join("\n");
