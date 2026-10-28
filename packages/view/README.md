@@ -233,10 +233,12 @@ A local Bearing use remains a local row; a target at the Bearing's construction 
 These display locations do not create extra graph entities, independent evidence or inferred relations.
 Repeated names and keys in different source units remain separate.
 
-`ReadingUnit.commitments` records active occurrences' relation and note decisions, taken from Explain alone:
+`ReadingUnit.commitments` records active occurrences' relation and note decisions from Explain, with the matching AST for written syntax:
 `indentation` (the nearest context selected the target, with that context row and any crossed body rows),
 `explicit` (a named target fixed it), `member` (a constructor's member source, adding no relation of its own), `note`,
 `none` (for example C or a neutral Point, which state no relation) or `failed` (no surviving Bearing, with Core's reason).
+For an emitted relation, `relationBy` distinguishes the occurrence's `mark`, a written `clause`, and a constructor's `default`, independently of how its target was selected.
+The inspection line can therefore explain that `[G +> ^]` follows its local target while keeping the written relation when its mark changes.
 A member constructor's header also lists its ordered source rows. A failed candidate never supplies a target.
 An eligible member of a rejected constructor is identified as such; it is not presented as an established joint relation.
 The view draws a **commitment rail** for the hovered or selected row: a guide in the indentation from the selected context row,
