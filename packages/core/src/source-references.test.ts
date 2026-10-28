@@ -125,7 +125,7 @@ describe("source reference analysis", () => {
     ["wrong target kind", "- [C @a] Claim.\n- [O /> @a] Wrong target kind.", "CHALLENGE_REQUIRES_BEARING_TARGET"],
     ["malformed use", "- [C @a] Claim.\n- [. use] Missing operand.", "MALFORMED_POINT_USE"],
     ["malformed annotation", "- [C @a] Claim.\n- [G use @a", "MALFORMED_ANNOTATION_PREFIX"],
-    ["invalid layout", "- [C @a] Claim.\n\t- [. use @a] Invalid.", "TAB_INDENTATION_UNSUPPORTED"],
+    ["invalid layout", "- [C @a] Claim.\n  - Spaced.\n\t- [. use @a] Invalid.", "MIXED_INDENTATION"],
     ["unsupported line", "- [C @a] Claim.\n[. use @a] Missing bullet.", "UNSUPPORTED_LINE"],
     ["duplicate handle", "- [C @a] Claim.\n  - [G; @route] First.\n  - [G; @route] Second.", "DUPLICATE_BEARING_HANDLE"],
     ["conflicting name", "- [C @a] Claim.\n  - [G; @a] Conflict.", "POINT_BEARING_ID_CONFLICT"],

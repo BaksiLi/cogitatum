@@ -76,10 +76,12 @@ describe("cog CLI", () => {
   it.each([
     ["document", "- [C @c] Claim.\r\n  - [G] Reason.", 2, 0],
     ["document", "- [C @c] Claim.\r\n  - [G] Reason\r\n    continued here.", 3, 0],
+    ["document", "- [C @c] Claim.\r\n\t- [G] Reason\r\n\t  continued here.", 3, 0],
     ["document", "- [C @c] Claim.\n  - [G] Reason \u2028 with \u2029 separators.\n    - [note] Literal \u2028 note.\n      - [G +> @missing] Inert.", 2, 0],
     ["host", "Intro 🌧️\n  ```cog\n  - [C @c] Claim.\n    - [O] Concern.\n  ```", 4, 0],
     ["host", "Intro 🌧️\r  ```cog\r  - [C @c] Claim.\r    - [G] Reason.\r  ```", 4, 0],
     ["host", "Intro.\r\n  ```cog\r\n  - [C @c] Claim.\r\n    - [G] Reason\r\n      continued here.\r\n  ```", 5, 0],
+    ["host", "Intro.\r\n  ```cog\r\n  - [C @c] Claim.\r\n  \t- [G] Reason\r\n  \t  continued here.\r\n  ```", 5, 0],
     ["document", "- [C] Anonymous.\n  - [G] Reason.", 2, 1],
     ["document", "- [C @c] Claim.\n  - [G] Reason.\n- [O /> @c] Invalid.", 2, 1]
   ] as const)("previews explicit targets in %s mode with API parity and no file writes", (mode, source, line, status) => {
@@ -197,7 +199,7 @@ describe("cog CLI", () => {
   });
 
   it("prints valid partial output and exits with failure after a misindented annotation", () => {
-    writeFileSync(join(workingDirectory, "misindented.cog.md"), "-    [C @outer] Outer.\n\t- [C @failed] Failed.\n    - [G @inner] Inner.\n      - [G @detail] Detail.");
+    writeFileSync(join(workingDirectory, "misindented.cog.md"), "-    [C @outer] Outer.\n  - Spaced.\n\t- [C @failed] Failed.\n    - [G @inner] Inner.\n      - [G @detail] Detail.");
     const result = runCli("graph", "misindented.cog.md");
     expect(result.status).toBe(1);
     expect(result.stderr).toBe("");
@@ -205,7 +207,7 @@ describe("cog CLI", () => {
     expect(graph.points.map((point: { id: string }) => point.id)).toEqual(["outer", "inner", "detail"]);
     expect(graph.points[0].sourceSpan.startColumn).toBe(6);
     expect(graph.bearings).toEqual([expect.objectContaining({ sources: [{ key: graph.points[2].key, kind: "point" }], target: { key: graph.points[1].key, kind: "point" } })]);
-    expect(graph.diagnostics.map((diagnostic: { code: string }) => diagnostic.code)).toEqual(["TAB_INDENTATION_UNSUPPORTED", "FAILED_CONTEXT_REQUIRES_EXPLICIT_TARGET"]);
+    expect(graph.diagnostics.map((diagnostic: { code: string }) => diagnostic.code)).toEqual(["MIXED_INDENTATION", "FAILED_CONTEXT_REQUIRES_EXPLICIT_TARGET"]);
   });
 
   it("keeps note literals inert and advice nonblocking while retired claims fail", () => {

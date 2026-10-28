@@ -66,21 +66,21 @@ describe("parser failure boundaries", () => {
       expect.objectContaining({ sources: [pointRef(result.graph, "after")], target: pointRef(result.graph, "outer") })
     ]);
     expect(result.graph.diagnostics.map(diagnostic => diagnostic.code)).toEqual([
-      indentation === "\t" ? "TAB_INDENTATION_UNSUPPORTED" : "UNMATCHED_DEDENT",
+      indentation === "\t" ? "MIXED_INDENTATION" : "UNMATCHED_DEDENT",
       "FAILED_CONTEXT_REQUIRES_EXPLICIT_TARGET"
     ]);
     expectValidContracts(result);
   });
 
   it("keeps misindented ordinary prose transparent and misindented notes literal", () => {
-    const prose = explainUnit("- [C @outer] Outer.\n\t- [O-ring] Ordinary prose.\n    - [G @inner] Ground.", "document");
-    expect(prose.ast.blocks[0].children[0].annotation).toBeUndefined();
+    const prose = explainUnit("- [C @outer] Outer.\n  - Spaces set the unit's indentation.\n\t- [O-ring] Ordinary prose.\n    - [G @inner] Ground.", "document");
+    expect(prose.ast.blocks[0].children[1].annotation).toBeUndefined();
     expect(prose.graph.bearings).toEqual([expect.objectContaining({ target: pointRef(prose.graph, "outer") })]);
-    const note = explainUnit("- [C @outer] Outer.\n\t- [note] Literal.\n    - [G @outer] No duplicate.\n    - [use] No inner error.\n- [G @after +> @outer] Active again.", "document");
-    expect(note.ast.blocks[0].children[0].annotation).toMatchObject({ kind: "note", syntaxErrors: ["note"] });
+    const note = explainUnit("- [C @outer] Outer.\n  - Spaces set the unit's indentation.\n\t- [note] Literal.\n    - [G @outer] No duplicate.\n    - [use] No inner error.\n- [G @after +> @outer] Active again.", "document");
+    expect(note.ast.blocks[0].children[1].annotation).toMatchObject({ kind: "note", syntaxErrors: ["note"] });
     expect(note.graph.points.map(point => point.id)).toEqual(["outer", "after"]);
     expect(note.graph.bearings).toHaveLength(1);
-    expect(note.graph.diagnostics.map(diagnostic => diagnostic.code)).toEqual(["TAB_INDENTATION_UNSUPPORTED", "MALFORMED_NOTE"]);
+    expect(note.graph.diagnostics.map(diagnostic => diagnostic.code)).toEqual(["MIXED_INDENTATION", "MALFORMED_NOTE"]);
     expectValidContracts(prose);
     expectValidContracts(note);
   });

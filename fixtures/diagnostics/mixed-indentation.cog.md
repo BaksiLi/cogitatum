@@ -1,0 +1,5 @@
+- [C @claim] A claim.
+	- [G @ground] The first indented line sets tabs for this unit.
+  - [G @spaced] Space indentation in a tab-indented unit is rejected.
+	- [O @objection] Tab indentation still attaches.
+- [C @after] A valid root.

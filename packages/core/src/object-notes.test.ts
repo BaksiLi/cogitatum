@@ -131,8 +131,8 @@ describe("source-backed object notes", () => {
   });
 
   it.each([". note", "_ note", "point note", "edge note"])("retains literal descendants after invalid outline layout at %s", header => {
-    const result = compile(`- [C] Outer.\n\t- [${header}] Bad indentation.\n    - [G +> @missing] Literal.`);
-    expect(result.diagnostics.map(d => d.code)).toEqual(["TAB_INDENTATION_UNSUPPORTED", "MALFORMED_NOTE"]);
+    const result = compile(`- [C] Outer.\n \t- [${header}] Bad indentation.\n    - [G +> @missing] Literal.`);
+    expect(result.diagnostics.map(d => d.code)).toEqual(["MIXED_INDENTATION", "MALFORMED_NOTE"]);
     expect(result.graphs[0].points).toHaveLength(1);
     expect(result.graphs[0].bearings).toEqual([]);
     expect(result.documents[0].blocks[0].children[0].children[0].annotation).toBeUndefined();
