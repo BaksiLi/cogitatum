@@ -175,6 +175,47 @@ Each host fence has its own namespace.
 If any selected input has errors, including an omitted unclosed or nested fence, the inventory is explicitly unavailable rather than reporting zero references.
 Names with no written references generate no new warnings, and the command never edits the source.
 
+## Compare commitments across revisions
+
+A structural comparison asks whether two graphs are the same.
+A commitment comparison asks what a revision retracted and what it added.
+It distinguishes a refinement, which only adds, from a revision, which also retracts.
+
+A commitment is a relation kind, an unordered set of sources and a target.
+Several Bearings may state one commitment; they stay distinct entities when something addresses them.
+Entailment between commitments has exactly two rules:
+
+- A commitment entails itself.
+- Every kind is a species of relevance.
+  Commitments to one target, whose sources lie within a set and together cover it, entail that the set jointly concerns that target.
+
+Nothing else follows.
+Joint support gives no member support of its own, separate supports are not one joint support,
+a joint relation entails nothing about a subset of its sources, and bearing on a step is not bearing on its conclusion.
+So `[_]` refined to `[_ +> ^]`, or split into sibling `[G]` occurrences, is a refinement,
+while merging two `[G]` into one `[_ +> ^]` is a revision.
+Selecting a Point is also counted: adding one refines and removing one retracts.
+
+| Before | After | Relation |
+| --- | --- | --- |
+| `[_]` with members a, b | `[_ +> ^]` with members a, b | refinement |
+| `[_]` with members a, b | `[G] a` and `[G] b` | refinement |
+| `[G] a` and `[G] b` | `[_ +> ^]` with members a, b | revision |
+| `[_ +> ^]` with members a, b | `[_]` with members a, b | weakening |
+| `[O/]` on a step | `[O]` on its conclusion | revision |
+| `[G]` | `[G +> @claim]` | equivalent |
+
+Comparing two revisions requires knowing which entity continues which.
+Core does not infer this silently.
+`suggestCorrespondence(before, after)` proposes pairs by authored name, unique text and continued endpoints,
+lists every entity with several plausible continuations, and never chooses among equals.
+An edit tool knows what it moved and passes its own correspondence to `compareCommitments(before, after, correspondence)`.
+Continuity establishes identity only: a continued Point whose text or declaration changed is reported, not weighed.
+Graphs with errors, other format versions and invalid correspondences are `indeterminate`.
+
+The order classifies what an author committed to, never whether a reading is correct.
+Notes, body prose, names, marks, source order and positions are presentation; review their changes separately.
+
 ## Preview named and positional targets
 
 ```sh

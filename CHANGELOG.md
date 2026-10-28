@@ -8,6 +8,11 @@ Use the complete released schema set and [migrate retained source](docs/syntax.m
 
 ## Unreleased
 
+- Add a commitment order for classifying revisions (#63).
+  `graphCommitments`, `entailment`, `compareCommitments` and `suggestCorrespondence` compare two compiled graphs through an explicit entity correspondence and report `equivalent`, `refinement`, `weakening` or `revision`, with retracted and added commitments and Points.
+  Every kind entails joint relevance from covering sources; nothing else is entailed, so refining `[_]` is a refinement and merging separate supports is a revision.
+  Graphs with errors, another format or an invalid correspondence are indeterminate; similar texts are never paired silently.
+
 - Render single-backtick inline code in Map wording, measuring its monospace runs for wrapping and keeping authored text in callbacks and accessible labels.
   Keep wording below the complete scaled mark, including its focus ring.
 

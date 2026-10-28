@@ -6,6 +6,8 @@ export { compileSource, explainSource, extractCogitatumSourceUnits, parseSource 
 export { analyzeSourceReferences } from "./source-references.js";
 export type { WrittenReference, ReferencedName, SourceReferenceAnalysis } from "./source-references.js";
 export { formatGraph, GRAPH_TEXT_VERSION } from "./graph-text.js";
+export { compareCommitments, entailment, graphCommitments, suggestCorrespondence } from "./commitments.js";
+export type { Commitment, CommitmentComparison, CommitmentRelation, Correspondence, CorrespondenceBasis, CorrespondenceSuggestion } from "./commitments.js";
 export { previewTargetForm } from "./target-form.js";
 export type { TargetForm, TargetFormOptions, TargetFormPreview, TargetFormUnavailableReason, SourceEdit } from "./target-form.js";
 export { formatExplain, EXPLAIN_TEXT_VERSION } from "./explain-text.js";

@@ -214,3 +214,24 @@ The preview recompiles the complete proposed source, preserving content, entity 
 Public types are `TargetForm`, `TargetFormOptions`, `TargetFormPreview`, `TargetFormUnavailableReason` and `SourceEdit`.
 It replaces the published `previewExplicitTarget`; it adds no fields to AST, Graph IR, Explain or source schemas, and it is not a general formatter or patch application service.
 The [inspection reference](../../docs/graph-inspection.md#preview-named-and-positional-targets) specifies the preservation limits.
+
+## Commitment comparison
+
+```js
+import { compareCommitments, compileSource, suggestCorrespondence } from '@cogitatum/core';
+const graph = source => compileSource(source).graphs[0];
+const before = graph('- [C] Claim.\n  - [_]\n    - [.] A.\n    - [.] B.');
+const after = graph('- [C] Claim.\n  - [_ +> ^]\n    - [.] A.\n    - [.] B.');
+const { correspondence, ambiguous } = suggestCorrespondence(before, after);
+const result = compareCommitments(before, after, correspondence);
+if (result.status === 'compared') console.log(result.relation); // refinement
+```
+
+`graphCommitments(graph)` lists the distinct commitments a graph states: kind, sorted source Point keys, target and the Bearings stating it.
+`entailment(stated, commitment)` returns the stated commitments that entail one commitment, or `undefined`.
+A commitment entails itself; commitments to one target whose sources cover a set entail that the set jointly `concerns` it; nothing else follows.
+`compareCommitments(before, after, correspondence)` returns `equivalent`, `refinement`, `weakening` or `revision` with the retracted and added commitments, removed, added and changed Points, and Bearings without continuation.
+It is `indeterminate` for graphs with errors, another format version or an invalid correspondence.
+`suggestCorrespondence` proposes a correspondence by name, unique text and continued endpoints, and reports ambiguity instead of choosing.
+Public types are `Commitment`, `CommitmentComparison`, `CommitmentRelation`, `Correspondence`, `CorrespondenceBasis` and `CorrespondenceSuggestion`.
+The comparison adds no fields to AST, Graph IR, Explain or source schemas.
