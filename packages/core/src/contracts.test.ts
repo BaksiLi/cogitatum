@@ -24,21 +24,26 @@ const validateSource = ajv.compile(sourceSchema);
 const json = (value: unknown) => JSON.parse(JSON.stringify(value));
 
 describe("public compiler contract boundaries", () => {
-  it.each(["G", "O", "Q"])("correlates the local %s/ group through every public projection", role => {
-    const result = json(explainSource(`- [C] Claim.\n  - [G] Reason.\n    - [_ ${role}/]\n      - [.] First.\n      - [.] Second.`));
+  it.each(["+> ^/", "-> ^/", "~> ^/", "clarifies ^/", "/"])("correlates the member-sourced [_ %s] through every public projection", clause => {
+    const header = clause === "/" ? "_/" : `_ ${clause}`;
+    const result = json(explainSource(`- [C] Claim.\n  - [G; @step] Reason.\n    - [${header}]\n      - [.] First.\n      - [.] Second.`));
     expect(validateSource(result), JSON.stringify(validateSource.errors)).toBe(true);
-    for (const invalidRole of [undefined, "C", "R", "D"]) {
-      const invalid = structuredClone(result);
-      invalid.documents[0].blocks[0].children[0].children[0].annotation.role = invalidRole;
-      invalid.explanations[0].entries[2].recognition.role = invalidRole;
-      expect(validateAst(json(invalid.documents[0])), String(invalidRole)).toBe(false);
-      expect(validateExplain(json(invalid.explanations[0])), String(invalidRole)).toBe(false);
-    }
-    if (role === "Q") {
-      delete result.documents[0].blocks[0].children[0].children[0].annotation.selector;
-      delete result.explanations[0].entries[2].recognition.selector;
-      expect(validateAst(result.documents[0])).toBe(false);
-      expect(validateExplain(result.explanations[0])).toBe(false);
+    const annotation = result.documents[0].blocks[0].children[0].children[0].annotation;
+    expect(result.explanations[0].entries[2].recognition).toEqual({ kind: "bearing", members: true, ...(clause === "/" ? { selector: "attachment" } : {}) });
+    expect(clause === "/" ? annotation.selector : annotation.operatorClause).toEqual(clause === "/" ? "attachment" : expect.objectContaining({ sources: "members", target: { local: "bearing" } }));
+    // Member sources, a positional target and the selector each constrain the others.
+    const mutations: ((a: any) => void)[] = [
+      a => { a.members = false; },
+      a => { a.operatorClause = { op: "concerns", sources: "self", target: { local: "bearing" } }; delete a.selector; },
+      a => { a.operatorClause = { op: "concerns", sources: "members", target: { local: "step" } }; delete a.selector; },
+      a => { a.operatorClause = { op: "concerns", sources: [{ id: "a" }], target: { local: "bearing" } }; delete a.selector; },
+      a => { a.operatorClause = { op: "concerns", sources: "members", target: { local: "bearing" } }; a.selector = "attachment"; },
+      a => { a.targetKind = "bearing"; }
+    ];
+    for (const mutate of mutations) {
+      const invalid = structuredClone(result.documents[0]);
+      mutate(invalid.blocks[0].children[0].children[0].annotation);
+      expect(validateAst(invalid), mutate.toString()).toBe(false);
     }
   });
 
@@ -53,19 +58,25 @@ describe("public compiler contract boundaries", () => {
     expect(validateExplain(result.explanations[0])).toBe(false);
   });
 
-  it.each(["G", "O", "R", "D"])("retains the %s linked role through every JSON projection", role => {
-    const source = `- [O @target] Target.\n  - [_ ${role}; @route]\n    - [. @a] First.\n    - [. @b] Second.`;
+  it.each([["+> ^", "supports"], ["-> ^", "challenges"], ["respondsTo ^", "respondsTo"], ["clarifies ^", "clarifies"], ["~> ^", "concerns"]])("retains the member-sourced [_ %s] relation through every JSON projection", (clause, kind) => {
+    const source = `- [O @target] Target.\n  - [_ ${clause}; @route]\n    - [. @a] First.\n    - [. @b] Second.`;
     const result = json(explainSource(source));
     expect(validateSource(result), JSON.stringify(validateSource.errors)).toBe(true);
     const header = result.documents[0].blocks[0].children[0].annotation;
-    expect(header).toMatchObject({ kind: "localBearing", role });
-    expect(result.explanations[0].entries[1].recognition).toEqual({ kind: "localBearing", role });
+    expect(header).toMatchObject({ kind: "bearing", members: true, operatorClause: { op: kind, sources: "members", target: { local: "point" } } });
+    expect(result.explanations[0].entries[1].recognition).toEqual({ kind: "bearing", members: true });
+    expect(result.graphs[0].bearings[0]).toMatchObject({ kind, handle: "route", derivedBy: "structural" });
+    header.role = "G";
+    expect(validateAst(result.documents[0])).toBe(false);
     delete header.role;
-    expect(validateAst(result.documents[0])).toBe(false);
-    header.syntaxErrors = ["handle"];
-    expect(validateAst(result.documents[0])).toBe(false);
-    header.syntaxErrors = ["localBearing"];
+    // A failed header keeps its member boundary but authors no clause.
+    delete header.operatorClause;
+    header.syntaxErrors = ["mode"];
     expect(validateAst(result.documents[0]), JSON.stringify(validateAst.errors)).toBe(true);
+    header.members = false;
+    expect(validateAst(result.documents[0]), JSON.stringify(validateAst.errors)).toBe(true);
+    delete header.syntaxErrors;
+    expect(validateAst(result.documents[0])).toBe(false);
   });
 
   it("rejects retired Gap data while accepting its diagnosed source boundary", () => {
@@ -117,7 +128,7 @@ describe("public compiler contract boundaries", () => {
   });
 
   it("preserves repeated sources in rejected joint summaries but rejects them in emitted summaries", () => {
-    const result = json(explainSource("- [C @c] Claim.\n  - [_ G]\n    - [. @g] Source.\n    - [. use @g] Same source.\n      - [G @detail] Independent support for g."));
+    const result = json(explainSource("- [C @c] Claim.\n  - [_ +> ^]\n    - [. @g] Source.\n    - [. use @g] Same source.\n      - [G @detail] Independent support for g."));
     const rejected = result.explanations[0].entries[1].effects[0];
     expect(rejected).toMatchObject({ kind: "rejectBearing", reason: "validation-error" });
     expect(rejected.bearing.sources).toEqual([{ kind: "point", key: "_p2" }, { kind: "point", key: "_p2" }]);
@@ -133,7 +144,7 @@ describe("public compiler contract boundaries", () => {
   });
 
   it("validates literal notes, direct ownership and actual-selection advice across source envelopes", () => {
-    const source = "- [Q @q] Inquiry.\n  - Group\n    - [C] Answer.\n      - [note] Detail.\n        - [G @q] Literal.\n          - [note @bad]\n      - [_ G]\n        - [note]\n        - [.] Reason.\n- [note @bad]\n  - [C?] Literal.";
+    const source = "- [Q @q] Inquiry.\n  - Group\n    - [C] Answer.\n      - [note] Detail.\n        - [G @q] Literal.\n          - [note @bad]\n      - [_ +> ^]\n        - [note]\n        - [.] Reason.\n- [note @bad]\n  - [C?] Literal.";
     const ast = parseDocument(source);
     const { graph, explain } = compileGraphWithExplain(ast);
     expect(validateAst(json(ast)), JSON.stringify(validateAst.errors)).toBe(true);
@@ -196,7 +207,7 @@ describe("public compiler contract boundaries", () => {
       "- [. use @missing] Unknown.\n  - [G] Valid child.",
       "- [C? use @missing] Unsupported status.",
       "- [G use @missing",
-      "- [O/ use @missing /> @route] Excluded combination."
+      "- [O/ use @missing -> @route] Excluded combination."
     ]) {
       const ast = parseDocument(source);
       const { graph, explain } = compileGraphWithExplain(ast);
@@ -213,7 +224,7 @@ describe("public compiler contract boundaries", () => {
   });
 
   it("validates retained selector syntax and owned attachment explanations", () => {
-    const ast = parseDocument("- [C @claim] Claim.\n  - [_ G]\n    - [.] Premise.\n    - [G/] Warrant.\n    - [O/] Objection.\n      - [R] Reply.");
+    const ast = parseDocument("- [C @claim] Claim.\n  - [_ +> ^]\n    - [.] Premise.\n    - [G/] Warrant.\n    - [O/] Objection.\n      - [R] Reply.");
     const { graph, explain } = compileGraphWithExplain(ast);
     expect(graph.diagnostics).toEqual([]);
     expect(validateAst(json(ast))).toBe(true);
@@ -228,7 +239,7 @@ describe("public compiler contract boundaries", () => {
     expect(validateExplain(json(result.explain))).toBe(true);
   });
 
-  it.each(["G", "O", "Q"])("keeps the %s/ use recognition correlated with its local role", role => {
+  it.each(["G", "O", "Q", "D"])("keeps the %s/ use recognition correlated with its local role", role => {
     const source = `- [C @claim] Claim.\n  - [G @reason; @route] Reason.\n    - [${role}/ use @reason] Review this step.`;
     const { explain } = compileGraphWithExplain(parseDocument(source));
     const recognition = explain.entries[2].recognition;
@@ -236,7 +247,7 @@ describe("public compiler contract boundaries", () => {
     expect(explain.diagnostics).toEqual([]);
     expect(validateAst(json(parseDocument(source))), JSON.stringify(validateAst.errors)).toBe(true);
     expect(validateExplain(json(explain)), JSON.stringify(validateExplain.errors)).toBe(true);
-    for (const invalidRole of [undefined, "C", "R", "D"]) {
+    for (const invalidRole of [undefined, "C", "R"]) {
       const invalid = json(explain);
       invalid.entries[2].recognition.role = invalidRole;
       expect(validateExplain(json(invalid)), String(invalidRole)).toBe(false);
@@ -250,7 +261,7 @@ describe("public compiler contract boundaries", () => {
     const { graph, explain } = compileGraphWithExplain(result.documents[0]);
     expect(graph).toEqual(result.graphs[0]);
     expect(explain).toEqual(result.explanations[0]);
-    for (const role of ["C", "R", "D"]) {
+    for (const role of ["C", "R"]) {
       const invalid = structuredClone(result);
       invalid.documents[0].blocks[0].children[0].children[0].annotation.role = role;
       expect(validateAst(invalid.documents[0]), role).toBe(false);
@@ -278,14 +289,18 @@ describe("public compiler contract boundaries", () => {
       const fence = String.fromCharCode(96).repeat(3);
       expect(validateSource(json(explainSource(fence + "cog\n" + source + "\n" + fence, "host"))), kind).toBe(true);
     }
+    // The AST records only the authored target term; the target's kind is resolved later.
     const self = json(parseDocument("- [C @claim] Claim.\n- [G +> @claim] Ground."));
-    for (const kind of ["answers", "respondsTo", "clarifies"]) {
-      self.blocks[1].annotation.operatorClause.op = kind;
-      self.blocks[1].annotation.operatorClause.targetKind = "point";
-      expect(validateAst(self), kind).toBe(true);
-      self.blocks[1].annotation.operatorClause.targetKind = "either";
-      expect(validateAst(self), kind).toBe(false);
+    for (const target of [{ local: "point" }, { local: "bearing" }, { id: "claim" }]) {
+      self.blocks[1].annotation.operatorClause.target = target;
+      expect(validateAst(self), JSON.stringify(target)).toBe(true);
     }
+    for (const target of [{ local: "either" }, { id: "claim", local: "point" }, "^"]) {
+      self.blocks[1].annotation.operatorClause.target = target;
+      expect(validateAst(self), JSON.stringify(target)).toBe(false);
+    }
+    self.blocks[1].annotation.operatorClause = { op: "supports", sources: "self", target: { id: "claim" }, targetKind: "point" };
+    expect(validateAst(self)).toBe(false);
   });
 
   it("compiles the annotation as the sole semantic source and leaves raw text untouched", () => {
@@ -323,7 +338,7 @@ describe("public compiler contract boundaries", () => {
       invalid.blocks[0].children[0].annotation.operatorClause = { op: "supports", sources: "self", target: { id: "c" } };
       expect(validateAst(invalid)).toBe(false);
     }
-    const ast = parseDocument("- [C] Target.\n  - [_ G]\n    - [.] First.");
+    const ast = parseDocument("- [C] Target.\n  - [_ +> ^]\n    - [.] First.");
     // Compiler semantics belong to annotation, not retained raw source.
     const raw = ast.blocks[0].children[0].raw;
     delete ast.blocks[0].children[0].annotation;
@@ -336,9 +351,9 @@ describe("public compiler contract boundaries", () => {
   });
 
   it("rejects prior unpublished join AST and Explain variants despite their matching format label", () => {
-    const { graph, explain } = compileGraphWithExplain(parseDocument("- [C] Target.\n  - [_ G]\n    - [.] Premise."));
+    const { graph, explain } = compileGraphWithExplain(parseDocument("- [C] Target.\n  - [_ +> ^]\n    - [.] Premise."));
     expect(validateGraph(json(graph))).toBe(true);
-    const oldAst = json(parseDocument("- [_ G]"));
+    const oldAst = json(parseDocument("- [_ +> ^]"));
     oldAst.blocks[0].annotation.kind = "join";
     expect(validateAst(oldAst)).toBe(false);
     oldAst.blocks[0].annotation.kind = "localBearing";
@@ -391,7 +406,7 @@ describe("public compiler contract boundaries", () => {
   it("uses a single target reference and rejects target arrays in AST JSON", () => {
     const source = "- [C @claim] Claim.\n- [G +> @claim] Reason.\n";
     const ast = json(parseDocument(source));
-    expect(ast.blocks[1].annotation.operatorClause).toEqual({ op: "supports", targetKind: "either", sources: "self", target: { id: "claim" } });
+    expect(ast.blocks[1].annotation.operatorClause).toEqual({ op: "supports", sources: "self", target: { id: "claim" } });
     expect(validateAst(ast)).toBe(true);
     const legacy = json(ast);
     const clause = legacy.blocks[1].annotation.operatorClause;
@@ -404,7 +419,7 @@ describe("public compiler contract boundaries", () => {
 
   it("accepts opaque graph keys without making the compiler's numbering a schema requirement", () => {
     const { graph, explain } = json(compileGraphWithExplain(parseDocument(
-      "- [C @claim] Claim.\n  - [G; @route] Reason.\n- [O /> @route] Objection.\n"
+      "- [C @claim] Claim.\n  - [G; @route] Reason.\n- [O -> @route] Objection.\n"
     )));
     const keys = new Map<string, string>([
       ...graph.points.map((point: { key: string }, i: number) => [point.key, `point:${i}:opaque`]),
@@ -424,15 +439,20 @@ describe("public compiler contract boundaries", () => {
   });
 
   it("permits rejected target mismatches in Explain, but never in emitted summaries", () => {
-    const { explain } = compileGraphWithExplain(parseDocument("- [C @claim] Claim.\n- [O /> @claim] Invalid undercut.\n"));
+    const { explain } = compileGraphWithExplain(parseDocument("- [C @claim] Claim.\n  - [G; @step] Reason.\n- [R respondsTo @step] Reply to a step.\n"));
     const rejected = json(explain);
-    expect(validateExplain(rejected)).toBe(true);
-    expect(rejected.entries[1].effects).toContainEqual(expect.objectContaining({
-      kind: "rejectBearing", bearing: expect.objectContaining({ kind: "challenges", target: expect.objectContaining({ kind: "point" }) })
+    expect(validateExplain(rejected), JSON.stringify(validateExplain.errors)).toBe(true);
+    expect(rejected.entries[2].effects).toContainEqual(expect.objectContaining({
+      kind: "rejectBearing", bearing: expect.objectContaining({ kind: "respondsTo", target: expect.objectContaining({ kind: "bearing" }) })
     }));
-    const emitted = json(compileGraphWithExplain(parseDocument("- [C @claim] Claim.\n  - [G] Reason.\n")).explain);
-    emitted.entries[1].effects.find((effect: { kind: string }) => effect.kind === "emitBearing").bearing.kind = "undercuts";
-    expect(validateExplain(emitted)).toBe(false);
+    const emitted = json(compileGraphWithExplain(parseDocument("- [C @claim] Claim.\n  - [G; @step] Reason.\n    - [D/] Meaning of the step.\n")).explain);
+    const summary = emitted.entries[2].effects.find((effect: { kind: string }) => effect.kind === "emitBearing").bearing;
+    expect(summary).toMatchObject({ kind: "clarifies", target: { kind: "bearing" } });
+    expect(validateExplain(emitted), JSON.stringify(validateExplain.errors)).toBe(true);
+    for (const kind of ["respondsTo", "answers", "undercuts"]) {
+      summary.kind = kind;
+      expect(validateExplain(emitted), kind).toBe(false);
+    }
   });
 
   it("does not alias emitted Explain references to the canonical graph", () => {

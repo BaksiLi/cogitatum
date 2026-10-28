@@ -104,7 +104,7 @@ describe("reading layout", () => {
       "- [C @other] A second conclusion.",
       "  - [G use @load] Reused here for the second conclusion.",
       "    - [O] Under this use, the load figure is from a test run.",
-      "  - [_ G; @joint] Load and config jointly bear on it.",
+      "  - [_ +> ^; @joint] Load and config jointly bear on it.",
       "    - [. use @load] The same load, as one linked member.",
       "    - [. @config] The pool size is fixed.",
       "- [C @third] A third conclusion.",

@@ -343,7 +343,7 @@ describe("Cogitatum language contracts", () => {
 
     expect(compilation.graph.bearings).toEqual([]);
     expect(edge).toMatchObject({
-      recognition: { kind: "explicitBearing" },
+      recognition: { kind: "bearing", members: false },
       effects: [
         {
           kind: "rejectBearing",
@@ -767,13 +767,13 @@ describe("Cogitatum language contracts", () => {
     }
   });
 
-  it("distinguishes challenges to Points from challenges to Bearings", () => {
-    const graph = compileGraph(parseDocument(fixture("diagnostics/pressure-target-kind.cog.md")));
+  it("diagnoses the retired /> while -> reaches a Bearing by its name", () => {
+    const graph = compileGraph(parseDocument(fixture("diagnostics/retired-bearing-operator.cog.md")));
 
     expect(graph.points.map((point) => point.id)).toEqual([
       "claim",
       "ground",
-      "point-undercut",
+      "old-undercut",
       "route-challenge"
     ]);
     expect(graph.bearings).toEqual([
@@ -785,7 +785,7 @@ describe("Cogitatum language contracts", () => {
       })
     ]);
     expect(graph.diagnostics).toEqual([
-      expect.objectContaining({ code: "CHALLENGE_REQUIRES_BEARING_TARGET" })
+      expect.objectContaining({ code: "RETIRED_AUTHORING_SYNTAX", message: expect.stringContaining("[O @old-undercut -> @route]") })
     ]);
   });
 
@@ -1165,7 +1165,7 @@ describe("Cogitatum language contracts", () => {
 
     // Removing the header alone does not make neutral sources independent reasons.
     const lines = source.split("\n");
-    const header = lines.findIndex((line) => line.includes("[_ G]"));
+    const header = lines.findIndex((line) => line.includes("[_ +> ^]"));
     const indent = (line: string) => line.length - line.trimStart().length;
     let end = header + 1;
     while (end < lines.length && lines[end].trim() && indent(lines[end]) > indent(lines[header])) end += 1;
@@ -1274,7 +1274,7 @@ describe("Cogitatum language contracts", () => {
 
     expect(invalidEdge.raw).toContain("[edge @g1, not-a-ref +> @c1]");
     expect(invalidEdge.annotation).toMatchObject({
-      kind: "explicitBearing",
+      kind: "bearing",
       syntaxErrors: ["operator"]
     });
     expect(graph.bearings.some((bearing) => bearing.kind === "supports")).toBe(false);
@@ -1291,7 +1291,7 @@ describe("Cogitatum language contracts", () => {
   it("rejects Bearings that target another Bearing which failed compilation", () => {
     const graph = compileGraph(
       parseDocument(
-        "- Dependent invalid Bearing\n  - [C @c1] Claim.\n  - [edge @missing +> @c1; @bad] Invalid base Bearing.\n  - [O @o1 /> @bad] Dependent undercut.\n"
+        "- Dependent invalid Bearing\n  - [C @c1] Claim.\n  - [edge @missing +> @c1; @bad] Invalid base Bearing.\n  - [O @o1 -> @bad] Dependent undercut.\n"
       )
     );
 
@@ -1336,7 +1336,7 @@ describe("Cogitatum language contracts", () => {
     const graph = compileGraph(ast);
     const edge = ast.blocks[2];
 
-    expect(edge.annotation).toMatchObject({ kind: "explicitBearing", syntaxErrors: ["operator"] });
+    expect(edge.annotation).toMatchObject({ kind: "bearing", syntaxErrors: ["operator"] });
     expect(graph.points.map((point) => point.id)).toEqual(["claim", "ground"]);
     expect(graph.bearings).toEqual([]);
     expect(graph.diagnostics).toEqual([
@@ -1370,7 +1370,7 @@ describe("Cogitatum language contracts", () => {
   });
 
   it("separates all compilation identities from authored names across revisions", () => {
-    const source = "- Ordinary body.\n- [C @claim] Claim.\n  - [G; @route] Reason.\n- [O /> @route] Objection.\n";
+    const source = "- Ordinary body.\n- [C @claim] Claim.\n  - [G; @route] Reason.\n- [O -> @route] Objection.\n";
     const first = compileGraphWithExplain(parseDocument(source));
     const revised = compileGraph(parseDocument("- [Q] An earlier question.\n" + source));
 
@@ -1391,7 +1391,7 @@ describe("Cogitatum language contracts", () => {
 
   it("does not confuse a rejected candidate key with an emitted graph index", () => {
     const { graph, explain } = compileGraphWithExplain(parseDocument(
-      "- [C @claim] Claim.\n- [G @reason] Reason.\n- [edge @missing +> @claim; @bad]\n- [edge @reason +> @claim; @good]\n- [O /> @good] Objection.\n"
+      "- [C @claim] Claim.\n- [G @reason] Reason.\n- [edge @missing +> @claim; @bad]\n- [edge @reason +> @claim; @good]\n- [O -> @good] Objection.\n"
     ));
     expect(graph.bearings.map((bearing) => bearing.key)).toEqual(["_b2", "_b3"]);
     const effects = explain.entries.flatMap((entry) => entry.effects);
@@ -1546,7 +1546,7 @@ describe("Cogitatum language contracts", () => {
     const compilation = compileGraphWithExplain(parseDocument(source));
     const graph = jsonValue(compilation.graph);
     const explanation = jsonValue(compilation.explain);
-    const edgeSources = ast.blocks[0].children.find(block => block.annotation?.kind === "explicitBearing")?.annotation?.operatorClause?.sources;
+    const edgeSources = ast.blocks[0].children.find(block => block.annotation?.kind === "bearing")?.annotation?.operatorClause?.sources;
 
     expect(validateAst(ast), JSON.stringify(validateAst.errors)).toBe(true);
     expect(validateGraph(graph), JSON.stringify(validateGraph.errors)).toBe(true);
@@ -1693,7 +1693,8 @@ describe("Cogitatum language contracts", () => {
     (undercut.target as { kind: string }).kind = "point";
 
     expect(validateGraph(undercutGraph)).toBe(true);
-    for (const kind of ["answers", "respondsTo", "clarifies"] as const) {
+    // clarifies may address a Bearing, as when a route equivocates.
+    for (const kind of ["answers", "respondsTo"] as const) {
       const invalid = jsonValue(pointTargetGraph);
       const bearing = invalid.bearings.find((candidate) => candidate.kind === kind);
       if (!bearing) {

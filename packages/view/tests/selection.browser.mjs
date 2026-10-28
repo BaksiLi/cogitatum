@@ -44,7 +44,7 @@ const alternativeRoutes = [
   '- [C @water] Broad Street 水泵可能是這次霍亂暴發的來源。',
   '- [G @cluster] 多數死亡病例集中在水泵周邊。',
   '- [edge @cluster +> @water; @proximity] 地理上的接近，可能反映飲用該水泵水的機會。',
-  '- [O @exceptions /> @proximity] 附近濟貧院與啤酒廠幾乎沒有病例。',
+  '- [O @exceptions -> @proximity] 附近濟貧院與啤酒廠幾乎沒有病例。',
   '- [G @exposure] 這兩處不用該水泵；一些遠處患者卻曾飲用泵水。',
   '- [edge @cluster, @exposure +> @water; @water-route] 真正重要的是飲水暴露，而不只是地理位置。',
 ].join('\n');
@@ -210,7 +210,7 @@ try {
     assert.equal(await page.evaluate(() => window.views.events.navigate.at(-1).ref), undefined, 'a rejected duplicate is still source, never a graph entity');
     assert.equal(await page.locator('#reading details[hidden]').count(), 0);
 
-    await mount('- [C @p] One.\n- [C @q] Two.\n- [_ @p, @q +> @q; @first]\n- [_ @q, @p +> @q; @second]\n- [_ @p +> @right; @left]\n- [_ @q /> @left; @right]');
+    await mount('- [C @p] One.\n- [C @q] Two.\n- [_ @p, @q +> @q; @first]\n- [_ @q, @p +> @q; @second]\n- [_ @p +> @right; @left]\n- [_ @q -> @left; @right]');
     assert.equal(await page.locator('#reading [data-bearing]').count(), 4);
     assert.equal(await page.locator('#map [data-node^="bearing:"]').count(), 4);
     assert.equal(await page.locator('#reading .cog-reading-arc').count(), 10);
@@ -221,7 +221,7 @@ try {
       '- [G @p1] First reason.', '- [G @p2] Second reason.',
       '- [G @s] Third reason.', '- [C @g] The conclusion.',
       '- [edge @p1, @p2, @s +> @g; @route] **Authored description**.',
-      '- [O @reservation /> @route] A reservation about this step.',
+      '- [O @reservation -> @route] A reservation about this step.',
       '- [edge @p1 clarifies @g; @exposition]',
     ].join('\n'));
     const summary = row(5).locator('.cog-reading-relation');
@@ -297,9 +297,9 @@ try {
     assert.equal(await page.locator('#map [data-node^="bearing:"]').count(), 1);
     assert.equal(await page.locator('#map .cog-link').count(), 3, 'only the complete surviving joint is drawn');
 
-    for (const [mark, parent, kind] of [['G', 'C', 'supports'], ['O', 'C', 'challenges'], ['R', 'O', 'respondsTo'], ['D', 'C', 'clarifies']]) {
+    for (const [clause, parent, kind] of [['+> ^', 'C', 'supports'], ['-> ^', 'C', 'challenges'], ['respondsTo ^', 'O', 'respondsTo'], ['clarifies ^', 'C', 'clarifies']]) {
       await mount(`- [${parent} @target] Target.
-  - [_ ${mark}; @joint] Route description.
+  - [_ ${clause}; @joint] Route description.
     - [. @a] First source.
     - [. @b] Second source.
     - [_ note] Detail about this route.`);
@@ -316,11 +316,11 @@ try {
       assert.equal(await row(5).getAttribute('data-related'), 'true', 'the route note follows its owner');
     }
 
-    for (const [mark, kind] of [['G/', 'supports'], ['O/', 'challenges'], ['Q/', 'concerns']]) {
+    for (const [clause, kind] of [['+> ^/', 'supports'], ['-> ^/', 'challenges'], ['~> ^/', 'concerns'], ['clarifies ^/', 'clarifies']]) {
       await mount(`- [C @claim] Claim.
-  - [_ G; @step]
+  - [_ +> ^; @step]
     - [. @source] Original source.
-    - [_ ${mark}; @review] Joint review.
+    - [_ ${clause}; @review] Joint review.
       - [. @a] First review source.
       - [. @b] Second review source.
       - [_ note] Review note.`);
@@ -341,7 +341,7 @@ try {
     }
 
     await mount(`- [C @claim] The visitor may be familiar.
-  - [_ G; @step]
+  - [_ +> ^; @step]
     - [.] The dog did not bark.
     - [Q/ @conditions; @inquiry] When does silence support familiarity?
       - [R] Check whether the dog was awake.`);
@@ -431,7 +431,7 @@ try {
     assert.equal(await page.locator('#map svg').getAttribute('data-guided'), 'false', 'clearing restores the unguided Map');
 
     // Route identity is the Bearing, not its kind and endpoints.
-    await mount('- [C @c] Claim.\n- [G @a] Reason.\n- [edge @a +> @c; @first] One reading.\n- [edge @a +> @c; @second] Another reading.\n- [O /> @second] Doubt.');
+    await mount('- [C @c] Claim.\n- [G @a] Reason.\n- [edge @a +> @c; @first] One reading.\n- [edge @a +> @c; @second] Another reading.\n- [O -> @second] Doubt.');
     await node('bearing:_b2').click(); await page.mouse.move(0, 0); await flush();
     assert.deepEqual(await page.locator('#map path.cog-link[data-active="true"]').evaluateAll(paths => [...new Set(paths.map(p => p.dataset.bearing))].sort()), ['_b2', '_b3']);
     assert.equal(await node('bearing:_b1').getAttribute('data-related'), 'false', 'a parallel Bearing of the same kind stays a separate route');
@@ -529,7 +529,7 @@ try {
     }
     await mount([
       '- [C @c] Claim.', '  - [G @g; @step] Ground.', '    - Context.', '      - [O] Through body.',
-      '    - [_ O/; @r] Together.', '      - [. @x] X.', '      - [. @y] Y.', '- [C] Other.', '  - [_ G/]', '    - [.] Fails.',
+      '    - [_ -> ^/; @r] Together.', '      - [. @x] X.', '      - [. @y] Y.', '- [C] Other.', '  - [_ +> ^/]', '    - [.] Fails.',
     ].join('\n'));
     await row(4).locator('.cog-reading-select').click(); await flush();
     const inspection = row(4).locator('.cog-reading-inspection');
@@ -545,11 +545,11 @@ try {
     await row(6).locator('.cog-reading-select').click(); await flush();
     assert.equal(await page.locator('#reading .cog-reading-inspection').count(), 1, 'only the selected row is described');
     assert.equal(await row(6).locator('.cog-reading-inspection-glyph').textContent(), '◇', 'a joint source leads with the junction glyph');
-    assert.match(await row(6).locator('.cog-reading-inspection > span').last().textContent(), /^Source of the local Bearing at L5/);
+    assert.match(await row(6).locator('.cog-reading-inspection > span').last().textContent(), /^Source of the constructor at L5/);
     assert.equal(await rail.locator('.cog-reading-commitment-member').count(), 1, 'a member shows its header bracket with itself marked');
     await row(9).locator('.cog-reading-select').click(); await flush();
     assert.equal(await rail.getAttribute('data-basis'), 'failed');
-    assert.match(await row(9).locator('.cog-reading-inspection').textContent(), /\[_ G\]/, 'a failed row repeats its remedy');
+    assert.match(await row(9).locator('.cog-reading-inspection').textContent(), /\[_ \+> \^\]/, 'a failed row repeats its remedy');
     await page.keyboard.press('Escape'); await flush();
     assert.equal(await page.locator('#reading .cog-reading-inspection').count(), 0);
     await page.evaluate(() => { window.views.reading.destroy(); window.views.map.destroy(); });

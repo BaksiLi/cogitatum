@@ -5,7 +5,7 @@ import type { BearingKind, GraphIR } from "./types.js";
 const compile = (source: string) => compileGraphWithExplain(parseDocument(source));
 const codes = (graph: GraphIR) => graph.diagnostics.map(diagnostic => diagnostic.code);
 const kinds: BearingKind[] = ["supports", "challenges", "concerns", "answers", "respondsTo", "clarifies"];
-const pointKinds = ["answers", "respondsTo", "clarifies"];
+const pointKinds = ["answers", "respondsTo"];
 
 describe("named Point clauses", () => {
   it.each(kinds)("states %s once while retaining the occurrence's Q role, content and child context", kind => {
@@ -107,7 +107,7 @@ describe("named Point clauses", () => {
   });
 
   it.each(kinds)("treats an attached %s clause as independent of local joint sources", kind => {
-    const { graph, explain } = compile(`- [O @target] Explicit target.\n- [C @outer] Joint target.\n  - [_ G; @joint]\n    - [. @source] Joint source.\n    - [Q @question ${kind} @target; @independent] Independent question.`);
+    const { graph, explain } = compile(`- [O @target] Explicit target.\n- [C @outer] Joint target.\n  - [_ +> ^; @joint]\n    - [. @source] Joint source.\n    - [Q @question ${kind} @target; @independent] Independent question.`);
     expect(codes(graph)).toEqual([]);
     expect(graph.bearings).toHaveLength(2);
     expect(graph.bearings[0].sources).toEqual([{ kind: "point", key: graph.points[2].key }]);

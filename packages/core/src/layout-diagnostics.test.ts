@@ -21,7 +21,7 @@ const candidates = [
     name: "linked joint support",
     source: [
       "- [C @claim] The account needs a temporal model.",
-      "  - [_ G; @route] Joint support.",
+      "  - [_ +> ^; @route] Joint support.",
       "    - [. @first] The process changes over time.",
       "    - [. @second] Its stages constrain one another.",
       "- [. @term] A temporal model.",
@@ -84,7 +84,7 @@ describe("layout diagnostic guidance without semantic recovery", () => {
       sourceSpan: expect.objectContaining({ startLine: candidate.clarificationLine, startColumn: 7 })
     }));
     const failedContext = graph.diagnostics.find(diagnostic => diagnostic.code === "FAILED_CONTEXT_REQUIRES_EXPLICIT_TARGET")!;
-    expect(failedContext.message).toContain("explicit target only if this Point is intended to attach independently");
+    expect(failedContext.message).toContain("named target only if this Point is intended to attach independently");
     expect(graph.diagnostics).toContainEqual(expect.objectContaining({
       code: "BEARING_HANDLE_WITHOUT_BEARING", severity: "error",
       message: expect.stringContaining("Resolve any layout or constructor errors first"),

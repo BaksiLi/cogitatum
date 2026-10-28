@@ -141,15 +141,15 @@
             { "$ref": "#/$defs/bearingRef" }
           ]
         },
-        "text": { "type": "string", "minLength": 1, "description": "Derived only from this Bearing's accepted edge/linked constructor-description record, never from object-note prose." },
-        "derivedBy": { "enum": ["operator", "structural"] },
+        "text": { "type": "string", "minLength": 1, "description": "Derived only from this Bearing's accepted constructor-description record, never from object-note prose." },
+        "derivedBy": { "enum": ["operator", "structural"], "description": "structural: the target was selected by position (^, ^/ or a mark default); operator: the target was named." },
         "sourceSpan": { "$ref": "#/$defs/sourceSpan" }
       },
       "allOf": [
         {
           "if": {
             "properties": {
-              "kind": { "enum": ["answers", "respondsTo", "clarifies"] }
+              "kind": { "enum": ["answers", "respondsTo"] }
             },
             "required": ["kind"]
           },

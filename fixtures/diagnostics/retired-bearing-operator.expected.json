@@ -3,7 +3,7 @@
   "diagnostics": [
     {
       "line": 5,
-      "code": "CHALLENGE_REQUIRES_BEARING_TARGET",
+      "code": "RETIRED_AUTHORING_SYNTAX",
       "severity": "error"
     }
   ],
@@ -26,7 +26,7 @@
           "line": 5,
           "form": "role",
           "role": "O",
-          "id": "point-undercut"
+          "id": "old-undercut"
         },
         {
           "line": 6,

@@ -59,7 +59,7 @@ describe("reference-only Point occurrences", () => {
     expect(relations(graph).map(bearing => [bearing.kind, bearing.target.name])).toEqual([["concerns", "topic"], ["challenges", "step"]]);
   });
 
-  it.each([". use @missing", ". use @route", "C? use @premise", "G use @", "G use @premise answers", "O/ use @premise /> @route", ". use @premise; @dangling", ". use @premise", "Use @premise"])("retains %s failures without outer fallback or declaration", header => {
+  it.each([". use @missing", ". use @route", "C? use @premise", "G use @", "G use @premise answers", "O/ use @premise -> @route", ". use @premise; @dangling", ". use @premise", "Use @premise"])("retains %s failures without outer fallback or declaration", header => {
     const source = "- [C @claim] Claim.\n- [. @premise] Original.\n- [edge @premise +> @claim; @route]\n- [C @outer] Outer.\n  - [" + header + "] Local use.\n    - [O/] Must not guess an attachment.\n    - [G @child] Valid child.\n      - [O @grandchild] Valid subtree.";
     const { graph } = compile(source);
     expect(graph.points.map(point => point.id)).toEqual(["claim", "premise", "outer", undefined, "child", "grandchild"]);
@@ -75,11 +75,11 @@ describe("reference-only Point occurrences", () => {
   });
 
   it("requires a neutral use for linked membership regardless of declaration role", () => {
-    const { graph } = compile("- [C @premise] Original C.\n- [. @other] Other material.\n- [C @claim] Claim.\n  - [_ G; @joint]\n    - [. use @premise]\n    - [. use @other]\n    - [O/ @objection] Assessment.");
+    const { graph } = compile("- [C @premise] Original C.\n- [. @other] Other material.\n- [C @claim] Claim.\n  - [_ +> ^; @joint]\n    - [. use @premise]\n    - [. use @other]\n    - [O/ @objection] Assessment.");
     expect(codes(graph)).toEqual([]);
     expect(relations(graph)[0]).toEqual({ kind: "supports", handle: "joint", sources: ["premise", "other"], target: { kind: "point", name: "claim" } });
     expect(graph.points).toHaveLength(4);
-    const bare = compile("- [G @premise] Original G.\n- [C @claim] Claim.\n  - [_ G]\n    - [.] Valid source.\n    - [G use @premise]").graph;
+    const bare = compile("- [G @premise] Original G.\n- [C @claim] Claim.\n  - [_ +> ^]\n    - [.] Valid source.\n    - [G use @premise]").graph;
     expect(codes(bare)).toEqual(["INVALID_LOCAL_BEARING_MEMBER"]);
     expect(bare.bearings).toEqual([]);
   });
@@ -87,17 +87,17 @@ describe("reference-only Point occurrences", () => {
   it("rejects repeated resolved linked identity instead of deduplicating or inventing unary support", () => {
     for (const sources of ["    - [. use @premise]\n    - [. use @premise]", "    - [. @premise] Definition.\n    - [. use @premise]"]) {
       const declaration = sources.includes("[. @premise]") ? "" : "- [C @premise] Original.\n";
-      const { graph } = compile(declaration + "- [C @claim] Claim.\n  - [_ G; @joint]\n" + sources + "\n    - [O/] Failed joint assessment.");
+      const { graph } = compile(declaration + "- [C @claim] Claim.\n  - [_ +> ^; @joint]\n" + sources + "\n    - [O/] Failed joint assessment.");
       expect(graph.bearings).toEqual([]);
       expect(codes(graph)).toEqual(["DUPLICATE_BEARING_SOURCES", "UNRESOLVED_BEARING_TARGET"]);
     }
   });
 
   it("rejects failed source focus atomically while independent target failure does not shrink a joint", () => {
-    const failed = compile("- [. @premise] Premise.\n- [C @claim] Claim.\n  - [_ G]\n    - [. use @premise]\n    - [. use @missing]").graph;
+    const failed = compile("- [. @premise] Premise.\n- [C @claim] Claim.\n  - [_ +> ^]\n    - [. use @premise]\n    - [. use @missing]").graph;
     expect(failed.bearings).toEqual([]);
     expect(codes(failed)).toEqual(["UNKNOWN_POINT_REFERENCE", "UNKNOWN_SOURCE"]);
-    const independent = compile("- [. @premise] Premise.\n- [C @claim] Claim.\n  - [_ G; @joint]\n    - [. use @premise]\n    - [G use @premise +> @missing]").graph;
+    const independent = compile("- [. @premise] Premise.\n- [C @claim] Claim.\n  - [_ +> ^; @joint]\n    - [. use @premise]\n    - [G use @premise +> @missing]").graph;
     expect(codes(independent)).toEqual(["UNKNOWN_TARGET"]);
     expect(independent.bearings).toHaveLength(1);
   });
@@ -147,12 +147,13 @@ describe("reference-only Point occurrences", () => {
 
   it("never lets a failed Bearing-as-Point use supply a legal Bearing target to implicit descendants", () => {
     const { graph } = compile("- [C @claim] Claim.\n- [. @premise] Premise.\n- [edge @premise +> @claim; @route]\n- [. use @route]\n  - [G @child] Must not support route.\n  - [Q @gap] Must not be about route.\n  - [G @independent +> @claim] Independent relation.");
-    expect(codes(graph)).toEqual(["BEARING_IS_NOT_POINT_REFERENCE", "POINT_FOCUS_REQUIRES_POINT"]);
+    // [G] and [Q] each state a relation to ^, so each reports the missing Point focus.
+    expect(codes(graph)).toEqual(["BEARING_IS_NOT_POINT_REFERENCE", "POINT_FOCUS_REQUIRES_POINT", "POINT_FOCUS_REQUIRES_POINT"]);
     expect(graph.bearings).toHaveLength(2);
     expect(graph.bearings.every(bearing => bearing.target.kind === "point")).toBe(true);
   });
 
-  it.each(["G use @premise +>", "G use @premise; @", "O/ use @premise /> @route"])("retains valid focus when only the attachment fails: %s", header => {
+  it.each(["G use @premise +>", "G use @premise; @", "O/ use @premise -> @route"])("retains valid focus when only the attachment fails: %s", header => {
     const { graph, explain } = compile("- [C @premise] Original.\n- [C @outer] Outer.\n  - [" + header + "] Local use.\n    - [O @child] Challenges the focused premise.\n    - [O/] No outward selection.");
     expect(relations(graph)).toEqual([{ kind: "challenges", handle: undefined, sources: ["child"], target: { kind: "point", name: "premise" } }]);
     expect(explain.entries[2].effects).toContainEqual({ kind: "focusPoint", operand: { id: "premise" }, ref: { kind: "point", key: graph.points[0].key } });
@@ -162,7 +163,7 @@ describe("reference-only Point occurrences", () => {
   it("keeps local and explicit projections equal while preserving separate prose, spans and derivation", () => {
     const declarations = "- [C @premise] Original open premise.\n- [C @claim] Conclusion.\n- [O @objection] Objection.\n- [R @reply] Reply.";
     const local = compile(declarations + "\n- Narrative in reader order.\n- [. use @claim] Later discussion.\n  - [G use @premise; @step] Occurrence prose.\n    - [O/ use @objection; @attack]\n      - [R use @reply; @response]");
-    const explicit = compile(declarations + "\n- [edge @premise supports @claim; @step]\n- [edge @objection /> @step; @attack]\n- [edge @reply respondsTo @objection; @response]");
+    const explicit = compile(declarations + "\n- [edge @premise supports @claim; @step]\n- [edge @objection -> @step; @attack]\n- [edge @reply respondsTo @objection; @response]");
     expect(codes(local.graph)).toEqual([]);
     expect(codes(explicit.graph)).toEqual([]);
     expect(relations(local.graph)).toEqual(relations(explicit.graph));

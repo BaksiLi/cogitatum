@@ -1,5 +1,5 @@
 - [C @claim] A configuration fault may explain the repeated timeouts.
-  - [_ G; @joint] The observations participate jointly in this step.
+  - [_ +> ^; @joint] The observations participate jointly in this step.
     - [. @first] Two retries timed out.
     - [. @second] The same configuration was loaded each time.
     - [G/ @warrant] The shared configuration connects these observations.

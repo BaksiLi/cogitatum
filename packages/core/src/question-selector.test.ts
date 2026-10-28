@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   analyzeSourceReferences, compileGraphWithExplain, explainSource, formatGraph,
-  parseDocument, previewExplicitTarget
+  parseDocument, previewTargetForm
 } from "./index.js";
 
 const compile = (source: string) => compileGraphWithExplain(parseDocument(source));
@@ -18,7 +18,9 @@ describe("questions concerning a local Bearing", () => {
     const { graph, explain } = compileGraphWithExplain(ast);
     expect(graph.diagnostics).toEqual([]);
     expect(graph.points.map(point => point.id)).toEqual(["claim", "silent", "conditions", "reply", undefined, undefined]);
-    expect(graph.bearings.map(bearing => bearing.kind)).toEqual(["supports", "concerns", "respondsTo"]);
+    // [Q] states concerns ^ like any other mark states its relation; [C] states none.
+    expect(graph.bearings.map(bearing => bearing.kind)).toEqual(["supports", "concerns", "respondsTo", "concerns"]);
+    expect(graph.bearings[3]).toMatchObject({ sources: [{ kind: "point", key: graph.points[5].key }], target: { kind: "point", key: graph.points[2].key } });
     expect(graph.bearings[0].sources).toEqual([{ kind: "point", key: graph.points[1].key }]);
     expect(graph.bearings[1]).toMatchObject({
       sources: [{ kind: "point", key: graph.points[2].key }],
@@ -48,21 +50,23 @@ describe("questions concerning a local Bearing", () => {
     }
   );
 
-  it("distinguishes a bare question, a question about the Point and a question about its step", () => {
+  it("reads a bare question as concerning the nearest Point, and Q/ as concerning its step", () => {
     const bare = compile(premise + "\n    - [Q @question] What needs checking?");
     const point = compile(premise + "\n    - [Q @question ~> @silent] What needs checking?");
     const step = compile(premise + "\n    - [Q/ @question] What needs checking?");
     expect(bare.graph.diagnostics).toEqual([]);
     expect(point.graph.diagnostics).toEqual([]);
     expect(step.graph.diagnostics).toEqual([]);
-    expect(bare.graph.bearings).toHaveLength(1);
+    const endpoints = (graph: typeof bare.graph) => graph.bearings.map(({ kind, sources, target }) => ({ kind, sources, target }));
+    expect(endpoints(bare.graph)).toEqual(endpoints(point.graph));
+    expect(bare.graph.bearings[1].derivedBy).toBe("structural");
     expect(point.graph.bearings[1].target).toEqual({ kind: "point", key: point.graph.points[1].key });
     expect(step.graph.bearings[1].target).toEqual({ kind: "bearing", key: step.graph.bearings[0].key });
   });
 
   it("keeps questions separate from a local construction's ordered neutral sources", () => {
     const { graph, explain } = compile(`- [C] The visitor may be familiar.
-  - [_ G; @step]
+  - [_ +> ^; @step]
     - [. @silent] The dog did not bark.
     - [. @usual] The dog usually barks at strangers.
     - [Q/ @condition] Was the dog able to bark?
@@ -79,7 +83,7 @@ describe("questions concerning a local Bearing", () => {
     });
   });
 
-  it.each(["/>", "->", "challenges"])("retains Q %s as an explicit challenge rather than a relevance selector", operator => {
+  it.each(["->", "challenges"])("retains Q %s as an explicit challenge rather than a relevance selector", operator => {
     const { graph } = compile(premise + `\n    - [Q ${operator} @step] Does this step neglect the dog's condition?`);
     expect(graph.diagnostics).toEqual([]);
     expect(graph.bearings.map(bearing => bearing.kind)).toEqual(["supports", "challenges"]);
@@ -157,8 +161,8 @@ ${premise}
   it.each([
     "- [Q/] No local step.",
     "- [C] Claim.\n  - [Q/] No local step.",
-    premise + "\n    - [Q] A nearer question.\n      - [Q/] No local step.",
-    "- [C] Claim.\n  - [_ G]\n    - [.] Source.\n      - [Q/] A member owns no attachment."
+    premise + "\n    - [. @nearer] A nearer Point without a relation.\n      - [Q/] No local step.",
+    "- [C] Claim.\n  - [_ +> ^]\n    - [.] Source.\n      - [Q/] A member owns no attachment."
   ])("does not cross a nearer context without an attachment: %s", source => {
     const { graph } = compile(source);
     expect(graph.diagnostics.map(diagnostic => diagnostic.code)).toEqual(["NO_LOCAL_BEARING_ATTACHMENT"]);
@@ -179,7 +183,7 @@ ${premise}
   ])("retains malformed selector %s as commentary rather than a joint source", header => {
     const { graph } = compile(`- [. @question] Which conditions apply?
 - [C @claim] Claim.
-  - [_ G; @step]
+  - [_ +> ^; @step]
     - [. @source] Source.
     - ${header}
       - [G] A reason for the retained Point.`);
@@ -191,7 +195,7 @@ ${premise}
     expect(graph.bearings.some(bearing => bearing.kind === "concerns")).toBe(false);
   });
 
-  it("offers a correct explicit spelling through body while the edit preview still declines selectors", () => {
+  it("offers the same named spelling in through-body advice and the target-form preview", () => {
     const source = premise + "\n    - Context.\n      - [Q/ @question; @inquiry] Which conditions apply?";
     const before = compile(source);
     expect(before.graph.diagnostics.map(diagnostic => diagnostic.code)).toEqual(["IMPLICIT_ATTACHMENT_THROUGH_BODY"]);
@@ -199,15 +203,16 @@ ${premise}
     const explicit = compile(source.replace("[Q/ @question; @inquiry]", "[Q @question ~> @step; @inquiry]"));
     expect(explicit.graph.diagnostics).toEqual([]);
     expect(formatGraph(explicit.graph)).toBe(formatGraph({ ...before.graph, diagnostics: [] }));
-    expect(previewExplicitTarget(source, { line: 4 })).toMatchObject({
-      status: "unavailable", reason: "unsupported-attachment"
+    const line = source.split("\n").findIndex(text => text.includes("[Q/")) + 1;
+    expect(previewTargetForm(source, { line, form: "named" })).toMatchObject({
+      status: "ready", proposedSource: source.replace("[Q/ @question; @inquiry]", "[Q @question ~> @step; @inquiry]")
     });
   });
 
   it.each(["G", "O", "Q"])("retains an unclosed %s/ use as failed commentary without rejecting the joint", role => {
     const ast = parseDocument(`- [. @question] Which condition applies?
 - [C] Claim.
-  - [_ G; @step]
+  - [_ +> ^; @step]
     - [. @source] Source.
     - [${role}/ use @question`);
     const { graph } = compileGraphWithExplain(ast);

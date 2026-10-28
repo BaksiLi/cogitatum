@@ -1,7 +1,7 @@
 Host context.
   ```cog
   - [C @conclusion] A possible conclusion.
-    - [_ G; @route]
+    - [_ +> ^; @route]
       - [. @premise] One remaining premise 😀.
-  - [O /> @route] Route objection.
+  - [O -> @route] Route objection.
   ```

@@ -308,7 +308,7 @@ export function projectReading(source: string, explained: ExplainedSource): Read
         return [{ ...base, basis: "failed", reason: rejected.reason, ...(rejected.bearing ? { kind: rejected.bearing.kind } : {}),
           ...(contextOccurrenceId ? { contextOccurrenceId } : {}), ...(membership ? { memberFunction: membership.function } : {}) }];
       }
-      if (entry.recognition.kind === "note" || entry.recognition.kind === "bearingUse" || entry.recognition.kind === "explicitBearing") return [];
+      if (entry.recognition.kind === "note" || (entry.recognition.kind === "bearing" && !entry.recognition.members)) return [];
       return [{ ...base, basis: "none", ...(skipped ? { reason: skipped.reason } : {}), ...(membership ? { memberFunction: membership.function } : {}) }];
     });
     return { graph, occurrences, bearings, notes, commitments };

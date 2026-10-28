@@ -28,7 +28,7 @@ describe("source occurrence evidence", () => {
   });
 
   it("records Linked targets and local selectors through Bearing uses", () => {
-    const source = "- [C @p] Original.\n- [. use @p] Here.\n  - [_ G; @b]\n    - [.] First.\n    - [O/] Concern.\n- [_ use @b] Elsewhere.\n  - [O/] Another concern.";
+    const source = "- [C @p] Original.\n- [. use @p] Here.\n  - [_ +> ^; @b]\n    - [.] First.\n    - [O/] Concern.\n- [_ use @b] Elsewhere.\n  - [O/] Another concern.";
     expect(explainSource(source).diagnostics).toEqual([]);
     expect(selections(source)).toMatchObject([
       { line: 3, target: { kind: "point" }, targetSpan: { startLine: 1 }, contextSpan: { startLine: 2 } },

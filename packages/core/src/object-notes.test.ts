@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { Ajv2020 } from "ajv/dist/2020.js";
 import { describe, expect, it } from "vitest";
-import { analyzeSourceReferences, compileSource, explainSource, parseDocument, previewExplicitTarget } from "./index.js";
+import { analyzeSourceReferences, compileSource, explainSource, parseDocument, previewTargetForm } from "./index.js";
 
 const compile = (source: string) => explainSource(source);
 const errors = (source: string) => compile(source).diagnostics.filter(d => d.severity === "error").map(d => d.code);
@@ -40,7 +40,7 @@ describe("source-backed object notes", () => {
   });
 
   it("handles anonymous objects and joint contexts without a unary attachment for a direct member", () => {
-    const source = "- [C] Claim.\n  - [. note] Anonymous Point.\n  - [_ G] Joint description.\n    - [.] A.\n      - [. note] Member Point.\n      - [_ note] No unary route.\n    - [.] B.\n    - [_ note] The joint.";
+    const source = "- [C] Claim.\n  - [. note] Anonymous Point.\n  - [_ +> ^] Joint description.\n    - [.] A.\n      - [. note] Member Point.\n      - [_ note] No unary route.\n    - [.] B.\n    - [_ note] The joint.";
     const g = graph(source);
     expect(errors(source)).toEqual(["NO_LOCAL_NOTE_TARGET"]);
     expect(g.bearings).toHaveLength(1);
@@ -60,7 +60,7 @@ describe("source-backed object notes", () => {
         crossedBodySpans: [expect.objectContaining({ startLine: 3 })]
       }));
     }
-    const illegal = "- [C] Claim.\n  - [_ G]\n    - [.] Ground.\n    - Ordinary group\n      - [_ note] Must not rescue the joint.";
+    const illegal = "- [C] Claim.\n  - [_ +> ^]\n    - [.] Ground.\n    - Ordinary group\n      - [_ note] Must not rescue the joint.";
     expect(errors(illegal)).toEqual(["INVALID_LOCAL_BEARING_MEMBER", "NO_LOCAL_NOTE_TARGET"]);
     expect(graph(illegal).notes).toEqual([]);
     expect(graph(illegal).bearings).toEqual([]);
@@ -140,7 +140,7 @@ describe("source-backed object notes", () => {
 
   it("preserves source, targets and literal descendants through both complete exports and checked edits", () => {
     const source = "- [point @p] Original.\n- [C @q] Claim.\n  - [G use @p; @r] Local.\n    - [node note] Point text.\n    - [edge note] Here yesterday.\n      - [point @literal] Quotation.";
-    const preview = previewExplicitTarget(source, { line: 3 });
+    const preview = previewTargetForm(source, { line: 3, form: "named" });
     expect(preview.status).toBe("ready");
     if (preview.status !== "ready") return;
     expect(graph(preview.proposedSource).notes).toEqual(graph(source).notes);
@@ -156,7 +156,7 @@ describe("source-backed object notes", () => {
       expect(exported.graphs[0].notes).toHaveLength(2);
       expect(exported.documents[0].blocks[1].children[0].children[1].children[0].text).toBe("[point @literal] Quotation.");
     }
-    expect(previewExplicitTarget(source, { line: 6 })).toMatchObject({ status: "unavailable", reason: "no-attachment" });
+    expect(previewTargetForm(source, { line: 6, form: "named" })).toMatchObject({ status: "unavailable", reason: "no-bearing" });
   });
 
   it("validates current exports, rejects illegal note fields and keeps published schemas intact", () => {
