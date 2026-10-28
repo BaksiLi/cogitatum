@@ -565,8 +565,8 @@ function localBearingMemberDiagnosticMessage(block: AstBlock, constructor: AstBl
   return "Direct children of a Bearing constructor without listed sources must be neutral Point sources, ^/ commentary, complete independent clauses or valid notes.";
 }
 
-// A joint concerns header asks nothing that can be answered: only a Question
-// Point can receive a response, so name the Q occurrence with the same target.
+// A constructor is not a Point that can receive a response. A Question Point
+// can make the inquiry itself available as a target.
 function questionPointHint(constructor: AstBlock): string {
   const clause = expandedClause(constructor.annotation);
   if (clause?.op !== "concerns" || isNamedTarget(clause.target)) return "";
@@ -576,6 +576,10 @@ function questionPointHint(constructor: AstBlock): string {
 // ^/ needs a step to bear on. Beneath a Point without an attachment, name the
 // same header retargeted to that Point rather than a step that is not there.
 function noLocalBearingMessage(context: Context, annotation: Annotation, kind: BearingKind): string {
+  if (requiresPointTarget(kind)) {
+    return `${kind} requires a Point target; ^/ selects a Bearing. ` +
+      `Write [${respellTarget(annotation, { local: "point" })}] for the nearest Point, or name a Point explicitly.`;
+  }
   if (context?.kind === "point" && context.focus) {
     const action = kind === "supports" ? "support" : kind === "challenges" ? "challenge" : kind === "clarifies" ? "clarify" : "concern";
     return `The nearest enclosing Point has no attachment, so ^/ has no step to ${action}. ` +
