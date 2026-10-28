@@ -54,8 +54,8 @@ for (const name of ["ast", "graph-ir", "explain", "source"]) {
 }
 const probe = `
 import assert from 'node:assert/strict';
-import { analyzeSourceReferences, compileGraph, compileGraphWithExplain, compileSource, explainSource, formatGraph, formatExplain, GRAPH_TEXT_VERSION, EXPLAIN_TEXT_VERSION, parseDocument, previewExplicitTarget, previewBearingForm } from '@cogitatum/core';
-const { graph, explain } = compileGraphWithExplain(parseDocument('- Ordinary context.\\n  - [C @claim] A claim.\\n    - [G; @route] A reason.\\n- [O /> @route] A route objection.\\n'));
+import { analyzeSourceReferences, compileGraph, compileGraphWithExplain, compileSource, explainSource, formatGraph, formatExplain, GRAPH_TEXT_VERSION, EXPLAIN_TEXT_VERSION, parseDocument, previewTargetForm } from '@cogitatum/core';
+const { graph, explain } = compileGraphWithExplain(parseDocument('- Ordinary context.\\n  - [C @claim] A claim.\\n    - [G; @route] A reason.\\n- [O -> @route] A route objection.\\n'));
 assert.equal(GRAPH_TEXT_VERSION, '1');
 assert.ok(formatGraph(graph).includes('b2: challenges([p3], b1)'));
 assert.ok(formatGraph(graph).includes('status: no-errors'));
@@ -114,26 +114,25 @@ const retired = compileGraph(parseDocument('- [C? @old] Retired.'));
 assert.deepEqual(retired.points, []);
 assert.equal(retired.diagnostics[0].code, 'RETIRED_CLAIM_OPENNESS');
 const explicitSource = '- [C @claim] Claim.\\n  - [G; @route] Reason.\\n    - [O/] Local objection.';
-const explicitPreview = previewExplicitTarget(explicitSource, {line: 2});
+const explicitPreview = previewTargetForm(explicitSource, {line: 2, form: 'named'});
 assert.equal(explicitPreview.status, 'ready');
 assert.equal(explicitPreview.originalSource, explicitSource);
 assert.equal(explicitPreview.proposedSource, explicitSource.replace('[G;', '[G +> @claim;'));
 assert.equal(formatGraph(compileGraph(parseDocument(explicitSource))), formatGraph(compileGraph(parseDocument(explicitPreview.proposedSource))));
-assert.equal(previewExplicitTarget('- [C] Anonymous.\\n  - [G] Reason.', {line: 2}).reason, 'unnamed-target');
-const jointSelectorSource = '- [C @c] Claim.\\n  - [G; @step] Reason.\\n    - [_ O/; @review]\\n      - [. @a] First.\\n      - [. @b] Second.\\n      - [_ note] Review note.';
+assert.equal(previewTargetForm('- [C] Anonymous.\\n  - [G] Reason.', {line: 2, form: 'named'}).reason, 'unnamed-target');
+const jointSelectorSource = '- [C @c] Claim.\\n  - [G; @step] Reason.\\n    - [_ -> ^/; @review]\\n      - [. @a] First.\\n      - [. @b] Second.\\n      - [_ note] Review note.';
 const jointSelector = explainSource(jointSelectorSource);
 assert.deepEqual(jointSelector.diagnostics, []);
 assert.deepEqual(jointSelector.graphs[0].bearings.map(b => b.kind), ['supports', 'challenges']);
 assert.equal(jointSelector.graphs[0].bearings[1].sources.length, 2);
 assert.deepEqual(jointSelector.graphs[0].bearings[1].target, {kind: 'bearing', key: jointSelector.graphs[0].bearings[0].key});
 assert.equal(EXPLAIN_TEXT_VERSION, '1');
-assert.ok(formatExplain(jointSelector).includes('localBearing O/'));
+assert.ok(formatExplain(jointSelector).includes('bearing member sources'));
 assert.ok(formatExplain(jointSelector).includes('Object note belongs to bearing @review'));
-const jointExplicit = previewBearingForm(jointSelectorSource, {line: 3, form: 'explicit'});
-assert.equal(jointExplicit.status, 'ready');
-assert.ok(jointExplicit.proposedSource.includes('[_ @a, @b /> @step; @review]'));
-const jointExplicitLine = jointExplicit.proposedSource.split('\\n').findIndex(l => l.includes('[_ @a, @b')) + 1;
-assert.equal(previewBearingForm(jointExplicit.proposedSource, {line: jointExplicitLine, form: 'local'}).status, 'ready');
+const jointNamed = previewTargetForm(jointSelectorSource, {line: 3, form: 'named'});
+assert.equal(jointNamed.status, 'ready');
+assert.equal(jointNamed.proposedSource, jointSelectorSource.replace('[_ -> ^/; @review]', '[_ -> @step; @review]'));
+assert.equal(previewTargetForm(jointNamed.proposedSource, {line: 3, form: 'positional'}).proposedSource, jointSelectorSource);
 assert.ok(compileSource('- [C @c] Claim.\\n  - [R repliesTo @c] Old.').diagnostics.some(d => d.code === 'RETIRED_BEARING_KIND'));
 for (const kind of ['supports', 'challenges', 'concerns', 'answers', 'respondsTo', 'clarifies']) {
   const attached = explainSource('- [O @target] Objection.\\n- [C @outer] Context.\\n  - [Q @question ' + kind + ' @target; @step] Which scale?\\n- [point use @question ' + kind + ' @target; @again] Local prose.');
@@ -145,7 +144,7 @@ for (const kind of ['supports', 'challenges', 'concerns', 'answers', 'respondsTo
   assert.equal(attached.documents[0].blocks[1].children[0].annotation.operatorClause.sources, 'self');
 }
 const replySource = '- [Q @q] Question.\\n  - [R; @step] Seconds.\\n    - [O/] Review this reply.';
-const replyPreview = previewExplicitTarget(replySource, {line: 2});
+const replyPreview = previewTargetForm(replySource, {line: 2, form: 'named'});
 assert.equal(replyPreview.status, 'ready');
 assert.equal(replyPreview.proposedSource, replySource.replace('[R;', '[R respondsTo @q;'));
 assert.equal(formatGraph(compileGraph(parseDocument(replySource))), formatGraph(compileGraph(parseDocument(replyPreview.proposedSource))));
@@ -155,7 +154,7 @@ assert.equal(neutralInquiry.graphs[0].points.length, 3);
 assert.deepEqual(neutralInquiry.graphs[0].bearings, []);
 const explicitAnswer = compileSource('- [Q @q] Which scale?\\n  - [. answers @q] Seconds.');
 assert.deepEqual(explicitAnswer.graphs[0].bearings.map(bearing => bearing.kind), ['answers']);
-assert.equal(previewExplicitTarget('- [Q @q] Which scale?\\n  - [C] Seconds.', {line: 2}).reason, 'no-attachment');
+assert.equal(previewTargetForm('- [Q @q] Which scale?\\n  - [C] Seconds.', {line: 2, form: 'named'}).reason, 'no-bearing');
 const query = explainSource('- [. @question] Which conditions apply?\\n- [C @claim] Claim.\\n  - [G; @step] Reason.\\n    - [Q/ use @question; @inquiry] Local question wording.\\n      - [R] Check the recording.\\n      - [_ note] Why this question concerns this step.');
 assert.deepEqual(query.diagnostics, []);
 assert.equal(query.graphs[0].points.length, 4);
@@ -169,7 +168,7 @@ const retiredKind = compileGraphWithExplain(parseDocument('- [C @claim] Claim.\\
 assert.deepEqual(retiredKind.graph.bearings.map(bearing => bearing.handle), ['route']);
 assert.ok(retiredKind.graph.diagnostics.some(diagnostic => diagnostic.code === 'RETIRED_BEARING_KIND'));
 assert.ok(retiredKind.graph.diagnostics.some(diagnostic => diagnostic.code === 'NO_LOCAL_BEARING_ATTACHMENT'));
-assert.equal(retiredKind.explain.entries[3].recognition.kind, 'explicitBearing');
+assert.deepEqual(retiredKind.explain.entries[3].recognition, {kind: 'bearing', members: false});
 const malformedUse = parseDocument('- [use] Missing operand.');
 assert.deepEqual(malformedUse.blocks[0].annotation.syntaxErrors, ['reference', 'retired']);
 const layout = compileGraphWithExplain(parseDocument('-    [C @outer] Outer.\\n  - Spaced.\\n\\t- [C @failed] Failed.\\n    - [G @inner] Inner.\\n      - [G @detail] Detail.'));
@@ -232,11 +231,10 @@ assert.match(run(executable, ["--version"], temporary), new RegExp(rootPackage.v
 const explicitFile = join(temporary, "explicit.cog.md");
 const explicitText = "- [C @claim] Claim.\n  - [G] Reason.";
 writeFileSync(explicitFile, explicitText);
-const explicitCli = JSON.parse(run(executable, ["explicit-target", "--line", "2", explicitFile], temporary));
-assert.equal(explicitCli.status, "ready");
-assert.equal(explicitCli.proposedSource, explicitText.replace("[G]", "[G +> @claim]"));
-assert.equal(readFileSync(explicitFile, "utf8"), explicitText);
-const formCli = JSON.parse(run(executable, ["bearing-form", "--line", "2", "--to", "explicit", explicitFile], temporary));
+const retiredCommand = spawnSync(executable, ["explicit-target", "--line", "2", explicitFile], { cwd: temporary, encoding: "utf8" });
+assert.equal(retiredCommand.status, 2);
+assert.equal(JSON.parse(retiredCommand.stdout).diagnostics[0].code, "RETIRED_COMMAND");
+const formCli = JSON.parse(run(executable, ["target-form", "--line", "2", "--to", "named", explicitFile], temporary));
 assert.equal(formCli.status, "ready");
 assert.equal(formCli.proposedSource, explicitText.replace("[G]", "[G +> @claim]"));
 assert.ok(run(executable, ["explain", "--format", "text", explicitFile], temporary).includes("Local context"));
@@ -263,7 +261,7 @@ const apiReferences = JSON.parse(run(process.execPath, ["--input-type=module", "
 assert.deepEqual(cliReferences, apiReferences);
 assert.equal(cliReferences.references.status, "complete");
 
-writeFileSync(join(temporary, "consumer.mts"), `import {type Point, type PointDeclaration, type Bearing, type Annotation, type ObjectNote, type OperatorClause, type ExplainEmittedBearingSummary, type ExplainRecognition, type SourceReferenceAnalysis, type ReferencedName, type WrittenReference, type ExplicitTargetPreview, type BearingFormPreview, type SourceEdit, previewExplicitTarget, previewBearingForm, analyzeSourceReferences, explainSource, formatExplain, EXPLAIN_TEXT_VERSION, formatGraph, GRAPH_TEXT_VERSION, compileGraph, parseDocument} from '@cogitatum/core';
+writeFileSync(join(temporary, "consumer.mts"), `import {type Point, type PointDeclaration, type Bearing, type Annotation, type ObjectNote, type OperatorClause, type ExplainEmittedBearingSummary, type ExplainRecognition, type SourceReferenceAnalysis, type ReferencedName, type WrittenReference, type TargetFormPreview, type TargetTerm, type SourceEdit, previewTargetForm, analyzeSourceReferences, explainSource, formatExplain, EXPLAIN_TEXT_VERSION, formatGraph, GRAPH_TEXT_VERSION, compileGraph, parseDocument} from '@cogitatum/core';
 import { createGraphView, declarationMark, projectReading, createReadingView, type ReadingProjection } from '@cogitatum/view';
 import { createBlockView, type BlockEditRequest, type BlockView } from '@cogitatum/view/block';
 function mountHostBlock(container: HTMLElement): BlockView {
@@ -273,11 +271,13 @@ function mountHostBlock(container: HTMLElement): BlockView {
     const canceled: boolean = request.signal.aborted;
   } });
 }
-const preview: ExplicitTargetPreview = previewExplicitTarget('- [C @c] Claim.\\n  - [G] Reason.', {line: 2, mode: 'document'});
+const preview: TargetFormPreview = previewTargetForm('- [C @c] Claim.\\n  - [G] Reason.', {line: 2, form: 'named', mode: 'document'});
 if (preview.status === 'ready') {
   const original: string = preview.originalSource;
   const updated: string = preview.proposedSource;
-  const offset: number = preview.edit.offset;
+  const edit: SourceEdit = preview.edit;
+  const offset: number = edit.offset;
+  const removed: string = edit.remove;
 } else {
   const message: string = preview.message;
   // @ts-expect-error A refused preview provides no applicable edit.
@@ -286,11 +286,13 @@ if (preview.status === 'ready') {
   preview.proposedSource;
 }
 // @ts-expect-error The selected source line must be numeric.
-previewExplicitTarget('source', {line: '2'});
-// @ts-expect-error An explicit selection is required.
-previewExplicitTarget('source');
+previewTargetForm('source', {line: '2', form: 'named'});
+// @ts-expect-error A selection and a form are required.
+previewTargetForm('source');
+// @ts-expect-error The retired bearing-form vocabulary is not a target form.
+previewTargetForm('source', {line: 2, form: 'explicit'});
 // @ts-expect-error Auto source mode remains retired.
-previewExplicitTarget('source', {line: 2, mode: 'auto'});
+previewTargetForm('source', {line: 2, form: 'named', mode: 'auto'});
 const inventory: SourceReferenceAnalysis = analyzeSourceReferences('- [C @claim] Claim.');
 if (inventory.references.status === 'complete') {
   const names: ReferencedName[] = inventory.references.units[0];
@@ -373,60 +375,40 @@ const pointChallenge: ExplainEmittedBearingSummary = {...summary, kind: 'challen
 const invalidUndercut: ExplainEmittedBearingSummary = {...summary, kind: 'undercuts', target: pointTarget};
 // @ts-expect-error Role-level openness is unsupported.
 const invalidRole: Annotation = {kind: 'role', role: 'G', status: 'open', raw: 'G?'};
-const namedKind: Annotation = {kind: 'explicitBearing', raw: 'edge @a answers @b', operatorClause: {op: 'answers', targetKind: 'point', sources: [{id: 'a'}], target: {id: 'b'}}};
-// Symbolic -> and named challenges accept either target; /> requires a Bearing.
-const generalChallenge: Annotation = {kind: 'explicitBearing', raw: '', operatorClause: {op: 'challenges', targetKind: 'either', sources: [{id: 'a'}], target: {id: 'b'}}};
-// @ts-expect-error Point-only challenge constraints are retired.
-const roleChallengePoint: Annotation = {kind: 'role', role: 'O', raw: '', operatorClause: {op: 'challenges', targetKind: 'point', sources: 'self', target: {id: 'b'}}};
-const roleChallengeBearing: Annotation = {kind: 'role', role: 'O', raw: '', operatorClause: {op: 'challenges', targetKind: 'bearing', sources: 'self', target: {id: 'b'}}};
-const roleChallengeEither: Annotation = {kind: 'role', role: 'O', raw: '', operatorClause: {op: 'challenges', targetKind: 'either', sources: 'self', target: {id: 'b'}}};
-// @ts-expect-error Gap annotations are retired, including their operator clauses.
-const gapChallengeEither: Annotation = {kind: 'gap', status: 'open', raw: '', operatorClause: {op: 'challenges', targetKind: 'either', sources: 'self', target: {id: 'b'}}};
-// @ts-expect-error Point-only challenge constraints are retired.
-const materialChallengePoint: Annotation = {kind: 'material', raw: '', operatorClause: {op: 'challenges', targetKind: 'point', sources: 'self', target: {id: 'b'}}};
-const materialChallengeBearing: Annotation = {kind: 'material', raw: '', operatorClause: {op: 'challenges', targetKind: 'bearing', sources: 'self', target: {id: 'b'}}};
-const materialChallengeEither: Annotation = {kind: 'material', raw: '', operatorClause: {op: 'challenges', targetKind: 'either', sources: 'self', target: {id: 'b'}}};
-// @ts-expect-error Point-only challenge constraints are retired.
-const useChallengePoint: Annotation = {kind: 'use', ref: {id: 'a'}, raw: '', operatorClause: {op: 'challenges', targetKind: 'point', sources: 'self', target: {id: 'b'}}};
-const useChallengeBearing: Annotation = {kind: 'use', ref: {id: 'a'}, raw: '', operatorClause: {op: 'challenges', targetKind: 'bearing', sources: 'self', target: {id: 'b'}}};
-const useChallengeEither: Annotation = {kind: 'use', ref: {id: 'a'}, raw: '', operatorClause: {op: 'challenges', targetKind: 'either', sources: 'self', target: {id: 'b'}}};
-// @ts-expect-error Target requirement must match the authored relation kind.
-const invalidSupportsPoint: OperatorClause = {op: 'supports', targetKind: 'point', sources: [{id: 'a'}], target: {id: 'b'}};
-// @ts-expect-error Target requirement must match the authored relation kind.
-const invalidSupportsBearing: OperatorClause = {op: 'supports', targetKind: 'bearing', sources: [{id: 'a'}], target: {id: 'b'}};
-// @ts-expect-error Target requirement must match the authored relation kind.
-const invalidAboutPoint: OperatorClause = {op: 'concerns', targetKind: 'point', sources: [{id: 'a'}], target: {id: 'b'}};
-// @ts-expect-error Target requirement must match the authored relation kind.
-const invalidAboutBearing: OperatorClause = {op: 'concerns', targetKind: 'bearing', sources: [{id: 'a'}], target: {id: 'b'}};
-// @ts-expect-error Target requirement must match the authored relation kind.
-const invalidAnswersBearing: OperatorClause = {op: 'answers', targetKind: 'bearing', sources: [{id: 'a'}], target: {id: 'b'}};
-// @ts-expect-error Target requirement must match the authored relation kind.
-const invalidAnswersEither: OperatorClause = {op: 'answers', targetKind: 'either', sources: [{id: 'a'}], target: {id: 'b'}};
-// @ts-expect-error Target requirement must match the authored relation kind.
-const invalidResponseBearing: OperatorClause = {op: 'respondsTo', targetKind: 'bearing', sources: [{id: 'a'}], target: {id: 'b'}};
-// @ts-expect-error Target requirement must match the authored relation kind.
-const invalidResponseEither: OperatorClause = {op: 'respondsTo', targetKind: 'either', sources: [{id: 'a'}], target: {id: 'b'}};
+// A clause is a relation plus a target term; the kind alone decides which targets it admits.
+const namedKind: Annotation = {kind: 'bearing', members: false, raw: '_ @a answers @b', operatorClause: {op: 'answers', sources: [{id: 'a'}], target: {id: 'b'}}};
+const memberChallenge: Annotation = {kind: 'bearing', members: true, raw: '_ -> ^/', operatorClause: {op: 'challenges', sources: 'members', target: {local: 'bearing'}}};
+const bareConstructor: Annotation = {kind: 'bearing', members: true, raw: '_'};
+const bearingSelector: Annotation = {kind: 'bearing', members: true, selector: 'attachment', raw: '_/'};
+const pointTerm: TargetTerm = {local: 'point'};
+const roleChallenge: Annotation = {kind: 'role', role: 'O', raw: 'O -> ^/', operatorClause: {op: 'challenges', sources: 'self', target: {local: 'bearing'}}};
+const materialSupport: Annotation = {kind: 'material', raw: '. +> @b', operatorClause: {op: 'supports', sources: 'self', target: {id: 'b'}}};
+const useConcern: Annotation = {kind: 'use', ref: {id: 'a'}, raw: 'use @a ~> ^', operatorClause: {op: 'concerns', sources: 'self', target: pointTerm}};
+// @ts-expect-error Target kinds are retired; the relation kind decides.
+const retiredTargetKind: OperatorClause = {op: 'challenges', targetKind: 'either', sources: 'self', target: {id: 'b'}};
+// @ts-expect-error A positional term is a slot, never a name.
+const namedSlot: TargetTerm = {local: 'point', id: 'p'};
+// @ts-expect-error A Point occurrence is the sole source of its clause.
+const pointWithMembers: Annotation = {kind: 'role', role: 'G', raw: '', operatorClause: {op: 'supports', sources: 'members', target: {local: 'point'}}};
+// @ts-expect-error A constructor takes members or listed sources, never itself.
+const selfConstructor: Annotation = {kind: 'bearing', members: true, raw: '', operatorClause: {op: 'supports', sources: 'self', target: {local: 'point'}}};
 // @ts-expect-error The retired relation is not an active machine kind.
-const retiredReplyClause: OperatorClause = {op: 'repliesTo', targetKind: 'point', sources: [{id: 'a'}], target: {id: 'b'}};
-// @ts-expect-error Target requirement must match the authored relation kind.
-const invalidClarifiesBearing: OperatorClause = {op: 'clarifies', targetKind: 'bearing', sources: [{id: 'a'}], target: {id: 'b'}};
-// @ts-expect-error Target requirement must match the authored relation kind.
-const invalidClarifiesEither: OperatorClause = {op: 'clarifies', targetKind: 'either', sources: [{id: 'a'}], target: {id: 'b'}};
+const retiredReplyClause: OperatorClause = {op: 'repliesTo', sources: [{id: 'a'}], target: {id: 'b'}};
+// @ts-expect-error The linked and explicit Bearing kinds are retired.
+const retiredExplicitBearing: Annotation = {kind: 'explicitBearing', raw: ''};
+// @ts-expect-error The local Bearing kind is retired.
+const retiredLocalBearing: Annotation = {kind: 'localBearing', role: 'G', raw: '_ G'};
 const localSelector: Annotation = {kind: 'role', role: 'O', selector: 'attachment', raw: 'O/'};
 const questionSelector: Annotation = {kind: 'role', role: 'Q', selector: 'attachment', raw: 'Q/'};
-const groupSelector: Annotation = {kind: 'localBearing', role: 'Q', selector: 'attachment', raw: '_ Q/'};
-const groupSelectorRecognition: ExplainRecognition = {kind: 'localBearing', role: 'O', selector: 'attachment'};
-// @ts-expect-error A local Question group requires the Bearing selector.
-const bareQuestionGroup: Annotation = {kind: 'localBearing', role: 'Q', raw: '_ Q'};
+const clarifySelector: Annotation = {kind: 'role', role: 'D', selector: 'attachment', raw: 'D/'};
+const selectorRecognition: ExplainRecognition = {kind: 'role', role: 'O', selector: 'attachment'};
+const constructorRecognition: ExplainRecognition = {kind: 'bearing', members: true, selector: 'attachment'};
 // @ts-expect-error Response requires a Point target, so R/ cannot select a Bearing.
-const responseGroupSelector: Annotation = {kind: 'localBearing', role: 'R', selector: 'attachment', raw: '_ R/'};
+const responseSelector: Annotation = {kind: 'role', role: 'R', selector: 'attachment', raw: 'R/'};
+// @ts-expect-error A selector abbreviates its clause; it cannot also write one.
+const selectorWithClause: Annotation = {kind: 'role', role: 'G', selector: 'attachment', raw: '', operatorClause: {op: 'supports', sources: 'self', target: {id: 'b'}}};
 // @ts-expect-error Explain preserves the same role/selector correlation.
-const invalidGroupSelectorRecognition: ExplainRecognition = {kind: 'localBearing', role: 'D', selector: 'attachment'};
-const formPreview: BearingFormPreview = previewBearingForm('- [C @c] Claim.\\n  - [G] Reason.', {line: 2, form: 'explicit'});
-if (formPreview.status === 'ready') {
-  const edits: SourceEdit[] = formPreview.edits;
-  const removed: string = edits[0].remove;
-}
+const invalidSelectorRecognition: ExplainRecognition = {kind: 'role', role: 'R', selector: 'attachment'};
 const decisionText: string = formatExplain(explainSource('- [Q] Which scale?'));
 const decisionVersion: string = EXPLAIN_TEXT_VERSION;
 const pointUse: Annotation = {kind: 'use', ref: {id: 'p'}, role: 'G', raw: 'G use @p'};
@@ -439,7 +421,7 @@ const bearingUse: Annotation = {kind: 'bearingUse', ref: {id: 'route'}, raw: '_ 
 // @ts-expect-error A Bearing use cannot construct or alias an attachment.
 const aliasedBearingUse: Annotation = {kind: 'bearingUse', ref: {id: 'route'}, handle: 'alias', raw: ''};
 // @ts-expect-error A Bearing use cannot serve as a self-sourced Point.
-const attachedBearingUse: Annotation = {kind: 'bearingUse', ref: {id: 'route'}, operatorClause: {op: 'supports', targetKind: 'either', sources: 'self', target: {id: 'c'}}, raw: ''};
+const attachedBearingUse: Annotation = {kind: 'bearingUse', ref: {id: 'route'}, operatorClause: {op: 'supports', sources: 'self', target: {id: 'c'}}, raw: ''};
 // @ts-expect-error Neutral material is a Point variant, not a local role.
 const neutralRole: Annotation = {kind: 'material', role: 'G', raw: '.'};
 const selectorUse: Annotation = {kind: 'use', ref: {id: 'p'}, role: 'O', selector: 'attachment', raw: 'O/ use @p'};
@@ -450,41 +432,39 @@ const groundSelectorRecognition: ExplainRecognition = {kind: 'use', role: 'G', s
 const objectionSelectorRecognition: ExplainRecognition = {kind: 'use', role: 'O', selector: 'attachment', ref: {id: 'p'}};
 // Rejected uses may retain the role and selector without a resolved operand.
 const unresolvedSelectorRecognition: ExplainRecognition = {kind: 'use', role: 'O', selector: 'attachment'};
-function selectedUseRole(recognition: ExplainRecognition): 'G' | 'O' | 'Q' | undefined {
+function selectedUseRole(recognition: ExplainRecognition): 'G' | 'O' | 'Q' | 'D' | undefined {
   if (recognition.kind === 'use' && recognition.selector) return recognition.role;
 }
-// @ts-expect-error An Explain selector requires its local G, O or Q role.
+// @ts-expect-error An Explain selector requires its local G, O, Q or D role.
 const neutralSelectorRecognition: ExplainRecognition = {kind: 'use', ref: {id: 'p'}, selector: 'attachment'};
 const questionSelectorRecognition: ExplainRecognition = {kind: 'use', role: 'Q', ref: {id: 'p'}, selector: 'attachment'};
 // @ts-expect-error A Claim occurrence cannot select a local Bearing.
 const claimSelectorRecognition: ExplainRecognition = {kind: 'use', role: 'C', ref: {id: 'p'}, selector: 'attachment'};
 // @ts-expect-error A Response occurrence cannot select a local Bearing.
 const replySelectorRecognition: ExplainRecognition = {kind: 'use', role: 'R', ref: {id: 'p'}, selector: 'attachment'};
-// @ts-expect-error A Distinction occurrence cannot select a local Bearing.
+// clarifies admits a Bearing target, so D/ selects one.
 const distinctionSelectorRecognition: ExplainRecognition = {kind: 'use', role: 'D', ref: {id: 'p'}, selector: 'attachment'};
 // @ts-expect-error A use operand is not a declaration anchor.
 const aliasedUse: Annotation = {kind: 'use', ref: {id: 'p'}, anchor: 'alias', raw: ''};
 // @ts-expect-error Occurrence status is excluded.
 const statusUse: Annotation = {kind: 'use', ref: {id: 'p'}, role: 'C', status: 'open', raw: ''};
 // @ts-expect-error A use selector excludes an explicit operator clause.
-const excludedUse: Annotation = {kind: 'use', ref: {id: 'p'}, role: 'O', selector: 'attachment', operatorClause: {op: 'challenges', targetKind: 'bearing', sources: 'self', target: {id: 'b'}}, raw: ''};
-// @ts-expect-error Only G, O and Q can select local attachments.
+const excludedUse: Annotation = {kind: 'use', ref: {id: 'p'}, role: 'O', selector: 'attachment', operatorClause: {op: 'challenges', sources: 'self', target: {id: 'b'}}, raw: ''};
+// @ts-expect-error Only G, O, Q and D can select local attachments.
 const invalidUseSelector: Annotation = {kind: 'use', ref: {id: 'p'}, role: 'C', selector: 'attachment', raw: ''};
 // @ts-expect-error A selector and a complete operator clause are mutually exclusive.
-const excludedSelector: Annotation = {kind: 'role', role: 'O', selector: 'attachment', operatorClause: {op: 'challenges', targetKind: 'bearing', sources: 'self', target: {id: 'b'}}, raw: ''};
-// @ts-expect-error Only G, O and Q support a selector.
+const excludedSelector: Annotation = {kind: 'role', role: 'O', selector: 'attachment', operatorClause: {op: 'challenges', sources: 'self', target: {id: 'b'}}, raw: ''};
+// @ts-expect-error Only G, O, Q and D support a selector.
 const invalidSelector: Annotation = {kind: 'role', role: 'C', selector: 'attachment', raw: 'C/'};
 // @ts-expect-error Q selectors also exclude explicit clauses.
-const excludedQuestionSelector: Annotation = {kind: 'role', role: 'Q', selector: 'attachment', operatorClause: {op: 'concerns', targetKind: 'either', sources: 'self', target: {id: 'b'}}, raw: ''};
-const namedSelf: Annotation = {kind: 'role', role: 'Q', raw: '', operatorClause: {op: 'respondsTo', targetKind: 'point', sources: 'self', target: {id: 'b'}}};
-const namedMaterial: Annotation = {kind: 'material', raw: '', operatorClause: {op: 'answers', targetKind: 'point', sources: 'self', target: {id: 'b'}}};
-const namedUse: Annotation = {kind: 'use', ref: {id: 'a'}, role: 'Q', raw: '', operatorClause: {op: 'clarifies', targetKind: 'point', sources: 'self', target: {id: 'b'}}};
-// @ts-expect-error A Point-attached discourse kind still requires a Point target.
-const namedSelfEither: Annotation = {kind: 'role', role: 'Q', raw: '', operatorClause: {op: 'respondsTo', targetKind: 'either', sources: 'self', target: {id: 'b'}}};
+const excludedQuestionSelector: Annotation = {kind: 'role', role: 'Q', selector: 'attachment', operatorClause: {op: 'concerns', sources: 'self', target: {id: 'b'}}, raw: ''};
+const namedSelf: Annotation = {kind: 'role', role: 'Q', raw: '', operatorClause: {op: 'respondsTo', sources: 'self', target: {id: 'b'}}};
+const namedMaterial: Annotation = {kind: 'material', raw: '', operatorClause: {op: 'answers', sources: 'self', target: {id: 'b'}}};
+const namedUse: Annotation = {kind: 'use', ref: {id: 'a'}, role: 'Q', raw: '', operatorClause: {op: 'clarifies', sources: 'self', target: {id: 'b'}}};
 // @ts-expect-error Operator clauses have exactly one target.
-const multipleTargets: OperatorClause = {op: 'supports', targetKind: 'either', sources: 'self', target: [{id: 'a'}, {id: 'b'}]};
+const multipleTargets: OperatorClause = {op: 'supports', sources: 'self', target: [{id: 'a'}, {id: 'b'}]};
 // @ts-expect-error Point annotations use themselves as the source.
-const otherSource: Annotation = {kind: 'role', role: 'G', raw: '', operatorClause: {op: 'supports', targetKind: 'either', sources: [{id: 'other'}], target: {id: 'claim'}}};
+const otherSource: Annotation = {kind: 'role', role: 'G', raw: '', operatorClause: {op: 'supports', sources: [{id: 'other'}], target: {id: 'claim'}}};
 // @ts-expect-error AST annotations have one semantic home.
 graph.points[0] && parseDocument('- [C] Claim.').blocks[0].role;
 `);

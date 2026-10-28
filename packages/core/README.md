@@ -3,46 +3,40 @@
 Cogitatum is a lightweight markup language for making selected reasoning structure explicit inside ordinary prose. This package provides its deterministic parser and compiler for Node.js and browsers.
 
 Points are independently identified authored content, including questions and fragments; they need not be declarative sentences or truth-apt propositions.
-Q and C mark how a Point is presented at an occurrence, without automatically attaching it to an enclosing Point.
-G / O / R / D select `supports` / `challenges` / `respondsTo` / `clarifies` toward the nearest enclosing Point, irrespective of the parent's mark.
-Neutral nesting is complete without a Bearing; author `answers` explicitly when intended, and use an explicit clause or `Q/` to record `concerns`.
+Every relation is a relation plus one target term: `@name`, `^` for the nearest enclosing Point, or `^/` for the locally exposed Bearing.
+Marks abbreviate default clauses: `[G]` is `[G +> ^]`, and G / O / R / D / Q state `supports` / `challenges` / `respondsTo` / `clarifies` / `concerns`, irrespective of the parent's mark.
+C and neutral Points state no relation; author `answers` explicitly when intended.
 
 Checkout version **0.6.0**, format **0.6.0**, not yet published.
 `point` / `node` / `.` and `bearing` / `edge` / `_` share construction, use and local note operations.
-For the Bearing family, the first token selects the mode: `G` / `O` / `R` / `D` for local Point targets, `G/` / `O/` / `Q/` for exposed Bearing targets, `@ref` for explicit endpoints, `use` for reuse and `note` for note mode.
-Parser head recognition records `head.mode: "local" | "explicit"` for construction; it never retries an unfinished explicit header as local.
-`[_ G @a +> @b]` is malformed local syntax (`MALFORMED_LOCAL_BEARING`); `[_ +>]` is rejected and `[_ @a +>]` remains an explicit error.
+A Bearing constructor writes `[_ OP TARGET]`: its direct neutral children are its ordered sources, or `[_ @a, @b OP TARGET]` lists them; `[_]` and `[_/]` record joint `concerns`.
+The first token after the family spelling selects construction, `use` for reuse or `note` for note mode; a role letter such as `[_ G]` is `MALFORMED_BEARING_MODE`.
 `[. note]` and `[_ note]` select the nearest context's Point or Bearing, with literal subtrees and no outward fallback.
 `GraphIR.notes` links each authored record to its resolved target and owning AST block.
 Complete `compileSource` / `explainSource` envelopes preserve the text and subtree; Graph IR alone omits note prose.
 Local and explicit Bearing descriptions use the same source ownership; `Bearing.text` derives only from the constructor's prose, including continuations.
-`->` accepts a Point or Bearing; optional `/>` requires a Bearing.
-Both emit `challenges` with a typed target.
-Named `challenges` accepts either target; named `undercuts` is rejected with migration guidance to `/>`.
-Explicit Bearing constructors, Point declarations and Point uses accept all six canonical kind names, alongside the four symbolic operators.
+`->` and named `challenges` accept a Point or Bearing, emitting `challenges` with a typed target; `/>` and `_>` are retired with `RETIRED_AUTHORING_SYNTAX`.
+`clarifies` and `concerns` likewise accept either target; `answers` and `respondsTo` require a Point.
+Constructors, Point declarations and Point uses accept all six canonical kind names, alongside the three symbolic operators; named `undercuts` is rejected.
 `R` is Response; `[Q @question respondsTo @objection]` retains its local Q mark and constructs one response without requiring a chronological conversation.
 Named clauses never impose global declaration-role checks; retired `repliesTo` receives a migration error, without default fallback.
 Reference-only `[. use @p]` or locally marked `[G use @p]` occurrences resolve an existing Point without copying its subtree or changing declaration metadata.
 Neutral Point use focuses without a default attachment.
 Graph IR `Point.declaration` holds `form` and its applicable `role`; `key`, `id`, `text` and the canonical `sourceSpan` remain top-level, and use marks stay in AST/Explain.
 Gap declarations and openness status are retired in 0.6.
-`[_ G]`, `[_ O]`, `[_ R]` and `[_ D]` construct one Bearing from direct neutral source members to the nearest enclosing Point, using the same relation rules as ordinary marked Points.
-An optional handle follows the role: `[_ G; @route]`.
-One source is a complete construction, without an implied authoring status; local `Q` and `C` are unsupported.
-`[_ G/]`, `[_ O/]` and `[_ Q/]` use the same neutral sources to support, challenge or concern the nearest exposed Bearing.
-Nested selector groups are commentary and do not enlarge the selected Bearing's sources.
-Direct `G` / `O` members remain errors with neutral `[.]`, local `G/` / `O/`, or complete explicit alternatives; no automatic rewrite, reduced source set or outward target fallback is permitted.
+`[_ +> ^; @route]` constructs one Bearing from direct neutral members to the nearest enclosing Point; an optional handle follows the clause.
+One source is a complete construction, without an implied authoring status.
+A direct member's relation decides its function: toward `^/` it is commentary, toward a name independent, and toward `^`, by mark or clause, an invalid member; no automatic rewrite, reduced source set or outward target fallback is permitted.
 The old `[linked]`, `[G linked]` and `[linked G]` headers are retired with `RETIRED_LINKED_ANNOTATION`, without compiling aliases; `join` remains retired.
-AST and Explain use `kind: "localBearing"` and `kind: "explicitBearing"`; local source membership appears as Explain `localBearingMember` with `local-bearing-*` reasons and `*_LOCAL_BEARING*` diagnostic codes.
+AST and Explain recognise every constructor as `kind: "bearing"` with `members` and optional `selector`; source membership appears as Explain `localBearingMember` with `local-bearing-*` reasons and `*_LOCAL_BEARING*` diagnostic codes.
 Convergent, Linked and Serial still name graph structures; multi-source support records an array of participating sources, not reasoning strength or success.
 Serial authoring uses ordinary Point nesting or explicit relations.
 `concerns` replaces the retired named `about` spelling.
 Bearing-only `[_ use @route]` resolves a validated existing Bearing without constructing or aliasing one; its note never changes `Bearing.text`.
-G/, O/ and Q/ select only the nearest constructor's exposed Bearing: its local attachment, constructed Bearing, or explicitly referenced Bearing.
-They construct `supports`, `challenges` and `concerns` respectively, without adding to the selected Bearing's sources.
-Ordinary Q still has no default relation; Q/ is an opt-in relation to a step, and `[Q /> @route]` deliberately challenges that named Bearing instead.
+G/, O/, Q/ and D/ select only the nearest constructor's exposed Bearing `^/`: its local attachment, constructed Bearing, or explicitly referenced Bearing.
+They construct `supports`, `challenges`, `concerns` and `clarifies` respectively, without adding to the selected Bearing's sources.
 `[Q/ use @q]` reuses Point content with a local Q mark; notes and occurrence prose keep their existing ownership.
-Selectors never cross a nearer unattached Point or failed context, and do not imply local `[_ Q]` construction.
+Selectors never cross a nearer unattached Point or failed context.
 Occurrence prose, local marks and original UTF-16 spans remain in AST/Explain; focusPoint maps each use to a typed Point ref, and rejectFocus explains lookup failure.
 focusBearing similarly maps Bearing occurrences; selectBearing identifies a referenced context without claiming attachment ownership.
 Canonical spans remain declaration/construction spans; several uses may map to the same entity.
@@ -156,18 +150,17 @@ See [Graph inspection](../../docs/graph-inspection.md) for the versioned preserv
 AST blocks keep their semantic fields only in `annotation`; source `raw` and block text are retained separately.
 To migrate an older format, apply the [source migration](../../docs/syntax.md#compatibility-and-migration) and reparse retained source.
 The compiler rejects ASTs with a different format version.
-It also refuses an `explicitBearing` annotation that has neither an `operatorClause` nor a recorded syntax error, instead of deriving a relation; validate imported AST JSON against the AST schema first.
+It also refuses a constructor with listed sources that has neither an `operatorClause` nor a recorded syntax error, instead of deriving a relation; validate imported AST JSON against the AST schema first.
 
-`OperatorClause.op` holds the canonical selected `BearingKind`; explicit Bearing sources are existing Point references, and Point declarations and uses have `sources: "self"`.
-Both admit all six kinds; `answers`, `respondsTo` and `clarifies` require `targetKind: "point"`.
-Local constructions have AST `kind: "localBearing"` with a header role and derive their source membership from direct neutral children.
+`OperatorClause.op` holds the canonical selected `BearingKind`, and `target` is a `TargetTerm`: `{ id }` or `{ local: "point" | "bearing" }`.
+Point declarations and uses have `sources: "self"`; constructors have `sources: "members"`, deriving their sources from direct neutral children, or a list of existing Point references.
+All admit six kinds; which targets a kind accepts follows from `op`, without a separate `targetKind` field.
+A mark's default clause is not written into the AST; `expandedClause(annotation)` returns the clause a mark abbreviates.
 Using a Point as an explicit source preserves its declaration metadata; indentation defaults do not add global role restrictions to explicit construction.
 Match the **0.6.0** schemas and compiler; older JSON must be recompiled from retained source, not relabelled.
 
 In 0.5, consumers branch on `bearing.kind === 'challenges'` and then `bearing.target.kind` to distinguish a Point challenge from a Bearing challenge.
-The resolved target does not recover the authored restriction: symbolic `/>` and named `challenges` can reach the same Bearing while only `/>` requires that target kind.
-Keep the AST for `operatorClause.targetKind`, and original source plus Explain for local occurrences.
-Replacing the named `undercuts` operator with `/>` preserves its authored restriction; replacing it with named `challenges` broadens it.
+In 0.6 the authored target term itself decides the kind, so `/>` is retired: write `->`, and keep original source plus Explain for positional occurrences.
 Follow the [complete migration procedure](../../docs/syntax.md#compatibility-and-migration), including diagnostic-code changes and regenerating all projections.
 
 The package includes a draft 2020-12 JSON Schema bundle for offline integration:
@@ -191,56 +184,33 @@ The source-envelope export is absent from the historical npm `0.3.0-alpha.1` tar
 
 Read the [introduction](https://cogitatum.onesimos.net/docs/introduction), [syntax](https://cogitatum.onesimos.net/docs/syntax), or try the [playground](https://cogitatum.onesimos.net/playground).
 
-## Explicit target preview
-
-`previewExplicitTarget(source, { line, mode? })` prepares one checked source edit without writing a file.
-`line` is one-based in the complete source and `mode` is `document` (default) or `host`.
-The operation inserts an explicit target clause for an ordinary implicit G / O / R / D attachment to an already named Point.
-It uses a symbol where one exists and the canonical name for `respondsTo` or `clarifies`.
-Unattached Q, C and neutral occurrences have no implicit relation to make explicit.
-It preserves source prose and occurrence ownership as well as graph structure, while deliberately making future moves retain the explicit target.
-It also verifies that every object note retains its exact origin and resolved target.
+## Inspection and target form
 
 ```js
-import { previewExplicitTarget } from '@cogitatum/core';
+import { explainSource, formatExplain, previewTargetForm } from '@cogitatum/core';
 const source = '- [C @claim] Claim.\n  - [G] Reason.';
-const preview = previewExplicitTarget(source, { line: 2 });
+console.log(formatExplain(explainSource(source)));
+const preview = previewTargetForm(source, { line: 2, form: 'named' });
 if (preview.status === 'ready') {
   console.log(preview.proposedSource); // Contains [G +> @claim].
 }
-```
-
-Ready results include the original/proposed source, a single insertion (`edit.offset` in UTF-16 code units and `edit.insert`), both diagnostic lists and the consequence for future edits.
-Before applying a saved preview, compare the complete current source with `originalSource`; recompute if it changed.
-Unavailable results contain only the common version/mode/diagnostics and a reason/message, with no edit payload.
-Errors anywhere in the complete input prevent an edit; anonymous targets, selectors and local Bearing constructions require separate authoring decisions.
-The public types are `ExplicitTargetOptions`, `ExplicitTargetPreview` and `ExplicitTargetUnavailableReason`.
-This API does not add fields to AST, Graph IR, Explain or source schemas, and it is not a general formatter or patch application service.
-
-## Local and explicit inspection
-
-```js
-import { explainSource, formatExplain, previewBearingForm } from '@cogitatum/core';
-const source = '- [C @claim] Claim.\n  - [G @reason; @step] Reason.\n    - [O/] Objection.';
-console.log(formatExplain(explainSource(source)));
-console.log(previewBearingForm(source, { line: 3, form: 'explicit' }));
 ```
 
 `formatExplain(explainSource(source, mode))` prints every active compiler decision, including failed candidates, membership, selected context, ordered endpoints and note ownership.
 It includes all host units and source-selection diagnostics.
 `EXPLAIN_TEXT_VERSION` identifies its readable notation independently of `FORMAT_VERSION`.
 
-`previewBearingForm(source, { line, form, mode? })` supports both directions, including selectors and joint constructions.
-Ready results contain `originalSource`, `proposedSource`, ordered non-overlapping `edits: { offset, remove, insert }[]`, original/proposed diagnostics and an editing consequence.
-Offsets count original UTF-16 code units; compare the complete current source first and apply edits in reverse order.
-Unavailable results contain a reason and message, without edits.
-Public result types are `BearingForm`, `BearingFormOptions`, `BearingFormPreview`, `BearingFormUnavailableReason` and `SourceEdit`.
+`previewTargetForm(source, { line, form: 'named' | 'positional', mode? })` prepares one checked source edit without writing a file.
+`line` is one-based in the complete source and `mode` is `document` (default) or `host`.
+It exchanges one relation's positional `^` / `^/` target for the name it resolves to, or back, on Point declarations, uses, selectors and constructors.
+A mark's default relation is written out with a named target and omitted again when the result is the mark's own default, so the two directions are inverse edits.
+A constructor's members stay in place; select the constructor rather than a source member.
 
+Ready results include `originalSource`, `proposedSource`, one minimal `edit: { offset, remove, insert }` in original UTF-16 code units, both diagnostic lists and the consequence for future moves and mark changes.
+Before applying a saved preview, compare the complete current source with `originalSource`; recompute if it changed.
+Unavailable results contain a reason and message, with no edit payload.
+Errors anywhere in the complete input, anonymous targets and occurrences that state no relation prevent an edit.
 The preview recompiles the complete proposed source, preserving content, entity identities and declaration marks, ordered endpoints, literal subtrees, note origins/targets and unrelated diagnostic occurrences.
-Local → explicit may move neutral sources outside enclosing Bearing contexts.
-Explicit → local introduces ordered source uses, retaining the original declarations, and checks the actual local target.
-Required endpoints must already be named; Point roles are never changed.
-`answers` and Point-targeted `concerns` have no local spelling.
-Reading order, source locations and future attachment behavior may change, as the returned consequence explains.
-This is structural equivalence, not source restoration or a logical judgment.
-The [inspection reference](../../docs/graph-inspection.md#preview-local-and-explicit-forms) specifies the preservation limits.
+Public types are `TargetForm`, `TargetFormOptions`, `TargetFormPreview`, `TargetFormUnavailableReason` and `SourceEdit`.
+It replaces the published `previewExplicitTarget`; it adds no fields to AST, Graph IR, Explain or source schemas, and it is not a general formatter or patch application service.
+The [inspection reference](../../docs/graph-inspection.md#preview-named-and-positional-targets) specifies the preservation limits.
