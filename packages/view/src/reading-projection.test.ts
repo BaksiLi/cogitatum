@@ -14,7 +14,7 @@ const lineOf = (reading: ReadingProjection, id: string) =>
 
 describe("source-aware Reading projection", () => {
   it.each(["document", "host"] as const)("projects joint Bearing-targeted commentary with ordered source occurrences in %s", mode => {
-    const content = "- [C] Claim.\n  - [_ G; @original]\n    - [.] Original source.\n    - [_ O/; @review]\n      - [.] First objection source.\n      - [.] Second objection source.\n      - [_ note] Review note.";
+    const content = "- [C] Claim.\n  - [_ +> ^; @original]\n    - [.] Original source.\n    - [_ -> ^/; @review]\n      - [.] First objection source.\n      - [.] Second objection source.\n      - [_ note] Review note.";
     const source = mode === "host" ? "```cog\n" + content + "\n```" : content;
     const result = project(source, mode), offset = mode === "host" ? 1 : 0;
     expect(result.diagnostics).toEqual([]);
@@ -196,7 +196,7 @@ describe("source-aware Reading projection", () => {
     const source = [
       "- [C @shared] Shared.", "- [C @other] Other.",
       "  - [G use @shared] A local reuse.", "    - [O] Objection here.",
-      "    - [O -> @shared] Explicit concern.", "  - [_ G; @joint]",
+      "    - [O -> @shared] Explicit concern.", "  - [_ +> ^; @joint]",
       "    - [. use @shared] Reused joint member.", "    - [.] Other member."
     ].join("\n");
     const result = project(source);
@@ -243,7 +243,7 @@ describe("source-aware Reading projection", () => {
     const source = [
       "- [C @c] Claim.", "  - [G; @b] Ground.", "    - [O/] Concern.",
       "- [_ use @b] Local discussion.", "  - body", "    - [O/] Local concern.",
-      "  - [O /> @b] Explicit concern."
+      "  - [O -> @b] Explicit concern."
     ].join("\n");
     const result = project(source);
     expect([3, 6, 7].map(line => lineOf(result, route(result, line).target.occurrenceId))).toEqual([2, 4, 2]);
@@ -271,7 +271,7 @@ describe("source-aware Reading projection", () => {
     const source = [
       "- [C @p] Same.", "- [C @q] Same.", "- [. @isolated] Alone.",
       "- [_ @p, @q +> @q; @first]", "- [_ @q, @p +> @q; @second]",
-      "- [_ @p +> @right; @left]", "- [_ @q /> @left; @right]"
+      "- [_ @p +> @right; @left]", "- [_ @q -> @left; @right]"
     ].join("\n");
     const result = project(source), unit = result.units[0];
     expect(result.diagnostics).toEqual([]);

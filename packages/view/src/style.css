@@ -124,7 +124,7 @@
 .cog-reading-row[data-kind="use"] .cog-glyph-shape { fill: var(--cog-surface-resolved); }
 .cog-reading-row[data-kind="use"] .cog-glyph-letter { fill: var(--cog-ink-resolved); }
 .cog-reading-row[data-kind="note"] .cog-reading-text { font-style: italic; font-size: .92em; color: var(--cog-muted-resolved); }
-.cog-reading-row[data-kind="localBearing"] .cog-reading-text { font-style: italic; }
+.cog-reading-row[data-kind="bearing"] .cog-reading-text { font-style: italic; }
 .cog-reading-row[data-kind="literal"] .cog-reading-text { color: var(--cog-muted-resolved); }
 .cog-reading-row[data-kind="source"] .cog-reading-content { font: 14px/1.7 system-ui, sans-serif; color: var(--cog-muted-resolved); }
 .cog-reading-row[data-error="true"] .cog-reading-text { text-decoration: underline dotted var(--cog-negative); text-underline-offset: 4px; }

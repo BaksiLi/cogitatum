@@ -4,12 +4,13 @@ import type { ReadingCommitment, ReadingUnit } from "./reading-projection.js";
 
 const REJECTED: Record<string, string> = {
   "annotation-syntax-error": "the annotation has a syntax error",
-  "explicit-bearing-descendant-requires-target": "beneath an explicit Bearing, the first Point needs a selector or an explicit target",
-  "bearing-use-requires-explicit-target": "a Bearing use exposes no Point target",
+  "explicit-bearing-descendant-requires-target": "beneath a Bearing with listed sources, the first Point needs ^/ or a named target",
+  "bearing-use-requires-explicit-target": "a Bearing use exposes no Point for ^",
   "failed-context-requires-explicit-target": "its enclosing context failed, and no outer Point is searched instead",
-  "no-local-attachment": "the nearest context exposes no Bearing",
+  "no-local-attachment": "the nearest context exposes no Bearing for ^/",
+  "no-local-point": "there is no enclosing Point for ^",
   "validation-error": "the relation failed validation",
-  "invalid-local-bearing": "the local Bearing is invalid"
+  "invalid-local-bearing": "the constructor or its members are invalid"
 };
 
 /**
@@ -38,13 +39,13 @@ export function describeCommitment(unit: ReadingUnit, commitment: ReadingCommitm
       return `From indentation${joint}: ${relation} ${name(commitment.target!, commitment.contextOccurrenceId)}, ${nearest}.${crossed} Moving it or changing its mark can change this.`;
     }
     case "explicit":
-      return `Explicit: ${bearingMark(commitment.kind!).name} ${name(commitment.target!)}. Indentation does not choose this relation or target.`;
+      return `Named target: ${bearingMark(commitment.kind!).name} ${name(commitment.target!)}. Indentation does not choose this target.`;
     case "member": {
       const header = unit.commitments.find(item => item.occurrenceId === commitment.contextOccurrenceId);
       const at = lines([commitment.contextOccurrenceId!]);
       return header?.basis === "failed"
-        ? `Eligible source for the local Bearing at ${at}, which was rejected; no relation was created.`
-        : `Source of the local Bearing at ${at}; it adds no relation of its own.`;
+        ? `Eligible source for the constructor at ${at}, which was rejected; no relation was created.`
+        : `Source of the constructor at ${at}; it adds no relation of its own.`;
     }
     case "note":
       return `From indentation: a note on ${name(commitment.target!, commitment.contextOccurrenceId)}.${crossed}`;
@@ -59,7 +60,7 @@ export function describeCommitment(unit: ReadingUnit, commitment: ReadingCommitm
       const neutral = recognition.kind === "material" || (recognition.kind === "use" && !mark);
       const noun = mark ? pointMark(mark).name : neutral ? "neutral Point" : "occurrence";
       if (commitment.reason === "no-eligible-ancestor") return "No enclosing Point or step; its position creates no relation.";
-      if (mark === "Q" || mark === "C") return `${mark} marks presentation only; its position creates no relation.`;
+      if (mark === "C") return "C states no relation; its position creates none.";
       return `This ${noun} creates no relation from its position.`;
     }
   }
