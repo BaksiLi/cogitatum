@@ -2,6 +2,7 @@ import type { BearingTarget, GraphIR } from "@cogitatum/core";
 import { endingPoints, focusNeighborhood, guidanceSubject, projectExploration, projectGraph, referenceKey, type GraphLink, type GraphNode, type GraphProjection } from "./projection.js";
 import { layoutGraph, type Point2 } from "./layout.js";
 import { createDragMotion, type DragReach } from "./motion.js";
+import { labelWidth, wrapMapLabel, type LabelLine } from "./map-label.js";
 import { bearingMark, drawBearingGlyph, drawPointGlyph, MARK_TYPE, pointMark } from "./marks.js";
 export * from "./projection.js";
 export * from "./layout.js";
@@ -14,8 +15,6 @@ export * from "./strands.js";
 export type { ProseRenderer, ProseRenderRequest } from "./prose.js";
 
 export type GraphViewOptions = {
-  /** Plain-text Point excerpts; full wording remains in nodes, accessibility labels and callbacks. */
-  caption?: (text: string) => string;
   direction?: "down" | "right";
   /** The host may additionally disable motion; system reduced-motion is always respected. */
   reducedMotion?: () => boolean;
@@ -41,7 +40,7 @@ const NS = "http://www.w3.org/2000/svg";
 const ENDING = 1.3;
 const POINT_R = 9, RING_GAP = 3.2, JUNCTION_R = 10, LABEL_K = .6, READ_K = .78, DRAG_SLOP = 4, MIN_K = .3, MAX_K = 2.2;
 type Camera = { k: number; tx: number; ty: number };
-type Shape = { id: string; node: GraphNode; g: SVGGElement; glyph?: SVGGElement; label?: SVGTextElement; labelHit?: SVGRectElement; caption?: string; inline: boolean };
+type Shape = { id: string; node: GraphNode; g: SVGGElement; glyph?: SVGGElement; label?: SVGTextElement; labelHit?: SVGRectElement; inline: boolean };
 
 /**
  * Framework-neutral mount/update/destroy lifecycle. Positions live in a world space; the camera maps
@@ -94,40 +93,19 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
 
   // ── text measurement (fixed CSS pixel sizes from the shared mark type scale) ──
   // Line height follows the host's label type, so a host may set the wording larger than the shared scale.
-  let measure: CanvasRenderingContext2D | null | undefined, font = "", lineHeight: number = MARK_TYPE.lineHeight;
-  const wrapCache = new Map<string, string[]>();
-  function textWidth(s: string): number {
+  let measure: CanvasRenderingContext2D | null | undefined, font = "", codeFont = "", lineHeight: number = MARK_TYPE.lineHeight;
+  const wrapCache = new Map<string, LabelLine[]>();
+  function textWidth(s: string, code = false): number {
     measure ??= doc.createElement("canvas").getContext?.("2d") ?? null;
-    if (measure) { measure.font = font; return measure.measureText(s).width; }
-    return s.length * MARK_TYPE.text * .55;
+    if (measure) { measure.font = code ? codeFont : font; return measure.measureText(s).width; }
+    return s.length * MARK_TYPE.text * (code ? .6 : .55);
   }
-  function wrap(text: string, width: number, lines: number): string[] {
+  const lineWidth = (line: LabelLine) => labelWidth(line, textWidth);
+  const literalLine = (text: string): LabelLine[] => [[{ text }]];
+  function wrap(text: string, width: number, lines: number): LabelLine[] {
     const key = `${width}|${lines}|${text}`;
-    if (wrapCache.has(key)) return wrapCache.get(key)!;
-    const w = textWidth;
-    const tokens = text.match(/[⺀-鿿豈-﫿　-〿＀-￯]|[^\s⺀-鿿豈-﫿　-〿＀-￯]+|\s+/g) ?? [];
-    const out: string[] = []; let line = "", used = 0;
-    for (const token of tokens) {
-      if (w(line + token) <= width || !line.trim()) { line += token; used += token.length; continue; }
-      out.push(line.trim()); line = token.trimStart();
-      if (out.length === lines) { line = ""; break; }
-      used += token.length;
-    }
-    if (out.length < lines && line.trim()) out.push(line.trim());
-    if (used < text.length && out.length) {
-      let last = out[out.length - 1];
-      while (last.length && w(last + "…") > width) last = last.slice(0, -1);
-      out[out.length - 1] = last.replace(/[\s,.;:，。；：、]+$/u, "") + "…";
-    }
-    wrapCache.set(key, out);
-    return out;
-  }
-
-  function caption(text: string): string {
-    try {
-      const result = options.caption?.(text);
-      return typeof result === "string" ? result : text;
-    } catch { return text; }
+    if (!wrapCache.has(key)) wrapCache.set(key, wrapMapLabel(text, width, lines, textWidth));
+    return wrapCache.get(key)!;
   }
 
   // ── build DOM for the current topology ──
@@ -137,6 +115,8 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
     const probe = element("text", { class: "cog-text" }, nodeLayer), style = win?.getComputedStyle(probe);
     const fontSize = style?.fontSize || `${MARK_TYPE.text}px`;
     font = `${fontSize} ${style?.fontFamily || "serif"}`;
+    const codeStyle = win?.getComputedStyle(element("tspan", { class: "cog-code" }, probe));
+    codeFont = `${codeStyle?.fontSize || fontSize} ${codeStyle?.fontFamily || "monospace"}`;
     lineHeight = Math.max(MARK_TYPE.lineHeight, Math.round(parseFloat(fontSize) * 1.28));
     probe.remove(); wrapCache.clear();
     for (const node of topology.nodes) {
@@ -152,7 +132,7 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
       const labelHit = element("rect", { class: "cog-hit cog-label-hit", width: "0", height: "0", "aria-hidden": "true" }, g);
       const label = element("text", { class: isPoint ? "cog-text" : "cog-label", "text-anchor": isPoint ? "middle" : "start" }, g);
       describe(g, node);
-      shapes.set(node.id, { id: node.id, node, g, glyph, label, labelHit, caption: isPoint ? caption(node.text) : undefined, inline: false });
+      shapes.set(node.id, { id: node.id, node, g, glyph, label, labelHit, inline: false });
     }
     for (const [id] of inline) {
       const node = nodeById(id)!;
@@ -199,25 +179,25 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
   /** Links stop at a marked point's ring, not its disc, so arrowheads touch the ring. */
   const ringR = (k = camera.k) => (POINT_R + RING_GAP) * pointScale(k);
   const pointLabelWidth = (k: number) => roomy(k) ? Math.min(200, 200 * k - 14) : Math.max(96, Math.min(150, 168 * k - 14));
-  function labelLines(shape: Shape, k = camera.k, focused = shape.id === selected || shape.id === hovered): string[] {
-    const node = shape.node, text = shape.caption ?? node.text;
+  function labelLines(shape: Shape, k = camera.k, focused = shape.id === selected || shape.id === hovered): LabelLine[] {
+    const node = shape.node;
     if (shape.inline) return [];
-    if (node.ref.kind === "bearing") return node.name && (k >= LABEL_K || focused) ? [`@${node.name}`] : [];
+    if (node.ref.kind === "bearing") return node.name && (k >= LABEL_K || focused) ? literalLine(`@${node.name}`) : [];
     // The overview keeps a conclusion's wording, the subject of the drawing, and every other authored name,
     // so a wide inquiry is still navigable without all of its wording.
-    if (k < LABEL_K && !focused) return endings.has(shape.id) ? wrap(text, 240, 1) : node.name ? [`@${node.name}`] : [];
+    if (k < LABEL_K && !focused) return endings.has(shape.id) ? wrap(node.text, 240, 1) : node.name ? literalLine(`@${node.name}`) : [];
     // A conclusion always gets the wide measure, with as many lines as the layers below leave room for.
-    if (endings.has(shape.id)) return wrap(text, 200, k >= .75 ? 3 : 2);
+    if (endings.has(shape.id)) return wrap(node.text, 200, k >= .75 ? 3 : 2);
     const width = pointLabelWidth(k);
     // Three lines once the layers have room for them beneath a point; two in a denser drawing.
-    return wrap(text, focused ? Math.max(width, roomy(k) ? 200 : 150) : width, k >= .75 ? 3 : 2);
+    return wrap(node.text, focused ? Math.max(width, roomy(k) ? 200 : 150) : width, k >= .75 ? 3 : 2);
   }
   /** Screen-pixel reach of a mark and its unfocused wording on either side of the mark's centre. */
   function reach(shape: Shape, k: number): { left: number; right: number } {
     const lines = labelLines(shape, k, false);
     if (!lines.length) return { left: 13, right: 13 };
-    if (shape.node.ref.kind === "bearing") return { left: 13, right: JUNCTION_R + 7 + textWidth(lines[0]) };
-    const half = Math.max(14, ...lines.map(line => textWidth(line) / 2 + 4));
+    if (shape.node.ref.kind === "bearing") return { left: 13, right: JUNCTION_R + 7 + lineWidth(lines[0]) };
+    const half = Math.max(14, ...lines.map(line => lineWidth(line) / 2 + 4));
     return { left: half, right: half };
   }
   /** The drawn baseline remains authoritative while a zoom holds the wording in place. */
@@ -266,7 +246,13 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
         label.classList.toggle("cog-overview", overview && !endings.has(shape.id));
         label.classList.toggle("cog-overview-ending", overview && endings.has(shape.id));
         const top = pointR() * (endings.has(shape.id) ? ENDING : 1) + (overview ? 14 : 18);
-        lines.forEach((text, i) => { const t = element("tspan", isPoint ? { x: "0", y: String(top + i * lineHeight) } : { x: String(JUNCTION_R + 5), y: "4" }, label); t.textContent = text; });
+        lines.forEach((runs, i) => {
+          const line = element("tspan", isPoint ? { x: "0", y: String(top + i * lineHeight) } : { x: String(JUNCTION_R + 5), y: "4" }, label);
+          for (const run of runs) {
+            if (run.code) element("tspan", { class: "cog-code" }, line).textContent = run.text;
+            else line.append(doc.createTextNode(run.text));
+          }
+        });
       }
       shape.g.dataset.related = String(!guided || related.has(shape.id));
     }
@@ -279,7 +265,7 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
         const right = lines ? JUNCTION_R + 7 + textWidth(shape.label!.textContent ?? "") : 13;
         return { id: shape.id, x0: p.x - 13, x1: p.x + right, y0: p.y - 13, y1: p.y + 13 };
       }
-      const half = lines ? Math.max(14, ...[...shape.label!.childNodes].map(t => textWidth(t.textContent ?? "") / 2 + 4)) : 13;
+      const half = lines ? Math.max(14, ...[...shape.label!.children].map(line => (line as SVGTSpanElement).getComputedTextLength() / 2 + 4)) : 13;
       return { id: shape.id, x0: p.x - half, x1: p.x + half, y0: p.y - pointR() - 4, y1: p.y + (wordingBottom(shape) ?? pointR() + 5) };
     });
     const at = (a: Point2, c1: Point2, c2: Point2, t: Point2, s: number) => {

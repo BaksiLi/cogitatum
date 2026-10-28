@@ -151,7 +151,7 @@ try {
     assert.equal(await page.evaluate(() => window.pendingFrames()), 0, 'destroy cancels active entrance');
 
     // A continuous zoom keeps wording and curves under the fingers, then reflows once when it rests.
-    const worded = '- [C @claim] A conclusion whose wording runs long enough to wrap across lines.\n  - [G @why] A reason that also runs on for a while, so its line breaks follow the measure.\n';
+    const worded = '- [C @claim] A conclusion whose `wording()` runs long enough to wrap across lines.\n  - [G @why] A reason with `code()` that also runs on for a while, so its line breaks follow the measure.\n';
     await page.evaluate(source => window.mount(source), worded);
     await advance(0);
     const wording = () => page.locator('#map .cog-node .cog-text').evaluateAll(nodes => nodes.map(node => [...node.childNodes].map(line => line.textContent).join('|')));

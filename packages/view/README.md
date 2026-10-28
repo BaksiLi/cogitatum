@@ -76,11 +76,6 @@ view.clear();
 view.destroy();
 ```
 
-An optional synchronous `caption(text)` hook supplies plain-text Point excerpts for the drawing.
-The default is the full authored text; a throwing or invalid callback falls back to that text.
-Captions are resolved once per graph rebuild and do not change Graph IR, accessibility wording, selections or callback content.
-Block exposes the same hook as `mapCaption`.
-
 Callbacks receive a projected node with its typed compilation `ref`, optional authored `name`, full text and source span. The renderer neither accepts nor stores evidence. A host resolves evidence against its own proposal or accepted revision, then shows it beside the diagram. Names are scoped to a source unit; compilation keys are not persistent IDs. Compiler spans and transcript/audio evidence remain separate.
 
 Mount once in a React effect, call `update` for each compiled revision, and return `destroy` from cleanup. Recreate the view or use current refs when callback closures change. Each instance appends/removes only its own SVG and has independent markers and event handlers. No DOM access occurs at module import, so server-side imports work.
@@ -112,6 +107,8 @@ Positions are view-local and never modify the compiled graph or source; `resetLa
 `select(ref)` accepts a ref from the current compilation only and updates `aria-pressed` synchronously; `fit()` and `zoom(factor)` let the host supply controls.
 Positions live in world space and the camera maps them to pixels.
 Wording retains its CSS reading size (14px wording, 12px names by default); line height follows the host font size, while Point glyphs scale within bounds.
+Map wording renders single-backtick inline code in monospace; longer backtick delimiters remain literal.
+This presentation preserves full authored text in callbacks, accessible labels and source.
 At close zoom, captions allow three lines; farther out, they use two, then hide until focused.
 The view frames itself once its container has size, including after being revealed from a hidden panel.
 A tall map in a full panel opens at reading scale near its conclusion so the reader can pan through it.

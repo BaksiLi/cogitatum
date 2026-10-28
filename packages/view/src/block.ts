@@ -1,5 +1,5 @@
 import { explainSource, type BearingTarget, type GraphIR, type SourceSpan } from "@cogitatum/core";
-import { createGraphView, type GraphView, type GraphViewOptions } from "./index.js";
+import { createGraphView, type GraphView } from "./index.js";
 import { createReadingView } from "./reading.js";
 import { createStrandsView, type StrandsView } from "./strands.js";
 import { projectReading } from "./reading-projection.js";
@@ -17,7 +17,6 @@ export type BlockEditRequest = {
   signal: AbortSignal;
 };
 export type BlockViewOptions = {
-  mapCaption?: GraphViewOptions["caption"];
   renderProse?: ProseRenderer;
   onEdit?: (request: BlockEditRequest) => void | Promise<void>;
   /** Host-owned image URL, used as a decorative mask in the host's ink colour. */
@@ -228,7 +227,6 @@ export function createBlockView(container: HTMLElement, options: BlockViewOption
     }
     if (mode === "map" && !map && graph) {
       map = createGraphView(mapSurface, {
-        caption: options.mapCaption,
         onSelect: node => choose(node.ref),
         onClear: () => choose(),
         onNavigate: options.onEdit ? () => { void revealSource(selectedSpan); } : undefined

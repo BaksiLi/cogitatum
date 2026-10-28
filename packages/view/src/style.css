@@ -29,6 +29,7 @@
 /* Fixed, readable type: the camera never scales text. */
 .cog-graph text { pointer-events: none; }
 .cog-graph .cog-text { font-size: 14px; fill: var(--cog-ink-resolved); paint-order: stroke; stroke: var(--cog-canvas-resolved); stroke-width: 4px; stroke-linejoin: round; }
+.cog-graph .cog-code { font-family: ui-monospace, "IBM Plex Mono", Menlo, monospace; white-space: pre; }
 .cog-graph .cog-text.cog-overview { font: 11px ui-monospace, "IBM Plex Mono", Menlo, monospace; fill: var(--cog-muted-resolved); }
 .cog-graph .cog-label { font: 12px ui-monospace, "IBM Plex Mono", Menlo, monospace; fill: var(--cog-muted-resolved); paint-order: stroke; stroke: var(--cog-canvas-resolved); stroke-width: 4px; }
 
