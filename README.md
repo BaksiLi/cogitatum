@@ -23,7 +23,7 @@ The compiler makes these connections inspectable without deciding whether the re
 ## Release status
 
 This checkout prepares **Core/CLI 0.6.0 / format 0.6.0**, not yet published.
-It includes multiline content, local Bearing construction such as `[_ G]`, object notes, and revised local relation rules.
+It includes multiline content, target terms `^` and `^/` with Bearing constructors such as `[_ +> ^]`, object notes, and revised local relation rules.
 The Docs describe this development version.
 See the [migration from 0.5](docs/syntax.md#from-published-05) and [changelog](CHANGELOG.md) before recompiling saved notes.
 
@@ -120,7 +120,7 @@ Website deployments and the private experimental View have separate readiness ch
 | Layer | Owns | Does not establish |
 | --- | --- | --- |
 | Language and Core | Authored constructors, target requirements, name resolution, diagnostics, versioned AST/Graph IR/Explain/source envelopes | Truth, defeat, acceptability or resolution of the inquiry |
-| Graph IR and graph-text inspection | Individual typed entities, ordered sources and resolved targets; the text view follows its bounded `structure-v1` projection | Original prose, literal notes, local use marks or the source constraint distinguishing `/>` from named `challenges` |
+| Graph IR and graph-text inspection | Individual typed entities, ordered sources and resolved targets; the text view follows its bounded `structure-v1` projection | Original prose, literal notes, local use marks or whether a mark or a written clause supplied the relation |
 | Experimental Reading, Map and Strands | Source occurrences projected from the exact input plus one `explainSource` result; visual topology, selection and local geometry | A new language or persisted inquiry model; moving a mark never edits source or a Bearing |
 | Host application | Input revision and mode, source navigation, native editing, storage, evidence and build provenance | Consumer compatibility merely because the public compiler's CI passed |
 | Future Cogitatio | Ongoing inquiry, revision, review and continuity require separate contracts | A runtime, resolution protocol or theory API delivered by this Core/CLI release |
@@ -151,7 +151,7 @@ Verify the GitHub Actions trusted publisher in the npm settings for both [`@cogi
 No npm token or GitHub secret is needed.
 A new trusted publisher must complete its first successful publish within two days of creation.
 
-For the 0.6 release, review migration against published 0.5.0 / format 0.5.0, including local Bearing constructors, Q/C relation defaults, retired Gap syntax and regenerated source projections.
+For the 0.6 release, review migration against published 0.5.0 / format 0.5.0, including target terms, Bearing constructors, Q/C relation defaults, the retired `/>`, retired Gap syntax and regenerated source projections.
 Run `npm run check` and `npm run check:publication` on the final integrated commit, with matching Core/CLI versions and the CLI's exact Core dependency.
 Passing stacked-PR checks applies to those checked commits and bases; it does not verify a later combined or retargeted head.
 Record downstream adoption against the exact public source pin and schema bundle, and rerun affected consumer checks when that pin changes.

@@ -127,13 +127,13 @@ describe("reference-only Bearing occurrences", () => {
   });
 
   it("retains typed explicit target checks within Bearing discussions", () => {
-    const { graph } = compile(declarations + "\n" + route + "\n- [_ use @route]\n  - [O -> @route] General challenge to a Bearing.\n  - [O /> @premise] Wrong Bearing target.\n  - [O /> @route] Correct.");
-    expect(codes(graph)).toContain("CHALLENGE_REQUIRES_BEARING_TARGET");
+    const { graph } = compile(declarations + "\n" + route + "\n- [_ use @route]\n  - [O -> @route] General challenge to a Bearing.\n  - [R respondsTo @route] Wrong Point-only target.\n  - [O -> @route] Correct.");
+    expect(codes(graph)).toEqual(["BEARING_KIND_REQUIRES_POINT_TARGET"]);
     expect(graph.bearings).toHaveLength(3);
   });
 
   it.each(["route", "missing", "route; @alias", "route _> @claim"])("keeps direct Bearing use %s independent of linked sources", operand => {
-    const source = declarations + "\n" + route + "\n- [C @joint-target] Joint target.\n  - [_ G; @joint]\n    - [. use @premise]\n      - [O/] A member has no unary attachment.\n    - [_ use @" + operand + "] Independent occurrence.\n      - [O/ @assessment] Assess the reference.\n    - [. @second] Second source.";
+    const source = declarations + "\n" + route + "\n- [C @joint-target] Joint target.\n  - [_ +> ^; @joint]\n    - [. use @premise]\n      - [O/] A member has no unary attachment.\n    - [_ use @" + operand + "] Independent occurrence.\n      - [O/ @assessment] Assess the reference.\n    - [. @second] Second source.";
     const { graph, explain } = compile(source);
     expect(relations(graph).find(bearing => bearing.handle === "joint")).toEqual({ kind: "supports", handle: "joint", sources: ["premise", "second"], target: { kind: "point", name: "joint-target" } });
     const entry = explain.entries.find(entry => entry.recognition.kind === "bearingUse")!;
@@ -145,14 +145,14 @@ describe("reference-only Bearing occurrences", () => {
   });
 
   it("requires sources in a use-only linked and never crosses a Bearing-use boundary", () => {
-    const { graph } = compile(declarations + "\n" + route + "\n- [C @outer] Outer.\n  - [_ G; @empty]\n    - [_ use @route]\n  - [_ use @route]\n    - [_ G; @nested]\n      - [. @member] Not support for outer.");
+    const { graph } = compile(declarations + "\n" + route + "\n- [C @outer] Outer.\n  - [_ +> ^; @empty]\n    - [_ use @route]\n  - [_ use @route]\n    - [_ +> ^; @nested]\n      - [. @member] Not support for outer.");
     expect(codes(graph)).toContain("EMPTY_LOCAL_BEARING");
     expect(codes(graph)).toContain("LOCAL_BEARING_REQUIRES_POINT_TARGET");
     expect(relations(graph).map(bearing => bearing.handle)).toEqual(["route"]);
   });
 
   it("rejects an atomic source set despite independent Bearing discussion", () => {
-    const { graph } = compile(declarations + "\n" + route + "\n- [C @joint-target] Joint target.\n  - [_ G; @joint]\n    - [. use @premise]\n    - [. use @premise]\n    - [_ use @route]\n      - [O/ @assessment] Independent.");
+    const { graph } = compile(declarations + "\n" + route + "\n- [C @joint-target] Joint target.\n  - [_ +> ^; @joint]\n    - [. use @premise]\n    - [. use @premise]\n    - [_ use @route]\n      - [O/ @assessment] Independent.");
     expect(codes(graph)).toContain("DUPLICATE_BEARING_SOURCES");
     expect(relations(graph).map(bearing => bearing.handle)).toEqual(["route", undefined]);
     expect(relations(graph)[1].target.name).toBe("route");

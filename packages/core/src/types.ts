@@ -3,14 +3,13 @@ export const FORMAT_VERSION = "0.6.0";
 export type Role = "Q" | "C" | "G" | "O" | "R" | "D";
 export type BearingOp = "supports" | "challenges" | "concerns";
 export type BearingKind = BearingOp | "respondsTo" | "clarifies" | "answers";
+/** How the target was selected: by position ("structural") or by name ("operator"). */
 export type BearingDerivedBy = "operator" | "structural";
 export type Severity = "error" | "warning" | "suggestion";
-export type AnnotationSyntaxError = "operator" | "handle" | "localBearing" | "mode" | "selector" | "reference" | "retired" | "note";
+export type AnnotationSyntaxError = "operator" | "handle" | "mode" | "selector" | "reference" | "retired" | "note";
 export type LocalBearingChildFunction = "source" | "commentary" | "independent" | "supplementary" | "unclassified";
-export type LocalBearingRole = "G" | "O" | "R" | "D";
-export type LocalBearingMark =
-  | { role?: LocalBearingRole; selector?: never }
-  | { role: "G" | "O" | "Q"; selector: "attachment" };
+/** Roles whose `/` form selects the locally exposed Bearing. */
+export type SelectorRole = "G" | "O" | "Q" | "D";
 export type SourceParseMode = "document" | "host";
 export type SourceUnitKind = "document" | "fence";
 
@@ -35,18 +34,32 @@ export type BearingRef = {
   kind: "bearing";
 };
 
-// Authored target requirements stay correlated with the canonical kind.
+/** A positional target: the nearest semantic context's Point slot (`^`) or Bearing slot (`^/`). */
+export type LocalTarget = { local: "point" | "bearing"; id?: never };
+/** A named reference or a positional slot; positional terms are never names, so the two shapes exclude each other. */
+export type TargetTerm = NamedTarget | LocalTarget;
+export type NamedTarget = Ref & { local?: never };
+
+/** Whether a target term names its target rather than taking it from its position. */
+export function isNamedTarget(term: TargetTerm): term is NamedTarget {
+  return term.local === undefined;
+}
+
+/**
+ * One authored relation. Sources are the occurrence itself ("self"), the
+ * constructor's direct neutral children ("members"), or named Points.
+ * Whether a kind admits a Bearing target follows from the kind alone.
+ */
 export type OperatorClause = {
-  sources: Ref[] | "self";
-  target: Ref;
-} & (
-  | { op: "supports" | "concerns"; targetKind: "either" }
-  | { op: "challenges"; targetKind: "bearing" | "either" }
-  | { op: "answers" | "respondsTo" | "clarifies"; targetKind: "point" }
-);
+  op: BearingKind;
+  sources: Ref[] | "self" | "members";
+  target: TargetTerm;
+};
 
 // A Point declaration or use is the sole source of its explicit clause.
 export type PointOperatorClause = OperatorClause & { sources: "self" };
+// A Bearing constructor takes its sources from children or from references.
+export type BearingOperatorClause = OperatorClause & { sources: Ref[] | "members" };
 
 type AnnotationBase<ErrorKind extends AnnotationSyntaxError = "operator" | "handle" | "selector" | "retired"> = {
   syntaxErrors?: ErrorKind[];
@@ -54,15 +67,16 @@ type AnnotationBase<ErrorKind extends AnnotationSyntaxError = "operator" | "hand
   raw: string;
 };
 
+// A selector is the authored shorthand for the role's default relation to `^/`.
 type RoleMark =
-  | { role: "G" | "O" | "Q"; status?: never; selector: "attachment"; operatorClause?: never }
+  | { role: SelectorRole; status?: never; selector: "attachment"; operatorClause?: never }
   | { role: Role; status?: never; selector?: never };
 
-// A reused Point has its own local role; G/, O/ and Q/ select an attachment.
-// AST and Explain must retain the same role/selector correlation.
+// A reused Point has its own local role. AST and Explain must retain the same
+// role/selector correlation.
 type PointUseMark =
   | { role?: Role; selector?: never }
-  | { role: "G" | "O" | "Q"; selector: "attachment"; operatorClause?: never };
+  | { role: SelectorRole; selector: "attachment"; operatorClause?: never };
 
 type PointAnnotationBase = AnnotationBase & {
   anchor?: string;
@@ -80,12 +94,17 @@ export type Annotation =
     } & PointUseMark)
   | (PointAnnotationBase & RoleMark & { kind: "role" })
   | (PointAnnotationBase & { kind: "material" })
-  // Local Bearing construction: sources are children and the target is local.
-  | (AnnotationBase<"localBearing" | "handle"> & { kind: "localBearing" } & LocalBearingMark)
-  // "mode" records a Bearing-family header whose first token selects no mode.
+  /**
+   * Bearing construction. A valid header without a clause is `[_]` or `[_/]`:
+   * joint `concerns` from its members to the selected slot. `members` records
+   * whether direct children are the sources, including on a failed header.
+   * "mode" records a header whose first token selects no mode.
+   */
   | (AnnotationBase<"operator" | "handle" | "selector" | "retired" | "mode"> & {
-      kind: "explicitBearing";
-      operatorClause?: OperatorClause & { sources: Ref[] };
+      kind: "bearing";
+      members: boolean;
+      operatorClause?: BearingOperatorClause;
+      selector?: "attachment";
     });
 
 export type AstBlock = {
@@ -161,9 +180,11 @@ type BearingBase = {
   sourceSpan?: SourceSpan;
 };
 
+// Dialogical relations address a Point; evaluative and interpretive ones may
+// also address a Bearing.
 type BearingRelation =
-  | { kind: "answers" | "respondsTo" | "clarifies"; target: PointRef }
-  | { kind: "supports" | "challenges" | "concerns"; target: BearingTarget };
+  | { kind: "answers" | "respondsTo"; target: PointRef }
+  | { kind: "supports" | "challenges" | "concerns" | "clarifies"; target: BearingTarget };
 
 export type Bearing = BearingBase & BearingRelation;
 
@@ -200,8 +221,7 @@ export type ExplainRecognition =
   | { kind: "invalid"; selector?: "attachment" }
   | ({ kind: "role" } & RoleMark)
   | { kind: "material" }
-  | { kind: "explicitBearing" }
-  | ({ kind: "localBearing" } & LocalBearingMark)
+  | { kind: "bearing"; members: boolean; selector?: "attachment" }
   | { kind: "bearingUse"; ref?: Ref }
   | ({ kind: "use"; ref?: Ref } & PointUseMark);
 
@@ -268,6 +288,7 @@ export type ExplainEffect =
         | "bearing-use-requires-explicit-target"
         | "failed-context-requires-explicit-target"
         | "no-local-attachment"
+        | "no-local-point"
         | "validation-error"
         | "invalid-local-bearing";
     }

@@ -8,14 +8,14 @@ const source = [
   "  - [G @g; @step] Ground.",
   "    - Context from the case file.",
   "      - [O] Through body.",
-  "    - [_ O/; @r] Together.",
+  "    - [_ -> ^/; @r] Together.",
   "      - [. @x] X.",
   "      - [. @y] Y.",
   "      - [_ note] Note on the joint.",
-  "    - [Q] Question?",
+  "    - [C] Sub-claim.",
   "  - [G -> @g] Explicit.",
   "- [C] Other.",
-  "  - [_ G/]",
+  "  - [_ +> ^/]",
   "    - [.] Fails."
 ].join("\n");
 const reading = projectReading(source, explainSource(source, "document"));
@@ -34,7 +34,7 @@ describe("Reading commitments", () => {
     expect(at(3)).toBeUndefined();
   });
 
-  it("brackets local Bearing sources under their header and keeps members relation-free", () => {
+  it("brackets constructor sources under their header and keeps members relation-free", () => {
     expect(at(5)).toMatchObject({ basis: "indentation", kind: "challenges", target: { kind: "bearing" } });
     expect(at(5)!.memberOccurrenceIds.map(lineOf)).toEqual([6, 7]);
     expect(at(6)).toMatchObject({ basis: "member", memberFunction: "source" });
@@ -42,7 +42,7 @@ describe("Reading commitments", () => {
     expect(at(8)).toMatchObject({ basis: "note", target: { kind: "bearing" } });
   });
 
-  it("distinguishes explicit, relation-free and failed occurrences", () => {
+  it("distinguishes named, relation-free and failed occurrences", () => {
     expect(at(10)).toMatchObject({ basis: "explicit", kind: "challenges" });
     expect(at(10)!.contextOccurrenceId).toBeUndefined();
     expect(at(9)).toMatchObject({ basis: "none", reason: "no-structural-rule" });
@@ -56,24 +56,24 @@ describe("Reading commitments", () => {
     const text = (line: number) => describeCommitment(unit, at(line)!);
     expect(text(4)).toBe("From indentation: challenges @g (L2), the nearest enclosing Point. It passes through ordinary body at L3. Moving it or changing its mark can change this.");
     expect(text(5)).toBe("From indentation, with sources L6, L7: challenges @step (L2), the nearest exposed step. Moving it or changing its mark can change this.");
-    expect(text(6)).toBe("Source of the local Bearing at L5; it adds no relation of its own.");
+    expect(text(6)).toBe("Source of the constructor at L5; it adds no relation of its own.");
     expect(text(8)).toBe("From indentation: a note on @r (L5).");
-    expect(text(9)).toBe("Q marks presentation only; its position creates no relation.");
-    expect(text(10)).toBe("Explicit: challenges @g. Indentation does not choose this relation or target.");
+    expect(text(9)).toBe("C states no relation; its position creates none.");
+    expect(text(10)).toBe("Named target: challenges @g. Indentation does not choose this target.");
     expect(text(1)).toBe("No enclosing Point or step; its position creates no relation.");
-    expect(text(12)).toMatch(/^No relation: the local Bearing is invalid\. Its context is L11\. The nearest enclosing Point has no attachment, so \[_ G\/\] has no step to support\./);
+    expect(text(12)).toMatch(/^No relation: the constructor or its members are invalid\. Its context is L11\. The nearest enclosing Point has no attachment, so \^\/ has no step to support\. To support the Point itself, write \[_ \+> \^\]/);
   });
 
   it.each([
-    "- [C] Claim.\n  - [_ G]\n    - [. @a] A.\n    - [. use @a]",
-    "- [C] Claim.\n  - [_ G]\n    - [. use @missing]"
+    "- [C] Claim.\n  - [_ +> ^]\n    - [. @a] A.\n    - [. use @a]",
+    "- [C] Claim.\n  - [_ +> ^]\n    - [. use @missing]"
   ])("does not present sources of a rejected joint as an established relation", source => {
     const unit = projectReading(source, explainSource(source, "document")).units[0];
     expect(unit.graph.bearings).toHaveLength(0);
     const members = unit.commitments.filter(item => item.basis === "member");
     expect(members.length).toBeGreaterThan(0);
     for (const member of members) expect(describeCommitment(unit, member)).toBe(
-      "Eligible source for the local Bearing at L2, which was rejected; no relation was created.");
+      "Eligible source for the constructor at L2, which was rejected; no relation was created.");
   });
 
   it("names anonymous targets by line", () => {

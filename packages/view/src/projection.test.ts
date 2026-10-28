@@ -16,7 +16,7 @@ describe("faithful graph projection", () => {
   });
 
   it("keeps the typed endpoint when both content and route objections are challenges", () => {
-    const graph = compileSource('- [C @c] Claim.\n  - [G; @route] Reason.\n- [O -> @c; @content] Content objection.\n- [O /> @route; @step] Step objection.', 'document').graphs[0];
+    const graph = compileSource('- [C @c] Claim.\n  - [G; @route] Reason.\n- [O -> @c; @content] Content objection.\n- [O -> @route; @step] Step objection.', 'document').graphs[0];
     const topology = projectGraph(graph);
     const display = projectExploration(topology);
     const challenges = graph.bearings.filter(b => b.kind === 'challenges');
@@ -28,7 +28,7 @@ describe("faithful graph projection", () => {
     expect(display.nodes.some(node => node.ref.kind === 'bearing' && node.ref.key === graph.bearings[0].key)).toBe(true);
   });
   it("retains joint support and pressure on that same bearing", () => {
-    const graph = compileSource('- [C @c] Claim.\n- [G @a] First.\n- [G @b] Second.\n- [edge @a, @b +> @c; @route]\n- [O /> @route] Route objection.','document').graphs[0];
+    const graph = compileSource('- [C @c] Claim.\n- [G @a] First.\n- [G @b] Second.\n- [edge @a, @b +> @c; @route]\n- [O -> @route] Route objection.','document').graphs[0];
     const p = projectGraph(graph);
     expect(p.nodes).toHaveLength(6); expect(p.links).toHaveLength(5);
     const route = graph.bearings.find(b=>b.handle==='route')!;
@@ -72,7 +72,7 @@ describe("exploration presentation", () => {
   it("keeps joint support and an addressed connection as explicit junctions", () => {
     for (const source of [
       '- [C @c] Claim.\n- [G @a] First.\n- [G @b] Second.\n- [edge @a, @b +> @c; @route]',
-      '- [C @c] Claim.\n- [G @a +> @c; @route] First.\n- [O @o /> @route; @pressure] Weak route.'
+      '- [C @c] Claim.\n- [G @a +> @c; @route] First.\n- [O @o -> @route; @pressure] Weak route.'
     ]) {
       const graph = compileSource(source, 'document').graphs[0];
       const display = projectExploration(projectGraph(graph));
@@ -103,7 +103,7 @@ describe("focus neighborhood", () => {
     "- [C @water] Broad Street 水泵可能是這次霍亂暴發的來源。",
     "- [G @cluster] 多數死亡病例集中在水泵周邊。",
     "- [edge @cluster +> @water; @proximity] 地理上的接近，可能反映飲用該水泵水的機會。",
-    "- [O @exceptions /> @proximity] 附近濟貧院與啤酒廠幾乎沒有病例。",
+    "- [O @exceptions -> @proximity] 附近濟貧院與啤酒廠幾乎沒有病例。",
     "- [G @exposure] 這兩處不用該水泵；一些遠處患者卻曾飲用泵水。",
     "- [edge @cluster, @exposure +> @water; @water-route] 真正重要的是飲水暴露，而不只是地理位置。"
   ].join("\n");
@@ -131,7 +131,7 @@ describe("focus neighborhood", () => {
   });
 
   it("keeps parallel Bearings of one kind between the same endpoints as distinct routes", () => {
-    const graph = compileSource("- [C @c] Claim.\n- [G @a] Reason.\n- [edge @a +> @c; @first] One reading.\n- [edge @a +> @c; @second] Another reading.\n- [O /> @second] Doubt.", "document").graphs[0];
+    const graph = compileSource("- [C @c] Claim.\n- [G @a] Reason.\n- [edge @a +> @c; @first] One reading.\n- [edge @a +> @c; @second] Another reading.\n- [O -> @second] Doubt.", "document").graphs[0];
     const projection = projectGraph(graph);
     const [first, second, doubt] = graph.bearings;
     expect(focusNeighborhood(projection, { kind: "bearing", key: first.key }).bearingKeys).toEqual([first.key]);
@@ -158,7 +158,7 @@ describe("focus neighborhood", () => {
     expect(focus.nodeIds).not.toContain(referenceKey({kind: 'point', key: graph.points.find(p => p.id === 'd')!.key}));
   });
   it("includes pressure on a selected connection and all of its joint sources", () => {
-    const graph = compileSource('- [C @c] Claim.\n- [G @a] First.\n- [G @b] Second.\n- [edge @a, @b +> @c; @route]\n- [O @o /> @route; @pressure] Weak route.', 'document').graphs[0];
+    const graph = compileSource('- [C @c] Claim.\n- [G @a] First.\n- [G @b] Second.\n- [edge @a, @b +> @c; @route]\n- [O @o -> @route; @pressure] Weak route.', 'document').graphs[0];
     const route = graph.bearings.find(b => b.handle === 'route')!;
     const projection = projectGraph(graph);
     const focus = focusNeighborhood(projection, {kind: 'bearing', key: route.key});
@@ -194,9 +194,9 @@ describe("Point focus includes direct context of its incident Bearings", () => {
 
   it("retains all Linked sources and one level of assessment without following neighbouring Points", () => {
     const graph = graphFor([
-      "- [C @claim] Claim.", "  - [_ G; @route]", "    - [. @a] First premise.", "    - [. @b] Second premise.",
-      "- [O @objection /> @route; @attack] Step objection.",
-      "- [O @reply /> @attack; @counterattack] A further objection.",
+      "- [C @claim] Claim.", "  - [_ +> ^; @route]", "    - [. @a] First premise.", "    - [. @b] Second premise.",
+      "- [O @objection -> @route; @attack] Step objection.",
+      "- [O @reply -> @attack; @counterattack] A further objection.",
       "- [C @next] Later claim.", "- [_ @claim supports @next; @onward]"
     ]);
     const projection = projectGraph(graph);

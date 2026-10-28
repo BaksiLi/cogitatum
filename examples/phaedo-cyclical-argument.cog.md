@@ -1,7 +1,7 @@
 - A reading of Plato, Phaedo 70c–72d. The argument is paraphrased; the objections below are ours.
 - Socrates’ argument from opposites
   - [C @return] The living come to be from the dead, just as the dead come to be from the living.
-    - [_ G; @cycle] The argument from opposites.
+    - [_ +> ^; @cycle] The argument from opposites.
       - [. @opposites] Whatever has an opposite comes to be from that opposite, by processes running in both directions.
         - [note] Passage 70d–71b
           - Socrates' cases include becoming larger and smaller, and heating and cooling; sleeping and waking serve as the model pair at 71c–d.
@@ -15,7 +15,7 @@
         - We treat it as a second, independent route to the same conclusion. It could instead be read as support for the two-way principle alone.
 - From returning to life to surviving death
   - [C @survival] The souls of the dead exist somewhere, from where they come back to life.
-    - [_ G; @survival-step]
+    - [_ +> ^; @survival-step]
       - [. use @return]
       - [. @continuity] If the living come to be from the dead, the souls of the dead must exist somewhere, since otherwise they could not come back to life.
         - [note] Passages 70c–d and 72a

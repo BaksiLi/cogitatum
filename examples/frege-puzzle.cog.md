@@ -4,7 +4,7 @@
       - [G; @sense-case] Co-referential names may differ in sense.
       - [D] Distinguish sense from reference.
       - [. ~> @sense-case] The connection from difference in sense to difference in cognitive value still needs an explanation.
-      - [O /> @sense-case] This inference assumes that cognitive value is semantically relevant.
+      - [O -> @sense-case] This inference assumes that cognitive value is semantically relevant.
         - [R] Frege's puzzle is meant to show that semantics must account for cognitive value.
       - [. @frege-text ~> @c1] Source note: Gottlob Frege, “Über Sinn und Bedeutung” (1892).
         - This example paraphrases a reading; it does not quote the essay.

@@ -6,8 +6,10 @@ export { compileSource, explainSource, extractCogitatumSourceUnits, parseSource 
 export { analyzeSourceReferences } from "./source-references.js";
 export type { WrittenReference, ReferencedName, SourceReferenceAnalysis } from "./source-references.js";
 export { formatGraph, GRAPH_TEXT_VERSION } from "./graph-text.js";
-export { previewExplicitTarget } from "./explicit-target.js";
-export type { ExplicitTargetOptions, ExplicitTargetPreview, ExplicitTargetUnavailableReason } from "./explicit-target.js";
-export { previewBearingForm } from "./bearing-form.js";
-export type { BearingForm, BearingFormOptions, BearingFormPreview, BearingFormUnavailableReason, SourceEdit } from "./bearing-form.js";
+export { compareCommitments, entailment, graphCommitments, suggestCorrespondence } from "./commitments.js";
+export type { Commitment, CommitmentComparison, CommitmentRelation, Correspondence, CorrespondenceBasis, CorrespondenceSuggestion } from "./commitments.js";
+export { previewRelationEdit } from "./relation-edit.js";
+export type { RelationEdit, RelationEditOptions, RelationEditPreview, RelationEditUnavailableReason } from "./relation-edit.js";
+export { previewTargetForm } from "./target-form.js";
+export type { TargetForm, TargetFormOptions, TargetFormPreview, TargetFormUnavailableReason, SourceEdit } from "./target-form.js";
 export { formatExplain, EXPLAIN_TEXT_VERSION } from "./explain-text.js";

@@ -77,25 +77,26 @@ Outlines copied from tools that indent with tabs, such as Logseq or Obsidian, co
 ## Annotation grammar
 
 ```text
-annotation := "[" (role | neutral | bearing | selector | use | note) "]"
-role       := ROLE [REF] [(OP | KIND) REF] [";" REF]
-neutral    := POINT [REF] [(OP | KIND) REF] [";" REF]
-bearing    := BEARING (local | explicit | "use" REF | "note")
-local      := (LOCAL_ROLE | SELECTOR) [";" REF]
-explicit   := REF_LIST (OP | KIND) REF [";" REF]
+annotation := "[" (point | selector | bearing | use | note) "]"
+point      := (ROLE | POINT) [REF] [clause] [";" REF]
 selector   := SELECTOR [REF] [";" REF]
-use        := (POINT | ROLE) "use" REF [(OP | KIND) REF] [";" REF]
+bearing    := BEARING [SOURCES] clause [";" REF]
+            | BEARING ["/"] [";" REF]
+            | BEARING "use" REF
+            | BEARING "note"
+use        := (ROLE | POINT) "use" REF [clause] [";" REF]
             | SELECTOR "use" REF [";" REF]
 note       := [POINT] "note"
-LOCAL_ROLE := "G" | "O" | "R" | "D"
+clause     := (OP | KIND) TARGET
+TARGET     := REF | "^" | "^/"
+SOURCES    := REF ("," REF)*
+ROLE       := "Q" | "C" | "G" | "O" | "R" | "D"
+SELECTOR   := "G/" | "O/" | "Q/" | "D/"
 POINT      := "." | "point" | "node"
 BEARING    := "_" | "bearing" | "edge"
-ROLE       := "Q" | "C" | "G" | "O" | "R" | "D"
-SELECTOR   := "G/" | "O/" | "Q/"
-REF_LIST   := REF ("," REF)*
 REF        := "@" ID
 ID         := [a-z][a-z0-9_-]*
-OP         := "+>" | "->" | "/>" | "~>"
+OP         := "+>" | "->" | "~>"
 KIND       := "supports" | "challenges" | "concerns"
             | "answers" | "respondsTo" | "clarifies"
 ```
@@ -103,40 +104,63 @@ KIND       := "supports" | "challenges" | "concerns"
 Token order and case matter; role marks are uppercase and keywords are lowercase.
 Relation names are case-sensitive English third-person-singular verbs or verb phrases in lowerCamelCase, read source–relation–target.
 Whitespace separates words and reference lists use commas.
-Each operator has exactly one target; a Bearing construction has one or more distinct Point sources.
-Explicit construction names its endpoints; local construction takes them from the outline.
-A selector and an operator are mutually exclusive, including on a use.
+
+Every relation is written the same way: a relation, then one target term.
+The target term is a name, `@claim`, or a position.
+`^` is the nearest enclosing Point and `^/` is the Bearing that the nearest context exposes.
+They are positions, not names: `@^` is malformed, and nothing can be declared as `^`.
+The header decides only where the sources come from:
+a Point occurrence is the sole source of its own clause,
+a constructor with listed sources uses those named Points,
+and a constructor without listed sources uses its direct neutral children.
+
+A mark abbreviates a clause toward a position, and the long spelling compiles to the same graph:
+
+| Written | Means | Relation |
+| --- | --- | --- |
+| `[G]` | `[G +> ^]` | `supports` the nearest Point |
+| `[O]` | `[O -> ^]` | `challenges` the nearest Point |
+| `[Q]` | `[Q ~> ^]` | `concerns` the nearest Point |
+| `[R]` | `[R respondsTo ^]` | `respondsTo` the nearest Point |
+| `[D]` | `[D clarifies ^]` | `clarifies` the nearest Point |
+| `[G/]`, `[O/]`, `[Q/]`, `[D/]` | the same relation toward `^/` | the exposed Bearing |
+| `[_]` | `[_ ~> ^]` | joint `concerns` from the children to the nearest Point |
+| `[_/]` | `[_ ~> ^/]` | joint `concerns` from the children to the exposed Bearing |
+
+`C` and `.` abbreviate no relation; write a clause, such as `[C answers @question]`, when one is intended.
+There is no `R/`: `respondsTo` and `answers` require a Point target.
+A selector abbreviates its clause, so it cannot also write one.
 Optional prose follows the closing bracket and may continue on indented lines.
-The `neutral` form declares a Neutral Point; the AST records it as annotation kind `material` and Graph IR as `declaration.form: "material"`.
+The `point` form declares a Neutral Point; the AST records it as annotation kind `material` and Graph IR as `declaration.form: "material"`.
 The Point family (`point`, `node`, `.`) and Bearing family (`bearing`, `edge`, `_`) share all construction, use and note grammar.
 Aliases change only written spelling and source coordinates, including failed and unclosed headers.
 `node` is a Cogitatum spelling for Point, not a mapping to another system's node categories.
 Examples primarily use `.` and `_`.
-After any Bearing family spelling, the first token alone selects the mode:
 
-| First token after `bearing`, `edge` or `_` | Mode | Example |
+After a Bearing family spelling, the first token selects what the header does:
+
+| First token after `bearing`, `edge` or `_` | Header | Example |
 | --- | --- | --- |
-| `G`, `O`, `R` or `D` | Local construction: direct neutral sources and the nearest enclosing Point target | `[_ G; @route]` |
-| `G/`, `O/` or `Q/` | Local construction: direct neutral sources and the nearest exposed Bearing target | `[_ O/; @review]` |
-| `@ref` | Explicit construction: named Point sources, relation and target | `[_ @a, @b +> @claim; @route]` |
+| none, or `/` written against the family | Joint `concerns` from the direct neutral children | `[_; @scope]`, `[_/]` |
+| An operator or kind | One relation from the direct neutral children | `[_ +> ^; @route]`, `[_ -> ^/]`, `[_ +> @claim]` |
+| `@ref` | One relation from the listed Points | `[_ @a, @b +> @claim; @route]`, `[_ @a, @b +> ^]` |
 | `use` | Reuse an existing Bearing with its endpoints unchanged | `[_ use @route]` |
-| `note` | Note mode: annotate the locally exposed Bearing with a literal subtree | `[_ note]` |
+| `note` | Annotate the locally exposed Bearing with a literal subtree | `[_ note]` |
 
-`[bearing G]`, `[edge G]` and `[_ G]` are the same local construction.
-`[bearing @a +> @b]`, `[edge @a +> @b]` and `[_ @a +> @b]` are the same explicit construction.
-A local header takes only its role and optional handle; `[_ G @a +> @b]` is a malformed mixed header (`MALFORMED_LOCAL_BEARING`).
-Any other first token selects no mode: `[_]`, `[_ +>]`, `[_ supports]` and `[edge cases]` receive `MALFORMED_BEARING_MODE`, whose message names the matching local header where one exists.
-Such a header remains a failed `explicitBearing` boundary with `syntaxErrors: ["mode"]`; its descendants cannot attach outward, and no explicit-target requirement is reported for them.
-A role written against the family spelling, as in `[_G]` or `[bearingG]`, is a malformed local header (`MALFORMED_LOCAL_BEARING`), never ordinary body.
+`[bearing +> ^]`, `[edge +> ^]` and `[_ +> ^]` are the same construction.
+Any other first token selects no mode: `[_ G]`, `[_ ^]`, `[_ /]` and `[edge cases]` receive `MALFORMED_BEARING_MODE`.
+Its message names the header that states the intended relation, such as `[_ +> ^]` for `[_ G]`.
+A header with a mode but an incomplete clause, such as `[_ +>]` or `[_ +> ^ @a +> @b]`, receives `MALFORMED_EXPLICIT_BEARING` or `MALFORMED_BEARING_TARGETS`.
+Either way the header remains a failed constructor boundary: its descendants cannot attach outward, and no named-target requirement is reported for them.
+A mark written against the family spelling, as in `[_G]` or `[bearingG]`, is also a rejected boundary, never ordinary body.
 This boundary also holds when the operator's separating spaces are missing, as in `[_G->@claim]`, including an unclosed header.
-Its descendants cannot acquire an implicit attachment to an outer Point; ordinary words such as `[_O-ring]` remain body.
-`[_ @a +>]` remains a malformed explicit construction, even when its children could supply local sources.
-The first token fixes the mode before the rest of the header is validated; no local fallback is attempted.
-There are no local `Q` or `C` headers, and no active standalone `linked` keyword.
+Ordinary words such as `[_O-ring]` remain body.
+The first token fixes the mode before the rest of the header is validated; no other mode is attempted.
+There is no active standalone `linked` keyword.
 
 ```md
 - [C @outer] Outer claim.
-  - [_G] The missing space keeps a rejected local boundary.
+  - [_G] The missing space keeps a rejected constructor boundary.
     - [.] This source does not fall back to body.
 ```
 
@@ -151,7 +175,7 @@ The occurrence keeps its mark, name and handle, so its Point or Point use surviv
 | `[Q @question respondsTo @objection]` | Question Point and one explicit response, replacing any default attachment |
 | `[G @reason; @route]` | Named Point and named structural Bearing, if the parent permits it |
 | `[_ @a, @b +> @claim; @route]` or `[edge @a, @b +> @claim; @route]` | One joint Bearing between existing Points; no new Point |
-| `[_ G; @route]` with direct neutral sources | One structural support to the nearest enclosing Point; sources participate jointly when there are several; no new Point |
+| `[_ +> ^; @route]` with direct neutral sources | One structural support to the nearest enclosing Point; sources participate jointly when there are several; no new Point |
 | `[. use @p]` | Present an existing Point without creating one or adding a default attachment |
 | `[G use @p; @route]` | Reuse an existing Point as a local Ground, with an attachment if the context permits |
 | `[_ use @route]` | Present an existing validated Bearing without constructing a relation or changing its endpoints |
@@ -259,20 +283,19 @@ The marks are authoring choices at an occurrence, not mutually exclusive semanti
 | --- | --- | --- |
 | `+>` | `supports` | Point or Bearing |
 | `->` | `challenges` | Point or Bearing |
-| `/>` | `challenges` | Bearing |
 | `~>` | `concerns` | Point or Bearing |
 
-In `G/`, `O/` and `Q/`, `/` selects the locally exposed Bearing.
-They construct `supports`, `challenges` and `concerns` respectively.
-Ordinary `Q` has no default relation; `Q/` explicitly requests relevance to a step.
-The operator `/>` instead states a challenge to a named target and requires that target to be a Bearing.
-Thus `[Q/]` concerns a local Bearing, while `[Q /> @step]` challenges the named Bearing.
-There is no positive or relevance counterpart to `/>`; `+>` and `~>` already accept Bearing targets.
+The operator names the relation; the target term alone decides whether its object is a Point or a Bearing.
+`[O -> @claim]` challenges a Point and `[O -> @route]` challenges a Bearing, according to what each name declares.
+In `G/`, `O/`, `Q/` and `D/`, `/` writes the position `^/`: the locally exposed Bearing.
+They construct `supports`, `challenges`, `concerns` and `clarifies` respectively.
+The retired `/>` and `_>` operators are diagnosed with `RETIRED_AUTHORING_SYNTAX` and migrate to `->`.
 These are target-selection rules, not degrees of support or opposition.
 
 Point declarations and uses accept all six case-sensitive canonical names:
 `supports`, `challenges`, `concerns`, `answers`, `respondsTo` and `clarifies`.
-The first three have the symbolic spellings above; the last three require Point targets.
+The first three have the symbolic spellings above.
+`answers` and `respondsTo` require Point targets; `clarifies`, like the first three, accepts a Point or a Bearing.
 For example, `[Q @question respondsTo @objection]` declares a Question and states one response.
 `[Q use @question respondsTo @objection]` states the same kind of attachment using an existing Point.
 Neither form changes its written role, shared content or child context.
@@ -285,20 +308,21 @@ The target may be a Point or a named Bearing.
 Invalid sources or targets reject the entire relation, preserving diagnostics rather than silently dropping a source.
 See [joint relevance](#joint-relevance) for executable examples and the contrast with two independent `concerns` Bearings.
 
-Outside a local Bearing's direct membership, without an explicit clause, the child mark selects the relation to the nearest enclosing Point:
+Outside a constructor's direct membership, without a written clause, the child mark supplies the relation and `^` the target:
 
 | Child | Parent | Derived kind |
 | --- | --- | --- |
-| `.`, `Q`, `C` | Any Point | none |
+| `.`, `C` | Any Point | none |
 | `G` | Any Point | `supports` |
 | `O` | Any Point | `challenges` |
+| `Q` | Any Point | `concerns` |
 | `R` | Any Point | `respondsTo` |
 | `D` | Any Point | `clarifies` |
 
-`Q` and `C` only mark presentation; neither attaches automatically, even beneath another Q.
-Their source nesting can be complete without a Bearing or an isolation diagnostic.
-To record an answer, state `answers` explicitly.
-To record relevance, state `concerns` or `~>` explicitly, or use `Q/` to select a local Bearing.
+A Question beneath a Point is about that Point: `[Q]` is `[Q ~> ^]`.
+`concerns` records relevance only; it neither supports nor challenges, and it is not an answer.
+`C` and `.` state no relation, so a Claim beneath a Question creates no Bearing; to record an answer, state `answers` explicitly.
+A root Question has no nearest Point and stays an unattached Point, as before.
 A local relation mark states its kind; indentation selects its target.
 All six explicit kinds remain available and check references, source uniqueness, shape and target type rather than declaration roles.
 Body is transparent, but a Point declaration or Point use establishes a local Point context.
@@ -309,7 +333,7 @@ A referenced Point's declaration never supplies an occurrence's mark.
 An explicit Bearing or Bearing use supplies a Bearing context: its first unsuffixed Point, possibly through body, needs an explicit operator and target.
 This includes neutral declarations and neutral uses.
 They do not add a source to that Bearing or become unconnected as they can in a Point context; put an unconnected Point outside the Bearing context.
-`G/`, `O/` and `Q/` may instead select the constructed or referenced Bearing.
+`G/`, `O/`, `Q/` and `D/` may instead select the constructed or referenced Bearing.
 Once a Point occurrence establishes its context, its children use the ordinary indentation rules again.
 An explicit clause, symbolic or named, overrides the structural default; it does not create a second connection.
 `R` is Response and its relation is `respondsTo`: a passage addresses another Point in the artefact,
@@ -318,15 +342,14 @@ Use explicit `answers` when the answer relation itself is intended.
 
 Successful implicit selection across ordinary body adds `IMPLICIT_ATTACHMENT_THROUGH_BODY` at `suggestion` severity.
 It names the actual selected target (or its source span if anonymous), the responsible occurrence and the crossed body regions, grouped once per selection.
-This includes ordinary `G/O/R/D` attachments, local Bearing target lookup and `G/`, `O/` and `Q/` selectors.
-Unattached `Q`, `C` and neutral children receive no implicit-attachment effect or advice.
+This includes ordinary `G`, `O`, `Q`, `R` and `D` attachments, constructor target lookup and `G/`, `O/`, `Q/` and `D/` selectors.
+`C` and neutral children receive no implicit-attachment effect or advice.
 It changes diagnostics only: Points, Bearings, identities, validation and fallback stay unchanged.
 Failed selections, complete explicit endpoints, root groups, leaf prose, nearer active contexts and literal notes receive no such success advice.
-Its explanation offers existing spellings: keep the grouping deliberately, move the active content beside its target, or state the relation explicitly.
-A clause written on the occurrence selects one relation and replaces any default, so it adds no second Bearing.
-The advice keeps the occurrence, handle and children in place, using `respondsTo` or `clarifies` when no symbolic spelling exists.
-For `G/`, `O/` and `Q/`, an explicit clause replaces the selector rather than combining with it.
-When making a local Bearing explicit, preserve its neutral sources, ordered membership and commentary without adding default attachments.
+Its explanation offers existing spellings: keep the grouping deliberately, move the active content beside its target, or name the target.
+The advice writes the same header with the target named, as `target-form --to named` would: `[G]` becomes `[G +> @claim]` and `[O/]` becomes `[O -> @route]`.
+The named target replaces the positional one rather than adding a second Bearing, and a constructor's sources stay where they are.
+
 There is no automatic note-wrapping fix: that would remove the active subtree from the graph.
 
 Recognized malformed Bearing constructor headers retain this boundary in the AST, including incorrect case, an unclosed bracket, and invalid `;` separators.
@@ -347,39 +370,55 @@ See [connections from indentation](bearings.md#connections-from-indentation) for
 
 `supports` means positive bearing without specifying deductive, inductive, abductive, explanatory, or interpretive method. No kind asserts success or validity. The graph adds no negation from absence or transitive closure. See [Bearings](bearings.md) for examples.
 
-## Local Bearing constructions
+## Bearing constructors
 
-`[_ G]`, `[_ O]`, `[_ R]` and `[_ D]` construct one `supports`, `challenges`, `respondsTo` or `clarifies` Bearing respectively.
+A constructor writes one relation whose sources are other Points.
+`[_ +> ^]`, `[_ -> ^]`, `[_ ~> ^]`, `[_ respondsTo ^]`, `[_ clarifies ^]` and `[_ answers ^]` each construct one Bearing of that kind from the direct neutral children to the nearest enclosing Point.
+`[_]` abbreviates `[_ ~> ^]`, and `[_/]` abbreviates `[_ ~> ^/]`: a joint relevance whose force is not yet decided.
 The `bearing` and `edge` spellings work identically.
-An optional `; @route` names it: `[_ G; @route]`.
-The parent's mark imposes no additional restriction, including for `[_ R]`.
-`[_ C]` and `[_ Q]` are not adopted; joint `answers` and Point-targeted `concerns` require explicit endpoints.
-Its target is the nearest enclosing Point, possibly through ordinary body but never past another Point.
-The operation decides which object is involved: `[_ G]` constructs a new Bearing to that Point, while `[_ note]` annotates the nearest context's exposed Bearing and `[_ use @route]` focuses the named existing Bearing.
-Nesting `[_ G]` beneath a Ground supports that Point.
-Use `[_ G/]` for joint reasons about the Ground's attachment, or name that Bearing explicitly.
-Its sources are direct bare neutral declarations or neutral uses without an operator, selector, handle, or annotation error.
-All Point-family aliases apply; role-labelled source members are diagnosed.
-Classify direct children before lowering any selector: `G/`, `O/`, `Q/` and their `[_ G/]`, `[_ O/]`, `[_ Q/]` group forms are commentary.
-Complete explicit Point clauses or explicit Bearing constructors are independent relations, never joint sources.
+An optional `; @route` names it: `[_ +> ^; @route]`.
+The target term works as it does on a Point occurrence:
+`^` is the nearest enclosing Point, possibly through ordinary body but never past another Point,
+`^/` is the Bearing the nearest context exposes, and `@name` fixes the target regardless of position.
+The parent's mark imposes no restriction beyond the relation's own target rule.
+The operation decides which object is involved: `[_ +> ^]` constructs a new Bearing to that Point, while `[_ note]` annotates the nearest context's exposed Bearing and `[_ use @route]` focuses the named existing Bearing.
+Nesting `[_ +> ^]` beneath a Ground supports that Point; `[_ +> ^/]` supports the Ground's attachment instead.
+
+Listing sources changes only where the sources come from: `[_ @a, @b +> ^]` takes `@a` and `@b`, and its target is still positional.
+Its children are then ordinary occurrences, not members.
+
+Without listed sources, each direct child has one function, decided by what its header writes rather than how it is spelled:
+
+| Direct child | Function |
+| --- | --- |
+| `[.]`, `[. @a]`, `[. use @a]` | Source, in outline order |
+| Any relation toward `^/`: `[O/]`, `[G +> ^/]`, `[_ -> ^/]` | Commentary on the constructed Bearing |
+| A Point relation with a named target, such as `[G +> @claim]` | Independent relation |
+| `[note]`, `[. note]`, `[_ note]` | Supplementary note |
+| Any relation toward `^`, written by mark or clause: `[G]`, `[G +> ^]`, `[. +> ^]` | Invalid: there is no Point for `^` here |
+| A member-sourced constructor, `[_ +> ^]` or `[_ +> @x]` | Invalid nesting |
+
+`[G]` and `[G +> ^]` are therefore the same member, as they are everywhere else.
+All Point-family aliases apply, and a source may be a use of an existing Point.
 Their roles, content, optional anchors, and individual spans remain intact.
-The local construction has no Point or operator clause of its own, and its Bearing uses `derivedBy: "structural"` and the block's own span, including continuations but excluding children.
-Optional prose after the header, including continuations, becomes that Bearing's `text`, exactly as prose after an explicit Bearing header does.
+The constructor has no Point of its own, and its Bearing uses `derivedBy: "structural"` when its target is positional, or `"operator"` when it is named.
+Its span is the header block's own, including continuations but excluding children.
+Optional prose after the header, including continuations, becomes that Bearing's `text`.
 It is a description of the connection, not a new Point, member, or parsed argument.
 An empty description leaves `text` absent.
 
 A singleton is a complete Bearing construction, with or without a description or commentary.
 Source count alone establishes neither an unfinished draft nor sufficient reasoning, so it produces no unfinishedness advice.
 An empty group or missing selected target is an error.
-Direct body wrappers, unsuffixed role-marked Points and unsuffixed local Bearing constructions are invalid.
-Bare `O` in a Bearing context is not an alias for `O/`; the suffix or a complete target makes that request explicit.
-For a direct `G` or `O`, `INVALID_LOCAL_BEARING_MEMBER` offers neutral `[.]` membership, `G/` or `O/` Bearing commentary, or an independently targeted relation as distinct authoring choices.
+Direct body wrappers and the invalid children above are rejected.
+Bare `O` in a Bearing context is not an alias for `O/`; `^` and `^/` are different positions.
+For a direct `G` or `O`, `INVALID_LOCAL_BEARING_MEMBER` offers neutral `[.]` membership, `G/` or `O/` Bearing commentary, or a named target as distinct authoring choices.
 The diagnostic retains an authored name or use reference in its examples; it does not apply a rewrite.
 Choosing among these changes the argument and is not a formatter repair.
-An unsuffixed local Bearing cannot bypass an explicit Bearing's target boundary.
-Direct unsuffixed local Bearing nesting, even through body, is rejected.
-A suffixed group instead selects that context's exposed Bearing, without searching for an outer Point.
-A local Bearing inside a member Point's subtree is a separate inference and is legal.
+A constructor toward `^` cannot bypass a listed-source constructor's target boundary.
+Direct member-sourced constructor nesting, even through body, is rejected (`NESTED_LOCAL_BEARING_UNSUPPORTED`).
+A constructor toward `^/` instead selects that context's exposed Bearing, without searching for an outer Point.
+A constructor inside a member Point's subtree is a separate inference and is legal.
 Serial structure uses ordinary Point nesting, retaining a real intermediate Point rather than a special keyword.
 Use header prose to describe the joint; neutral uses contribute existing Points without unary member attachments.
 
@@ -395,7 +434,7 @@ A member's handle without an operator produces no default Bearing and receives `
 Malformed member operators receive their normal syntax diagnostic and no fallback.
 This preserves explicit intent without treating it as a joint source declaration.
 
-Malformed local Bearing headers receive `MALFORMED_LOCAL_BEARING` and remain local construction boundaries, including an unclosed prefix.
+Malformed constructor headers receive `MALFORMED_BEARING_MODE` or a clause diagnostic and remain construction boundaries, including an unclosed prefix.
 Recovery cannot turn their members into unary support, choose fewer sources or search outward for another target.
 Membership/context failure yields no route to reference (`UNKNOWN_TARGET` for a subsequent handle reference).
 A candidate rejected during ordinary name/reference validation follows the existing failed-Bearing dependency rules.
@@ -403,25 +442,23 @@ Duplicate member anchors invalidate the entire joint rather than deduplicating o
 Repeated resolved Point identities, including a declaration and use of that same Point, also reject the entire joint.
 Distinct Points with the same prose remain distinct sources.
 
-Local construction obtains its sources and target from the outline; explicit construction names them after the same Bearing family spelling.
-An equivalent explicit Bearing retains source content, declaration information, names and subtrees, and adds no separate member attachments.
-Use the same header description when comparing semantic content and topology after ignoring local keys, order, spans, Explain, and structural/operator provenance.
-Leaving `[G]` children in place and adding an explicit Bearing intentionally produces both unary and joint Bearings.
+Positional and named targets are two spellings of the same relation: `target-form` changes one target term and leaves the sources where they are.
+Leaving `[G]` children in place and adding a constructor intentionally produces both unary and joint Bearings.
 Neither construction adds reasoning closure, validity checks, minimality, or necessary-premise claims.
 
 The old `[linked]`, `[G linked]` and `[linked G]` headers are retired, including their role variants; they receive `RETIRED_LINKED_ANNOTATION` and never compile as compatibility aliases.
 `join` remains retired with `RETIRED_JOIN_ANNOTATION`, including malformed reserved prefixes and unclosed headers.
 These rejected boundaries retain the original spelling in `raw`; descendants cannot recover as unary supports to an outer Point, and no handle binds.
 Ordinary non-reserved text such as `[joining the discussion]` remains body.
-Migrate an intended local support header to `[_ G]`, retaining an optional `; @route`.
+Migrate an intended joint support header to `[_ +> ^]`, retaining an optional `; @route`.
 For the published bare `[linked]` form, also change direct Ground sources to neutral declarations or uses.
 Role-headed drafts already using neutral sources need only the header change, subject to reviewing the intended local target.
 Recompile the original source; do not choose source membership or apply a fix automatically.
-Unclosed brackets may also receive the outline's malformed-prefix diagnostic, and invalid context or membership remains observable through `INVALID_LOCAL_BEARING_MEMBER` and the related local Bearing diagnostics.
+Unclosed brackets may also receive the outline's malformed-prefix diagnostic, and invalid context or membership remains observable through `INVALID_LOCAL_BEARING_MEMBER` and the related constructor diagnostics.
 
-## Local Bearing selection
+## Relations to a step
 
-Local selectors record further relations to an existing step; they never become sources in that step.
+A relation toward `^/` records something further about an existing step; it never becomes a source in that step.
 
 ### Ask about a step
 
@@ -449,32 +486,30 @@ Spans, `derivedBy`, Explain and original source remain distinct.
 
 | Written beneath the Ground | Recorded relation |
 | --- | --- |
-| `[Q]` | No default Bearing |
-| `[Q ~> @silent]` | `concerns` the Ground's Point |
-| `[Q/]` | `concerns` the locally exposed Bearing |
-| `[Q /> @step]` | `challenges` the named Bearing |
+| `[Q]`, `[Q ~> ^]` | `concerns` the Ground's Point |
+| `[Q/]`, `[Q ~> ^/]` | `concerns` the locally exposed Bearing |
+| `[Q ~> @step]` | `concerns` the named Bearing |
+| `[Q -> @step]` | `challenges` the named Bearing |
 
-Unlike ordinary `Q`, `Q/` explicitly requests a relation.
-The slash selects a Bearing; it is not a shortened `/>` challenge operator.
-This is an intentional asymmetry: source nesting alone does not assert relevance, but a selector does.
-Asking about an anonymous step therefore needs no handle; explicitly relating a Question to a Point still requires naming that Point.
-Use an Objection or an explicit `challenges` clause when the content makes a challenge rather than leaving a question open.
+The slash chooses the position `^/`; the relation stays the mark's own.
+Asking about an anonymous step therefore needs no handle.
+Use an Objection or a `challenges` clause when the content makes a challenge rather than leaving a question open.
 
 `[Q/ use @question]` uses an existing Point with a local Q mark and adds the `concerns` Bearing without changing shared content or declaration metadata.
-Like `G/` and `O/`, it works under local and explicit Bearing constructors and Bearing uses, and never skips a nearer Point without an attachment.
+Like `G/`, `O/` and `D/`, it works under constructors and Bearing uses, and never skips a nearer Point without an attachment.
 Under a `Q/` occurrence, another selector addresses the Question's own `concerns` Bearing; `[_ note]` annotates that same local connection.
-`C/`, `R/`, `D/` and `[_ Q]` are not introduced: C selects no relation, and `respondsTo` and `clarifies` currently require Point targets.
+There is no `C/` or `R/`: C states no relation, and `respondsTo` requires a Point target.
 
 ### Several sources about one step
 
-Prefix a local selector with `_` when several neutral Points jointly support, challenge or concern the selected Bearing.
-The slash chooses the target slot, just as in a single-Point selector.
-The group header creates no Point and adds none of its sources to the selected Bearing.
+Write a constructor toward `^/` when several neutral Points jointly support, challenge or concern the selected Bearing.
+The target term is the same `^/` that a single-Point selector abbreviates.
+The constructor creates no Point and adds none of its sources to the selected Bearing.
 
 ```md cog-check compare=joint-step-review caption="Local joint challenge" require=supports,challenges points=4 bearings=2 diagnostics=0
 - [C @familiar] The visitor may be someone the dog knows.
   - [G @silent; @step] The dog did not bark.
-    - [_ O/; @review] These circumstances challenge the step together.
+    - [_ -> ^/; @review] These circumstances challenge the step together.
       - [. @sedated] The dog had been sedated.
       - [. @effect] Sedation can suppress barking at strangers.
 ```
@@ -487,11 +522,11 @@ The group header creates no Point and adds none of its sources to the selected B
     - [_ @sedated, @effect -> @step; @review] These circumstances challenge the step together.
 ```
 
-`[_ G/]` similarly creates joint support and `[_ Q/]` joint `concerns`.
-Each permits one or more direct neutral sources, including uses, followed by notes or further selector commentary.
-They work under a Point with an attachment, a local or explicit Bearing constructor, and a Bearing use.
+`[_ +> ^/]` similarly creates joint support, `[_ clarifies ^/]` a joint clarification, and `[_/]` joint `concerns`.
+Each permits one or more direct neutral sources, including uses, followed by notes or further commentary toward `^/`.
+They work under a Point with an attachment, a constructor, and a Bearing use.
 A nearer Point without an attachment blocks selection; a failed context cannot be bypassed.
-`[_ R/]` and `[_ D/]` are unsupported because their relation kinds require Point targets.
+`[_ respondsTo ^/]` and `[_ answers ^/]` are rejected because those kinds require Point targets.
 The compiler records the selected context and ordered sources in Explain; the [inspection tools](graph-inspection.md#inspect-every-local-decision) expose them without interpreting the prose.
 
 ### Explain a step, add a premise, or support the step
@@ -501,7 +536,7 @@ First, a note describes how the existing connection is understood:
 
 ```md cog-check require=supports points=3 bearings=1 diagnostics=0
 - [C @familiar] The visitor may be someone the dog knows.
-  - [_ G; @recognition]
+  - [_ +> ^; @recognition]
     - [. @silent] The dog did not bark when the visitor entered.
     - [. @usual] The dog usually barks at strangers.
     - [_ note] Read the silence as a clue to recognition.
@@ -512,7 +547,7 @@ If the author offers another observation as a joint premise, it becomes a third 
 
 ```md cog-check require=supports points=4 bearings=1 diagnostics=0
 - [C @familiar] The visitor may be someone the dog knows.
-  - [_ G; @recognition]
+  - [_ +> ^; @recognition]
     - [. @silent] The dog did not bark when the visitor entered.
     - [. @usual] The dog usually barks at strangers.
     - [. @awake] A recording shows the dog was awake and responding normally to nearby sounds.
@@ -522,7 +557,7 @@ Alternatively, the author can offer that observation as a positive reason for th
 
 ```md cog-check require=supports points=4 bearings=2 diagnostics=0
 - [C @familiar] The visitor may be someone the dog knows.
-  - [_ G; @recognition]
+  - [_ +> ^; @recognition]
     - [. @silent] The dog did not bark when the visitor entered.
     - [. @usual] The dog usually barks at strangers.
     - [G/ @awake] A recording shows the dog was awake and responding normally to nearby sounds.
@@ -564,6 +599,9 @@ Here each version separately concerns the Question:
 ```
 
 The first example does not also create these two independent Bearings.
+Both record that each version bears on the Question; relevance has no force that the versions could share.
+The difference is what can be addressed: the first records one relation, `comparison`, that another relation can target, as below.
+Force is shared once it is decided: `[_ +> ^]` records Linked support, which separate `[G]` occurrences do not.
 Choose between them according to the connection you intend to record, not according to how many source Points are visible.
 The source list preserves written order without implying a sequence of inference.
 Sources must be distinct existing Points: a missing source, repeated source or Bearing used as a source rejects the whole Bearing rather than leaving a smaller joint relation.
@@ -584,7 +622,7 @@ In the following example, the date and editing record jointly concern the compar
 The target of `context` is the Bearing `comparison`, not the Question `change`.
 This records relevance without asserting that the comparison succeeds or fails.
 An unknown or rejected target cannot produce a surviving relation to it.
-Local `[_ G]`, `[_ O]`, `[_ R]` and `[_ D]` construct `supports`, `challenges`, `respondsTo` or `clarifies`; use explicit endpoints for joint `concerns` or `answers`.
+With member sources, the same joint relevance is `[_]` beneath the Question, or `[_/]` beneath the comparison step.
 
 Reading retains every source in the relation summary and links each name to its source occurrence.
 Map draws the joint Bearing as a neutral `concerns` junction with one input per source and one output to its typed target.
@@ -627,7 +665,7 @@ If a convention is explicitly offered alongside the formula as a premise, a join
 
 ```md cog-check require=supports points=3 bearings=1 diagnostics=0
 - [C] A water molecule contains no carbon atoms.
-  - [_ G]
+  - [_ +> ^]
     - [.] Water's molecular formula is H₂O.
     - [.] Molecular formulas enumerate the constituent elements; C symbolises carbon.
 ```
@@ -717,8 +755,7 @@ An ordinary O defaults to a Point; beneath a Bearing use it needs O/ or an expli
 An O beneath O/ challenges that new O Point, while a sibling O/ selects its local attack Bearing.
 R beneath O/ replies to that O Point.
 Likewise, R beneath Q/ replies to that Question Point, while a further Q/ concerns its locally constructed `concerns` Bearing.
-Only G, O and Q have adopted selectors; C selects no relation, while `respondsTo` and `clarifies` require Point targets.
-This does not add local `[_ Q]` or `[_ C]` constructors.
+G, O, Q and D have selectors; C states no relation, and `respondsTo` requires a Point target.
 Existing explicit graph cycles remain possible; references never recursively expand source.
 
 ```md cog-check require=supports,challenges points=5 bearings=4 diagnostics=0
@@ -752,9 +789,9 @@ When migrating a call that relied on automatic fence selection, pass `host` expl
 All input modes permit indentation-based authoring, explicit-relation authoring, or a mixture.
 These writing techniques are not additional compiler input modes.
 `derivedBy` records how an individual Bearing was produced, not the input mode or an authoring style for the document.
-The four symbolic operators retain their meanings.
-Explicit Bearing constructors, Point declarations and Point uses may use any case-sensitive canonical kind name, including `answers`, `respondsTo` and `clarifies`.
-The local Bearing header still takes a role letter: `[_ G]`, rather than `[_ supports]`.
+The three symbolic operators retain their meanings.
+Constructors, Point declarations and Point uses may use any case-sensitive canonical kind name, including `answers`, `respondsTo` and `clarifies`, toward a named or positional target.
+A constructor writes a relation, never a role letter: `[_ +> ^]` or `[_ supports ^]`, not `[_ G]`.
 
 Host integrations can use the source envelope to keep each independent fence paired with its AST, graph, and source locations:
 
@@ -832,10 +869,11 @@ Match the complete compiler and schema set for the producing version when storin
 `parseDocument` returns an ordered AST; `compileGraph` produces `GraphIR`. `parseSource` and `compileSource` expose envelopes for the input modes.
 
 For debugging, `compileGraphWithExplain` and `explainSource` add a compiler trace: how a block was recognized, which points or connections were emitted or rejected, and why an indentation rule applied or no connection was produced. The CLI exposes this as `cog explain`.
-Parser head recognition records `head.mode: "local" | "explicit"` for Bearing construction, selected by the first token after the family spelling.
-Local constructions have AST annotation and Explain recognition `kind: "localBearing"` with their header role and optional `selector: "attachment"`; explicit constructions have `kind: "explicitBearing"`.
-Unsuffixed roles are G/O/R/D; selector roles are G/O/Q, with this correlation enforced in types and schemas.
-Explain `localBearingMember` effects identify the local Bearing's span (`localBearingSpan`), syntactic eligibility and function: source, commentary, independent, supplementary or unclassified.
+Every constructor has AST annotation and Explain recognition `kind: "bearing"`.
+`members: true` records that its direct children are its sources, including on a failed header; `members: false` that it lists them.
+`[_/]` adds `selector: "attachment"`, and `[_]` and `[_/]` write no `operatorClause`.
+Selector roles are G, O, Q and D, with this correlation enforced in types and schemas.
+Explain `localBearingMember` effects identify the constructor's span (`localBearingSpan`), syntactic eligibility and function: source, commentary, independent, supplementary or unclassified.
 Eligibility alone never certifies that the whole joint survived validation.
 selectAttachment records the nearest ownerSpan and optional candidate Bearing target; a failed candidate is not a canonical graph entity.
 For selection through a Bearing use, selectBearing instead records contextSpan and an optional validated Bearing target; it claims no new attachment ownership.
@@ -846,16 +884,16 @@ Bearing-use recognition is bearingUse with an authored operand; focusBearing res
 rejectFocus also records failed Bearing uses; inspect recognition to distinguish the expected entity kind.
 Point uses emit no Point; a constructed attachment still emits its own Bearing.
 Bearing uses emit neither entity.
-The local header emits with `local-bearing-containment` or rejects with `invalid-local-bearing`; later name/reference rejection uses `validation-error`.
-A local source member skips its own attachment with `local-bearing-membership`, and the first Point beneath an explicit constructor without its own target rejects with `explicit-bearing-descendant-requires-target`.
-Membership eligibility does not certify that the whole local Bearing survived validation.
+A constructor toward a position emits with `local-bearing-containment`, toward a name with `operator-clause`; a membership failure rejects it with `invalid-local-bearing`, and later name/reference rejection uses `validation-error`.
+A source member skips its own attachment with `local-bearing-membership`, and the first Point beneath a listed-source constructor without its own target rejects with `explicit-bearing-descendant-requires-target`.
+Membership eligibility does not certify that the whole constructed Bearing survived validation.
 It explains compilation decisions, not the truth of the prose, the strength of a reason, or a history of the author's thinking.
 The trace is an experimental interface with a versioned schema; ordinary integrations can use AST and Graph IR alone.
 `cog explain --format text` renders all decisions, including non-emissions and failed candidates.
 It also accepts `--input host`, retaining each independent unit and source-selection diagnostics.
 Core exposes the same projection as `formatExplain(explainSource(source, mode))`.
-Use `cog bearing-form --line N --to local|explicit` for a checked structural preview,
-including selectors and joint constructions; see [the preservation limits](graph-inspection.md#preview-local-and-explicit-forms).
+Use `cog target-form --line N --to named|positional` for a checked preview that names one relation's target, or makes it positional again,
+including selectors and constructors; see [the preservation limits](graph-inspection.md#preview-named-and-positional-targets).
 
 A Graph IR Point holds `key`, optional `id`, shared `text`, its canonical declaration `sourceSpan`, and `declaration`.
 `declaration` records how the Point was introduced: `form` (`role` or `material`), with `role` required only for the role form.
@@ -867,10 +905,10 @@ An AST block holds its text, raw source, children, span, and optional `annotatio
 Role, anchor, operator, handle, and annotation errors live only inside `annotation`; there are no mirrored block-level semantic fields.
 A Point name appears as `annotation.anchor` in the AST and `id` in Graph IR.
 Ordinary body has no annotation.
-An `operatorClause` contains `op`, an authored `targetKind` requirement (`point`, `bearing` or `either`), `sources`, and one authored `target: { id }`.
-Point annotations use `sources: "self"`; an explicit Bearing constructor uses a nonempty array of authored source references.
-Both admit all six kinds with the same correlated target requirement.
-Local construction instead retains its role and derives ordered sources from direct neutral members.
+An `operatorClause` contains `op`, `sources`, and one `target` term: `{ id }` for a name, or `{ local: "point" | "bearing" }` for `^` or `^/`.
+Point annotations use `sources: "self"`; a constructor uses `sources: "members"` or a nonempty array of authored source references.
+Which targets a relation admits follows from `op` alone; there is no separate target requirement.
+A mark's default relation is not written into the AST: `[G]` has no `operatorClause`, and consumers expand it from the mark.
 Block `text` joins header prose and continuation content with LF, preserving intervening blank paragraphs.
 Block `raw` joins those physical source lines with LF, retaining the bullet and indentation but excluding child blocks.
 For exact original line endings and surrounding content, retain the original input.
@@ -948,32 +986,43 @@ Review these language changes before recompiling:
   All six named constructors remain available, including `answers`, `respondsTo` and `clarifies`.
 - Point declarations and uses now accept all six canonical names as explicit clauses.
   `[Q @question respondsTo @objection]` retains Q and states one response; it does not require re-presenting the Point as R.
-  AST consumers must admit `answers`, `respondsTo` and `clarifies` with `sources: "self"` and `targetKind: "point"`.
+  AST consumers must admit all six kinds with `sources: "self"`.
   Malformed clauses remain rejected without an implicit replacement.
-- `->` now accepts a Point or Bearing, like named `challenges`.
-  Optional `/>` retains its Bearing-only constraint; AST consumers must accept `targetKind: "either"` on Point-attached challenges.
-  `CHALLENGE_REQUIRES_POINT_TARGET` is retired and no longer emitted; `CHALLENGE_REQUIRES_BEARING_TARGET` still checks `/>`.
-- Replace published bare `[linked]` with `[_ G]` and its direct `G` members with neutral declarations or uses.
-  Replace draft `[G linked]`, `[O linked]`, `[R linked]` and `[D linked]` headers with `[_ G]`, `[_ O]`, `[_ R]` and `[_ D]`, preserving their already neutral sources.
+- Every relation is a relation plus one target term: a name, `^` for the nearest enclosing Point, or `^/` for the locally exposed Bearing.
+  A mark abbreviates its default clause: `[G]` is `[G +> ^]` and `[O/]` is `[O -> ^/]`.
+  The target term alone decides whether the object is a Point or a Bearing; the operator never does.
+- `->` accepts a Point or a Bearing, like named `challenges`.
+  The `/>` operator, and the earlier `_>`, are retired: they receive `RETIRED_AUTHORING_SYNTAX` and migrate to `->` with the same target.
+  `CHALLENGE_REQUIRES_POINT_TARGET` and `CHALLENGE_REQUIRES_BEARING_TARGET` are retired and no longer emitted.
+  The AST `operatorClause.targetKind` field is removed; `target` is `{ id }` or `{ local: "point" | "bearing" }`.
+- `clarifies` accepts a Point or a Bearing, and `D/` selects the locally exposed Bearing.
+  `answers` and `respondsTo` still require Point targets, so there is no `R/`.
+- Replace published bare `[linked]` with `[_ +> ^]` and its direct `G` members with neutral declarations or uses.
+  Replace draft `[G linked]`, `[O linked]`, `[R linked]` and `[D linked]` headers with `[_ +> ^]`, `[_ -> ^]`, `[_ respondsTo ^]` and `[_ clarifies ^]`, preserving their already neutral sources.
   The reversed draft spellings such as `[linked G]` are also retired; none is a compiling alias.
-  The header owns the relation; `R` and `[_ R]` both respond to the nearest Point regardless of its mark.
+  The header owns the relation; `R` and `[_ respondsTo ^]` both respond to the nearest Point regardless of its mark.
   Keep handles, descriptions, source order, member subtrees and intended targets.
   Removing the header alone does not turn neutral members into independent Grounds.
-  `RETIRED_LINKED_ANNOTATION` diagnoses the retired keyword; `MALFORMED_LOCAL_BEARING` diagnoses malformed new local headers, including `[_G]`.
+  `RETIRED_LINKED_ANNOTATION` diagnoses the retired keyword; `MALFORMED_BEARING_MODE` diagnoses a constructor that writes a role instead of a relation, such as `[_ G]` or `[_G]`.
   The retired `join` boundary remains.
-- Machine names follow local and explicit Bearing construction rather than the retired keyword:
+- A constructor without listed sources takes its direct neutral children as sources; `[_ @a, @b +> ^]` lists them and keeps a positional target.
+  `[_]` and `[_/]` record joint `concerns` toward `^` and `^/`.
+  A direct child with any relation toward `^`, by mark or by clause, is an invalid member; a relation toward `^/` is commentary, and a named target is independent.
+- Machine names follow constructors rather than the retired keyword:
 
   | Published 0.5 | 0.6 |
   | --- | --- |
-  | AST / Explain `kind: "linked"`, `syntaxErrors` value `"linked"` | `kind: "localBearing"`, `"localBearing"` |
-  | AST / Explain `kind: "edge"` | `kind: "explicitBearing"` |
+  | AST / Explain `kind: "linked"` and `kind: "edge"` | `kind: "bearing"` with `members: true` or `false` |
+  | `syntaxErrors` value `"linked"` | `"mode"` for a header that selects no mode |
   | Explain `linkedMember` / `linkedSpan` | `localBearingMember` / `localBearingSpan` |
   | Explain `linked-containment`, `invalid-linked`, `linked-membership` | `local-bearing-containment`, `invalid-local-bearing`, `local-bearing-membership` |
   | Explain `edge-descendant-requires-explicit-target` | `explicit-bearing-descendant-requires-target` |
   | `EMPTY_LINKED`, `INVALID_LINKED_MEMBER`, `NESTED_LINKED_UNSUPPORTED` | `EMPTY_LOCAL_BEARING`, `INVALID_LOCAL_BEARING_MEMBER`, `NESTED_LOCAL_BEARING_UNSUPPORTED` |
   | `LINKED_REQUIRES_POINT_TARGET` | `LOCAL_BEARING_REQUIRES_POINT_TARGET` |
   | `EDGE_DESCENDANT_REQUIRES_EXPLICIT_TARGET` | `EXPLICIT_BEARING_DESCENDANT_REQUIRES_TARGET` |
-  | `MALFORMED_EDGE_ANNOTATION` | `MALFORMED_EXPLICIT_BEARING` after an `@ref`; otherwise `MALFORMED_BEARING_MODE` with `syntaxErrors: ["mode"]` |
+  | `MALFORMED_EDGE_ANNOTATION` | `MALFORMED_EXPLICIT_BEARING` or `MALFORMED_BEARING_TARGETS` for an incomplete clause; otherwise `MALFORMED_BEARING_MODE` with `syntaxErrors: ["mode"]` |
+  | CLI `explicit-target --line N` | `target-form --line N --to named`; the old command receives `RETIRED_COMMAND` |
+  | `previewExplicitTarget` | `previewTargetForm(source, { line, form: "named" })` |
 
   `RETIRED_LINKED_ANNOTATION` keeps its name because it diagnoses the retired keyword itself.
 - `[?]` is retired, along with Gap declarations and `status: "open"`.
@@ -983,9 +1032,9 @@ Review these language changes before recompiling:
   Moving content into a note removes its addressable identity, while choosing G or O adds a commitment.
 - `C` beneath `Q` no longer creates `answers`.
   Preserve an intended answer with `[C answers @question]`, `[. answers @question]` or an explicit Bearing.
-  `Q` has no default `concerns`, including in early 0.6 drafts; state relevance with `~>` or `concerns`, or opt into `Q/` for a local Bearing.
-  `R` and `[_ R]` now respond to any nearest Point, so review previously unattached R occurrences.
-  Source nesting alone supplies none of these relations.
+- `Q` beneath a Point now `concerns` that Point, as `[Q ~> ^]`; in 0.5 it created no Bearing.
+  Review nested Questions: one that should stay unattached can move to the root or above its context, and one that challenges should be an Objection.
+  `R` and `[_ respondsTo ^]` now respond to any nearest Point, so review previously unattached R occurrences.
   `DISCONNECTED_ANCHORED_MATERIAL` is retired: an isolated neutral Point is complete.
   Draft `LOCAL_BEARING_REPLY_REQUIRES_OBJECTION` and `LINKED_REPLY_REQUIRES_OBJECTION` are no longer emitted.
   Notes and failed or Bearing contexts retain their boundaries.
@@ -993,8 +1042,6 @@ Review these language changes before recompiling:
   Replace active named `repliesTo` clauses with `respondsTo`, keeping sources, Point targets, handles and prose.
   The retired spelling receives `RETIRED_BEARING_KIND` on constructors, Point declarations and Point uses; it never falls back to a default.
   Regenerate AST, Graph IR and Explain from retained source rather than renaming JSON.
-  Add `[_ G/]`, `[_ O/]` and `[_ Q/]` for neutral sources targeting the nearest exposed Bearing.
-  Bare `[_ Q]`, `R/` and `D/` remain unsupported.
 
 New reserved words can activate former prose and change descendants' implicit connections.
 For example, in 0.5 the G below targets `outer`; in 0.6, `[point @p]` declares a Point and the G targets `p`:
@@ -1013,12 +1060,11 @@ Do not migrate use tail prose into shared notes automatically.
 
 Retain the original input and mode, recompile with the complete 0.6 compiler/schema set, and review diagnostics, targets and literal subtrees.
 Do not relabel 0.5 AST/Graph IR/Explain/source JSON as 0.6.
-Consumers must handle local header roles, the revised declaration and target constraints, `annotation.targetKind`, `GraphIR.notes`, and the new Explain effects, and rebuild Reading from the same source revision.
-Selector-bearing AST and Explain marks now admit Q as well as G and O; Q/ emits the existing `concerns` kind and typed Bearing target without a new Graph relation or entity.
-Match on the renamed `localBearing` / `explicitBearing` kinds, Explain effects, reasons and diagnostic codes above; the 0.5 names are not accepted by the 0.6 schemas.
-Parser head consumers must distinguish `head.mode: "local" | "explicit"` without retrying malformed explicit headers as local.
-Written-reference inventory still counts only written named operands; a local note selector is not an extra written `@reference`.
-The explicit-target preview checks exact note origins and resolved targets as well as its existing source/topology checks.
+Consumers must handle target terms, the revised declaration and target constraints, `GraphIR.notes`, and the new Explain effects, and rebuild Reading from the same source revision.
+Selector-bearing AST and Explain marks now admit Q and D as well as G and O; they emit existing kinds and typed Bearing targets without a new Graph relation or entity.
+Match on the `bearing` kind, Explain effects, reasons and diagnostic codes above; the 0.5 names are not accepted by the 0.6 schemas.
+Written-reference inventory counts only written named operands; `^`, `^/` and a local note selector are not written `@references`.
+The target-form preview checks exact note origins and resolved targets as well as source and topology.
 
 ### From 0.4 to published 0.5
 
@@ -1041,16 +1087,16 @@ Neither records defeat, success or acceptability.
 Every explicit AST clause requires `targetKind`; compilation carries this constraint until reference validation and never recovers it from `raw`.
 Canonical Graph IR and emitted Explain summaries contain the resolved typed target, without an extra target constraint.
 Named `undercuts` is retired, with no compiling alias.
-Replace it with `/>` to preserve its Bearing-only target requirement, then recompile retained source.
+In 0.5, `/>` preserved its Bearing-only target requirement; in 0.6 write `->`, whose target name already decides the kind.
 Replacing it with named `challenges` instead broadens the authored target requirement to either kind.
 A retired constructor retains its boundary and handle in AST but emits no Bearing; descendants and dependent references cannot fall back to an outer target.
 In 0.5, `CHALLENGE_REQUIRES_BEARING_TARGET` replaced the old `UNDERCUT_REQUIRES_BEARING_TARGET` diagnostic, while `CHALLENGE_REQUIRES_POINT_TARGET` diagnosed `->` against a Bearing.
 The latter is retired in 0.6; see the migration above.
 The word undercut has no active core kind or spelling; a future theory-specific use requires its own explicit, versioned contract.
 
-For example, the 0.4 clause `[_ @objection undercuts @route; @challenge]` becomes `[_ @objection /> @route; @challenge]`.
+For example, the 0.4 clause `[_ @objection undercuts @route; @challenge]` became `[_ @objection /> @route; @challenge]` in 0.5 and is `[_ @objection -> @route; @challenge]` in 0.6.
 Keep the sources, their order, target name, handle and occurrence prose; change the retired operator only.
-The complete migrated document is executable under 0.5:
+The complete migrated document, in its 0.6 spelling:
 
 ```md cog-check require=supports,challenges points=4 bearings=2 diagnostics=0
 - [C @claim] The bridge is safe.
@@ -1058,7 +1104,7 @@ The complete migrated document is executable under 0.5:
 - [G @record] The maintenance record reports no damage.
 - [edge @inspection, @record +> @claim; @route] Joint grounds for the claim.
 - [O @objection] Neither check covered the underside.
-- [_ @objection /> @route; @challenge] Challenge this joint step.
+- [_ @objection -> @route; @challenge] Challenge this joint step.
 ```
 
 This migration applies to the operator in an active `edge` or `_` annotation.
@@ -1135,15 +1181,15 @@ The AST schema now requires `operatorClause` on an `edge` without `syntaxErrors`
 | [@p] | [. @p] | Neutral Point declaration; old annotation is a rejected boundary, never a lookup |
 | [use @p] (unpublished candidate) | [. use @p] | Neutral reference occurrence; no default attachment |
 | [G_] / [O_] (unpublished candidate) | [G/] / [O/] | Same strict nearest-owner selector; old intent stays rejected commentary |
-| _> @b | /> @b | /> still requires a Bearing target; old attachment is rejected |
-| `[join; @b]` (unpublished candidate) | `[linked; @b]` (retired in 0.6) | Historical ordered joint support; migrate to `[_ G; @b]` with neutral sources for 0.6, never a compiling `join` alias |
+| _> @b | /> @b (retired in 0.6) | Historical Bearing-only challenge; write `-> @b` for 0.6 |
+| `[join; @b]` (unpublished candidate) | `[linked; @b]` (retired in 0.6) | Historical ordered joint support; migrate to `[_ +> ^; @b]` with neutral sources for 0.6, never a compiling `join` alias |
 | [edge @p KIND @c; @b] | Unchanged, or [_ @p KIND @c; @b] | Two spellings of ONE explicit constructor, with six canonical kinds |
 | source API auto | Explicit document or host | Host never falls back to parsing unselected prose as an outline |
 | Graph IR Point `form` / `role` / `status` (0.3 and earlier 0.4 candidates) | Point `declaration: { form, role?, status? }` | Retain Gap openness; deliberately remove retired Claim openness when migrating source. `key`, `id`, `text` and `sourceSpan` stay on the Point |
 
 Perform source spelling changes on annotations, not arbitrary prose, and compile before comparing the intended graph.
 For that historical migration, replacing a candidate `[join]` with `[linked]` preserved one joint support; removing the wrapper instead created independent supports.
-For current 0.6 source, use `[_ G]` with neutral members instead; neither historical header compiles.
+For current 0.6 source, use `[_ +> ^]` with neutral members instead; neither historical header compiles.
 Published format 0.3.0 treated [join; @b] as ordinary body, so migration from published 0.3 requires reviewing intended grouping rather than blindly renaming a word.
 Old anchor AST kind becomes material with optional anchor; use retains a distinct ref operand.
 Explain uses linked recognition, linkedMember with source/commentary/independent/supplementary/unclassified function, attachment selection and focusPoint/rejectFocus.
@@ -1154,13 +1200,13 @@ Canonical GraphIR stays {version, points, bearings, diagnostics}; typed refs sta
 The nested Point `declaration` is an incompatible JSON-shape change from 0.3 and earlier source candidates: compiler, schemas and consumers must match, and stored graphs must be reparsed from source rather than relabelled.
 For 0.5, the compiled negative-kind mapping is challenges → challenges (Point target), undercuts → challenges (Bearing target).
 This is a comparison of compiled relations, not permission to relabel JSON or accept the retired named source spelling.
-The authored -> and /> checks remain distinct; C and R remain unchanged.
+In 0.5 the authored -> and /> checks were distinct; 0.6 retires /> and lets the target decide.
 
 Consumers address entities by `(unit index, ref.kind, ref.key)` within one compilation; the unit index selects the corresponding `graphs[]` entry.
 Explain's emission `graphIndex` instead indexes that selected graph's Bearing array.
 Each document or fence unit has its own authored namespace; the same name in another unit is unrelated.
 AST block order preserves reader order; its `sourceSpan` and Explain entry spans locate the original occurrence using one-based UTF-16 line/column positions.
-A local Bearing header's span can identify its Bearing, and a Point annotation can identify both its Point and its attached Bearing.
+A constructor header's span can identify its Bearing, and a Point annotation can identify both its Point and its attached Bearing.
 One span therefore need not select only one entity; inspect the typed emission references rather than choosing the first match.
 Point and Bearing occurrence spans map through focusPoint or focusBearing to the original entity key; canonical spans stay at declarations/constructions.
 Valid use block text holds the local note separately from shared entity text.

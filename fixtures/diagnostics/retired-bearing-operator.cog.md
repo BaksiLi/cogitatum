@@ -1,0 +1,6 @@
+- Retired Bearing operator
+  - [C @claim] The conclusion.
+  - [G @ground] The reason.
+  - [edge @ground +> @claim; @route] The inference route.
+  - [O @old-undercut /> @route] Written with the retired 0.5 operator.
+  - [O @route-challenge -> @route] The current operator reaches the same Bearing by its name.

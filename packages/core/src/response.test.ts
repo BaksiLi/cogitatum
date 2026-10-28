@@ -2,10 +2,10 @@ import { describe, expect, it } from "vitest";
 import { compileGraphWithExplain, parseDocument } from "./index.js";
 
 describe("Response / respondsTo", () => {
-  it.each(["Q", "C", "G", "O", "R", "D", "."])("records R and [_ R] to any nearest %s Point without claiming an answer", mark => {
+  it.each(["Q", "C", "G", "O", "R", "D", "."])("records R and [_ respondsTo ^] to any nearest %s Point without claiming an answer", mark => {
     const { graph } = compileGraphWithExplain(parseDocument(`- [${mark} @target] Which scale?
   - [R] Seconds.
-  - [_ R]
+  - [_ respondsTo ^]
     - [.] The measurement interval was short.
     - [.] The instrument samples each second.`));
     expect(graph.diagnostics).toEqual([]);

@@ -60,7 +60,8 @@ export function formatExplain(source: ExplainedSource): string {
     lines.push("", `unit ${index + 1}: ${unit.kind} at lines ${unit.startLine}-${unit.endLine} (independent namespace)`);
     for (const entry of entries) {
       const r = entry.recognition;
-      const mark = "role" in r && r.role ? " " + r.role + ("selector" in r && r.selector ? "/" : "") : "";
+      const mark = r.kind === "bearing" ? (r.selector ? "/" : "") + (r.members ? " member sources" : " listed sources")
+        : "role" in r && r.role ? " " + r.role + ("selector" in r && r.selector ? "/" : "") : "";
       lines.push(`  ${location(entry.sourceSpan)} ${r.kind}${mark}`);
       for (const effect of entry.effects) lines.push("    " + effectText(effect));
       if (entry.diagnosticCodes.length) lines.push("    Diagnostics: " + entry.diagnosticCodes.join(", ") + ".");

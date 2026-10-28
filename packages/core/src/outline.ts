@@ -1,6 +1,6 @@
-import { isAnnotationStart, isBearingModeUnselected, isRetiredClaimStart, parseAnnotation, recognizeAnnotationHead } from "./annotation.js";
+import { isAnnotationStart, isRetiredClaimStart, parseAnnotation, recognizeAnnotationHead } from "./annotation.js";
 import { FORMAT_VERSION } from "./types.js";
-import type { Annotation, AstBlock, Diagnostic, DocumentAst, ParsedLine, ParseOptions, SourceSpan } from "./types.js";
+import type { Annotation, AstBlock, SelectorRole, Diagnostic, DocumentAst, ParsedLine, ParseOptions, SourceSpan } from "./types.js";
 
 type RawNode = {
   line: ParsedLine;
@@ -265,10 +265,10 @@ function toAstBlock(node: RawNode, diagnostics: Diagnostic[]): AstBlock {
     : undefined;
   const retiredClaimRaw = !node.annotationRaw && header.startsWith("[") && isRetiredClaimStart(header.slice(1)) ? header.slice(1) : undefined;
   const annotationRaw = node.annotationRaw ?? retiredClaimRaw ?? (unclosedConstructor === "join" || unclosedConstructor === "linked" ? header.slice(1) : undefined);
-  const unclosedSelector = node.indentationValid && !node.annotationRaw && !header.includes("]") && /^\[\s*(?:[GO][_/]|Q\/)(?=$|[\s;@])/i.test(header);
+  const unclosedSelector = node.indentationValid && !node.annotationRaw && !header.includes("]") && /^\[\s*(?:[GO][_/]|[QD]\/)(?=$|[\s;@])/i.test(header);
   const unclosedUse = node.indentationValid && !node.annotationRaw && header.startsWith("[") && !header.includes("]") && head.operation === "use";
   const unclosedBearingUse = unclosedConstructor === "_" && head.operation === "use";
-  const unclosedLocalBearing = unclosedConstructor === "_" && head.mode === "local";
+  const unclosedMembersBearing = unclosedConstructor === "_" && head.sources === "members";
   const parsed = annotationRaw ? parseAnnotation(annotationRaw, node.sourceSpan) : undefined;
   if (parsed) {
     diagnostics.push(...parsed.diagnostics);
@@ -288,15 +288,15 @@ function toAstBlock(node: RawNode, diagnostics: Diagnostic[]): AstBlock {
     annotation = misindentedAnnotation;
   } else if (unclosedBearingUse) {
     annotation = { kind: "bearingUse", raw: header.slice(1), syntaxErrors: ["reference"] };
-  } else if (unclosedLocalBearing) {
-    const local = parseAnnotation(header.slice(1), node.sourceSpan);
-    diagnostics.push(...local.diagnostics);
-    const syntaxErrors = local.annotation?.kind === "localBearing" ? local.annotation.syntaxErrors ?? [] : [];
-    annotation = { ...(local.annotation?.kind === "localBearing" ? local.annotation : { kind: "localBearing" as const }),
-      raw: header.slice(1), syntaxErrors: [...new Set(["localBearing" as const, ...syntaxErrors])] };
+  } else if (unclosedMembersBearing) {
+    // Member sources keep their boundary; specific header errors still surface.
+    const members = parseAnnotation(header.slice(1), node.sourceSpan);
+    diagnostics.push(...members.diagnostics);
+    const syntaxErrors = members.annotation?.kind === "bearing" ? members.annotation.syntaxErrors ?? [] : [];
+    annotation = { kind: "bearing", members: true, raw: header.slice(1), syntaxErrors: [...new Set(["operator" as const, ...syntaxErrors])] };
   } else if (unclosedUse) {
     // Retain clear selector intent so an unfinished use cannot become a joint source.
-    const role = /^\[\s*([GOQ])\/\s+use(?=$|[\s;])/i.exec(header)?.[1].toUpperCase() as "G" | "O" | "Q" | undefined;
+    const role = /^\[\s*([GOQD])\/\s+use(?=$|[\s;])/i.exec(header)?.[1].toUpperCase() as SelectorRole | undefined;
     annotation = role
       ? { kind: "use", role, selector: "attachment", raw: header.slice(1), syntaxErrors: ["reference"] }
       : { kind: "use", raw: header.slice(1), syntaxErrors: ["reference"] };
@@ -304,10 +304,8 @@ function toAstBlock(node: RawNode, diagnostics: Diagnostic[]): AstBlock {
     annotation = { kind: "invalid", raw: header.slice(1), selector: "attachment" };
   } else if (parsed?.annotation) {
     annotation = parsed.annotation;
-  } else if (unclosedConstructor === "linked") {
-    annotation = { kind: "localBearing", raw: header.slice(1), syntaxErrors: ["localBearing"] };
-  } else if (unclosedConstructor === "edge" || unclosedConstructor === "_") {
-    annotation = { kind: "explicitBearing", raw: header.slice(1), syntaxErrors: [isBearingModeUnselected(header.slice(1)) ? "mode" : "operator"] };
+  } else if (unclosedConstructor === "_") {
+    annotation = { kind: "bearing", members: false, raw: header.slice(1), syntaxErrors: [head.sources === "unselected" ? "mode" : "operator"] };
   } else if (parsed?.diagnostics.length || (node.indentationValid && !node.annotationRaw && classifyMalformedAnnotationPrefix(header))) {
     annotation = { kind: "invalid", raw: node.annotationRaw ?? header.slice(1) };
   }

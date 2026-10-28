@@ -1,4 +1,5 @@
 import { explainSource } from "./source.js";
+import { isNamedTarget } from "./types.js";
 import type { AstBlock, BearingTarget, ExplainedSource, SourceParseMode, SourceSpan } from "./types.js";
 
 /** An active, written operand, located by its containing block (not a token span). */
@@ -89,14 +90,14 @@ export function analyzeSourceReferences(source: string, mode: SourceParseMode = 
       if (!emission) {
         throw new Error("Reference analysis requires a validated explicit Bearing.");
       }
-      // Only explicit operands are written references. Self sources, local
-      // selectors, linked membership and implicit targets are deliberately absent.
-      if (clause.sources !== "self") {
+      // Only named operands are written references. Self and member sources,
+      // selectors, mark defaults and positional targets are deliberately absent.
+      if (Array.isArray(clause.sources)) {
         clause.sources.forEach((operand, sourceIndex) => {
           add(operand.id, emission.bearing.sources[sourceIndex], { kind: "source", sourceIndex, sourceSpan });
         });
       }
-      add(clause.target.id, emission.bearing.target, { kind: "target", sourceSpan });
+      if (isNamedTarget(clause.target)) add(clause.target.id, emission.bearing.target, { kind: "target", sourceSpan });
     }
     return names;
   });

@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { analyzeSourceReferences, compileGraph, formatGraph, formatExplain, parseDocument, explainSource, previewExplicitTarget, previewBearingForm } from "../../core/src/index.js";
+import { analyzeSourceReferences, compileGraph, formatGraph, formatExplain, parseDocument, explainSource, previewRelationEdit, previewTargetForm } from "../../core/src/index.js";
 import type { SourceParseMode } from "../../core/src/index.js";
 
 const repoRoot = fileURLToPath(new URL("../../../", import.meta.url));
@@ -29,24 +29,45 @@ afterAll(() => {
 
 describe("cog CLI", () => {
   it.each(["document", "host"] as const)("prints all compiler decisions and structural previews in %s input without writing", mode => {
-    const content = "- [C @claim] Claim.\n  - [G @reason; @step] Reason.\n    - [_ O/; @review]\n      - [. @first] First.\n      - [. @second] Second.";
+    const content = "- [C @claim] Claim.\n  - [G @reason; @step] Reason.\n    - [_ -> ^/; @review]\n      - [. @first] First.\n      - [. @second] Second.";
     const source = mode === "host" ? "Host prose.\r\n  ```cog\r\n" + content.split("\n").map(l => "  " + l).join("\r\n") + "\r\n  ```" : content;
-    const file = join(workingDirectory, "bearing-form.md");
+    const file = join(workingDirectory, "target-form.md");
     writeFileSync(file, source);
     const line = mode === "host" ? 5 : 3;
-    const result = runCli("bearing-form", "--input", mode, "--line", String(line), "--to", "explicit", file);
+    const result = runCli("target-form", "--input", mode, "--line", String(line), "--to", "named", file);
     expect(result.status).toBe(0);
-    expect(JSON.parse(result.stdout)).toEqual(previewBearingForm(source, { mode, line, form: "explicit" }));
+    expect(JSON.parse(result.stdout)).toEqual(previewTargetForm(source, { mode, line, form: "named" }));
     const explain = runCli("explain", "--input", mode, "--format", "text", file);
     expect(explain.status).toBe(0);
     expect(explain.stdout).toBe(formatExplain(explainSource(source, mode)));
     expect(readFileSync(file, "utf8")).toBe(source);
     const proposed = JSON.parse(result.stdout).proposedSource as string;
+    expect(proposed).toBe(source.replace("[_ -> ^/; @review]", "[_ -> @step; @review]"));
     writeFileSync(file, proposed);
-    const headerLine = proposed.split(/\r\n|\r|\n/).findIndex(l => l.includes("[_ @first,")) + 1;
-    expect(runCli("bearing-form", "--input", mode, "--line", String(headerLine), "--to", "local", file).status).toBe(0);
-    writeFileSync(file, source.replace("[. @first]", "[.]"));
-    expect(runCli("bearing-form", "--input", mode, "--line", String(line), "--to", "explicit", file).status).toBe(1);
+    const restored = runCli("target-form", "--input", mode, "--line", String(line), "--to", "positional", file);
+    expect(restored.status).toBe(0);
+    expect(JSON.parse(restored.stdout).proposedSource).toBe(source);
+    writeFileSync(file, source.replace("[G @reason; @step]", "[G @reason]"));
+    expect(runCli("target-form", "--input", mode, "--line", String(line), "--to", "named", file).status).toBe(1);
+  });
+
+  it("prints relation-edit previews as the core API does, without writing", () => {
+    const source = "- [C] Claim.\n  - [_]\n    - [.] A.\n    - [.] B.\n";
+    const file = join(workingDirectory, "relation-edit.md");
+    writeFileSync(file, source);
+    const decided = runCli("relation-edit", "--line", "2", "--decide", "supports", file);
+    expect(decided.status).toBe(0);
+    expect(JSON.parse(decided.stdout)).toEqual(previewRelationEdit(source, { operation: "decide", line: 2, kind: "supports" }));
+    expect(JSON.parse(decided.stdout).comparison.relation).toBe("refinement");
+    const separated = runCli("relation-edit", "--separate", "--line", "2", file);
+    expect(separated.status).toBe(0);
+    const proposed = JSON.parse(separated.stdout).proposedSource as string;
+    writeFileSync(file, proposed);
+    const joined = runCli("relation-edit", "--join", "2,3", file);
+    expect(joined.status).toBe(0);
+    expect(JSON.parse(joined.stdout).proposedSource).toBe(source);
+    expect(readFileSync(file, "utf8")).toBe(proposed);
+    expect(runCli("relation-edit", "--line", "1", "--separate", file).status).toBe(1);
   });
 
   it("prints source-selection errors in text Explain without a selected unit", () => {
@@ -58,14 +79,22 @@ describe("cog CLI", () => {
   });
 
   it.each([
-    ["bearing-form", "--line", "1", "valid.cog.md"],
-    ["bearing-form", "--to", "local", "valid.cog.md"],
-    ["bearing-form", "--to", "local", "--to", "explicit", "--line", "1", "valid.cog.md"],
-    ["bearing-form", "--to", "other", "--line", "1", "valid.cog.md"],
-    ["bearing-form", "--to", "local", "--line", "0", "valid.cog.md"],
-    ["explicit-target", "--to", "local", "--line", "1", "valid.cog.md"],
-    ["graph", "--to", "local", "valid.cog.md"],
-    ["bearing-form", "--to", "explicit", "--line", "1", "--format", "text", "valid.cog.md"]
+    ["target-form", "--line", "1", "valid.cog.md"],
+    ["target-form", "--to", "named", "valid.cog.md"],
+    ["target-form", "--to", "named", "--to", "positional", "--line", "1", "valid.cog.md"],
+    ["target-form", "--to", "local", "--line", "1", "valid.cog.md"],
+    ["target-form", "--to", "explicit", "--line", "1", "valid.cog.md"],
+    ["target-form", "--to", "named", "--line", "0", "valid.cog.md"],
+    ["graph", "--to", "named", "valid.cog.md"],
+    ["target-form", "--to", "named", "--line", "1", "--format", "text", "valid.cog.md"],
+    ["relation-edit", "--line", "1", "valid.cog.md"],
+    ["relation-edit", "--separate", "valid.cog.md"],
+    ["relation-edit", "--line", "1", "--decide", "supported", "valid.cog.md"],
+    ["relation-edit", "--line", "1", "--decide", "supports", "--separate", "valid.cog.md"],
+    ["relation-edit", "--join", "1", "valid.cog.md"],
+    ["relation-edit", "--join", "1,2", "--line", "1", "valid.cog.md"],
+    ["relation-edit", "--to", "named", "--line", "1", "valid.cog.md"],
+    ["graph", "--separate", "valid.cog.md"]
   ])("rejects invalid preview arguments %j", (...args) => {
     expect(runCli(...args).status).toBe(2);
   });
@@ -124,25 +153,25 @@ describe("cog CLI", () => {
     ["host", "Intro.\r\n  ```cog\r\n  - [C @c] Claim.\r\n    - [G] Reason\r\n      continued here.\r\n  ```", 5, 0],
     ["host", "Intro.\r\n  ```cog\r\n  - [C @c] Claim.\r\n  \t- [G] Reason\r\n  \t  continued here.\r\n  ```", 5, 0],
     ["document", "- [C] Anonymous.\n  - [G] Reason.", 2, 1],
-    ["document", "- [C @c] Claim.\n  - [G] Reason.\n- [O /> @c] Invalid.", 2, 1]
-  ] as const)("previews explicit targets in %s mode with API parity and no file writes", (mode, source, line, status) => {
+    ["document", "- [C @c] Claim.\n  - [G] Reason.\n- [O -> @missing] Invalid.", 2, 1]
+  ] as const)("previews named targets in %s mode with API parity and no file writes", (mode, source, line, status) => {
     const file = join(workingDirectory, "edit-preview.md");
     writeFileSync(file, source);
-    const result = runCli("explicit-target", "--input", mode, "--line", String(line), file);
+    const result = runCli("target-form", "--input", mode, "--line", String(line), "--to", "named", file);
     expect(result.status).toBe(status);
     expect(result.stderr).toBe("");
-    expect(JSON.parse(result.stdout)).toEqual(previewExplicitTarget(source, { line, mode }));
+    expect(JSON.parse(result.stdout)).toEqual(previewTargetForm(source, { line, mode, form: "named" }));
     expect(readFileSync(file, "utf8")).toBe(source);
   });
 
   it.each([
-    ["explicit-target", "valid.cog.md"],
-    ["explicit-target", "--line", "0", "valid.cog.md"],
-    ["explicit-target", "--line", "1.2", "valid.cog.md"],
-    ["explicit-target", "--line", "-1", "valid.cog.md"],
-    ["explicit-target", "--line", "9007199254740992", "valid.cog.md"],
-    ["explicit-target", "--line", "1", "--line", "2", "valid.cog.md"],
-    ["explicit-target", "--line"],
+    ["target-form", "--to", "named", "valid.cog.md"],
+    ["target-form", "--to", "named", "--line", "0", "valid.cog.md"],
+    ["target-form", "--to", "named", "--line", "1.2", "valid.cog.md"],
+    ["target-form", "--to", "named", "--line", "-1", "valid.cog.md"],
+    ["target-form", "--to", "named", "--line", "9007199254740992", "valid.cog.md"],
+    ["target-form", "--to", "named", "--line", "1", "--line", "2", "valid.cog.md"],
+    ["target-form", "--to", "named", "--line"],
     ["graph", "--line", "1", "valid.cog.md"]
   ])("rejects invalid line options: %j", (...args) => {
     const result = runCli(...args);
@@ -153,14 +182,20 @@ describe("cog CLI", () => {
   it("keeps option-like filenames available after -- and rejects unrelated options", () => {
     const source = "- [C @c] Claim.\n  - [G] Reason.";
     writeFileSync(join(workingDirectory, "--line"), source);
-    expect(runCli("explicit-target", "--line", "2", "--", "--line").status).toBe(0);
+    expect(runCli("target-form", "--to", "named", "--line", "2", "--", "--line").status).toBe(0);
     expect(readFileSync(join(workingDirectory, "--line"), "utf8")).toBe(source);
-    expect(runCli("explicit-target", "--line", "2", "--format", "text", "valid.cog.md").status).toBe(2);
-    expect(runCli("explicit-target", "--line", "2", "--references", "valid.cog.md").status).toBe(2);
+    expect(runCli("target-form", "--to", "named", "--line", "2", "--format", "text", "valid.cog.md").status).toBe(2);
+    expect(runCli("target-form", "--to", "named", "--line", "2", "--references", "valid.cog.md").status).toBe(2);
+  });
+
+  it.each([["explicit-target", "--line", "2", "valid.cog.md"], ["explicit-target"]])("diagnoses the retired command %j with its replacement", (...args) => {
+    const result = runCli(...args);
+    expect(result.status).toBe(2);
+    expect(JSON.parse(result.stdout).diagnostics).toEqual([expect.objectContaining({ code: "RETIRED_COMMAND", message: expect.stringContaining("target-form --line <n> --to named") })]);
   });
 
   it.each([
-    '- [C @c] Claim.\n  - [G; @step] Reason.\n- [O /> @step] Objection.',
+    '- [C @c] Claim.\n  - [G; @step] Reason.\n- [O -> @step] Objection.',
     '- [C] Survives.\n- [G +> @missing] Fails.',
     ''
   ])("prints single-graph text with unchanged exit status and source", source => {

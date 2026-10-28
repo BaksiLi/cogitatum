@@ -25,14 +25,14 @@ describe("consolidated symbolic authoring", () => {
     expect(compact.graph.diagnostics).toEqual([]);
     expect(readable.graph.diagnostics).toEqual([]);
     expect(compact.graph.bearings.map(({ sourceSpan: _span, ...bearing }) => bearing)).toEqual(readable.graph.bearings.map(({ sourceSpan: _span, ...bearing }) => bearing));
-    expect(compact.explain.entries[3].recognition).toEqual({ kind: "explicitBearing" });
+    expect(compact.explain.entries[3].recognition).toEqual({ kind: "bearing", members: false });
     expect(compact.graph.points).toHaveLength(2);
     expect(compact.graph.bearings[1].text).toBe("Route description.");
   });
 
-  it.each([["[_]", "MALFORMED_BEARING_MODE"], ["[_ @source +>]", "EXPLICIT_BEARING_DESCENDANT_REQUIRES_TARGET"], ["[_; @bad]", "MALFORMED_BEARING_MODE"], ["[_ @source", "EXPLICIT_BEARING_DESCENDANT_REQUIRES_TARGET"]])("retains %s as a failed Bearing boundary", (header, code) => {
+  it.each([["[_ the debate]", "MALFORMED_BEARING_MODE"], ["[_ @source +>]", "EXPLICIT_BEARING_DESCENDANT_REQUIRES_TARGET"], ["[_ debate; @bad]", "MALFORMED_BEARING_MODE"], ["[_ @source", "EXPLICIT_BEARING_DESCENDANT_REQUIRES_TARGET"]])("retains %s as a failed Bearing boundary", (header, code) => {
     const { graph, explain } = compile("- [. @source] Source.\n- [C @outer] Outer.\n  - " + header + "\n    - [G @child] Survives.\n      - [O] Its own subtree.\n    - [G @explicit +> @outer] Independent.");
-    expect(explain.entries[2].recognition).toEqual({ kind: "explicitBearing" });
+    expect(explain.entries[2].recognition).toEqual({ kind: "bearing", members: false });
     expect(graph.bearings.map(bearing => bearing.kind)).toEqual(["challenges", "supports"]);
     expect(graph.diagnostics.map(diagnostic => diagnostic.code)).toContain(code);
   });
@@ -46,7 +46,7 @@ describe("consolidated symbolic authoring", () => {
   });
 
   it("retains retired-selector commentary without making it a linked source or shrinking the joint", () => {
-    const { graph, explain } = compile("- [C @claim] Claim.\n  - [_ G; @joint]\n    - [. @first] First.\n    - [G_] Retired commentary.\n    - [. @second] Second.");
+    const { graph, explain } = compile("- [C @claim] Claim.\n  - [_ +> ^; @joint]\n    - [. @first] First.\n    - [G_] Retired commentary.\n    - [. @second] Second.");
     expect(graph.bearings).toHaveLength(1);
     expect(graph.bearings[0].sources.map(ref => graph.points.find(point => point.key === ref.key)?.id)).toEqual(["first", "second"]);
     expect(explain.entries[3].effects).toContainEqual({ kind: "localBearingMember", localBearingSpan: explain.entries[1].sourceSpan, eligible: false, function: "commentary" });
@@ -68,14 +68,24 @@ describe("consolidated symbolic authoring", () => {
     expect(graph.bearings[0].kind).toBe("supports");
   });
 
-  it("keeps authored negative target checks after adopting slash", () => {
-    const source = "- [. @source] Source.\n- [C @claim] Claim.\n- [_ @source +> @claim; @route]\n- [O -> @route] Wrong Point target.\n- [O /> @claim] Wrong Bearing target.";
-    expect(codes(source)).toEqual(["CHALLENGE_REQUIRES_BEARING_TARGET"]);
-    expect(compile(source).graph.bearings).toHaveLength(2);
+  it("lets -> reach a Point or a Bearing by the target's name alone", () => {
+    const source = "- [. @source] Source.\n- [C @claim] Claim.\n- [_ @source +> @claim; @route]\n- [O -> @route] Challenges the route.\n- [O -> @claim] Challenges the claim.";
+    const { graph } = compile(source);
+    expect(graph.diagnostics).toEqual([]);
+    expect(graph.bearings.slice(1).map(bearing => [bearing.kind, bearing.target.kind])).toEqual([["challenges", "bearing"], ["challenges", "point"]]);
+  });
+
+  it.each([["[_]", "point"], ["[_; @joint]", "point"], ["[_/]", "bearing"]] as const)("reads %s as joint concerns from its members", (header, target) => {
+    const { graph, explain } = compile("- [C @claim] Claim.\n  - [G; @route] Reason.\n    - " + header + "\n      - [. @a] First.\n      - [. @b] Second.");
+    expect(graph.diagnostics).toEqual([]);
+    expect(explain.entries[2].recognition).toEqual({ kind: "bearing", members: true, ...(target === "bearing" ? { selector: "attachment" } : {}) });
+    const joint = graph.bearings.at(-1)!;
+    expect(joint).toMatchObject({ kind: "concerns", derivedBy: "structural", sources: graph.points.slice(2).map(point => ({ kind: "point", key: point.key })) });
+    expect(joint.target).toEqual(target === "point" ? { kind: "point", key: graph.points[1].key } : { kind: "bearing", key: graph.bearings[0].key });
   });
 
   it("does not let a Bearing-as-Point use supply a linked target or redirect its sources outward", () => {
-    const { graph } = compile("- [. @premise] Premise.\n- [C @claim] Claim.\n- [_ @premise +> @claim; @route]\n- [C @outer] Outer.\n  - [. use @route]\n    - [_ G; @joint]\n      - [. @first] First.\n      - [. @second] Second.");
+    const { graph } = compile("- [. @premise] Premise.\n- [C @claim] Claim.\n- [_ @premise +> @claim; @route]\n- [C @outer] Outer.\n  - [. use @route]\n    - [_ +> ^; @joint]\n      - [. @first] First.\n      - [. @second] Second.");
     expect(graph.bearings.map(bearing => bearing.handle)).toEqual(["route"]);
     expect(graph.diagnostics.map(diagnostic => diagnostic.code)).toEqual(["BEARING_IS_NOT_POINT_REFERENCE", "POINT_FOCUS_REQUIRES_POINT"]);
     expect(graph.points).toHaveLength(5);
@@ -106,7 +116,7 @@ describe("consolidated symbolic authoring", () => {
     expect(result.explanations[0].entries[2].effects).toContainEqual({ kind: "focusPoint", operand: { id: "premise" }, ref: { kind: "point", key: result.graphs[0].points[0].key } });
   });
 
-  it.each(["[C/]", "[. . .]", "[. use]", "[. use @missing]", "[O/ use @missing /> @route]"])("keeps malformed %s distinct from ordinary bracket prose", header => {
+  it.each(["[C/]", "[. . .]", "[. use]", "[. use @missing]", "[O/ use @missing -> @route]"])("keeps malformed %s distinct from ordinary bracket prose", header => {
     expect(codes("- " + header)).not.toEqual([]);
     expect(codes("- [...] Ordinary ellipsis.\n- [use case] Prose.\n- [.use] Prose.\n- [edgeless] Prose.")).toEqual([]);
   });

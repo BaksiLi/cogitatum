@@ -27,7 +27,7 @@ const source = [
   '    - [O/ @exceptions] The workhouse had almost no cases.',
   '      - [R] It had its own well.',
   '  - [G @exposure; @route] Distant victims drank pump water.',
-  '    - [_ G]',
+  '    - [_ +> ^]',
   '      - [. @widow] A widow had pump water delivered.',
   '      - [. @niece] Her niece also died.',
   '    - [G use @cluster] The cluster fits exposure.',
@@ -131,7 +131,7 @@ try {
 
     const sharedRoutes = [
       '- [C @water] The pump was the source.', '  - [G @cluster; @proximity] Nearby cases.',
-      '    - [O/ @exceptions] Nearby exceptions.', '  - [_ G; @route] Actual exposure.',
+      '    - [O/ @exceptions] Nearby exceptions.', '  - [_ +> ^; @route] Actual exposure.',
       '    - [. use @cluster]', '    - [. @exposure] Distant drinkers.',
       '    - [O/ @alternative] A separate objection to exposure.',
     ].join('\n');
@@ -181,7 +181,7 @@ try {
     await page.keyboard.press('Enter');
     assert.equal((await page.evaluate(() => window.edits)).length, 0, 'native prose controls do not open source or select a different object');
 
-    const many = ['- [C @claim] Many sources.', '  - [_ G]', ...Array.from({ length: 32 }, (_, i) => `    - [.] Source ${i + 1}.`)].join('\n');
+    const many = ['- [C @claim] Many sources.', '  - [_ +> ^]', ...Array.from({ length: 32 }, (_, i) => `    - [.] Source ${i + 1}.`)].join('\n');
     await page.evaluate(source => window.mount(source), many);
     await page.getByRole('button', { name: 'Strands', exact: true }).click(); await flush();
     assert.equal(await page.locator('.cog-strands-row-point').count(), 33);

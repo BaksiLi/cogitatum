@@ -38,7 +38,7 @@ For example:
 ```md cog-check require=supports,challenges points=3 bearings=2 diagnostics=0
 - [C @claim] The bridge is safe.
   - [G @inspection; @route] Yesterday's inspection found no defects.
-- [O /> @route] The inspection omitted the underside.
+- [O -> @route] The inspection omitted the underside.
 ```
 
 ```text graph-text-reference
@@ -67,7 +67,7 @@ A Serial structure retains its intermediate Point and each step; the formatter a
 
 For format 0.6.0, a graph has finite, disjoint typed identity sets of Points and Bearings.
 Each Bearing has a nonempty, duplicate-free, ordered sequence of Point sources and one typed Point or Bearing target.
-`supports`, `challenges` and `concerns` admit either target type; `answers`, `respondsTo` and `clarifies` require a Point.
+`supports`, `challenges`, `concerns` and `clarifies` admit either target type; `answers` and `respondsTo` require a Point.
 Point declaration metadata is `role` with its role, or `material` without a role.
 Neither form carries an open or resolved status.
 Authored names are separate from compilation-local keys.
@@ -105,8 +105,8 @@ No graph row asserts truth, logical validity, defeat, acceptability or resolutio
 
 Always retain the original input, input mode, compiler/package version and complete source envelope when source fidelity or reproducibility matters.
 A graph-only export cannot recover omitted context or distinguish two source spellings that compile to the same graph.
-For example, named `challenges` and symbolic `/>` may currently target the same Bearing but retain different target requirements in AST.
-A change to the target's declaration can therefore affect their later compilation differently.
+For example, `[G]` and `[G +> ^]` compile the same Bearing, but AST records whether the mark supplies the relation or the author wrote it out.
+Changing the mark later therefore changes the first relation and leaves the second as written.
 
 ## Comparison boundaries
 
@@ -175,12 +175,90 @@ Each host fence has its own namespace.
 If any selected input has errors, including an omitted unclosed or nested fence, the inventory is explicitly unavailable rather than reporting zero references.
 Names with no written references generate no new warnings, and the command never edits the source.
 
-## Preview an explicit target
+## Compare commitments across revisions
 
-Use `cog explicit-target --line 3 inquiry.cog.md` to preview fixing the currently selected target of one occurrence.
+A structural comparison asks whether two graphs are the same.
+A commitment comparison asks what a revision retracted and what it added.
+It distinguishes a refinement, which only adds, from a revision, which also retracts.
+
+A commitment is a relation kind, an unordered set of sources and a target.
+Several Bearings may state one commitment; they stay distinct entities when something addresses them.
+Entailment between commitments has exactly two rules:
+
+- A commitment entails itself.
+- Every relation commits each of its sources to bearing on its target.
+  So a set jointly concerns a target once each member is a source of some relation to it, of any kind.
+
+Only relevance distributes.
+Joint support gives no member support of its own, separate supports are not one joint support,
+and bearing on a step is not bearing on its conclusion.
+Linked support is therefore a commitment of its own, while grouping under `[_]` adds none:
+`[_]` leaves open how its members bear, and refining it may decide that they bear together, separately or with a further premise.
+A grouping still matters as an entity when another relation addresses it.
+So `[_]` refined to `[_ +> ^]`, or split into sibling `[G]` occurrences, is a refinement,
+while merging two `[G]` into one `[_ +> ^]` is a revision.
+Selecting a Point is also counted: adding one refines and removing one retracts.
+
+| Before | After | Relation |
+| --- | --- | --- |
+| `[_]` with members a, b | `[_ +> ^]` with members a, b | refinement |
+| `[_]` with members a, b | `[G] a` and `[G] b` | refinement |
+| `[G] a` and `[G] b` | `[_ +> ^]` with members a, b | revision |
+| `[_ +> ^]` with members a, b | `[_]` with members a, b | weakening |
+| `[_]` with member a | `[_ +> ^]` with members a, b | refinement |
+| `[_]` with members a, b | `[_]` with member a | weakening |
+| `[O/]` on a step | `[O]` on its conclusion | revision |
+| `[G]` | `[G +> @claim]` | equivalent |
+
+Comparing two revisions requires knowing which entity continues which.
+Core does not infer this silently.
+`suggestCorrespondence(before, after)` proposes pairs by authored name, unique text and continued endpoints,
+lists every entity with several plausible continuations, and never chooses among equals.
+An edit tool knows what it moved and passes its own correspondence to `compareCommitments(before, after, correspondence)`.
+Continuity establishes identity only: a continued Point whose text or declaration changed is reported, not weighed.
+Graphs with errors, other format versions and invalid correspondences are `indeterminate`.
+
+The order classifies what an author committed to, never whether a reading is correct.
+Notes, body prose, names, marks, source order and positions are presentation; review their changes separately.
+
+## Preview relation edits
+
+```sh
+cog relation-edit --line 2 --decide supports inquiry.cog.md
+cog relation-edit --line 2 --separate inquiry.cog.md
+cog relation-edit --join 2,4 inquiry.cog.md
+```
+
+Three edits change recorded relations without touching Point text:
+
+- `--decide <kind>` gives the relation on a line another kind, such as `[_]` to `[_ +> ^]` or `[G]` to `[O]`.
+  A pure relation mark exchanges its letter; `Q`, `C` and neutral headers keep their mark and write the clause, as `[Q/]` to `[Q -> ^/]`.
+- `--separate` replaces a group whose sources are its direct members with one relation per member, each keeping the group's kind and target.
+- `--join` is its inverse: adjacent sibling relations of one kind and written target become the members of one new group.
+
+Each preview knows which entity continues which, so it supplies its own correspondence to `compareCommitments` and reports the resulting relation.
+The author sees whether the edit is a refinement, which only adds, or a weakening or revision, which retracts something already recorded.
+So deciding `[_]` as joint support, or separating it into supports, is a refinement; joining two supports is a revision.
+
+The preview recompiles the complete proposed source.
+It is unavailable when the input or result has errors, when Points would be added, removed or reworded, or when anything beyond the edited relations would change.
+Groups with a handle, a description or children other than members cannot be separated, and relations with a handle cannot be joined, because another relation may address them as entities.
+`Q` and `C` occurrences cannot be joined either: a member keeps only its operand, and their marks also declare the Point.
+Core provides `previewRelationEdit(source, { operation, line | lines, kind?, mode? })`; the command prints JSON and never writes to the input file.
+
+## Preview named and positional targets
+
+```sh
+cog target-form --line 3 --to named inquiry.cog.md
+cog target-form --line 3 --to positional inquiry.cog.md
+```
+
+Every relation ends in one target term: a name, or the positional `^` / `^/` that the outline resolves.
+`target-form` previews exchanging one for the other in the occurrence on the given line.
 The line is one-based in the complete input file; add `--input host` for a selected Cogitatum fence in Markdown.
 Selecting a continuation line locates the same occurrence and edits its first-line annotation.
-The command prints JSON and does not write to the input file.
+Core provides `previewTargetForm(source, { line, form: 'named' | 'positional', mode? })`.
+The command prints JSON and never writes to the input file.
 
 Before the edit, the Ground below selects the Claim through ordinary body:
 
@@ -191,7 +269,7 @@ Before the edit, the Ground below selects the Claim through ordinary body:
       - [O/] Both may share a transient fault.
 ```
 
-The preview inserts a clause into the selected annotation:
+`--to named` writes the target that `[G]` currently abbreviates:
 
 ```md cog-check require=supports,challenges points=3 bearings=2 diagnostics=0
 - [C @claim] The service needs inspection.
@@ -201,37 +279,39 @@ The preview inserts a clause into the selected annotation:
 ```
 
 The same three Points and two individual Bearings remain, including the objection to this particular route.
-The source prose, occurrence ownership, note boundaries, indentation, names, handles and line endings are retained.
-The change removes this occurrence's implicit-attachment advice and changes its attachment provenance from structural to explicit.
+`--to positional` on the second document restores the first; the two directions are one edit read both ways.
 It does not decide whether the observations are independent or sufficient.
 
+The edit changes only the target term, and the relation or selector slash it needs.
+A mark's default relation is written out when its target is named, and omitted again when the result is the mark's own default: `[G +> ^]` becomes `[G]`, and `[O -> ^/]` becomes `[O/]`.
+For a constructor, only the header's target changes; its members stay where they are, still its sources.
+Spacing, names, handles, prose, note boundaries and line endings are retained.
+
 **This deliberately changes future editing behavior.**
-Moving the Ground under another Claim will retain `@claim` as its target.
-Changing its role will retain the explicit operator rather than select a new relation from local defaults.
+A named target stays fixed when the occurrence moves; a positional one follows the nearest Point or exposed Bearing.
+A written relation stays when the mark changes; an abbreviated one follows the mark.
+The `consequence` text states both effects for the chosen edit.
 Choose this operation when that is the intended commitment; it is not an automatic formatting fix.
-The inserted operators retain their normal target requirements: `+>`, `->` and `~>` permit either kind; optional `/>` requires a Bearing.
-Later changes to the target declaration therefore need their own review.
 
-The operation handles ordinary implicit `supports`, `challenges`, `respondsTo` and `clarifies` attachments on Point declarations and uses, with an already named Point target.
-It inserts a symbol where available, otherwise the canonical kind name.
-It declines anonymous targets, local `G/`, `O/` or `Q/` selectors and local Bearing headers/source members.
-Unattached `.`, `Q` and `C` occurrences have no implicit relation to make explicit; the preview does not interpret them as answers or relevance relations.
-Already explicit clauses are reported as unavailable rather than receiving a duplicate clause.
-Any error anywhere in the complete input withholds a preview, including an invalid or unclosed separate host fence.
+The preview declines errors anywhere in the input, including an invalid or unclosed separate host fence,
+anonymous targets, occurrences that state no relation (`.` and `C`), a source member of a constructor (select the constructor instead),
+and a target that is already in the requested form.
+A positional target must resolve to the same entity at the occurrence's position.
+No missing premise, new authored name or role interpretation is supplied automatically.
 
-A ready result includes `originalSource`, `proposedSource`, one insertion in `edit`, the original and proposed diagnostic lists, and the consequence for future moves and role changes.
-The insertion offset counts UTF-16 code units in `originalSource`, not UTF-8 bytes.
+A ready result includes `originalSource`, `proposedSource`, one `edit` with a UTF-16 `offset`, exact `remove` text and `insert` text, both diagnostic lists, and the consequence.
+The edit is the minimal one between the two annotations.
 Before applying a saved preview, an editor or caller must compare the complete current source with `originalSource`; any difference requires a new preview.
-The command provides no delayed apply or file overwrite mode.
 An unavailable result contains a reason and message, with no edit or proposed source.
 Exit status is 0 for a ready preview, 1 for an unavailable preview or I/O failure, and 2 for invalid command options.
 
-The Core implementation reparses the proposed complete input in the same mode.
-It checks the ordered AST including occurrence text and note subtrees, allowing only the selected clause and source metadata to change.
-It checks every graph's identities, entity order, contents, declarations, ordered sources, typed targets and names, allowing only the selected Bearing's provenance and source positions to change.
-Diagnostics retain their ordered severity, code and starting location, except that the selected implicit-attachment suggestion may disappear.
-Full messages are returned for review because they may embed changed source columns.
+The Core implementation reparses and recompiles the proposed complete input in the same mode.
+It checks the ordered AST including occurrence text and note subtrees, allowing only the selected clause to change.
+It checks every graph's identities, entity order, contents, declarations, ordered sources, typed targets and names, allowing only the selected Bearing's structural/operator provenance to change.
+Diagnostics retain their ordered severity, code and owning occurrence, except that implicit-through-body advice may appear or disappear.
 These checks establish the stated structural and source preservation conditions; they do not certify an interpretation of the prose.
+
+The published `explicit-target` command and `previewExplicitTarget` were retired in 0.6: the command now reports `RETIRED_COMMAND` and points here.
 
 ## Inspect every local decision
 
@@ -247,7 +327,7 @@ It distinguishes a failed candidate from a surviving graph entity.
 Ordinary body crossings and failed nearest contexts stay visible; nothing silently searches outward.
 Literal note descendants remain owned by their note header and have no active decisions.
 
-A local Bearing member's syntactic eligibility and the header's outcome are reported separately.
+A constructor member's syntactic eligibility and the header's outcome are reported separately.
 Explain names the surviving Bearing that includes the source, or states that the rejected header created none.
 Unlike graph text, Explain text accepts host input.
 It prints each independent selected unit and all aggregate diagnostics, including an unclosed fence that produced no unit.
@@ -260,53 +340,6 @@ The View package's Reading presents the same evidence beside the source:
 selecting a row draws a rail from the context row that indentation selected, marks crossed body,
 and states the decision in one line, such as `From indentation: challenges @g (L2), the nearest enclosing Point.`
 Rows that create no relation say so, which makes Q, C and neutral Points' lack of implicit relations visible.
-
-## Preview local and explicit forms
-
-```sh
-cog bearing-form --line 3 --to explicit inquiry.cog.md
-cog bearing-form --line 3 --to local inquiry.cog.md
-```
-
-Add `--input host` for Markdown; line numbers always address the complete original file.
-Core provides `previewBearingForm(source, { line, form: 'local' | 'explicit', mode? })`.
-The operation supports ordinary G/O/R/D attachments, G/O/Q selectors and local/explicit Bearing constructors.
-It never writes a file.
-
-Local → explicit fixes the existing relation and named endpoints.
-For a joint, it moves the neutral source occurrences and their complete subtrees before the constructor,
-outside enclosing Bearing contexts where they would otherwise become unintended sources or invalid descendants.
-The header description and commentary remain on the constructor.
-Explicit → local keeps declarations in place and introduces ordered neutral source uses for a joint.
-It checks that the actual local context selects the same target.
-It does not restore a previous source arrangement.
-
-A ready preview preserves Point identities, declaration marks, content and names;
-individual Bearings, descriptions, ordered sources and typed targets;
-the expected AST transformation, literal subtrees, note origins and resolved ownership;
-and unrelated diagnostic codes, severities and their owning occurrences.
-Only the chosen relation's structural/operator provenance and implicit-through-body advice may change.
-Reordering declarations may change generated keys and source locations.
-Full before/after diagnostics remain available for review.
-The implementation reparses and recompiles the complete input to check these conditions.
-
-The preview declines errors anywhere in the input, unnamed required endpoints,
-changes to Point roles, a different nearest local target, and relations without a local spelling.
-In particular, `answers` and Point-targeted `concerns` stay explicit.
-No missing premise, new authored name or role interpretation is supplied automatically.
-
-Ready JSON includes `originalSource`, `proposedSource`, `edits`, both diagnostic lists and the editing consequence.
-Each edit has a UTF-16 `offset`, exact `remove` text and `insert` text, addressing the original source.
-Edits are ordered and non-overlapping; apply them in reverse order only after comparing the complete current source with `originalSource`.
-A mismatch requires a fresh preview.
-An unavailable result has a reason and message, without an edit or proposed source.
-Exit status is 0 for ready, 1 for unavailable or I/O failure, and 2 for invalid options.
-
-These are **structural previews**, not judgments of equivalent reasoning.
-Source positions and reading arrangement may change.
-Future moves and role edits can also behave differently: an explicit clause fixes its relation and target,
-while a local form follows its mark and nearest context.
-The older `explicit-target` operation retains its narrower, single-insertion contract.
 
 ## Core API and compatibility
 

@@ -24,9 +24,9 @@ Prose can use any language; marks and names follow the [syntax reference](syntax
 
 See [argument structures](bearings.md#argument-structures) for examples.
 Convergent, Linked and Serial name graph structures, not source keywords or judgments of reasoning strength or success.
-Local `[_ G]` and explicit `[_ @a, @b +> @claim]` can each express Linked support when several sources participate together.
+`[_ +> ^]` with member sources and `[_ @a, @b +> @claim]` with listed sources can each express Linked support when several sources participate together.
 The constructor also permits a single source; it is complete without being Linked.
-See the [syntax reference](syntax.md#local-bearing-constructions) for other local relations and migration from older spellings.
+See the [syntax reference](syntax.md#bearing-constructors) for other relations and migration from older spellings.
 
 ## Writing terms / 書寫用語
 
@@ -40,8 +40,9 @@ See the [syntax reference](syntax.md#local-bearing-constructions) for other loca
 | Body | 正文 | Unmarked prose; it adds no Point or Bearing, and attachment by indentation passes through it. / 未標記的文字；不產生點或係，依縮排的附接可穿過它。 |
 | Note | 附註 | Literal supplementary prose: `[note]` belongs to its source parent; `[. note]` and `[_ note]` annotate the selected object without new Points or Bearings. / 字面保留的補充文字：`[note]` 屬於原文父項，另兩種寫法註記所選實體，不新增點或係。 |
 | Handle | 係名 | An authored name for a Bearing, written after `;`. / 以 `;` 寫在後面、為係所取的名字。 |
-| Attachment | 附接 | The Bearing a Point occurrence constructs to its target, by default, selector or explicit clause; `G/`, `O/` and `Q/` beneath it select that attachment. / 點的某一出現處（依預設、選取或明示關係）向其目標建構的係；其下的 `G/`、`O/` 與 `Q/` 選取它。 |
+| Attachment | 附接 | The Bearing a Point occurrence constructs to its target, by default, selector or explicit clause; `G/`, `O/`, `Q/` and `D/` beneath it select that attachment. / 點的某一出現處（依預設、選取或明示關係）向其目標建構的係；其下的 `G/`、`O/`、`Q/` 與 `D/` 選取它。 |
 | Route | 路徑 | Informal word for a Bearing seen as a step of reasoning, often named by a handle; not a separate type. / 把係視作推理步驟時的非正式說法，常以係名指稱；並非另一種類型。 |
+| Target term | 目標項 | The one target every relation ends in: `@name`, `^` for the nearest enclosing Point, or `^/` for the locally exposed Bearing; a mark such as `[G]` abbreviates `[G +> ^]`. / 每個關係都指向的唯一目標：`@name`、`^`（最近的外層點）或 `^/`（局部呈現的係）；`[G]` 等標記是 `[G +> ^]` 的簡寫。 |
 
 ## Points / 點
 
@@ -56,7 +57,7 @@ See the [syntax reference](syntax.md#local-bearing-constructions) for other loca
 | `[.]`, `[. @passage]` | Neutral Point | 中性點 | 沒有指定角色的內容，可選擇命名。 |
 | `[. use @p]`, `[G use @p]` | Point use | 點的引用 | 再次使用同一個點；此處所寫的標記只作用於此處。 |
 | — | Declaration | 宣告 | 引入一個新點，並寫明其初始標記。 |
-| `G/`, `O/`, `Q/` | Local selector | 局部選取 | 支持、質疑或提問關涉最近建構處所呈現的係。 |
+| `G/`, `O/`, `Q/`, `D/` | Local selector | 局部選取 | 支持、質疑、提問關涉或釐清最近建構處所呈現的係；即目標 `^/`。 |
 
 See [Points](points.md) for roles, neutral content, and names.
 
@@ -69,7 +70,8 @@ See [Points](points.md) for roles, neutral content, and names.
 | `~>` | concerns | 關涉 | 記錄相關性，不承諾正面或反面作用。 |
 | Explicit `answers` | answers | 回答 | 作者明示某個 Point 回答另一個 Point；Q 下的 C 不自動產生此關係。 |
 | Response beneath a Point | respondsTo | 回應 | R 回應最近的外層 Point，不要求目標標成 O。 |
-| Distinction beneath a Point | clarifies | 釐清 | D 用來釐清最近的外層 Point。 |
+| Distinction beneath a Point | clarifies | 釐清 | D 用來釐清最近的外層 Point；`D/` 或 `clarifies ^/` 釐清一個係。 |
+| Question beneath a Point | concerns | 關涉 | Q 關涉最近的外層 Point，不表示支持或質疑。 |
 
 See [Bearings](bearings.md) for indentation, joint support, and target restrictions,
 and the [quick start](quick-start.md#writing-and-reconstruction) for a reconstruction example.
