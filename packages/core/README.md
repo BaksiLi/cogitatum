@@ -236,6 +236,8 @@ Public types are `RelationEdit`, `RelationEditOptions`, `RelationEditPreview` an
 A commitment entails itself, and a set jointly `concerns` a target once each member is a source of some relation to it; nothing else follows, so linked support is its own commitment while `[_]` grouping adds none.
 `compareCommitments(before, after, correspondence)` returns `equivalent`, `refinement`, `weakening` or `revision` with the retracted and added commitments, removed, added and changed Points, and Bearings without continuation.
 It is `indeterminate` for graphs with errors, another format version or an invalid correspondence.
+The classification concerns recorded connections and Point selection; `equivalent` does not certify unchanged prose or declaration marks.
+Changed Point content and declarations are reported for separate review, and notes and ordinary body remain outside the comparison.
 `suggestCorrespondence` proposes a correspondence by name, unique text and continued endpoints, and reports ambiguity instead of choosing.
 Public types are `Commitment`, `CommitmentComparison`, `CommitmentRelation`, `Correspondence`, `CorrespondenceBasis` and `CorrespondenceSuggestion`.
 The comparison adds no fields to AST, Graph IR, Explain or source schemas.
