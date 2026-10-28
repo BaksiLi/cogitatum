@@ -14,6 +14,8 @@ export type GraphViewOptions = {
   direction?: "down" | "right";
   /** The host may additionally disable motion; system reduced-motion is always respected. */
   reducedMotion?: () => boolean;
+  /** Draw the first drawing in when it comes into view: points in reading order, then each line traced to its mark. */
+  entrance?: boolean;
   onSelect?: (node: GraphNode) => void;
   onClear?: () => void;
   onNavigate?: (node: GraphNode) => void;
@@ -30,9 +32,9 @@ export type GraphView = {
 };
 
 const NS = "http://www.w3.org/2000/svg";
-const POINT_R = 9, JUNCTION_R = 10, LABEL_K = .6, DRAG_SLOP = 4, MIN_K = .3, MAX_K = 2.2;
+const POINT_R = 9, RING_GAP = 3.2, JUNCTION_R = 10, LABEL_K = .6, READ_K = .78, DRAG_SLOP = 4, MIN_K = .3, MAX_K = 2.2;
 type Camera = { k: number; tx: number; ty: number };
-type Shape = { id: string; node: GraphNode; g: SVGGElement; label?: SVGTextElement; labelHit?: SVGRectElement; inline: boolean };
+type Shape = { id: string; node: GraphNode; g: SVGGElement; glyph?: SVGGElement; label?: SVGTextElement; labelHit?: SVGRectElement; inline: boolean };
 
 /**
  * Framework-neutral mount/update/destroy lifecycle. Positions live in a world space; the camera maps
@@ -65,8 +67,18 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
   const nodeById = (id?: string) => id ? full.nodes.find(node => node.id === id) : undefined;
   const screen = (p: Point2) => ({ x: p.x * camera.k + camera.tx, y: p.y * camera.k + camera.ty });
 
+  // ── entrance: once, the first time a drawing is seen, like a constellation being traced ──
+  // `pending` waits for the drawing to come into view; `began` is when tracing started.
+  const POINT_DELAY = 110, POINT_IN = 520, LINE_IN = 640;
+  let entrance: { pending: boolean; began: number } | undefined = options.entrance ? { pending: true, began: 0 } : undefined;
+  // Each point and line starts at once and settles slowly, as a pen sets down and a star steadies (quartic ease-out).
+  const entranceEase = (t: number) => 1 - (1 - t) ** 4;
+  const entranceAt = (delay: number, length: number) =>
+    !entrance ? 1 : entrance.pending ? 0 : entranceEase(Math.max(0, Math.min(1, ((win?.performance.now() ?? 0) - entrance.began - delay) / length)));
+
   // ── text measurement (fixed CSS pixel sizes from the shared mark type scale) ──
-  let measure: CanvasRenderingContext2D | null | undefined, font = "";
+  // Line height follows the host's label type, so a host may set the wording larger than the shared scale.
+  let measure: CanvasRenderingContext2D | null | undefined, font = "", lineHeight: number = MARK_TYPE.lineHeight;
   const wrapCache = new Map<string, string[]>();
   function textWidth(s: string): number {
     measure ??= doc.createElement("canvas").getContext?.("2d") ?? null;
@@ -100,18 +112,24 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
     nodeLayer.replaceChildren(); glyphLayer.replaceChildren(); shapes = new Map();
     // Measure with the host's resolved text style so wrapping matches what is painted.
     const probe = element("text", { class: "cog-text" }, nodeLayer), style = win?.getComputedStyle(probe);
-    font = `${style?.fontSize || `${MARK_TYPE.text}px`} ${style?.fontFamily || "serif"}`; probe.remove(); wrapCache.clear();
+    const fontSize = style?.fontSize || `${MARK_TYPE.text}px`;
+    font = `${fontSize} ${style?.fontFamily || "serif"}`;
+    lineHeight = Math.max(MARK_TYPE.lineHeight, Math.round(parseFloat(fontSize) * 1.28));
+    probe.remove(); wrapCache.clear();
     for (const node of topology.nodes) {
       const isPoint = node.ref.kind === "point";
       const g = element("g", { class: `cog-node ${isPoint ? "point" : "bearing cog-junction-node"} cog-${node.label.replace("?", "-open")}`, role: "button", tabindex: "-1", "data-node": node.id }, nodeLayer);
       element("circle", { class: "cog-hit", r: isPoint ? "22" : "16" }, g);
-      element("circle", { class: "cog-focus-ring", r: isPoint ? "15" : "16" }, g);
-      if (isPoint) drawPointGlyph(g, node.label, POINT_R); else drawBearingGlyph(g, node.label, true, JUNCTION_R - 2.5);
+      const ring = element("circle", { class: "cog-focus-ring", r: isPoint ? "15" : "16" }, g);
+      // A point's glyph and focus ring scale together with the drawing; see pointScale.
+      const glyph = isPoint ? element("g", { class: "cog-point-scale" }, g) : undefined;
+      // A marked point is drawn as a star on an engraved chart: the disc, and a hairline ring a little apart.
+      if (glyph) { glyph.append(ring); if (pointMark(node.label).shape === "filled") element("circle", { class: "cog-glyph-halo", r: String(POINT_R + RING_GAP) }, glyph); drawPointGlyph(glyph, node.label, POINT_R); } else drawBearingGlyph(g, node.label, true, JUNCTION_R - 2.5);
       // A junction's name sits beside its diamond, so links may enter it from below without detouring.
       const labelHit = element("rect", { class: "cog-hit cog-label-hit", width: "0", height: "0", "aria-hidden": "true" }, g);
       const label = element("text", { class: isPoint ? "cog-text" : "cog-label", "text-anchor": isPoint ? "middle" : "start" }, g);
       describe(g, node);
-      shapes.set(node.id, { id: node.id, node, g, label, labelHit, inline: false });
+      shapes.set(node.id, { id: node.id, node, g, glyph, label, labelHit, inline: false });
     }
     for (const [id] of inline) {
       const node = nodeById(id)!;
@@ -147,14 +165,23 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
     for (const node of topology.nodes) { const saved = arrangement.get(positionKey(node)); if (saved) positions.set(node.id, { ...saved }); }
     return positions;
   }
-  const pointLabelWidth = (k: number) => Math.max(96, Math.min(150, 168 * k - 14));
+  // At full scale or larger there is room between layers, so wording gets a reading measure: three lines at
+  // up to 200px. A dense inquiry drawn smaller keeps the caption measure of two lines, so wording never meets a junction.
+  const roomy = (k: number) => k >= .95;
+  // Points grow and shrink with the drawing, within bounds, so zooming in brings them closer as a whole;
+  // wording keeps its reading size. Every point is the same size at any one zoom.
+  const pointScale = (k = camera.k) => Math.max(.85, Math.min(1.45, k));
+  const pointR = (k = camera.k) => POINT_R * pointScale(k);
+  /** Links stop at a marked point's ring, not its disc, so arrowheads touch the ring. */
+  const ringR = (k = camera.k) => (POINT_R + RING_GAP) * pointScale(k);
+  const pointLabelWidth = (k: number) => roomy(k) ? Math.min(200, 200 * k - 14) : Math.max(96, Math.min(150, 168 * k - 14));
   function labelLines(shape: Shape, k = camera.k, focused = shape.id === selected || shape.id === hovered): string[] {
     const node = shape.node;
     if (shape.inline) return [];
     if (node.ref.kind === "bearing") return node.name && (k >= LABEL_K || focused) ? [`@${node.name}`] : [];
     if (k < LABEL_K && !focused) return [];
     const width = pointLabelWidth(k);
-    return wrap(node.text, focused ? Math.max(width, 150) : width, 2);
+    return wrap(node.text, focused ? Math.max(width, roomy(k) ? 200 : 150) : width, roomy(k) ? 3 : 2);
   }
   /** Screen-pixel reach of a mark and its unfocused wording on either side of the mark's centre. */
   function reach(shape: Shape, k: number): { left: number; right: number } {
@@ -170,10 +197,10 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
    */
   function anchor(id: string, toward: Point2, port = 0): Point2 {
     const p = screen(world.get(id)!), shape = shapes.get(id);
-    const isPoint = shape?.node.ref.kind === "point", r = isPoint ? POINT_R + 2 : JUNCTION_R + 1;
+    const isPoint = shape?.node.ref.kind === "point", r = isPoint ? ringR() + 1.5 : JUNCTION_R + 1;
     if (isPoint && shape?.label && toward.y > p.y + r) {
       const lines = shape.label.childNodes.length;
-      return { x: p.x + port, y: p.y + (lines ? 14 + lines * MARK_TYPE.lineHeight : Math.sqrt(r * r - port * port)) };
+      return { x: p.x + port, y: p.y + (lines ? pointR() + 5 + lines * lineHeight : Math.sqrt(r * r - port * port)) };
     }
     if (port && Math.abs(toward.y - p.y) > r) return { x: p.x + port, y: p.y + Math.sign(toward.y - p.y) * Math.sqrt(r * r - port * port) };
     const dx = toward.x - p.x, dy = toward.y - p.y, d = Math.hypot(dx, dy) || 1;
@@ -186,14 +213,22 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
     const focus = focusNeighborhood(full, guidanceSubject(nodeById(selected), nodeById(hovered))?.ref);
     const related = new Set(focus.nodeIds), active = new Set(focus.bearingKeys), guided = related.size > 0;
     svg.dataset.guided = String(guided);
+    const rank = new Map(order.filter(id => !shapes.get(id)?.inline).map((id, index) => [id, index]));
+    const pointIn = (id: string) => entranceAt((rank.get(id) ?? 0) * POINT_DELAY, POINT_IN);
+    const lineIn = (source: string, target: string) => entranceAt(Math.max(rank.get(source) ?? 0, rank.get(target) ?? 0) * POINT_DELAY + POINT_IN * .6, LINE_IN);
     for (const shape of shapes.values()) {
       if (shape.inline) continue;
       const p = screen(world.get(shape.id)!);
+      const shown = pointIn(shape.id);
+      shape.g.style.opacity = entrance ? String(shown) : "";
+      if (shape.glyph) shape.glyph.style.scale = entrance ? String(.4 + .6 * shown) : "";
       shape.g.setAttribute("transform", `translate(${p.x.toFixed(1)} ${p.y.toFixed(1)})`);
       const lines = labelLines(shape), label = shape.label!;
       label.replaceChildren();
       const isPoint = shape.node.ref.kind === "point";
-      lines.forEach((text, i) => { const t = element("tspan", isPoint ? { x: "0", y: String(27 + i * MARK_TYPE.lineHeight) } : { x: String(JUNCTION_R + 5), y: "4" }, label); t.textContent = text; });
+      shape.glyph?.setAttribute("transform", `scale(${pointScale().toFixed(3)})`);
+      const top = pointR() + 18;
+      lines.forEach((text, i) => { const t = element("tspan", isPoint ? { x: "0", y: String(top + i * lineHeight) } : { x: String(JUNCTION_R + 5), y: "4" }, label); t.textContent = text; });
       shape.g.dataset.related = String(!guided || related.has(shape.id));
     }
     edgeLayer.replaceChildren();
@@ -206,7 +241,7 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
         return { id: shape.id, x0: p.x - 13, x1: p.x + right, y0: p.y - 13, y1: p.y + 13 };
       }
       const half = lines ? Math.max(14, ...[...shape.label!.childNodes].map(t => textWidth(t.textContent ?? "") / 2 + 4)) : 13;
-      return { id: shape.id, x0: p.x - half, x1: p.x + half, y0: p.y - 13, y1: p.y + 14 + lines * MARK_TYPE.lineHeight };
+      return { id: shape.id, x0: p.x - half, x1: p.x + half, y0: p.y - pointR() - 4, y1: p.y + pointR() + 5 + lines * lineHeight };
     });
     const at = (a: Point2, c1: Point2, c2: Point2, t: Point2, s: number) => {
       const u = 1 - s;
@@ -232,7 +267,7 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
     }));
     for (const [side, list] of sides) {
       if (list.length < 2) continue;
-      const r = nodeById(side.split("|")[0])?.ref.kind === "point" ? POINT_R : JUNCTION_R - 2;
+      const r = nodeById(side.split("|")[0])?.ref.kind === "point" ? pointR() : JUNCTION_R - 2;
       const spacing = Math.min(4, (r * 1.4) / (list.length - 1));
       list.sort((a, b) => a.x - b.x).forEach((item, i) => ports.set(item.key, (i - (list.length - 1) / 2) * spacing));
     }
@@ -249,7 +284,8 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
         if (!bend && Math.abs(dy) > 24) {
           const h = Math.sign(dy) * Math.max(Math.abs(dy) * .5, Math.min(60, Math.abs(dx) * .3));
           // Fanned ends splay along their port so neighbouring tails part at once instead of running parallel.
-          return [{ x: a.x + tail * 4, y: a.y + h }, { x: t.x + head * 4, y: t.y - h }];
+          // The head end arrives straight, so every arrowhead sits square to its mark.
+          return [{ x: a.x + tail * 4, y: a.y + h }, { x: t.x, y: t.y - h }];
         }
         const c = { x: (a.x + t.x) / 2 - dy / len * bend * len, y: (a.y + t.y) / 2 + dx / len * bend * len };
         return [c, c];
@@ -265,17 +301,26 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
       }
       const d = `M${a.x.toFixed(1)} ${a.y.toFixed(1)}C${c1.x.toFixed(1)} ${c1.y.toFixed(1)} ${c2.x.toFixed(1)} ${c2.y.toFixed(1)} ${t.x.toFixed(1)} ${t.y.toFixed(1)}`;
       const on = !guided || active.has(link.bearingKey);
-      element("path", { d, class: `cog-link ${link.segment} cog-tone-${mark.tone}${mark.dashed ? " cog-dashed" : ""}`, "data-active": String(on), "data-bearing": link.bearingKey, "aria-hidden": "true" }, edgeLayer);
+      const path = element("path", { d, class: `cog-link ${link.segment} cog-tone-${mark.tone}${mark.dashed ? " cog-dashed" : ""}`, "data-active": String(on), "data-bearing": link.bearingKey, "aria-hidden": "true" }, edgeLayer);
+      const traced = lineIn(link.source, link.target);
+      if (entrance && traced < 1) {
+        // Traced from its source to its mark; a dashed relation simply fades in, keeping its dashes.
+        if (mark.dashed) path.style.opacity = String(traced);
+        else { path.setAttribute("pathLength", "1"); path.style.strokeDasharray = "1 1"; path.style.strokeDashoffset = String(1 - traced); }
+      }
       if (link.segment === "output") {
         const hx = t.x - c2.x, hy = t.y - c2.y, hl = Math.hypot(hx, hy) || 1, ux = hx / hl, uy = hy / hl;
-        element("path", { class: `cog-arrow cog-tone-${mark.tone}`, "data-active": String(on), "aria-hidden": "true",
-          d: `M${t.x} ${t.y}L${t.x - ux * 7 - uy * 3.4} ${t.y - uy * 7 + ux * 3.4}L${t.x - ux * 7 + uy * 3.4} ${t.y - uy * 7 - ux * 3.4}Z` }, edgeLayer);
+        // A slim engraved barb: long and narrow, notched at the back where the line enters it.
+        const head = element("path", { class: `cog-arrow cog-tone-${mark.tone}`, "data-active": String(on), "aria-hidden": "true",
+          d: `M${t.x} ${t.y}L${t.x - ux * 9 - uy * 3.2} ${t.y - uy * 9 + ux * 3.2}L${t.x - ux * 6.4} ${t.y - uy * 6.4}L${t.x - ux * 9 + uy * 3.2} ${t.y - uy * 9 - ux * 3.2}Z` }, edgeLayer);
+        if (entrance) head.style.opacity = String(Math.max(0, traced * 4 - 3));
       }
       if (isInline) {
         element("path", { d, class: "cog-link-hit", "data-node": bearingId, "aria-hidden": "true" }, edgeLayer);
         const m = { x: .125 * a.x + .375 * c1.x + .375 * c2.x + .125 * t.x, y: .125 * a.y + .375 * c1.y + .375 * c2.y + .125 * t.y };
         const shape = shapes.get(bearingId)!;
         shape.g.setAttribute("transform", `translate(${m.x.toFixed(1)} ${m.y.toFixed(1)})`);
+        shape.g.style.opacity = entrance ? String(traced) : "";
         shape.g.dataset.related = String(!guided || related.has(bearingId));
       }
     });
@@ -299,6 +344,11 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
         : { x: 0, y: 0, width: 0, height: 0 };
       for (const [name, value] of Object.entries(box)) hit.setAttribute(name, String(value));
     }
+    if (entrance && !entrance.pending) {
+      const last = Math.max(0, rank.size - 1) * POINT_DELAY + POINT_IN * .6 + LINE_IN;
+      if ((win?.performance.now() ?? Infinity) - entrance.began >= last) { entrance = undefined; schedule(); }
+      else schedule();
+    }
   }
   const schedule = () => { if (!frame && !destroyed) frame = win?.requestAnimationFrame(paint) ?? (paint(), 0); };
 
@@ -309,7 +359,7 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
     const xs = ps.map(p => p.x), ys = ps.map(p => p.y);
     return { x: Math.min(...xs), y: Math.min(...ys), w: Math.max(1, Math.max(...xs) - Math.min(...xs)), h: Math.max(1, Math.max(...ys) - Math.min(...ys)) };
   }
-  function fitCamera(): Camera {
+  function fitCamera(readingScale = true): Camera {
     // Wording keeps its pixel size while the drawing scales, so the fit must include it:
     // the widest scale at which every mark keeps `room` for links bowing around it and its wording stays inside.
     // Below LABEL_K the wording disappears, so a wide inquiry falls back to an unlabelled overview.
@@ -324,19 +374,36 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
       return placed.length ? { x0, x1 } : { x0: b.x * k - room, x1: (b.x + b.w) * k + room };
     };
     const fits = (k: number) => { const s = span(k); return s.x1 - s.x0 <= size.w; };
-    let k = Math.max(MIN_K, Math.min(1.1, (size.h - padTop - padBottom) / b.h));
+    // A small inquiry may be drawn larger than life so it fills its frame; text keeps its size.
+    // A tall one in a full panel is not shrunk past reading: it opens on its conclusion at the top, worded,
+    // and pans down. Explicit Fit instead includes the whole map, even below the manual zoom limit.
+    const floor = readingScale ? (size.w >= 600 && size.h >= 480 ? READ_K : MIN_K) : 0;
+    let k = Math.max(floor, Math.min(1.6, (size.h - padTop - padBottom) / b.h));
     if (!fits(k)) {
-      let lo = MIN_K, hi = k;
+      let lo = readingScale ? MIN_K : 0, hi = k;
       for (let i = 0; i < 14; i++) { const mid = (lo + hi) / 2; if (fits(mid)) lo = mid; else hi = mid; }
       k = lo;
     }
     const s = span(k);
     return { k, tx: (size.w - (s.x1 - s.x0)) / 2 - s.x0, ty: Math.max(padTop, (size.h - padBottom + padTop - b.h * k) / 2) - b.y * k };
   }
-  function fit(): void { cameraTouched = false; camera = fitCamera(); schedule(); }
+  function fit(): void { stopMotion(); cameraTouched = true; camera = fitCamera(false); schedule(); }
   function zoomAt(factor: number, x: number, y: number): void {
-    const k = Math.max(MIN_K, Math.min(MAX_K, camera.k * factor));
+    // Fit may use a smaller scale than manual zoom; zooming out must never jump inward from it.
+    const k = Math.max(Math.min(MIN_K, camera.k), Math.min(MAX_K, camera.k * factor));
     camera = { k, tx: x - (x - camera.tx) * (k / camera.k), ty: y - (y - camera.ty) * (k / camera.k) };
+    cameraTouched = true; schedule();
+  }
+  /** Keep the focused mark and its wording visible without changing zoom or scrolling the host. */
+  function revealShape(shape: Shape): void {
+    const box = shape.g.getBoundingClientRect(), viewport = svg.getBoundingClientRect(), margin = 16;
+    if (!viewport.width || !viewport.height) return;
+    const shift = (start: number, end: number, low: number, high: number) =>
+      end - start > high - low ? (low + high - start - end) / 2 : start < low ? low - start : end > high ? high - end : 0;
+    const dx = shift(box.left, box.right, viewport.left + margin, viewport.right - margin);
+    const dy = shift(box.top, box.bottom, viewport.top + margin, viewport.bottom - margin);
+    if (!dx && !dy) return;
+    camera = { ...camera, tx: camera.tx + dx, ty: camera.ty + dy };
     cameraTouched = true; schedule();
   }
   /** Re-frame when new content would no longer read inside the current view. */
@@ -488,7 +555,13 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
     if (!(event.ctrlKey || event.metaKey)) return; // ordinary wheel scrolls the host page
     event.preventDefault(); const p = local(event); zoomAt(Math.exp(-event.deltaY * .01), p.x, p.y);
   }, { passive: false, signal: abort.signal });
-  svg.addEventListener("focusin", event => { const id = (event.target as Element).closest<SVGElement>("[data-node]")?.dataset.node; if (id !== hovered) { hovered = id; schedule(); } }, on);
+  svg.addEventListener("focusin", event => {
+    const id = (event.target as Element).closest<SVGElement>("[data-node]")?.dataset.node, shape = id && shapes.get(id);
+    if (!shape) return;
+    stopMotion(); hovered = id;
+    if (frame) { win?.cancelAnimationFrame(frame); frame = 0; }
+    paint(); revealShape(shape);
+  }, on);
   svg.addEventListener("focusout", () => { hovered = undefined; schedule(); }, on);
   svg.addEventListener("keydown", event => {
     const id = (event.target as Element).closest<SVGElement>("[data-node]")?.dataset.node;
@@ -498,7 +571,7 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
       event.preventDefault();
       const p = world.get(id)!, step = 20 / camera.k;
       const next = { x: p.x + (event.key === "ArrowLeft" ? -step : event.key === "ArrowRight" ? step : 0), y: p.y + (event.key === "ArrowUp" ? -step : event.key === "ArrowDown" ? step : 0) };
-      moveNode(node, next, false); select(id); return;
+      moveNode(node, next, false); select(id); revealShape(shape); return;
     }
     if (event.key === "Enter") { event.preventDefault(); select(id); options.onNavigate?.(node); }
     else if (event.key === " ") { event.preventDefault(); select(id); }
@@ -522,6 +595,22 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
   }) : undefined;
   observer?.observe(svg);
   const measureSize = () => { const r = svg.getBoundingClientRect(); if (r.width && r.height) size = { w: r.width, h: r.height }; };
+
+  // The entrance starts the first time the drawing is on screen with something in it; reduced motion skips it.
+  let sighted = false;
+  const beginEntrance = () => {
+    if (!entrance?.pending || !sighted || !shapes.size) return;
+    sighting?.disconnect();
+    if (reduced()) { entrance = undefined; schedule(); return; }
+    entrance = { pending: false, began: win?.performance.now() ?? 0 };
+    schedule();
+  };
+  const sighting = entrance && win && "IntersectionObserver" in win
+    ? new win.IntersectionObserver(entries => { sighted = entries.some(entry => entry.isIntersecting); beginEntrance(); }, { threshold: .35 })
+    : undefined;
+  if (entrance && !sighting) entrance = undefined;
+  sighting?.observe(svg);
+  abort.signal.addEventListener("abort", () => sighting?.disconnect());
 
   const view: GraphView = {
     update(graph, nextScope) {
@@ -554,6 +643,7 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
         world = new Map(topology.nodes.map(node => [node.id, { ...(carried.get(positionKey(node)) ?? next.get(node.id)!) }]));
         moveTo(next, needsRefit(next));
       }
+      beginEntrance();
       if (retained) options.onSelect?.(retained); else options.onClear?.();
       if (hadFocus) (svg.querySelector<SVGGElement>('[tabindex="0"]'))?.focus({ preventScroll: true });
     },
