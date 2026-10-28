@@ -34,7 +34,7 @@
             "kind": "point",
             "line": 6
           },
-          "derivedBy": "structural"
+          "derivedBy": "operator"
         },
         {
           "line": 8,

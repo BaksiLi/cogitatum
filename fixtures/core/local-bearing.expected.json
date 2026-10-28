@@ -1,0 +1,24 @@
+{
+  "mode": "document",
+  "diagnostics": [],
+  "graphs": [{
+    "points": [
+      {"line": 1, "form": "role", "role": "C", "id": "conclusion"},
+      {"line": 2, "form": "role", "role": "G", "id": "observation"},
+      {"line": 4, "form": "material", "id": "first"},
+      {"line": 5, "form": "role", "role": "O", "id": "objection"},
+      {"line": 6, "form": "role", "role": "R", "id": "reply"},
+      {"line": 7, "form": "material", "id": "second"},
+      {"line": 8, "form": "role", "role": "O", "id": "undercut"},
+      {"line": 9, "form": "role", "role": "C", "id": "other"}
+    ],
+    "bearings": [
+      {"line": 2, "kind": "supports", "sources": [2], "target": {"kind": "point", "line": 1}, "derivedBy": "structural"},
+      {"line": 3, "kind": "supports", "sources": [4, 7], "target": {"kind": "point", "line": 1}, "derivedBy": "structural", "handle": "joint-route"},
+      {"line": 5, "kind": "challenges", "sources": [5], "target": {"kind": "point", "line": 4}, "derivedBy": "structural"},
+      {"line": 6, "kind": "respondsTo", "sources": [6], "target": {"kind": "point", "line": 5}, "derivedBy": "structural"},
+      {"line": 8, "kind": "challenges", "sources": [8], "target": {"kind": "bearing", "line": 3}, "derivedBy": "operator"},
+      {"line": 10, "kind": "supports", "sources": [4], "target": {"kind": "point", "line": 9}, "derivedBy": "operator", "handle": "shared-route"}
+    ]
+  }]
+}

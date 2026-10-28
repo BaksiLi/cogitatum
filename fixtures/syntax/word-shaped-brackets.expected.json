@@ -48,7 +48,7 @@
         },
         {
           "line": 6,
-          "kind": "repliesTo",
+          "kind": "respondsTo",
           "sources": [6],
           "target": { "kind": "point", "line": 5 },
           "derivedBy": "structural"

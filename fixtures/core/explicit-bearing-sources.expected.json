@@ -60,7 +60,7 @@
         },
         {
           "line": 7,
-          "kind": "repliesTo",
+          "kind": "respondsTo",
           "sources": [
             7
           ],

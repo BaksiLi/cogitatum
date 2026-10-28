@@ -40,7 +40,7 @@ describe("source-backed object notes", () => {
   });
 
   it("handles anonymous objects and joint contexts without a unary attachment for a direct member", () => {
-    const source = "- [C] Claim.\n  - [. note] Anonymous Point.\n  - [linked] Joint description.\n    - [G] A.\n      - [. note] Member Point.\n      - [_ note] No unary route.\n    - [G] B.\n    - [_ note] The joint.";
+    const source = "- [C] Claim.\n  - [. note] Anonymous Point.\n  - [_ G] Joint description.\n    - [.] A.\n      - [. note] Member Point.\n      - [_ note] No unary route.\n    - [.] B.\n    - [_ note] The joint.";
     const g = graph(source);
     expect(errors(source)).toEqual(["NO_LOCAL_NOTE_TARGET"]);
     expect(g.bearings).toHaveLength(1);
@@ -60,8 +60,8 @@ describe("source-backed object notes", () => {
         crossedBodySpans: [expect.objectContaining({ startLine: 3 })]
       }));
     }
-    const illegal = "- [C] Claim.\n  - [linked]\n    - [G] Ground.\n    - Ordinary group\n      - [_ note] Must not rescue the joint.";
-    expect(errors(illegal)).toEqual(["INVALID_LINKED_MEMBER", "NO_LOCAL_NOTE_TARGET"]);
+    const illegal = "- [C] Claim.\n  - [_ G]\n    - [.] Ground.\n    - Ordinary group\n      - [_ note] Must not rescue the joint.";
+    expect(errors(illegal)).toEqual(["INVALID_LOCAL_BEARING_MEMBER", "NO_LOCAL_NOTE_TARGET"]);
     expect(graph(illegal).notes).toEqual([]);
     expect(graph(illegal).bearings).toEqual([]);
   });

@@ -21,9 +21,9 @@ const candidates = [
     name: "linked joint support",
     source: [
       "- [C @claim] The account needs a temporal model.",
-      "  - [linked; @route] Joint support.",
-      "    - [G @first] The process changes over time.",
-      "    - [G @second] Its stages constrain one another.",
+      "  - [_ G; @route] Joint support.",
+      "    - [. @first] The process changes over time.",
+      "    - [. @second] Its stages constrain one another.",
       "- [. @term] A temporal model.",
       "  - [D @clarification; @clarifies] A model of the ordered stages."
     ].join("\n"),

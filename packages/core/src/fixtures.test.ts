@@ -58,8 +58,8 @@ function projectGraph(graph: GraphIR, blocks?: AstBlock[]) {
       };
     }) } : {}),
     // Portable expectations flatten declaration metadata; they are not raw Graph IR.
-    points: graph.points.map(({ key, declaration: { form, role, status }, id }) => ({
-      line: refLine("point", key), form, role, status, id
+    points: graph.points.map(({ key, declaration: { form, role }, id }) => ({
+      line: refLine("point", key), form, role, id
     })),
     bearings: graph.bearings.map(({ key, kind, sources, target, derivedBy, handle }) => ({
       line: refLine("bearing", key), kind,

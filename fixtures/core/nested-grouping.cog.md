@@ -1,6 +1,6 @@
 - Paper inquiry
   - [Q @paper-q] What is the paper's main claim?
-    - [C @paper-answer] The paper argues that public reasons constrain interpretation.
+    - [C @paper-answer answers @paper-q] The paper argues that public reasons constrain interpretation.
   - Section inquiry
     - [Q @section-q] What supports the local reading?
-      - [C @section-answer] The example supplies the local support.
+      - [C @section-answer answers @section-q] The example supplies the local support.

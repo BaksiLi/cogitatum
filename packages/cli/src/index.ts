@@ -7,14 +7,16 @@ import {
   compileSource,
   explainSource,
   FORMAT_VERSION,
+  formatExplain,
   formatGraph,
   parseDocument,
   parseSource,
-  previewExplicitTarget
+  previewExplicitTarget,
+  previewBearingForm
 } from "@cogitatum/core";
-import type { Diagnostic, SourceParseMode } from "@cogitatum/core";
+import type { BearingForm, Diagnostic, SourceParseMode } from "@cogitatum/core";
 
-type Command = "ast" | "graph" | "explain" | "export" | "check" | "explicit-target";
+type Command = "ast" | "graph" | "explain" | "export" | "check" | "explicit-target" | "bearing-form";
 
 const PACKAGE_VERSION: string = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
 
@@ -24,6 +26,7 @@ type CliArgs = {
   inputMode: SourceParseMode;
   references: boolean;
   line?: number;
+  to?: BearingForm;
   format: "json" | "text";
   diagnostics: Diagnostic[];
 };
@@ -57,6 +60,13 @@ async function main(): Promise<void> {
 
   const source = await readFile(args.file, "utf8");
 
+  if (args.command === "explain" && args.format === "text") {
+    const explained = explainSource(source, args.inputMode);
+    process.stdout.write(formatExplain(explained));
+    process.exitCode = hasErrors(explained.diagnostics) ? 1 : 0;
+    return;
+  }
+
   if (args.command === "export") {
     const explained = explainSource(source, args.inputMode);
     printJson(explained);
@@ -66,6 +76,13 @@ async function main(): Promise<void> {
 
   if (args.command === "explicit-target") {
     const preview = previewExplicitTarget(source, { line: args.line!, mode: args.inputMode });
+    printJson(preview);
+    process.exitCode = preview.status === "ready" ? 0 : 1;
+    return;
+  }
+
+  if (args.command === "bearing-form") {
+    const preview = previewBearingForm(source, { line: args.line!, form: args.to!, mode: args.inputMode });
     printJson(preview);
     process.exitCode = preview.status === "ready" ? 0 : 1;
     return;
@@ -131,7 +148,7 @@ async function main(): Promise<void> {
 }
 
 function isCommand(value: string | undefined): value is Command {
-  return value === "ast" || value === "graph" || value === "explain" || value === "export" || value === "check" || value === "explicit-target";
+  return value === "ast" || value === "graph" || value === "explain" || value === "export" || value === "check" || value === "explicit-target" || value === "bearing-form";
 }
 
 function parseArgs(argv: string[]): CliArgs {
@@ -158,11 +175,21 @@ function parseArgs(argv: string[]): CliArgs {
     }
     if (!optionsEnded && arg === "--line") {
       const value = argv[index + 1];
-      if (args.command !== "explicit-target" || args.line !== undefined || !value || !/^[1-9][0-9]*$/.test(value) || !Number.isSafeInteger(Number(value))) {
-        diagnostics.push({ severity: "error", code: "INVALID_LINE_OPTION", message: "--line requires one positive integer and is available only with explicit-target." });
+      if ((args.command !== "explicit-target" && args.command !== "bearing-form") || args.line !== undefined || !value || !/^[1-9][0-9]*$/.test(value) || !Number.isSafeInteger(Number(value))) {
+        diagnostics.push({ severity: "error", code: "INVALID_LINE_OPTION", message: "--line requires one positive integer and is available only with explicit-target or bearing-form." });
         break;
       }
       args.line = Number(value);
+      index += 1;
+      continue;
+    }
+    if (!optionsEnded && arg === "--to") {
+      const value = argv[index + 1];
+      if (args.command !== "bearing-form" || args.to !== undefined || (value !== "local" && value !== "explicit")) {
+        diagnostics.push({ severity: "error", code: "INVALID_FORM_OPTION", message: "--to requires local or explicit, once, and is available only with bearing-form." });
+        break;
+      }
+      args.to = value;
       index += 1;
       continue;
     }
@@ -182,8 +209,8 @@ function parseArgs(argv: string[]): CliArgs {
     }
     if (!optionsEnded && arg === "--format") {
       const value = argv[index + 1];
-      if (args.command !== "graph" || (value !== "json" && value !== "text")) {
-        diagnostics.push({ severity: "error", code: "INVALID_OUTPUT_FORMAT", message: "--format requires json or text and is available only with graph." });
+      if ((args.command !== "graph" && args.command !== "explain") || (value !== "json" && value !== "text")) {
+        diagnostics.push({ severity: "error", code: "INVALID_OUTPUT_FORMAT", message: "--format requires json or text and is available only with graph or explain." });
         break;
       }
       args.format = value;
@@ -208,10 +235,13 @@ function parseArgs(argv: string[]): CliArgs {
     args.file = arg;
   }
 
-  if (args.command === "explicit-target" && args.line === undefined && !diagnostics.length) {
-    diagnostics.push({ severity: "error", code: "INVALID_LINE_OPTION", message: "explicit-target requires --line with a one-based line in the complete input file." });
+  if ((args.command === "explicit-target" || args.command === "bearing-form") && args.line === undefined && !diagnostics.length) {
+    diagnostics.push({ severity: "error", code: "INVALID_LINE_OPTION", message: `${args.command} requires --line with a one-based line in the complete input file.` });
   }
-  if (args.format === "text" && args.inputMode === "host") {
+  if (args.command === "bearing-form" && args.to === undefined && !diagnostics.length) {
+    diagnostics.push({ severity: "error", code: "INVALID_FORM_OPTION", message: "bearing-form requires --to local or --to explicit." });
+  }
+  if (args.command === "graph" && args.format === "text" && args.inputMode === "host") {
     diagnostics.push({ severity: "error", code: "INVALID_OUTPUT_FORMAT", message: "Text inspection accepts one document graph. Use JSON for host input to retain every source unit and source-selection diagnostic." });
   }
   return args;
@@ -238,14 +268,16 @@ Commands:
   check            Check syntax and references; print diagnostics as JSON
   ast              Parse source to an ordered AST as JSON; no reference validation
   graph            Compile source to Point-Bearing Graph IR; JSON by default
-  explain          Print an experimental compiler trace as JSON
+  explain          Inspect compiler decisions; JSON by default, optional text
   export           Preserve selected source, AST, graph and Explain together as JSON
   explicit-target  Preview one explicit target clause as JSON; never write it
+  bearing-form     Preview local/explicit structural equivalence as JSON
 
 Options:
   --input <mode>   document (default) or host (Markdown Cogitatum fences)
-  --format <kind>  json or text (graph only; text requires document input)
-  --line <number>  Required for explicit-target; one-based line in the full file
+  --format <kind>  json or text (graph or explain; graph text is document-only)
+  --line <number>  Required for either preview; one-based line in the full file
+  --to <form>      Required for bearing-form: local or explicit
   --references     Include written-name references (check only)
   --               End options before an option-like filename
   -h, --help       Show this help
@@ -260,14 +292,15 @@ check validates markup; explain traces compilation. Neither evaluates reasoning.
 Output:
   Results and source/option diagnostics go to stdout; I/O failures go to stderr.
   Host JSON preserves source units; graph text accepts one document only.
+  Explain text includes every selected unit and source-selection diagnostic.
   Graph-only JSON omits note prose; graph text also omits note source/target records.
   export preserves note prose, literal subtrees, targets and source locations.
   Keep the original host file for surrounding Markdown outside selected fences.
   Error-bearing graphs are partial; inspect diagnostics and the exit status.
 
 Exit status:
-  0  Successful inspection/check, or a ready explicit-target preview
-  1  Source/I/O error, or an unavailable explicit-target preview
+  0  Successful inspection/check, or a ready preview
+  1  Source/I/O error, or an unavailable preview
   2  Invalid or missing arguments
 An unavailable preview can have valid source; read its reason and message.
 
@@ -278,8 +311,11 @@ Examples:
   cog graph --format text inquiry.cog.md
   cog graph --input host --format json notes.md
   cog explain inquiry.cog.md
+  cog explain --input host --format text notes.md
   cog export inquiry.cog.md
   cog explicit-target --line 3 inquiry.cog.md
+  cog bearing-form --line 3 --to explicit inquiry.cog.md
+  cog bearing-form --line 3 --to local inquiry.cog.md
 `);
 }
 

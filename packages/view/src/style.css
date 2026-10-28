@@ -12,12 +12,10 @@
 .cog-graph { display: block; width: 100%; height: 100%; min-height: 320px; touch-action: none; font-family: inherit; color: var(--cog-ink-resolved); user-select: none; -webkit-user-select: none; cursor: grab; }
 .cog-graph[data-dragging] { cursor: grabbing; }
 
-/* Point glyphs: shape carries meaning; filled is a marked Point, dashed ring is Gap, square is Material. */
+/* Point glyphs: filled is a marked Point, square is Material. */
 .cog-glyph-shape { stroke: var(--cog-ink-resolved); stroke-width: 1.3; fill: var(--cog-ink-resolved); }
 .cog-glyph-letter { font: 500 10.5px/1 ui-monospace, "IBM Plex Mono", Menlo, monospace; fill: var(--cog-surface-resolved); pointer-events: none; }
-.cog-shape-gap .cog-glyph-shape, .cog-shape-material .cog-glyph-shape { fill: var(--cog-surface-resolved); }
-.cog-shape-gap .cog-glyph-letter { fill: var(--cog-ink-resolved); }
-.cog-shape-gap .cog-glyph-shape { stroke-dasharray: 2.4 2.2; }
+.cog-shape-material .cog-glyph-shape { fill: var(--cog-surface-resolved); }
 .cog-glyph-halo { fill: none; stroke: var(--cog-ink-resolved); stroke-width: .7; opacity: .55; }
 
 /* Bearing glyphs: a circle marks one Bearing on its line; a diamond is a junction (joint or addressed Bearing). */
@@ -110,7 +108,7 @@
 .cog-reading-row[data-kind="use"] .cog-glyph-shape { fill: var(--cog-surface-resolved); }
 .cog-reading-row[data-kind="use"] .cog-glyph-letter { fill: var(--cog-ink-resolved); }
 .cog-reading-row[data-kind="note"] .cog-reading-text { font-style: italic; font-size: .92em; color: var(--cog-muted-resolved); }
-.cog-reading-row[data-kind="linked"] .cog-reading-text { font-style: italic; }
+.cog-reading-row[data-kind="localBearing"] .cog-reading-text { font-style: italic; }
 .cog-reading-row[data-kind="literal"] .cog-reading-text { color: var(--cog-muted-resolved); }
 .cog-reading-row[data-kind="source"] .cog-reading-content { font: 14px/1.7 system-ui, sans-serif; color: var(--cog-muted-resolved); }
 .cog-reading-row[data-error="true"] .cog-reading-text { text-decoration: underline dotted var(--cog-negative); text-underline-offset: 4px; }

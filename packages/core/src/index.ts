@@ -8,3 +8,6 @@ export type { WrittenReference, ReferencedName, SourceReferenceAnalysis } from "
 export { formatGraph, GRAPH_TEXT_VERSION } from "./graph-text.js";
 export { previewExplicitTarget } from "./explicit-target.js";
 export type { ExplicitTargetOptions, ExplicitTargetPreview, ExplicitTargetUnavailableReason } from "./explicit-target.js";
+export { previewBearingForm } from "./bearing-form.js";
+export type { BearingForm, BearingFormOptions, BearingFormPreview, BearingFormUnavailableReason, SourceEdit } from "./bearing-form.js";
+export { formatExplain, EXPLAIN_TEXT_VERSION } from "./explain-text.js";

@@ -4,6 +4,10 @@ Experimental, framework-neutral Map and Reading views of compiler-produced Cogit
 Core owns parsing and relation semantics; View owns presentation and temporary selection.
 Currently available from this checkout, not the published Core/CLI release.
 The 0.6 checkout requires matching Core/format 0.6 projections.
+Core selects local or explicit Bearing construction, reuse or note mode from the first token after `bearing` / `edge` / `_`.
+Local `[_ G]`, `[_ O]`, `[_ R]` and `[_ D]` produce Bearings with direct neutral source members; a singleton is complete and header prose supplies `Bearing.text`.
+View consumes AST `kind: "localBearing"` / `"explicitBearing"` and Explain `localBearingMember` / `local-bearing-containment` membership classifications.
+Convergent, Linked and Serial describe graph structures; source arrays and junctions convey participation, not strength or success.
 Reading retains typed notes in source order and provides links to their original passages from declarations and uses.
 `ReadingUnit.notes` joins each Core note record to existing source occurrences; reuse creates no copied note.
 Map marks show typed note counts, and the block preview's details include their full content and source navigation.
@@ -84,7 +88,22 @@ Reduced motion keeps neighbours still during direct manipulation.
 A press that does not move selects; dragging does not select or clear.
 Background drag pans, Ctrl/Command + wheel or a pinch zooms, and the ordinary wheel is left to the page. Positions are view-local and never modify the compiled graph or source; `resetLayout()` discards the arrangement.
 
-`clear()` clears selection and guidance. `select(ref)` accepts a ref from the current compilation only and updates `aria-pressed` synchronously; `fit()` and `zoom(factor)` let the host supply controls. Positions live in world space and the camera maps them to pixels, so marks and wording keep a fixed, readable size at every zoom (14px wording, 12px names); the view frames itself once its container has size, including after being revealed from a hidden panel. Selection highlights a **focus neighborhood**: whole incident Bearings, including all joint sources.
+`clear()` clears selection and guidance.
+`select(ref)` accepts a ref from the current compilation only and updates `aria-pressed` synchronously; `fit()` and `zoom(factor)` let the host supply controls.
+Positions live in world space and the camera maps them to pixels.
+Wording retains its CSS reading size (14px wording, 12px names by default); line height follows the host font size, while Point glyphs scale within bounds.
+At close zoom, captions allow three lines; farther out, they use two, then hide until focused.
+The view frames itself once its container has size, including after being revealed from a hidden panel.
+A tall map in a full panel opens at reading scale near its conclusion so the reader can pan through it.
+Explicit `fit()` instead includes the complete drawing, even below the manual zoom minimum.
+Keyboard focus pans the mark and its wording into view without scrolling the host page.
+
+Optional `entrance: true` reveals the first drawing when it comes into view, with marks followed by traced connections.
+Inspection or a camera gesture completes that decoration immediately, so selection guidance and complete routes remain available.
+System reduced motion skips or ends entrance; a host `reducedMotion()` callback is checked on each frame.
+An uninterrupted entrance becomes idle when finished, and destruction cancels pending frames and observation.
+
+Selection highlights a **focus neighborhood**: whole incident Bearings, including all joint sources.
 Selection is what the reader is examining, so it keeps the guidance until it changes or is cleared (Escape or a background press).
 Hover and keyboard focus preview a neighborhood only while nothing is selected; during a selection a pointed or focused unrelated mark only lifts itself so it stays readable and selectable.
 `guidanceSubject(selected, previewed)` is that shared rule, used by both Map and Reading.
@@ -95,11 +114,16 @@ Selecting one of several alternative Bearings to the same target therefore shows
 Membership is by Bearing identity, so parallel Bearings of the same kind between the same endpoints remain separate routes.
 Emphasis means only "currently examined"; it expresses no confidence, acceptance or outcome, and does not depend on how many sources or objections a route has.
 Guidance only dims; the declared shapes remain visible and selectable.
-Nodes support arrow-key navigation in source order, Space selection, Enter/double-click navigation and Escape to clear. A Bearing with one source is drawn as its own line with a circular kind symbol, so independent supports stay separate lines even when they reach the same target; a joint Bearing (several sources), an addressed Bearing (the target of a Bearing-directed `challenges`, `supports` or `about`), or a parallel/self-directed one keeps a diamond junction with one input line per source. Lines are never merged into a shared trunk. Motion respects system reduced-motion and an optional host `reducedMotion()` callback. Callbacks and accessible labels retain full text, including collapsed Bearings.
+Nodes support arrow-key navigation in source order, Space selection, Enter/double-click navigation and Escape to clear. A Bearing with one source is drawn as its own line with a circular kind symbol, so independent supports stay separate lines even when they reach the same target; a joint Bearing (several sources), an addressed Bearing (the target of a Bearing-directed `challenges`, `supports` or `concerns`), or a parallel/self-directed one keeps a diamond junction with one input line per source. Lines are never merged into a shared trunk. Motion respects system reduced-motion and an optional host `reducedMotion()` callback. Callbacks and accessible labels retain full text, including collapsed Bearings.
 
 `projectGraph` exposes the incidence graph, and `layoutGraph` its deterministic reading arrangement for alternate renderers. The default direction is `down`; pass `direction: 'right'` to the view or `layoutGraph` options for horizontal flow. The incidence projection represents each Bearing as a node: multiple input links mean joint sources, and output links can target other Bearings. This is a view representation of Core's first-class relationship object, not a new Core Point. `projectExploration` provides the simplified visual topology and its `inlineBearings`; collapsed output links retain their original `bearingKey`. Use `focusNeighborhood` against the complete incidence projection, including collapsed Bearings. These pure view helpers neither invent transitive connections nor flatten joint support. Core owns typed identities and relation semantics; the view owns visual topology, neighborhood guidance and geometry. Host code should surface compiler diagnostics when rendering a partial graph.
 
-`marks` is the shared vocabulary for every surface: `POINT_MARKS`, `BEARING_MARKS`, `pointMark(label)`, `declarationMark(point.declaration)` and `bearingMark(kind)` give canonical names (docs/glossary.md), auxiliary Chinese readings, glyph shapes and kind symbols; `drawPointGlyph`, `drawBearingGlyph`, `createMarkChip` and `createBearingChip` draw the same glyphs for host chips and lists; `MARK_TYPE` is the type scale. Display names follow the glossary: the `Material` key, matching Graph IR `declaration.form: "material"`, displays as Neutral Point (中性點); keys, label unions and shapes are unchanged identifiers. Shape carries meaning (filled Point, dashed ring for Gap, square for Neutral Point); colour only distinguishes authored support from objection and never judges correctness. `layoutGraph` owns automatic placement; `relaxLayout` owns bounded local adjustment.
+`marks` is the shared vocabulary for every surface: `POINT_MARKS`, `BEARING_MARKS`, `pointMark(label)`, `declarationMark(point.declaration)` and `bearingMark(kind)` give canonical names, auxiliary Chinese readings, glyph shapes and kind symbols.
+`drawPointGlyph`, `drawBearingGlyph`, `createMarkChip` and `createBearingChip` draw the same glyphs for host chips and lists; `MARK_TYPE` is the type scale.
+Display names follow the [glossary](../../docs/glossary.md): the `Material` key, matching Graph IR `declaration.form: "material"`, displays as Neutral Point (中性點).
+Role-marked Points use circles; Neutral Points use squares.
+Colour distinguishes authored support from objection and never judges correctness.
+`layoutGraph` owns automatic placement; `relaxLayout` owns bounded local adjustment.
 The pre-release layout selector, `GraphLayout`, `setLayout`, `layoutFlow`, `layoutConstellation` and `layoutGraphSettled` have been removed; hosts use the single Map and `resetLayout()`.
 
 Map CSS is scoped to `.cog-graph` and `.cog-chip`, themed only through `--cog-ink`, `--cog-surface`, `--cog-canvas`, `--cog-muted`, `--cog-line`, `--cog-focus`, `--cog-support` and `--cog-objection` (`--cog-bearing-surface` and `--cog-accent` are no longer read). The host controls container size, full-text/evidence UI and diagnostics. This is a small renderer for inquiry fragments, not a graph editor or a large-workspace layout engine.
@@ -149,7 +173,9 @@ The host must pair the exact input and output, including host text outside selec
 
 For an implicit target, the endpoint is the occurrence identified by Core's `implicitAttachment.contextSpan`.
 For an explicit target or source operand, it is the canonical declaration/construction.
-Joint sources use their own Linked member occurrences.
+Local Bearing sources use their own direct neutral member occurrences.
+A neutral use presents the existing Point at that source location without creating another Point.
+Explicit sources use their named operands' canonical declarations.
 A local Bearing use remains a local row; a target at the Bearing's construction reaches its junction.
 These display locations do not create extra graph entities, independent evidence or inferred relations.
 Repeated names and keys in different source units remain separate.

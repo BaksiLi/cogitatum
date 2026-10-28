@@ -24,6 +24,65 @@ const validateSource = ajv.compile(sourceSchema);
 const json = (value: unknown) => JSON.parse(JSON.stringify(value));
 
 describe("public compiler contract boundaries", () => {
+  it.each(["G", "O", "Q"])("correlates the local %s/ group through every public projection", role => {
+    const result = json(explainSource(`- [C] Claim.\n  - [G] Reason.\n    - [_ ${role}/]\n      - [.] First.\n      - [.] Second.`));
+    expect(validateSource(result), JSON.stringify(validateSource.errors)).toBe(true);
+    for (const invalidRole of [undefined, "C", "R", "D"]) {
+      const invalid = structuredClone(result);
+      invalid.documents[0].blocks[0].children[0].children[0].annotation.role = invalidRole;
+      invalid.explanations[0].entries[2].recognition.role = invalidRole;
+      expect(validateAst(json(invalid.documents[0])), String(invalidRole)).toBe(false);
+      expect(validateExplain(json(invalid.explanations[0])), String(invalidRole)).toBe(false);
+    }
+    if (role === "Q") {
+      delete result.documents[0].blocks[0].children[0].children[0].annotation.selector;
+      delete result.explanations[0].entries[2].recognition.selector;
+      expect(validateAst(result.documents[0])).toBe(false);
+      expect(validateExplain(result.explanations[0])).toBe(false);
+    }
+  });
+
+  it("rejects saved repliesTo data in the active contract instead of relabelling it", () => {
+    const result = json(explainSource("- [Q @q] Which scale?\n  - [R respondsTo @q] Seconds."));
+    expect(validateSource(result)).toBe(true);
+    result.documents[0].blocks[0].children[0].annotation.operatorClause.op = "repliesTo";
+    result.graphs[0].bearings[0].kind = "repliesTo";
+    result.explanations[0].entries[1].effects.find((e: any) => e.kind === "emitBearing").bearing.kind = "repliesTo";
+    expect(validateAst(result.documents[0])).toBe(false);
+    expect(validateGraph(result.graphs[0])).toBe(false);
+    expect(validateExplain(result.explanations[0])).toBe(false);
+  });
+
+  it.each(["G", "O", "R", "D"])("retains the %s linked role through every JSON projection", role => {
+    const source = `- [O @target] Target.\n  - [_ ${role}; @route]\n    - [. @a] First.\n    - [. @b] Second.`;
+    const result = json(explainSource(source));
+    expect(validateSource(result), JSON.stringify(validateSource.errors)).toBe(true);
+    const header = result.documents[0].blocks[0].children[0].annotation;
+    expect(header).toMatchObject({ kind: "localBearing", role });
+    expect(result.explanations[0].entries[1].recognition).toEqual({ kind: "localBearing", role });
+    delete header.role;
+    expect(validateAst(result.documents[0])).toBe(false);
+    header.syntaxErrors = ["handle"];
+    expect(validateAst(result.documents[0])).toBe(false);
+    header.syntaxErrors = ["localBearing"];
+    expect(validateAst(result.documents[0]), JSON.stringify(validateAst.errors)).toBe(true);
+  });
+
+  it("rejects retired Gap data while accepting its diagnosed source boundary", () => {
+    const retired = json(explainSource("- [C] Outer.\n  - [?] Missing record.\n    - [G] Child."));
+    expect(validateSource(retired), JSON.stringify(validateSource.errors)).toBe(true);
+    const current = json(explainSource("- [Q] Is the record available?"));
+    const ast = structuredClone(current.documents[0]);
+    ast.blocks[0].annotation = { kind: "gap", status: "open", raw: "?" };
+    expect(validateAst(ast)).toBe(false);
+    const graph = structuredClone(current.graphs[0]);
+    graph.points[0].declaration = { form: "gap", status: "open" };
+    expect(validateGraph(graph)).toBe(false);
+    const explain = structuredClone(current.explanations[0]);
+    explain.entries[0].recognition = { kind: "gap", status: "open" };
+    expect(validateExplain(explain)).toBe(false);
+  });
+
   it.each(["use", "use;", "use; @route", "use @a,@b +> @c", ". use @a,@b +> @c", "G use invalid suffix"])(
     "keeps error categories unique for the malformed use [%s]",
     header => {
@@ -58,7 +117,7 @@ describe("public compiler contract boundaries", () => {
   });
 
   it("preserves repeated sources in rejected joint summaries but rejects them in emitted summaries", () => {
-    const result = json(explainSource("- [C @c] Claim.\n  - [linked]\n    - [G @g] Source.\n    - [G use @g] Same source.\n      - [G @detail] Independent support for g."));
+    const result = json(explainSource("- [C @c] Claim.\n  - [_ G]\n    - [. @g] Source.\n    - [. use @g] Same source.\n      - [G @detail] Independent support for g."));
     const rejected = result.explanations[0].entries[1].effects[0];
     expect(rejected).toMatchObject({ kind: "rejectBearing", reason: "validation-error" });
     expect(rejected.bearing.sources).toEqual([{ kind: "point", key: "_p2" }, { kind: "point", key: "_p2" }]);
@@ -74,7 +133,7 @@ describe("public compiler contract boundaries", () => {
   });
 
   it("validates literal notes, direct ownership and actual-selection advice across source envelopes", () => {
-    const source = "- [Q @q] Inquiry.\n  - Group\n    - [C] Answer.\n      - [note] Detail.\n        - [G @q] Literal.\n          - [note @bad]\n      - [linked]\n        - [note]\n        - [G] Reason.\n- [note @bad]\n  - [C?] Literal.";
+    const source = "- [Q @q] Inquiry.\n  - Group\n    - [C] Answer.\n      - [note] Detail.\n        - [G @q] Literal.\n          - [note @bad]\n      - [_ G]\n        - [note]\n        - [.] Reason.\n- [note @bad]\n  - [C?] Literal.";
     const ast = parseDocument(source);
     const { graph, explain } = compileGraphWithExplain(ast);
     expect(validateAst(json(ast)), JSON.stringify(validateAst.errors)).toBe(true);
@@ -154,14 +213,14 @@ describe("public compiler contract boundaries", () => {
   });
 
   it("validates retained selector syntax and owned attachment explanations", () => {
-    const ast = parseDocument("- [C @claim] Claim.\n  - [linked]\n    - [G] Premise.\n    - [G/] Warrant.\n    - [O/] Objection.\n      - [R] Reply.");
+    const ast = parseDocument("- [C @claim] Claim.\n  - [_ G]\n    - [.] Premise.\n    - [G/] Warrant.\n    - [O/] Objection.\n      - [R] Reply.");
     const { graph, explain } = compileGraphWithExplain(ast);
     expect(graph.diagnostics).toEqual([]);
     expect(validateAst(json(ast))).toBe(true);
     expect(validateGraph(json(graph))).toBe(true);
     expect(validateExplain(json(explain))).toBe(true);
     const invalid = json(ast);
-    invalid.blocks[0].children[0].children[1].annotation.role = "Q";
+    invalid.blocks[0].children[0].children[1].annotation.role = "C";
     expect(validateAst(invalid)).toBe(false);
     const malformed = parseDocument("- [C] Claim.\n  - [G] Ground.\n    - [O/ /> @missing] Excluded combination.");
     const result = compileGraphWithExplain(malformed);
@@ -169,17 +228,32 @@ describe("public compiler contract boundaries", () => {
     expect(validateExplain(json(result.explain))).toBe(true);
   });
 
-  it.each(["G", "O"])("keeps the %s/ use recognition correlated with its local role", role => {
+  it.each(["G", "O", "Q"])("keeps the %s/ use recognition correlated with its local role", role => {
     const source = `- [C @claim] Claim.\n  - [G @reason; @route] Reason.\n    - [${role}/ use @reason] Review this step.`;
     const { explain } = compileGraphWithExplain(parseDocument(source));
     const recognition = explain.entries[2].recognition;
     expect(recognition).toEqual({ kind: "use", ref: { id: "reason" }, role, selector: "attachment" });
     expect(explain.diagnostics).toEqual([]);
+    expect(validateAst(json(parseDocument(source))), JSON.stringify(validateAst.errors)).toBe(true);
     expect(validateExplain(json(explain)), JSON.stringify(validateExplain.errors)).toBe(true);
-    for (const invalidRole of [undefined, "Q", "C", "R", "D"]) {
+    for (const invalidRole of [undefined, "C", "R", "D"]) {
       const invalid = json(explain);
       invalid.entries[2].recognition.role = invalidRole;
       expect(validateExplain(json(invalid)), String(invalidRole)).toBe(false);
+    }
+  });
+
+  it("preserves a Q selector and its typed target through complete source serialization", () => {
+    const source = "- [C @claim] Claim.\n  - [G; @step] Reason.\n    - [Q/ @question] Which conditions apply?";
+    const result = json(explainSource(source));
+    expect(validateSource(result), JSON.stringify(validateSource.errors)).toBe(true);
+    const { graph, explain } = compileGraphWithExplain(result.documents[0]);
+    expect(graph).toEqual(result.graphs[0]);
+    expect(explain).toEqual(result.explanations[0]);
+    for (const role of ["C", "R", "D"]) {
+      const invalid = structuredClone(result);
+      invalid.documents[0].blocks[0].children[0].children[0].annotation.role = role;
+      expect(validateAst(invalid.documents[0]), role).toBe(false);
     }
   });
 
@@ -191,10 +265,10 @@ describe("public compiler contract boundaries", () => {
     expect(validateExplain(json(explain))).toBe(true);
   });
 
-  it("validates all named edge kinds without admitting those clauses on Point annotations", () => {
-    for (const kind of ["supports", "challenges", "about", "answers", "repliesTo", "clarifies"]) {
+  it("validates all named kinds on explicit Bearings, Point declarations and Point uses", () => {
+    for (const kind of ["supports", "challenges", "concerns", "answers", "respondsTo", "clarifies"]) {
       const target = "claim";
-      const source = "- [C @claim] Claim.\n- [. @material] Material.\n- [edge @material supports @claim; @route]\n- [edge @claim " + kind + " @" + target + "]";
+      const source = "- [C @claim] Claim.\n- [. @material] Material.\n- [edge @material supports @claim; @route]\n- [edge @claim " + kind + " @" + target + "]\n- [Q @question " + kind + " @claim] Which scale?\n- [. use @material " + kind + " @claim]";
       const ast = parseDocument(source);
       const { graph, explain } = compileGraphWithExplain(ast);
       expect(graph.diagnostics, kind).toEqual([]);
@@ -205,8 +279,11 @@ describe("public compiler contract boundaries", () => {
       expect(validateSource(json(explainSource(fence + "cog\n" + source + "\n" + fence, "host"))), kind).toBe(true);
     }
     const self = json(parseDocument("- [C @claim] Claim.\n- [G +> @claim] Ground."));
-    for (const kind of ["answers", "repliesTo", "clarifies"]) {
+    for (const kind of ["answers", "respondsTo", "clarifies"]) {
       self.blocks[1].annotation.operatorClause.op = kind;
+      self.blocks[1].annotation.operatorClause.targetKind = "point";
+      expect(validateAst(self), kind).toBe(true);
+      self.blocks[1].annotation.operatorClause.targetKind = "either";
       expect(validateAst(self), kind).toBe(false);
     }
   });
@@ -246,25 +323,25 @@ describe("public compiler contract boundaries", () => {
       invalid.blocks[0].children[0].annotation.operatorClause = { op: "supports", sources: "self", target: { id: "c" } };
       expect(validateAst(invalid)).toBe(false);
     }
-    const ast = parseDocument("- [C] Target.\n  - [linked]\n    - [G] First.");
+    const ast = parseDocument("- [C] Target.\n  - [_ G]\n    - [.] First.");
     // Compiler semantics belong to annotation, not retained raw source.
     const raw = ast.blocks[0].children[0].raw;
     delete ast.blocks[0].children[0].annotation;
     const graph = compileGraph(ast);
-    expect(graph.bearings).toHaveLength(1);
-    expect(graph.bearings[0].sources).toHaveLength(1);
+    expect(graph.bearings).toHaveLength(0);
+    expect(graph.points).toHaveLength(2);
     expect(ast.blocks[0].children[0].raw).toBe(raw);
     ast.version = "0.3.0";
     expect(() => compileGraph(ast)).toThrow("Unsupported AST format 0.3.0");
   });
 
   it("rejects prior unpublished join AST and Explain variants despite their matching format label", () => {
-    const { graph, explain } = compileGraphWithExplain(parseDocument("- [C] Target.\n  - [linked]\n    - [G] Premise."));
+    const { graph, explain } = compileGraphWithExplain(parseDocument("- [C] Target.\n  - [_ G]\n    - [.] Premise."));
     expect(validateGraph(json(graph))).toBe(true);
-    const oldAst = json(parseDocument("- [linked]"));
+    const oldAst = json(parseDocument("- [_ G]"));
     oldAst.blocks[0].annotation.kind = "join";
     expect(validateAst(oldAst)).toBe(false);
-    oldAst.blocks[0].annotation.kind = "linked";
+    oldAst.blocks[0].annotation.kind = "localBearing";
     oldAst.blocks[0].annotation.syntaxErrors = ["join"];
     expect(validateAst(oldAst)).toBe(false);
     for (const mutation of ["recognition", "membership", "emission", "skip"] as const) {
@@ -281,7 +358,7 @@ describe("public compiler contract boundaries", () => {
     const ast = parseDocument("- [C @claim] Claim.\n  - [G @reason; @route] Reason.\n");
     for (const [field, value] of Object.entries({
       id: "reason", role: "G", handle: "route", status: "open",
-      syntaxErrors: ["operator"], linkedSyntaxErrors: ["linked"], operatorClause: { op: "supports", sources: "self", target: { id: "claim" } }
+      syntaxErrors: ["operator"], localBearingSyntaxErrors: ["localBearing"], operatorClause: { op: "supports", sources: "self", target: { id: "claim" } }
     })) {
       const invalid = json(ast);
       invalid.blocks[0].children[0][field] = value;
@@ -290,7 +367,7 @@ describe("public compiler contract boundaries", () => {
   });
 
   it("distinguishes self-sourced Point operators from edge source lists", () => {
-    for (const mark of ["G", "?", ". @material"]) {
+    for (const mark of ["G", "Q", ". @material"]) {
       const ast = json(parseDocument(`- [C @claim] Claim.\n- [${mark} +> @claim] Reason.\n`));
       expect(validateAst(ast)).toBe(true);
       ast.blocks[1].annotation.operatorClause.sources = [{ id: "claim" }];
@@ -433,12 +510,12 @@ describe("Point declaration metadata", () => {
   });
 
   it("keeps shared text and declaration metadata unchanged under reuse while local marks choose typed endpoints", () => {
-    const declarations = "- [C @p] Two retries timed out.\n- [C @open] Retries may be related.\n- [? @gap] A calibration record is missing.\n- [. @wet] The road is wet.";
+    const declarations = "- [C @p] Two retries timed out.\n- [C @open] Retries may be related.\n- [. @gap] A calibration record is missing.\n- [. @wet] The road is wet.";
     const uses = [
       "- [C @a] The configuration is faulty.\n  - [G use @p; @to-a] Occurrence note.\n    - [O/ @transient; @attack] Only this route.\n  - [G use @open; @from-open]\n  - [G use @gap; @from-gap]",
       "- [C @b] The service needs monitoring.\n  - [G use @p; @to-b]\n    - [O @miscount] Only one retry timed out.",
       "- [. use @wet] Reminder.\n  - [C @aside] Not an answer.",
-      "- [Q use @wet] Presented as a local inquiry.\n  - [C @yes] Yes."
+      "- [Q use @wet] The local mark leaves the shared wording unchanged.\n  - [.] A separate observation."
     ].join("\n");
     const alone = compileGraph(parseDocument(declarations));
     const reused = compileGraph(parseDocument(declarations + "\n" + uses));
@@ -451,8 +528,7 @@ describe("Point declaration metadata", () => {
       ["@open", "supports", "point", "@a"],
       ["@gap", "supports", "point", "@a"],
       ["@p", "supports", "point", "@b"],
-      ["@miscount", "challenges", "point", "@p"],
-      ["@yes", "answers", "point", "@wet"]
+      ["@miscount", "challenges", "point", "@p"]
     ]);
     expect(reused.bearings.filter(bearing => bearing.target.kind === "bearing").map(bearing => name.get(bearing.target.key))).toEqual([";to-a"]);
   });

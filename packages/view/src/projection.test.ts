@@ -176,7 +176,7 @@ describe("Point focus includes direct context of its incident Bearings", () => {
     return compiled.graphs[0];
   };
 
-  it.each(["challenges", "supports", "about"])("includes direct Point and step relations for %s", kind => {
+  it.each(["challenges", "supports", "concerns"])("includes direct Point and step relations for %s", kind => {
     const graph = graphFor([
       "- [C @claim] Claim.", "  - [G @reason; @route] Reason.",
       "- [O @content -> @claim; @content-attack] Content objection.",
@@ -194,7 +194,7 @@ describe("Point focus includes direct context of its incident Bearings", () => {
 
   it("retains all Linked sources and one level of assessment without following neighbouring Points", () => {
     const graph = graphFor([
-      "- [C @claim] Claim.", "  - [linked; @route]", "    - [G @a] First premise.", "    - [G @b] Second premise.",
+      "- [C @claim] Claim.", "  - [_ G; @route]", "    - [. @a] First premise.", "    - [. @b] Second premise.",
       "- [O @objection /> @route; @attack] Step objection.",
       "- [O @reply /> @attack; @counterattack] A further objection.",
       "- [C @next] Later claim.", "- [_ @claim supports @next; @onward]"
@@ -214,8 +214,8 @@ describe("Point focus includes direct context of its incident Bearings", () => {
   it("does not extend through a cycle or through newly included assessments", () => {
     const graph = graphFor([
       "- [C @a] First premise.", "- [C @b] Second premise.", "- [C @c] Assessment.", "- [C @d] Further assessment.",
-      "- [_ @a supports @second; @first]", "- [_ @b about @first; @second]",
-      "- [_ @c challenges @first; @assessment]", "- [_ @d about @assessment; @further]"
+      "- [_ @a supports @second; @first]", "- [_ @b concerns @first; @second]",
+      "- [_ @c challenges @first; @assessment]", "- [_ @d concerns @assessment; @further]"
     ]);
     const projection = projectGraph(graph), point = graph.points.find(point => point.id === "a")!;
     const focus = focusNeighborhood(projection, { kind: "point", key: point.key });

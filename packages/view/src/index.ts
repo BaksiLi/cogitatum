@@ -38,7 +38,7 @@ type Shape = { id: string; node: GraphNode; g: SVGGElement; glyph?: SVGGElement;
 
 /**
  * Framework-neutral mount/update/destroy lifecycle. Positions live in a world space; the camera maps
- * them to pixels so marks and text keep a fixed, readable size at every zoom level.
+ * them to pixels; wording keeps its reading size while Point glyphs scale within bounds.
  */
 export function createGraphView(container: HTMLElement, options: GraphViewOptions = {}): GraphView {
   const doc = container.ownerDocument, win = doc.defaultView;
@@ -63,7 +63,8 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
   const held = new Set<string>();
   const abort = new AbortController(), on = { signal: abort.signal };
   const positionKey = (node: GraphNode) => node.name ? `${node.ref.kind}:@${node.name}` : node.id;
-  const reduced = () => !!options.reducedMotion?.() || !!win?.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+  const motionPreference = win?.matchMedia?.("(prefers-reduced-motion: reduce)");
+  const reduced = () => !!options.reducedMotion?.() || !!motionPreference?.matches;
   const nodeById = (id?: string) => id ? full.nodes.find(node => node.id === id) : undefined;
   const screen = (p: Point2) => ({ x: p.x * camera.k + camera.tx, y: p.y * camera.k + camera.ty });
 
@@ -210,6 +211,8 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
   function paint(): void {
     frame = 0;
     if (destroyed) return;
+    // Inspection takes precedence over decorative opacity and partially traced routes.
+    if (entrance && (reduced() || selected || hovered)) finishEntrance();
     const focus = focusNeighborhood(full, guidanceSubject(nodeById(selected), nodeById(hovered))?.ref);
     const related = new Set(focus.nodeIds), active = new Set(focus.bearingKeys), guided = related.size > 0;
     svg.dataset.guided = String(guided);
@@ -387,8 +390,9 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
     const s = span(k);
     return { k, tx: (size.w - (s.x1 - s.x0)) / 2 - s.x0, ty: Math.max(padTop, (size.h - padBottom + padTop - b.h * k) / 2) - b.y * k };
   }
-  function fit(): void { stopMotion(); cameraTouched = true; camera = fitCamera(false); schedule(); }
+  function fit(): void { finishEntrance(); stopMotion(); cameraTouched = true; camera = fitCamera(false); schedule(); }
   function zoomAt(factor: number, x: number, y: number): void {
+    finishEntrance();
     // Fit may use a smaller scale than manual zoom; zooming out must never jump inward from it.
     const k = Math.max(Math.min(MIN_K, camera.k), Math.min(MAX_K, camera.k * factor));
     camera = { k, tx: x - (x - camera.tx) * (k / camera.k), ty: y - (y - camera.ty) * (k / camera.k) };
@@ -439,6 +443,7 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
 
   // ── selection ──
   function select(id: string | undefined, notify = true): void {
+    finishEntrance();
     selected = id;
     // Selection state is announced synchronously (aria-pressed), not on the next frame.
     if (frame) { win?.cancelAnimationFrame(frame); frame = 0; }
@@ -487,6 +492,7 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
   const local = (event: PointerEvent | WheelEvent | MouseEvent) => { const r = svg.getBoundingClientRect(); return { x: event.clientX - r.left, y: event.clientY - r.top }; };
   svg.addEventListener("pointerdown", event => {
     if (event.button !== 0) return;
+    if (entrance) { finishEntrance(); schedule(); }
     stopMotion(); // A new gesture supersedes the previous settling or Arrange transition.
     pointers.set(event.pointerId, local(event));
     if (pointers.size === 2 && gesture) {
@@ -598,6 +604,10 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
 
   // The entrance starts the first time the drawing is on screen with something in it; reduced motion skips it.
   let sighted = false;
+  function finishEntrance(): void {
+    entrance = undefined;
+    sighting?.disconnect();
+  }
   const beginEntrance = () => {
     if (!entrance?.pending || !sighted || !shapes.size) return;
     sighting?.disconnect();
@@ -611,6 +621,9 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
   if (entrance && !sighting) entrance = undefined;
   sighting?.observe(svg);
   abort.signal.addEventListener("abort", () => sighting?.disconnect());
+  motionPreference?.addEventListener("change", () => {
+    if (entrance && reduced()) { finishEntrance(); schedule(); }
+  }, on);
 
   const view: GraphView = {
     update(graph, nextScope) {
@@ -649,6 +662,7 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
     },
     resetLayout() {
       if (destroyed) throw new Error("This graph view has been destroyed.");
+      finishEntrance();
       arrangement.clear(); held.clear(); measureSize(); moveTo(baseLayout(), true); cameraTouched = false;
     },
     select(ref) { const id = referenceKey(ref); if (shapes.has(id)) select(id); },

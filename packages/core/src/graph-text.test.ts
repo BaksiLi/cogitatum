@@ -7,7 +7,7 @@ const compile = (source: string) => compileGraph(parseDocument(source));
 const fixture = (path: string) => readFileSync(new URL(`../../../fixtures/${path}`, import.meta.url), "utf8");
 
 describe("graph text structure-v1", () => {
-  it.each(["local-linked", "grouped-route-pressure"])("matches the reviewable %s reference", name => {
+  it.each(["local-bearing", "grouped-route-pressure"])("matches the reviewable %s reference", name => {
     const graph = compile(fixture(`core/${name}.cog.md`));
     expect(graph.diagnostics).toEqual([]);
     expect(formatGraph(graph)).toBe(fixture(`text/${name}.expected.txt`));
@@ -21,7 +21,7 @@ describe("graph text structure-v1", () => {
 - [edge @q, @p supports @c; @joint] Joint route.
 - [edge @q, @p supports @c; @parallel] Joint route.
 - [O /> @joint] Challenge just one instance.
-- [?] Missing evidence.
+- [.] Missing evidence.
 - [.] Unclassified material.
 - [Q] A question.
 - [D] A distinction.
@@ -35,14 +35,14 @@ describe("graph text structure-v1", () => {
     expect(result).toContain('b3: supports([p4, p1], p3) handle="joint" text="Joint route."');
     expect(result).toContain('b4: supports([p4, p1], p3) handle="parallel" text="Joint route."');
     expect(result).toContain('b5: challenges([p5], b3)');
-    expect(result).toContain('p6: gap(open) text="Missing evidence."');
+    expect(result).toContain('p6: material text="Missing evidence."');
     expect(result).toContain('p7: material text="Unclassified material."');
     expect(result).toContain('p8: role(Q) text="A question."');
     expect(result).toContain('p9: role(D) text="A distinction."');
     expect(result).toContain('p10: role(R) text="A reply."');
   });
 
-  it.each(["supports", "challenges", "about", "answers", "repliesTo", "clarifies"] satisfies BearingKind[])("renders %s without reinterpreting it", kind => {
+  it.each(["supports", "challenges", "concerns", "answers", "respondsTo", "clarifies"] satisfies BearingKind[])("renders %s without reinterpreting it", kind => {
     const graph = compile(`- [. @a] Material.\n- [. @b] Other.\n- [edge @a ${kind} @b; @step] Description.`);
     expect(graph.diagnostics).toEqual([]);
     expect(formatGraph(graph)).toContain(`b1: ${kind}([p1], p2) handle="step" text="Description."`);
@@ -52,13 +52,13 @@ describe("graph text structure-v1", () => {
     const graph = compile(`- [. @a +> @b] First.
 - [. @b +> @a] Second.
 - [edge @a supports @right; @left]
-- [edge @b about @left; @right]
+- [edge @b concerns @left; @right]
 - [edge @a challenges @self; @self]`);
     expect(graph.diagnostics).toEqual([]);
     expect(formatGraph(graph)).toContain(`b1: supports([p1], p2)
 b2: supports([p2], p1)
 b3: supports([p1], b4) handle="left"
-b4: about([p2], b3) handle="right"
+b4: concerns([p2], b3) handle="right"
 b5: challenges([p1], b5) handle="self"`);
   });
 
@@ -131,8 +131,8 @@ b5: challenges([p1], b5) handle="self"`);
   });
 
   it("preserves an explicitly scoped local/edge projection but not changed names, roles or source order", () => {
-    const local = compile('- [C @c] Claim.\n  - [linked; @joint]\n    - [G @p] First.\n    - [G @q] Second.');
-    const explicit = compile('- [C @c] Claim.\n- [G @p] First.\n- [G @q] Second.\n- [edge @p, @q supports @c; @joint]');
+    const local = compile("- [C @c] Claim.\n  - [_ G; @joint]\n    - [. @p] First.\n    - [. @q] Second.");
+    const explicit = compile('- [C @c] Claim.\n- [. @p] First.\n- [. @q] Second.\n- [edge @p, @q supports @c; @joint]');
     expect(local.diagnostics).toEqual([]);
     expect(explicit.diagnostics).toEqual([]);
     expect(formatGraph(local)).toBe(formatGraph(explicit));

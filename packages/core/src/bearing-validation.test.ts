@@ -11,7 +11,7 @@ describe("Bearing dependency validation", () => {
       ...Array.from({ length }, (_, index) => `- [_ @p supports @${index === length - 1 ? "missing" : "step" + (index + 1)}; @step${index}]`),
       "- [_ @p supports @p; @independent]",
       "- [_ @p challenges @right; @left]",
-      "- [_ @p about @left; @right]",
+      "- [_ @p concerns @left; @right]",
       "- [_ @p supports @self; @self]"
     ].join("\n");
     const { graph, explain } = compile(source);
@@ -50,7 +50,7 @@ describe("Bearing dependency validation", () => {
       "- [C @p] Premise.",
       "- [_ @p supports @broken; @dependent]",
       "- [_ @missing supports @other; @broken]",
-      "- [_ @p about @broken; @other]",
+      "- [_ @p concerns @broken; @other]",
       "- [_ @p challenges @other; @incoming]"
     ].join("\n"));
     expect(graph.bearings).toEqual([]);

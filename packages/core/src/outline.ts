@@ -1,4 +1,4 @@
-import { isAnnotationStart, isRetiredClaimStart, parseAnnotation, recognizeAnnotationHead } from "./annotation.js";
+import { isAnnotationStart, isBearingModeUnselected, isRetiredClaimStart, parseAnnotation, recognizeAnnotationHead } from "./annotation.js";
 import { FORMAT_VERSION } from "./types.js";
 import type { Annotation, AstBlock, Diagnostic, DocumentAst, ParsedLine, ParseOptions, SourceSpan } from "./types.js";
 
@@ -261,19 +261,20 @@ function toAstBlock(node: RawNode, diagnostics: Diagnostic[]): AstBlock {
   // Failed constructors retain their context boundary even without a closing bracket.
   const head = recognizeAnnotationHead(header.slice(1));
   const unclosedConstructor = node.indentationValid && !node.annotationRaw && header.startsWith("[") && !header.includes("]")
-    ? head.family === "bearing" ? "_" : /^\[\s*(linked|join)(?=$|[\s;])/i.exec(header)?.[1].toLowerCase()
+    ? head.family === "bearing" ? "_" : /^\[\s*(?:[QCGORD][/_]?\s+)?(linked|join)(?=$|[\s;])/i.exec(header)?.[1].toLowerCase()
     : undefined;
   const retiredClaimRaw = !node.annotationRaw && header.startsWith("[") && isRetiredClaimStart(header.slice(1)) ? header.slice(1) : undefined;
-  const annotationRaw = node.annotationRaw ?? retiredClaimRaw ?? (unclosedConstructor === "join" ? header.slice(1) : undefined);
-  const unclosedSelector = node.indentationValid && !node.annotationRaw && !header.includes("]") && /^\[\s*[GO][_/](?=$|[\s;@])/i.test(header);
+  const annotationRaw = node.annotationRaw ?? retiredClaimRaw ?? (unclosedConstructor === "join" || unclosedConstructor === "linked" ? header.slice(1) : undefined);
+  const unclosedSelector = node.indentationValid && !node.annotationRaw && !header.includes("]") && /^\[\s*(?:[GO][_/]|Q\/)(?=$|[\s;@])/i.test(header);
   const unclosedUse = node.indentationValid && !node.annotationRaw && header.startsWith("[") && !header.includes("]") && head.operation === "use";
   const unclosedBearingUse = unclosedConstructor === "_" && head.operation === "use";
+  const unclosedLocalBearing = unclosedConstructor === "_" && head.mode === "local";
   const parsed = annotationRaw ? parseAnnotation(annotationRaw, node.sourceSpan) : undefined;
   if (parsed) {
     diagnostics.push(...parsed.diagnostics);
   }
   if (!parsed && !node.annotationRaw && node.indentationValid && header.startsWith("[") && !header.includes("]") && isAnnotationStart(header.slice(1))) {
-    diagnostics.push(...parseAnnotation(header.slice(1), node.sourceSpan).diagnostics.filter(diagnostic => diagnostic.code === "RETIRED_AUTHORING_SYNTAX" || diagnostic.code === "RETIRED_CLAIM_OPENNESS"));
+    diagnostics.push(...parseAnnotation(header.slice(1), node.sourceSpan).diagnostics.filter(diagnostic => ["RETIRED_AUTHORING_SYNTAX", "RETIRED_CLAIM_OPENNESS", "RETIRED_GAP_ANNOTATION", "RETIRED_LINKED_ANNOTATION"].includes(diagnostic.code)));
   }
   // A layout error rejects the annotation, not its boundary. Treating it as
   // body would let descendants invent attachments to a more distant Point.
@@ -287,16 +288,26 @@ function toAstBlock(node: RawNode, diagnostics: Diagnostic[]): AstBlock {
     annotation = misindentedAnnotation;
   } else if (unclosedBearingUse) {
     annotation = { kind: "bearingUse", raw: header.slice(1), syntaxErrors: ["reference"] };
+  } else if (unclosedLocalBearing) {
+    const local = parseAnnotation(header.slice(1), node.sourceSpan);
+    diagnostics.push(...local.diagnostics);
+    const syntaxErrors = local.annotation?.kind === "localBearing" ? local.annotation.syntaxErrors ?? [] : [];
+    annotation = { ...(local.annotation?.kind === "localBearing" ? local.annotation : { kind: "localBearing" as const }),
+      raw: header.slice(1), syntaxErrors: [...new Set(["localBearing" as const, ...syntaxErrors])] };
   } else if (unclosedUse) {
-    annotation = { kind: "use", raw: header.slice(1), syntaxErrors: ["reference"] };
+    // Retain clear selector intent so an unfinished use cannot become a joint source.
+    const role = /^\[\s*([GOQ])\/\s+use(?=$|[\s;])/i.exec(header)?.[1].toUpperCase() as "G" | "O" | "Q" | undefined;
+    annotation = role
+      ? { kind: "use", role, selector: "attachment", raw: header.slice(1), syntaxErrors: ["reference"] }
+      : { kind: "use", raw: header.slice(1), syntaxErrors: ["reference"] };
   } else if (unclosedSelector) {
     annotation = { kind: "invalid", raw: header.slice(1), selector: "attachment" };
   } else if (parsed?.annotation) {
     annotation = parsed.annotation;
   } else if (unclosedConstructor === "linked") {
-    annotation = { kind: "linked", raw: header.slice(1), syntaxErrors: ["linked"] };
+    annotation = { kind: "localBearing", raw: header.slice(1), syntaxErrors: ["localBearing"] };
   } else if (unclosedConstructor === "edge" || unclosedConstructor === "_") {
-    annotation = { kind: "edge", raw: header.slice(1), syntaxErrors: ["operator"] };
+    annotation = { kind: "explicitBearing", raw: header.slice(1), syntaxErrors: [isBearingModeUnselected(header.slice(1)) ? "mode" : "operator"] };
   } else if (parsed?.diagnostics.length || (node.indentationValid && !node.annotationRaw && classifyMalformedAnnotationPrefix(header))) {
     annotation = { kind: "invalid", raw: node.annotationRaw ?? header.slice(1) };
   }
