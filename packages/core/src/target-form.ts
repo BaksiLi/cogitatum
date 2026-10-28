@@ -144,4 +144,3 @@ function stable(annotation: Annotation | undefined) {
     sources: clause.sources
   };
 }
-
