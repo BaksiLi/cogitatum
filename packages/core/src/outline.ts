@@ -1,9 +1,12 @@
-import { isAnnotationStart, isRetiredClaimStart, parseAnnotation } from "./annotation.js";
+import { isAnnotationStart, isRetiredClaimStart, parseAnnotation, recognizeAnnotationHead } from "./annotation.js";
 import { FORMAT_VERSION } from "./types.js";
 import type { Annotation, AstBlock, Diagnostic, DocumentAst, ParsedLine, ParseOptions, SourceSpan } from "./types.js";
 
 type RawNode = {
   line: ParsedLine;
+  header: string;
+  rawLines: string[];
+  continuationIndent: number;
   text: string;
   annotationRaw?: string;
   indentationValid: boolean;
@@ -41,6 +44,8 @@ function parseRawOutline(
   }
   const roots: RawNode[] = [];
   const stack: RawNode[] = [];
+  let continuation: RawNode | undefined;
+  let blankLines: string[] = [];
   const lines = source.replace(/\r\n/g, "\n").split("\n");
   if (!Number.isSafeInteger(lineOffset + lines.length)) {
     throw new RangeError("lineOffset places source lines beyond the safe integer range.");
@@ -48,6 +53,7 @@ function parseRawOutline(
 
   lines.forEach((rawLine, index) => {
     if (rawLine.trim() === "") {
+      if (continuation) blankLines.push(rawLine);
       return;
     }
 
@@ -58,12 +64,27 @@ function parseRawOutline(
     // Lines are already split; Unicode separators inside prose remain content.
     const match = /^([ \t]*)-(\s+)(.*)$/s.exec(rawLine);
     if (!match) {
+      const indentation = /^[ \t]*/.exec(rawLine)![0];
+      if (continuation && !indentation.includes("\t") && indentation.length >= continuation.continuationIndent) {
+        // Only the most recent block can continue. Never reopen an ancestor
+        // after a child: its prose would otherwise move ahead of that child.
+        continuation.text += "\n".repeat(blankLines.length + 1) + rawLine.slice(continuation.continuationIndent);
+        continuation.rawLines.push(...blankLines, rawLine);
+        continuation.sourceSpan.endLine = index + 1 + lineOffset;
+        continuation.sourceSpan.endColumn = rawLine.length + 1 + columnOffset;
+        blankLines = [];
+        return;
+      }
       diagnostics.push({
         severity: "error",
-        code: "UNSUPPORTED_LINE",
-        message: "The outline parser only supports bullet blocks beginning with '- '.",
+        code: indentation.includes("\t") ? "TAB_INDENTATION_UNSUPPORTED" : "UNSUPPORTED_LINE",
+        message: indentation.includes("\t")
+          ? "Cogitatum source-unit indentation must use spaces, not tabs."
+          : "Start a block with '- ', or indent a continuation to the preceding block's content column. A continuation cannot reopen an ancestor after a child.",
         sourceSpan: spanForLine(index + 1 + lineOffset, 1 + columnOffset, rawLine.length + 1 + columnOffset)
       });
+      continuation = undefined;
+      blankLines = [];
       return;
     }
 
@@ -125,7 +146,8 @@ function parseRawOutline(
     }
 
     const literal = Boolean(parent?.literal || parent?.noteBoundary);
-    const noteBoundary = !literal && /^\[\s*note(?=$|[\s;@\]])/i.test(content);
+    const noteBoundary = !literal && content.startsWith("[") &&
+      recognizeAnnotationHead(content.slice(1).split("]")[0]).operation === "note";
     const retiredClaim = !literal && content.startsWith("[") && isRetiredClaimStart(content.slice(1).split("]")[0]);
     const bracketMatch = !literal && (indentationValid || noteBoundary || retiredClaim) ? /^\[([^\]]+)\]\s*(.*)$/s.exec(content) : undefined;
     // Closing a prose bracket must not turn ordinary text into an annotation.
@@ -151,6 +173,9 @@ function parseRawOutline(
         text: rawLine,
         contentColumn
       },
+      header: content,
+      rawLines: [rawLine],
+      continuationIndent: indent + 1 + match[2].length,
       annotationRaw: annotationMatch?.[1],
       text: annotationMatch ? annotationMatch[2] : content,
       indentationValid,
@@ -166,6 +191,8 @@ function parseRawOutline(
       roots.push(node);
     }
     stack.push(node);
+    continuation = node;
+    blankLines = [];
   });
 
   return roots;
@@ -197,42 +224,46 @@ function classifyMalformedAnnotationPrefix(content: string): "empty" | "unclosed
 }
 
 function toAstBlock(node: RawNode, diagnostics: Diagnostic[]): AstBlock {
+  // Recognition is confined to the bullet header. Brackets on continuation
+  // lines are prose and cannot complete or repair a malformed annotation.
+  const header = node.header;
   if (node.literal || node.noteBoundary) {
-    const parsed = node.noteBoundary ? parseAnnotation(node.annotationRaw ?? node.text.slice(1), node.sourceSpan) : undefined;
+    const parsed = node.noteBoundary ? parseAnnotation(node.annotationRaw ?? header.slice(1), node.sourceSpan) : undefined;
     const annotation = parsed?.annotation;
     if (parsed) diagnostics.push(...parsed.diagnostics);
     if (annotation?.kind === "note" && (!node.annotationRaw || !node.indentationValid)) {
       annotation.syntaxErrors = ["note"];
-      if (!parsed?.diagnostics.length) diagnostics.push({ severity: "error", code: "MALFORMED_NOTE", message: "A note requires a closed [note] header and valid outline indentation.", sourceSpan: node.sourceSpan });
+      if (!parsed?.diagnostics.length) diagnostics.push({ severity: "error", code: "MALFORMED_NOTE", message: "A note requires a closed header and valid outline indentation.", sourceSpan: node.sourceSpan });
     }
     return {
       kind: "block",
       text: node.text,
-      raw: node.line.text,
+      raw: node.rawLines.join("\n"),
       children: node.children.map(child => toAstBlock(child, diagnostics)),
       sourceSpan: node.sourceSpan,
       ...(annotation ? { annotation } : {})
     };
   }
   // Failed constructors retain their context boundary even without a closing bracket.
-  const unclosedConstructor = node.indentationValid && !node.annotationRaw && !node.text.includes("]")
-    ? /^\[\s*(linked|join|edge|_)(?=$|[\s;])/i.exec(node.text)?.[1].toLowerCase()
+  const head = recognizeAnnotationHead(header.slice(1));
+  const unclosedConstructor = node.indentationValid && !node.annotationRaw && header.startsWith("[") && !header.includes("]")
+    ? head.family === "bearing" ? "_" : /^\[\s*(linked|join)(?=$|[\s;])/i.exec(header)?.[1].toLowerCase()
     : undefined;
-  const retiredClaimRaw = !node.annotationRaw && node.text.startsWith("[") && isRetiredClaimStart(node.text.slice(1)) ? node.text.slice(1) : undefined;
-  const annotationRaw = node.annotationRaw ?? retiredClaimRaw ?? (unclosedConstructor === "join" ? node.text.slice(1) : undefined);
-  const unclosedSelector = node.indentationValid && !node.annotationRaw && !node.text.includes("]") && /^\[\s*[GO][_/](?=$|[\s;@])/i.test(node.text);
-  const unclosedUse = node.indentationValid && !node.annotationRaw && !node.text.includes("]") && /^\[\s*(?:(?:[QCGORD](?:\?|[_/])?|\.)\s+)?use(?=$|;|\s+@)/i.test(node.text);
-  const unclosedBearingUse = unclosedConstructor === "_" && /^\[\s*_\s+use(?=$|[\s;])/i.test(node.text);
+  const retiredClaimRaw = !node.annotationRaw && header.startsWith("[") && isRetiredClaimStart(header.slice(1)) ? header.slice(1) : undefined;
+  const annotationRaw = node.annotationRaw ?? retiredClaimRaw ?? (unclosedConstructor === "join" ? header.slice(1) : undefined);
+  const unclosedSelector = node.indentationValid && !node.annotationRaw && !header.includes("]") && /^\[\s*[GO][_/](?=$|[\s;@])/i.test(header);
+  const unclosedUse = node.indentationValid && !node.annotationRaw && header.startsWith("[") && !header.includes("]") && head.operation === "use";
+  const unclosedBearingUse = unclosedConstructor === "_" && head.operation === "use";
   const parsed = annotationRaw ? parseAnnotation(annotationRaw, node.sourceSpan) : undefined;
   if (parsed) {
     diagnostics.push(...parsed.diagnostics);
   }
-  if (!parsed && !node.annotationRaw && node.indentationValid && node.text.startsWith("[") && !node.text.includes("]") && isAnnotationStart(node.text.slice(1))) {
-    diagnostics.push(...parseAnnotation(node.text.slice(1), node.sourceSpan).diagnostics.filter(diagnostic => diagnostic.code === "RETIRED_AUTHORING_SYNTAX" || diagnostic.code === "RETIRED_CLAIM_OPENNESS"));
+  if (!parsed && !node.annotationRaw && node.indentationValid && header.startsWith("[") && !header.includes("]") && isAnnotationStart(header.slice(1))) {
+    diagnostics.push(...parseAnnotation(header.slice(1), node.sourceSpan).diagnostics.filter(diagnostic => diagnostic.code === "RETIRED_AUTHORING_SYNTAX" || diagnostic.code === "RETIRED_CLAIM_OPENNESS"));
   }
   // A layout error rejects the annotation, not its boundary. Treating it as
   // body would let descendants invent attachments to a more distant Point.
-  const misindentedRaw = !node.indentationValid && node.text.startsWith("[") ? node.text.slice(1).split("]")[0] : undefined;
+  const misindentedRaw = !node.indentationValid && header.startsWith("[") ? header.slice(1).split("]")[0] : undefined;
   const misindentedAnnotation = misindentedRaw !== undefined && isAnnotationStart(misindentedRaw)
     ? { kind: "invalid" as const, raw: misindentedRaw } : undefined;
   let annotation: Annotation | undefined;
@@ -241,24 +272,24 @@ function toAstBlock(node: RawNode, diagnostics: Diagnostic[]): AstBlock {
   } else if (misindentedAnnotation) {
     annotation = misindentedAnnotation;
   } else if (unclosedBearingUse) {
-    annotation = { kind: "bearingUse", raw: node.text.slice(1), syntaxErrors: ["reference"] };
+    annotation = { kind: "bearingUse", raw: header.slice(1), syntaxErrors: ["reference"] };
   } else if (unclosedUse) {
-    annotation = { kind: "use", raw: node.text.slice(1), syntaxErrors: ["reference"] };
+    annotation = { kind: "use", raw: header.slice(1), syntaxErrors: ["reference"] };
   } else if (unclosedSelector) {
-    annotation = { kind: "invalid", raw: node.text.slice(1), selector: "attachment" };
+    annotation = { kind: "invalid", raw: header.slice(1), selector: "attachment" };
   } else if (parsed?.annotation) {
     annotation = parsed.annotation;
   } else if (unclosedConstructor === "linked") {
-    annotation = { kind: "linked", raw: node.text.slice(1), syntaxErrors: ["linked"] };
+    annotation = { kind: "linked", raw: header.slice(1), syntaxErrors: ["linked"] };
   } else if (unclosedConstructor === "edge" || unclosedConstructor === "_") {
-    annotation = { kind: "edge", raw: node.text.slice(1), syntaxErrors: ["operator"] };
-  } else if (parsed?.diagnostics.length || (node.indentationValid && !node.annotationRaw && classifyMalformedAnnotationPrefix(node.text))) {
-    annotation = { kind: "invalid", raw: node.annotationRaw ?? node.text.slice(1) };
+    annotation = { kind: "edge", raw: header.slice(1), syntaxErrors: ["operator"] };
+  } else if (parsed?.diagnostics.length || (node.indentationValid && !node.annotationRaw && classifyMalformedAnnotationPrefix(header))) {
+    annotation = { kind: "invalid", raw: node.annotationRaw ?? header.slice(1) };
   }
   return {
     kind: "block",
     text: node.text,
-    raw: node.line.text,
+    raw: node.rawLines.join("\n"),
     children: node.children.map((child) => toAstBlock(child, diagnostics)),
     sourceSpan: node.sourceSpan,
     annotation

@@ -48,10 +48,12 @@
 .cog-graph .cog-node[aria-pressed="true"] .cog-focus-ring { opacity: 1; stroke-dasharray: none; }
 .cog-graph .cog-node[aria-pressed="true"] .cog-text { font-weight: 500; }
 
-/* Guidance is temporary dimming only; declared shapes stay legible underneath it. */
+/* Guidance is dimming only; declared shapes stay legible underneath it.
+   A selection keeps guidance, so a pointed or focused unrelated mark lifts itself to stay readable and selectable. */
 .cog-graph[data-guided="true"] .cog-node[data-related="false"] { opacity: .28; }
+.cog-graph[data-guided="true"] .cog-node[data-related="false"]:is(:hover, :focus-visible) { opacity: .8; }
 .cog-graph[data-guided="true"] .cog-link[data-active="true"] { opacity: 1; stroke-width: 1.7; }
-.cog-graph[data-guided="true"] .cog-link[data-active="false"], .cog-graph[data-guided="true"] .cog-arrow[data-active="false"] { opacity: .1; }
+.cog-graph[data-guided="true"] .cog-link[data-active="false"], .cog-graph[data-guided="true"] .cog-arrow[data-active="false"] { opacity: .2; }
 
 @media (prefers-reduced-motion: reduce) { .cog-graph * { transition: none !important; } }
 .cog-chip { display: inline-block; vertical-align: -0.18em; overflow: visible; }
@@ -115,6 +117,7 @@
 .cog-reading-row[data-selected="true"] { background: color-mix(in srgb, var(--cog-focus-resolved) 9%, transparent); box-shadow: inset 2px 0 var(--cog-focus-resolved); }
 .cog-reading-row[data-same="true"] { background: color-mix(in srgb, var(--cog-muted-resolved) 6%, transparent); }
 .cog-reading[data-guided="true"] .cog-reading-row[data-related="false"] { opacity: .32; }
+.cog-reading[data-guided="true"] .cog-reading-row[data-related="false"]:is(:hover, :focus-visible) { opacity: .8; }
 .cog-reading-connections { position: absolute; left: 0; top: 0; pointer-events: none; overflow: visible; }
 .cog-reading-bearing { transition: opacity 200ms ease; }
 .cog-reading-arc { fill: none; stroke: currentColor; stroke-width: 1.4; stroke-linecap: round; transition: stroke-width 200ms ease; }
@@ -125,7 +128,7 @@
 .cog-reading-symbol .cog-bearing-glyph-shape { fill: currentColor; stroke: var(--cog-surface-resolved); stroke-width: 1.5; }
 .cog-reading-symbol .cog-bearing-glyph-symbol { fill: var(--cog-surface-resolved); font-size: 9px; }
 .cog-reading-bearing[data-subtle="true"] { opacity: .3; }
-.cog-reading[data-guided="true"] .cog-reading-bearing[data-active="false"] { opacity: .08; }
+.cog-reading[data-guided="true"] .cog-reading-bearing[data-active="false"] { opacity: .16; }
 .cog-reading[data-guided="true"] .cog-reading-bearing[data-active="true"] { opacity: 1; }
 .cog-reading[data-guided="true"] .cog-reading-bearing[data-active="true"] .cog-reading-arc { stroke-width: 2; }
 .cog-reading-diagnostics { margin-bottom: 16px; padding: 0 0 10px; border-bottom: 1px solid color-mix(in srgb, var(--cog-line-resolved) 40%, transparent); font: 12px/1.55 system-ui, sans-serif; color: var(--cog-muted-resolved); }
@@ -217,3 +220,6 @@
   .cog-block-detail-content { flex-basis: 100%; }
 }
 @media (pointer: coarse) { .cog-block .cog-block-button { min-height: 36px; min-width: 36px; } }
+.cog-note-count { fill: currentColor; font-size: 10px; font-weight: 600; }
+.cog-block-note { margin-block-start: .7em; }
+.cog-block-note-text { margin-block-start: .3em; }

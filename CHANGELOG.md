@@ -1,12 +1,45 @@
 # Changelog
 
-Core and CLI **0.5.0** use **format 0.5.0**.
+Published Core and CLI **0.5.0** use **format 0.5.0**.
+This checkout prepares **0.6.0 / format 0.6.0**.
 The historical `alpha` tag remains at **0.3.0-alpha.1**.
 Earlier 0.4 entries below are unpublished source milestones included in this first 0.4 npm release.
 Use the complete released schema set and [migrate retained source](docs/syntax.md#compatibility-and-migration) rather than relabelling old JSON.
 
 ## Unreleased
 
+**Migration from published 0.5.0:** review newly reserved `point`, `node`, `bearing`, `edge use`, and typed note headers before recompiling retained source.
+Former body can become a Point and change a descendant's implicit target; notes make their entire subtree literal.
+Keep intended prose outside leading reserved brackets, and do not automatically promote use tail prose into object notes.
+Recompile all projections with the complete 0.6 bundle; changing a JSON version is not migration.
+The original published schemas remain unchanged in `spec/0.5.0/`.
+
+- Share one family/operation grammar across `point` / `node` / `.`, and `bearing` / `edge` / `_`, including construction, use, notes and malformed boundaries.
+- Add `[. note]` and `[_ note]`, selecting one slot from the nearest semantic context.
+  Reject missing or failed local targets without outward fallback; direct linked Grounds own no unary attachment.
+  Preserve literal note subtrees, anonymous objects, fixed Bearing use endpoints and separate equal-text records.
+- Add source-backed `GraphIR.notes` records and Explain selection/attachment effects.
+  The AST owns prose and literal subtrees; existing edge/linked descriptions use the same provenance projection.
+  `Bearing.text` derives only from constructor prose.
+  Complete source exports preserve all note content; graph-only exports omit note prose and graph-text `structure-v1` omits note records too.
+  Add `cog export` for the complete selected-source/AST/graph/Explain envelope in document and host modes.
+- Keep source order in private View Reading, with links to original notes from declarations and uses.
+  Show note counts on Map marks and note content/source navigation in block details.
+  Explicit-target previews preserve exact note origins and targets; written-reference analysis ignores literal descendants.
+- Accept contiguous indented continuation lines and paragraphs in Points, body, use prose, Bearing descriptions and notes.
+  Newlines preserve existing content ownership and never create an implicit note.
+  Parse annotations only on bullet headers, keep note subtrees literal, and reject continuation that would reopen an ancestor after a child.
+  Extend block spans through their own continuations; Reading presents one complete occurrence without duplicate lines.
+  Explicit-target previews selected from a continuation edit the owning header.
+  Recompile retained drafts and adapt consumers that assume one physical line per occurrence.
+- Consumer verification is scoped to the checkout Core/CLI, packed packages and private View.
+  No npm publication, website deployment or installed Obsidian migration is included.
+  The finite interpretation fixture is rechecked against 0.6 without extending its theory or changing its source.
+
+- Keep a selected Point or Bearing as the private View's guided focus in Reading and Map; hover and keyboard focus preview only while nothing is selected.
+  Selecting one of several alternative Bearings to a target shows that route, its sources and only the relations addressed to it, by Bearing identity.
+  Keep the complete literal content of its object notes in focus along with their headers.
+  Emphasis marks only what is being examined, adds no confidence or outcome state, and leaves source, Graph IR and the published contracts unchanged.
 - Explain invalid outline levels before suggesting an independent explicit attachment.
   Preserve diagnostic codes, spans, partial graphs and failed-constructor boundaries.
 - Present typed Point references and Bearing summaries separately from prose in the private View.

@@ -16,6 +16,7 @@ import type {
   GraphIR,
   LinkedChildFunction,
   OperatorClause,
+  ObjectNote,
   Point,
   PointDeclaration,
   PointRef,
@@ -37,7 +38,6 @@ type CandidateBearing = {
   kind: BearingKind;
   sources: (PointRef | Ref)[];
   target: BearingTarget | Ref;
-  text?: string;
   derivedBy: BearingDerivedBy;
   sourceSpan?: SourceSpan;
   targetFocusKind?: "point" | "bearing";
@@ -89,6 +89,14 @@ type ExplainDraft = {
   bearing?: BearingDraft;
   parentSpan?: SourceSpan;
   implicit?: { contextSpan: SourceSpan; crossedBodySpans: SourceSpan[] };
+  note?: ObjectNote;
+  noteSelection?: {
+    targetKind: "point" | "bearing";
+    contextSpan?: SourceSpan;
+    crossedBodySpans: SourceSpan[];
+    candidate?: BearingTarget | Ref;
+    target?: BearingTarget;
+  };
 };
 
 type BearingValidation = {
@@ -154,6 +162,7 @@ export function compileGraphWithExplain(ast: DocumentAst): GraphCompilation {
       diagnostics.push({ severity: "error", code: kind === "point" ? "POINT_IS_NOT_BEARING_REFERENCE" : kind === "unknown" ? "UNKNOWN_BEARING_REFERENCE" : "INVALID_BEARING_REFERENCE", message: "Bearing use operand " + (operand ? "@" + operand.id : "(missing)") + " does not resolve to a unique validated Bearing in this source unit.", sourceSpan: draft.block.sourceSpan });
     }
   }
+  resolveNotes(explainDrafts, symbols, validation.bearings, diagnostics);
   addStructuralDiagnostics(ast.blocks, validation.bearings, symbols, diagnostics);
   const entries = buildExplainEntries(explainDrafts, points, validation, diagnostics, new Set([...symbols.allIds.keys(), ...symbols.bearingIds]));
 
@@ -161,6 +170,7 @@ export function compileGraphWithExplain(ast: DocumentAst): GraphCompilation {
     version: FORMAT_VERSION,
     points,
     bearings: validation.bearings,
+    notes: explainDrafts.flatMap(draft => draft.note ? [draft.note] : []),
     diagnostics
   };
 
@@ -204,7 +214,19 @@ function compileBlock(
   };
   explainDrafts.push(draft);
 
-  if (annotation.kind === "note") return;
+  if (annotation.kind === "note") {
+    if (annotation.targetKind) {
+      draft.noteSelection = {
+        targetKind: annotation.targetKind,
+        ...(context ? { contextSpan: context.block.sourceSpan } : {}),
+        crossedBodySpans: context?.crossedBodySpans ?? [],
+        candidate: annotation.targetKind === "point"
+          ? context?.kind === "point" ? context.focus : undefined
+          : context?.exposedBearing
+      };
+    }
+    return;
+  }
 
   if (annotation.kind === "invalid") {
     draft.bearing = { outcome: "rejected", reason: "annotation-syntax-error" };
@@ -374,7 +396,6 @@ function compileLinked(
   if (valid && target) {
     const bearing = structural(block, "supports", sources.map(child => child.annotation?.kind === "use" ? child.annotation.ref! : pointKeyForBlock(child, pointKeys)),
       target, "point");
-    if (block.text) bearing.text = block.text;
     bearing.key = `_b${bearings.length + 1}`;
     bearings.push(bearing);
     draft.bearing = { outcome: "candidate", candidate: bearing, reason: "linked-containment" };
@@ -393,6 +414,7 @@ function recognitionForBlock(block: AstBlock): ExplainRecognition {
   if (!annotation) {
     return { kind: "body" };
   }
+  if (annotation.kind === "note") return { kind: "note", ...(annotation.targetKind ? { targetKind: annotation.targetKind } : {}) };
   if (annotation.kind === "role") {
     return annotation.selector ? { kind: "role", role: annotation.role, selector: annotation.selector } : { kind: "role", role: annotation.role };
   }
@@ -443,10 +465,43 @@ function bearingFromOperator(
     targetKind: operator.targetKind,
     sources,
     target: { id: target.id },
-    text: block.annotation?.kind === "edge" && block.text ? block.text : undefined,
     derivedBy: "operator",
     sourceSpan: block.sourceSpan
   };
+}
+
+// Resolve only the nearest context's selected slot after graph validation.
+// No endpoint search or fallback: a rejected local object stays unavailable.
+function resolveNotes(drafts: ExplainDraft[], symbols: SymbolTable, bearings: Bearing[], diagnostics: Diagnostic[]): void {
+  const byKey = new Map(bearings.map(bearing => [bearing.key, bearing]));
+  for (const draft of drafts) {
+    const selection = draft.noteSelection;
+    if (selection) {
+      if (draft.block.annotation?.kind !== "note" || draft.block.annotation.syntaxErrors?.length) continue;
+      const candidate = selection.candidate;
+      const kind = candidate ? classifyReference(candidate, symbols) : undefined;
+      const key = candidate && kind === selection.targetKind ? resolveKey(candidate, symbols) : undefined;
+      if (key && (kind === "point" || byKey.has(key))) {
+        const target: BearingTarget = { kind: selection.targetKind, key };
+        selection.target = target;
+        draft.note = { origin: "note", target, sourceSpan: draft.block.sourceSpan };
+      } else {
+        diagnostics.push({
+          severity: "error",
+          code: candidate ? "INVALID_LOCAL_NOTE_TARGET" : "NO_LOCAL_NOTE_TARGET",
+          message: `The nearest context exposes no validated ${selection.targetKind === "point" ? "Point" : "Bearing"} for this note. Place it beneath that object's declaration or use; no outer context is searched.`,
+          sourceSpan: draft.block.sourceSpan
+        });
+      }
+    } else if (draft.bearing?.outcome === "candidate" &&
+      (draft.recognition.kind === "edge" || draft.recognition.kind === "linked") && draft.block.text) {
+      const bearing = byKey.get(draft.bearing.candidate.key);
+      if (bearing) {
+        draft.note = { origin: "constructor-description", target: { kind: "bearing", key: bearing.key }, sourceSpan: draft.block.sourceSpan };
+        bearing.text = draft.block.text;
+      }
+    }
+  }
 }
 
 function deriveStructuralBearing(
@@ -748,6 +803,15 @@ function buildExplainEntries(
     if (draft.recognition.kind === "note") {
       effects.push({ kind: "preserveNote", ...(draft.parentSpan ? { parentSpan: { ...draft.parentSpan } } : {}) });
     }
+    if (draft.noteSelection) {
+      const { targetKind, contextSpan, crossedBodySpans, target } = draft.noteSelection;
+      const base = { kind: "selectNoteTarget" as const, ...(contextSpan ? { contextSpan: { ...contextSpan } } : {}), crossedBodySpans: structuredClone(crossedBodySpans) };
+      if (target && target.kind !== targetKind) throw new Error("Compiler invariant violated: note target has the wrong kind.");
+      effects.push(targetKind === "point"
+        ? { ...base, targetKind, ...(target?.kind === "point" ? { target: { ...target } } : {}) }
+        : { ...base, targetKind, ...(target?.kind === "bearing" ? { target: { ...target } } : {}) });
+    }
+    if (draft.note) effects.push({ kind: "attachNote", note: structuredClone(draft.note) });
 
     if (draft.membership) {
       effects.push({ kind: "linkedMember", ...draft.membership });

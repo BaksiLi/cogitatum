@@ -9,7 +9,8 @@ order: 5
 
 Cogitatum 0.5 provides a plain-text inspection view of one compiled graph.
 It exposes individual Points and Bearings without reconstructing the author's document or evaluating its reasoning.
-This page specifies the `structure-v1` projection and graph-text version 1 implemented by Core/CLI 0.5.0.
+This page specifies the `structure-v1` projection and graph-text version 1 retained by the Core/CLI 0.6.0 checkout.
+The notation version stays 1; note records and their prose remain outside this bounded structural view.
 The projection is the bounded preservation contract for the first inspection view; broader source rewriting and theoretical interpretations require their own contracts.
 
 ## Inspect a document
@@ -42,7 +43,7 @@ For example:
 
 ```text graph-text-reference
 cogitatum-graph-text 1
-format: "0.5.0"
+format: "0.6.0"
 projection: structure-v1
 status: no-errors
 
@@ -64,7 +65,7 @@ A Serial structure retains its intermediate Point and each step; the formatter a
 
 ## Structural contract
 
-For format 0.5.0, a graph has finite, disjoint typed identity sets of Points and Bearings.
+For format 0.6.0, a graph has finite, disjoint typed identity sets of Points and Bearings.
 Each Bearing has a nonempty, duplicate-free, ordered sequence of Point sources and one typed Point or Bearing target.
 `supports`, `challenges` and `about` admit either target type; `answers`, `repliesTo` and `clarifies` require a Point.
 Point declaration metadata is `role` with its role, `gap` with open status, or `material`.
@@ -97,8 +98,9 @@ No graph row asserts truth, logical validity, defeat, acceptability or resolutio
 | Point and Bearing array order | Used to allocate and print labels; no sorting or deduplication |
 | Compilation key spelling | Omitted; labels do not promise persistence between exports or revisions |
 | Entity `sourceSpan` and Bearing `derivedBy` | Omitted from the structural projection |
+| `notes` source/target records | Omitted; identical structure text does not establish equal object notes |
 | Diagnostics | Reported separately in original order, including severity, code, message, optional span and explanation |
-| Original source, ordinary body, literal notes, use-occurrence prose and marks, AST target requirements, Explain trace | Not part of Graph IR and not reconstructed |
+| Original source, ordinary body, note prose and literal subtrees, use-occurrence prose and marks, AST target requirements, Explain trace | Not part of Graph IR and not reconstructed |
 
 Always retain the original input, input mode, compiler/package version and complete source envelope when source fidelity or reproducibility matters.
 A graph-only export cannot recover omitted context or distinguish two source spellings that compile to the same graph.

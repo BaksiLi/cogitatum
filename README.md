@@ -20,6 +20,10 @@ Four marked points and three explicit connections. One objection questions the a
 
 ## Release status
 
+This checkout prepares **Core/CLI 0.6.0 / format 0.6.0**, not yet published.
+It adds equivalent Point/Bearing family spellings and local object notes with retained source ownership.
+Use the checkout commands below to try them; review [migration from 0.5](docs/syntax.md#from-published-05) before recompiling existing source.
+
 **Cogitatum 0.5 releases an inquiry markup language and a working compiler.**
 
 Release packages: **@cogitatum/core 0.5.0** and **@cogitatum/cli 0.5.0**, with **format 0.5.0**.
@@ -159,8 +163,8 @@ Run `Publish npm` manually in the repository's Actions tab to verify and preview
 After the version and dependency changes pass CI and merge into `main`, create and push the matching tag:
 
 ```sh
-git tag v0.5.0 <verified-main-commit>
-git push origin v0.5.0
+git tag v0.6.0 <verified-main-commit>
+git push origin v0.6.0
 ```
 
 Use the actual package version for each subsequent release.
@@ -174,7 +178,9 @@ Project Cogitatum investigates how people and AI agents can learn this form of e
 
 Further work under the name **Cogitatio** concerns ongoing inquiry, revision, review, and continuity. Cogitatio and its runtime are not part of this release.
 
-The current development checkout also contains an experimental integration package, marked private and not published with Core/CLI: [`@cogitatum/view`](packages/view/README.md) provides an embeddable, source-linked graph renderer. It leaves evidence, persistence, review, and application UI with the host. The compiler uses format 0.5.0.
+The current development checkout also contains an experimental integration package, marked private and not published with Core/CLI: [`@cogitatum/view`](packages/view/README.md) provides an embeddable, source-linked graph renderer.
+It leaves evidence, persistence, review, and application UI with the host.
+The checkout compiler uses format 0.6.0; publishing, site deployment and host adoption remain separate.
 
 The public source covers the language, compiler, CLI, schemas, conformance fixtures, selected examples, and these usage documents. Website source and brand assets are maintained and deployed separately; the website renders the public documents and uses the compiler. Research essays, benchmarks, prompts, and runtime experiments are outside this source distribution.
 

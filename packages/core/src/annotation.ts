@@ -17,9 +17,29 @@ import type {
 const MARK_END = String.raw`(?=$|[\s;@]|[+\-~/_]>)`;
 const RESERVED_START_RE = new RegExp(
   String.raw`^(?:(?:[QCGORD](?:\?|\/|_)?|\?[/_]?)` + MARK_END +
-  String.raw`|\.(?=$|[\s;])|_(?=$|[\s;])|use(?=$|;|\s+@)|edge(?=$|[\s;])|linked(?=$|[\s;])|join(?=$|[\s;])|@)`,
+  String.raw`|use(?=$|;|\s+@)|linked(?=$|[\s;])|join(?=$|[\s;])|@)`,
   "i"
 );
+type AnnotationHead = {
+  family?: "point" | "bearing";
+  operation: "construct" | "use" | "note";
+  canonicalRaw: string;
+};
+
+/** One family/operation boundary for parsing and outline recovery, including
+ * unclosed headers. Case-insensitive intent preserves failure boundaries;
+ * only exact lowercase aliases are normalized into valid grammar.
+ */
+export function recognizeAnnotationHead(raw: string): AnnotationHead {
+  const family = /^(\s*)(point|node|\.|bearing|edge|_)(?=$|[\s;])/i.exec(raw);
+  const type = family ? /^(point|node|\.)$/i.test(family[2]) ? "point" : "bearing" : undefined;
+  const rest = family ? raw.slice(family[0].length).trimStart() : raw.trimStart();
+  const operation = /^note(?=$|[\s;@]|[+\-~/_]>)/i.test(rest) ? "note"
+    : /^(?:[QCGORD](?:\?|[_/])?\s+)?use(?=$|[\s;])/i.test(rest) ? "use" : "construct";
+  const canonicalRaw = family && family[2] === family[2].toLowerCase()
+    ? family[1] + (type === "point" ? "." : "_") + raw.slice(family[0].length) : raw;
+  return { family: type, operation, canonicalRaw };
+}
 const RETIRED_CLAIM_RE = new RegExp(String.raw`^\s*C\?` + MARK_END, "i");
 const RETIRED_SELECTOR_RE = /^\s*[GO]_(?=$|[\s;@])/i;
 const GLUED_OPERATOR_RE = /[^\s,;](?:\+>|->|\/>|~>|_>)|(?:\+>|->|\/>|~>|_>)[^\s,;]/;
@@ -48,13 +68,20 @@ export type AnnotationParseResult = {
 };
 
 export function parseAnnotation(raw: string, sourceSpan?: SourceSpan): AnnotationParseResult {
-  if (/^\s*note(?=$|[\s;@])/i.test(raw)) {
-    const valid = raw.trim() === "note";
+  const head = recognizeAnnotationHead(raw);
+  if (head.operation === "note") {
+    const valid = head.canonicalRaw.trim().replace(/\s+/g, " ") === (head.family === "point" ? ". note" : head.family === "bearing" ? "_ note" : "note");
     return {
-      annotation: { kind: "note", raw, ...(!valid ? { syntaxErrors: ["note" as const] } : {}) },
-      diagnostics: valid ? [] : [{ severity: "error", code: "MALFORMED_NOTE", message: "Notes use [note] followed by optional prose, without parameters." + proseHint(splitTokens(raw)), sourceSpan }]
+      annotation: { kind: "note", raw, ...(head.family ? { targetKind: head.family } : {}), ...(!valid ? { syntaxErrors: ["note" as const] } : {}) },
+      diagnostics: valid ? [] : [{ severity: "error", code: "MALFORMED_NOTE", message: "Notes use [note], [. note] or [_ note] followed by prose, without targets, anchors or other parameters." + proseHint(splitTokens(head.canonicalRaw)), sourceSpan }]
     };
   }
+  const parsed = parseRecognizedAnnotation(head.canonicalRaw, sourceSpan);
+  if (parsed.annotation) parsed.annotation.raw = raw;
+  return parsed;
+}
+
+function parseRecognizedAnnotation(raw: string, sourceSpan?: SourceSpan): AnnotationParseResult {
   if (RETIRED_CLAIM_RE.test(raw)) {
     return {
       annotation: { kind: "invalid", raw },
@@ -86,7 +113,8 @@ export function parseAnnotation(raw: string, sourceSpan?: SourceSpan): Annotatio
 
 /** Whether bracketed text at the start of a block selects annotation parsing rather than body. */
 export function isAnnotationStart(raw: string): boolean {
-  return raw.trim() === "" || RESERVED_START_RE.test(raw.trimStart());
+  const head = recognizeAnnotationHead(raw);
+  return !!head.family || head.operation === "note" || raw.trim() === "" || RESERVED_START_RE.test(raw.trimStart());
 }
 
 /** Whether bracketed text begins with the retired C? mark. */
@@ -119,9 +147,10 @@ function parseCurrentAnnotation(raw: string, sourceSpan?: SourceSpan): Annotatio
   const diagnostics: Diagnostic[] = [];
   const trimmed = raw.trim();
   const semicolonParts = trimmed.split(";").map((part) => part.trim());
-  const edgeIntent = /^(?:edge|_)(?=$|[\s;])/i.test(trimmed);
+  const head = recognizeAnnotationHead(trimmed);
+  const edgeIntent = head.family === "bearing";
 
-  if (/^_\s+use(?=$|[\s;])/i.test(trimmed)) {
+  if (edgeIntent && head.operation === "use") {
     const tokens = splitTokens(semicolonParts[0]);
     const operand = tokens[2] ? parseSingleRef(tokens[2]) : undefined;
     const valid = tokens[0] === "_" && tokens[1] === "use" && Boolean(operand) && tokens.length === 3 && semicolonParts.length === 1;
@@ -138,7 +167,9 @@ function parseCurrentAnnotation(raw: string, sourceSpan?: SourceSpan): Annotatio
         message: "The join keyword is retired. Replace a grouping header with [linked] or [linked; @route], then recompile the original source.", sourceSpan }]
     };
   }
-  const useIntent = /^(?:([QCGORD](?:\?|\/)?|\?|\.)\s+)use(?=$|[\s;])/i.exec(trimmed);
+  const useIntent = head.family === "point" && head.operation === "use"
+    ? [trimmed, splitTokens(semicolonParts[0])[0]]
+    : /^(?:([QCGORD](?:\?|\/)?|\?)\s+)use(?=$|[\s;])/i.exec(trimmed);
   if (useIntent) {
     const tokens = splitTokens(semicolonParts[0]);
     const useIndex = useIntent[1] ? 1 : 0;

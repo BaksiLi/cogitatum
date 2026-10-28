@@ -5,7 +5,7 @@ import { resolve } from "node:path";
 const cli = resolve("packages/cli/dist/index.js");
 
 const valid = run(["explain", "examples/getting-started.cog.md"], 0);
-assert.equal(valid.version, "0.5.0");
+assert.equal(valid.version, "0.6.0");
 assert.ok(valid.entries.some((entry) => entry.recognition.kind === "body"));
 assert.ok(
   valid.entries.some((entry) =>

@@ -40,6 +40,14 @@ const bundle = await build({
 const browser = await chromium.launch();
 const errors = [];
 let runs = 0;
+const alternativeRoutes = [
+  '- [C @water] Broad Street 水泵可能是這次霍亂暴發的來源。',
+  '- [G @cluster] 多數死亡病例集中在水泵周邊。',
+  '- [edge @cluster +> @water; @proximity] 地理上的接近，可能反映飲用該水泵水的機會。',
+  '- [O @exceptions /> @proximity] 附近濟貧院與啤酒廠幾乎沒有病例。',
+  '- [G @exposure] 這兩處不用該水泵；一些遠處患者卻曾飲用泵水。',
+  '- [edge @cluster, @exposure +> @water; @water-route] 真正重要的是飲水暴露，而不只是地理位置。',
+].join('\n');
 try {
   for (const width of [1280, 390]) {
     const page = await browser.newPage({ viewport: { width, height: 900 }, reducedMotion: 'reduce' });
@@ -262,6 +270,47 @@ try {
     await sameRowHandle.focus(); await page.keyboard.press('Space');
     assert.equal(await row(2).getAttribute('data-selected-reference'), 'bearing');
 
+    // Alternative routes: the selected route keeps the emphasis while the pointer crosses other passages.
+    await mount(alternativeRoutes);
+    const opacity = locator => locator.evaluate(node => Number(getComputedStyle(node).opacity));
+    const related = async () => Object.fromEntries(await Promise.all([1, 2, 3, 4, 5, 6].map(async line => [line, await row(line).getAttribute('data-related')])));
+    const readingArc = key => page.locator(`#reading g[data-bearing="${key}"]`);
+    await row(3).locator('.cog-reading-relation [data-ref-kind="bearing"]').click();
+    const proximityFocus = { 1: 'true', 2: 'true', 3: 'true', 4: 'true', 5: 'false', 6: 'false' };
+    assert.deepEqual(await related(), proximityFocus, 'the original route keeps its source, target and step objection');
+    await row(5).hover(); await flush();
+    assert.deepEqual(await related(), proximityFocus, 'hovering another passage does not move the selected route');
+    assert.equal(await row(3).getAttribute('data-selected'), 'true');
+    assert.equal(await readingArc('_b3').getAttribute('data-active'), 'false', 'the alternative route stays de-emphasized');
+    assert.equal(await readingArc('_b2').getAttribute('data-active'), 'true', 'the objection stays with the route it addresses');
+    assert.ok(await opacity(row(5)) > .5 && await opacity(row(6)) < .5, 'a pointed passage stays readable without being guided');
+    assert.ok(await opacity(readingArc('_b3')) > 0, 'the alternative route remains visible');
+    await row(3).focus(); await page.keyboard.press('Escape'); await row(6).hover(); await flush();
+    assert.deepEqual(await related(), { 1: 'true', 2: 'true', 3: 'false', 4: 'false', 5: 'true', 6: 'true' }, 'without a selection, hover previews the other route');
+    assert.equal(await readingArc('_b2').getAttribute('data-active'), 'false', 'an objection to proximity is not drawn against the water route');
+    await page.mouse.move(0, 0);
+
+    const node = id => page.locator(`#map g[data-node="${id}"]`);
+    const mapRelated = () => page.locator('#map g[data-node]').evaluateAll(nodes => Object.fromEntries(nodes.map(n => [n.dataset.node, n.dataset.related])));
+    await node('bearing:_b1').click(); await flush();
+    const mapProximity = await mapRelated();
+    assert.deepEqual(mapProximity, { 'bearing:_b2': 'true', 'point:_p1': 'true', 'point:_p2': 'true', 'point:_p3': 'true', 'point:_p4': 'false', 'bearing:_b1': 'true', 'bearing:_b3': 'false' });
+    await node('bearing:_b3').hover(); await flush();
+    assert.deepEqual(await mapRelated(), mapProximity, 'hovering the alternative junction does not move the selected route');
+    assert.ok(await opacity(node('bearing:_b3')) > .5, 'a pointed alternative stays readable and selectable');
+    assert.deepEqual(await page.locator('#map path.cog-link[data-active="true"]').evaluateAll(paths => [...new Set(paths.map(p => p.dataset.bearing))].sort()), ['_b1', '_b2']);
+    await node('bearing:_b3').dispatchEvent('click', { detail: 0 });
+    assert.equal(await node('bearing:_b3').getAttribute('aria-pressed'), 'true', 'assistive activation moves the inspected route');
+    assert.deepEqual(await page.locator('#map path.cog-link[data-active="true"]').evaluateAll(paths => [...new Set(paths.map(p => p.dataset.bearing))]), ['_b3']);
+    await node('bearing:_b3').focus(); await page.keyboard.press('Escape'); await page.mouse.move(0, 0); await flush();
+    assert.equal(await page.locator('#map svg').getAttribute('data-guided'), 'false', 'clearing restores the unguided Map');
+
+    // Route identity is the Bearing, not its kind and endpoints.
+    await mount('- [C @c] Claim.\n- [G @a] Reason.\n- [edge @a +> @c; @first] One reading.\n- [edge @a +> @c; @second] Another reading.\n- [O /> @second] Doubt.');
+    await node('bearing:_b2').click(); await page.mouse.move(0, 0); await flush();
+    assert.deepEqual(await page.locator('#map path.cog-link[data-active="true"]').evaluateAll(paths => [...new Set(paths.map(p => p.dataset.bearing))].sort()), ['_b2', '_b3']);
+    assert.equal(await node('bearing:_b1').getAttribute('data-related'), 'false', 'a parallel Bearing of the same kind stays a separate route');
+
     await mount('```cog\n- [C @same] First unit.\n```\n```cog\n- [C @same] Second unit.\n```', 'host');
     await row(5).focus(); await page.keyboard.press('Space');
     await page.evaluate(() => window.views.reading.select({ kind: 'point', key: '_p1' }, 1));
@@ -282,8 +331,25 @@ try {
     assert.equal(await page.locator('.cog-reading, .cog-graph').count(), 0);
     await page.close(); runs++;
   }
+
+  // A tap selects a route and leaves no sticky hover that later outranks it.
+  const touch = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true, reducedMotion: 'reduce' });
+  const page = await touch.newPage();
+  page.on('pageerror', error => errors.push(error.message));
+  await page.setContent('<div id="reading"></div><div id="map" style="height:500px"></div>');
+  await page.addStyleTag({ path: fileURLToPath(new URL('../src/style.css', import.meta.url)) });
+  await page.addScriptTag({ content: bundle.outputFiles[0].text });
+  await page.evaluate(source => window.mount(source), alternativeRoutes);
+  await page.locator('#map g[data-node="bearing:_b3"]').tap();
+  await page.locator('#map g[data-node="point:_p3"]').tap();
+  assert.equal(await page.locator('#map g[data-node="point:_p3"]').getAttribute('aria-pressed'), 'true');
+  assert.equal(await page.locator('#map g[data-node="bearing:_b1"]').getAttribute('data-related'), 'true', 'a tapped objection includes the route it addresses');
+  assert.equal(await page.locator('#map g[data-node="bearing:_b3"]').getAttribute('data-related'), 'false', 'the previously tapped route does not linger as hover');
+  await page.locator('#map svg').tap({ position: { x: 4, y: 4 } });
+  assert.equal(await page.locator('#map svg').getAttribute('data-guided'), 'false', 'tapping the background clears the focus');
+  await touch.close();
   assert.deepEqual(errors, []);
-  console.log(`View selection browser checks passed: ${runs} viewports; occurrence echoes, keyboard refs, focus, assistive clicks, partial compilation, cycles, duplicate Bearings, unit scope and cleanup.`);
+  console.log(`View selection browser checks passed: ${runs} viewports and touch; occurrence echoes, keyboard refs, focus, assistive clicks, selected-route guidance, partial compilation, cycles, duplicate Bearings, unit scope and cleanup.`);
 } finally {
   await browser.close();
 }

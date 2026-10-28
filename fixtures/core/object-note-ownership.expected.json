@@ -1,0 +1,25 @@
+{
+  "mode": "document",
+  "diagnostics": [],
+  "graphs": [{
+    "points": [
+      { "line": 1, "form": "material", "id": "p" },
+      { "line": 2, "form": "role", "role": "C", "id": "q" }
+    ],
+    "bearings": [
+      { "line": 3, "kind": "supports", "sources": [1], "target": { "kind": "point", "line": 2 }, "derivedBy": "structural", "handle": "r" },
+      { "line": 13, "kind": "supports", "sources": [1], "target": { "kind": "point", "line": 2 }, "derivedBy": "operator", "handle": "s" }
+    ],
+    "notes": [
+      { "line": 4, "origin": "note", "target": { "kind": "point", "line": 1 }, "text": "Same wording.", "literal": [] },
+      { "line": 5, "origin": "note", "target": { "kind": "bearing", "line": 3 }, "text": "Here yesterday.", "literal": [
+        { "line": 6, "text": "[point @ignored] Literal source.", "children": [] }
+      ] },
+      { "line": 8, "origin": "note", "target": { "kind": "bearing", "line": 3 }, "text": "Through this group.", "literal": [] },
+      { "line": 11, "origin": "note", "target": { "kind": "bearing", "line": 3 }, "text": "Here yesterday.", "literal": [] },
+      { "line": 13, "origin": "constructor-description", "target": { "kind": "bearing", "line": 13 }, "text": "Constructor description.", "literal": [] },
+      { "line": 14, "origin": "note", "target": { "kind": "bearing", "line": 13 }, "text": "A different route with the same endpoints.", "literal": [] },
+      { "line": 16, "origin": "note", "target": { "kind": "point", "line": 1 }, "text": "Same wording.", "literal": [] }
+    ]
+  }]
+}

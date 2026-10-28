@@ -14,10 +14,13 @@ Open the [playground](https://cogitatum.onesimos.net/playground). Work there wit
 
 ```md cog-check points=0 bearings=0 diagnostics=0
 - The new deployment has produced intermittent timeouts.
+  We are checking the cause before changing the database.
   - We have logs from two servers, but no comparison from last week.
 ```
 
 Nothing is marked, so no graph entities are created. Your context is still there to read.
+An indented line without a new bullet continues the same block.
+Use a new bullet when you want a separate item.
 
 ## Mark the part you want to examine
 
@@ -35,6 +38,8 @@ C does not certify that the answer is true, accepted, certain or complete.
 Indentation connects marked lines according to their roles.
 Move one and inspect which connection changes.
 Unmarked context stays body.
+The complete content of a marked block is the Point's text, including its continuation lines.
+Keep qualifications there; the first line is not a separate title.
 
 ## Name something when you need to refer to it
 
@@ -82,7 +87,11 @@ For habits that make a note easier to read and revise, see [writing style](writi
 
 ## Optional: use files and the CLI
 
-With Node.js 22.12 or newer, run the current CLI on your saved note:
+This checkout adds multiline content, Point/Bearing aliases and `[. note]` / `[_ note]` in **0.6.0 / format 0.6.0**, not yet published.
+Use `npm ci`, `npm run build:public`, then `npm run cog:dist -- check inquiry.cog.md` to try the new syntax.
+Review the [0.5 migration](syntax.md#from-published-05) before upgrading saved source.
+
+With Node.js 22.12 or newer, the published 0.5 CLI remains available for 0.5 source:
 
 ```sh
 npx --package @cogitatum/cli@0.5.0 cog check inquiry.cog.md

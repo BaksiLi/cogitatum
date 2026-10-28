@@ -284,6 +284,46 @@ try {
       await page.keyboard.press('Space');
       assert.equal(await stamp.locator('p').isVisible(), false);
     });
+    await check('object notes retain source order, repeated-use navigation and Map provenance', async () => {
+      const noteSource = [
+        '- [point @p] Main content.',
+        '- [C @q] Claim.',
+        '  - [G use @p; @r] Occurrence wording.',
+        '    - [node note] Point qualification.',
+        '    - [bearing note] Here yesterday.',
+        '      - [point @literal] Quoted syntax.',
+        '- [edge use @r]',
+        '  - [_ note] Here yesterday.',
+        '- [bearing use @r]'
+      ].join('\n');
+      await page.evaluate(source => window.mount(source), noteSource);
+      await flush();
+      assert.deepEqual(await root.locator('.cog-reading-row').evaluateAll(rows => rows.map(row => Number(row.dataset.line))), [1, 2, 3, 4, 5, 6, 7, 8, 9]);
+      assert.equal(await row(6).getAttribute('data-kind'), 'literal');
+      assert.equal(await row(9).locator('.cog-reading-note-source').count(), 2);
+      await row(9).getByRole('button', { name: 'Note · L5', exact: true }).click();
+      assert.equal(await row(5).getAttribute('data-selected'), 'true');
+      await button('Map').click(); await flush();
+      const route = await mark(3, 'bearing');
+      assert.match(await route.getAttribute('aria-label'), /2 source notes/);
+      assert.equal(await route.locator('.cog-note-count').textContent(), '2');
+      assert.equal(await root.locator('.cog-block-note').count(), 2);
+      assert.equal(await root.locator('.cog-block-note-text').allTextContents().then(texts => texts.join('|')), 'Here yesterday.|[point @literal] Quoted syntax.|Here yesterday.');
+      await root.getByRole('button', { name: 'Note · line 8', exact: true }).click();
+      assert.equal(await row(8).getAttribute('data-selected'), 'true');
+      await button('Edit').click();
+      assert.equal(await page.evaluate(() => window.requests[0].sourceSpan.startLine), 8);
+      assert.equal(await page.evaluate(() => window.requests[0].source), noteSource);
+      await settleRequest(0);
+      await row(1).focus(); await page.keyboard.press('Space');
+      await button('Map').click(); await flush();
+      assert.match(await root.locator('.cog-block-detail-text').textContent(), /^Main content\./);
+      assert.equal(await root.locator('.cog-block-note').count(), 1);
+      assert.equal(await root.evaluate(node => node.scrollWidth <= node.clientWidth + 1), true);
+      await page.evaluate(() => window.block.update('- [C] Fresh source.'));
+      assert.equal(await root.locator('.cog-block-note').count(), 0);
+      assert.equal(await root.locator('.cog-reading-note-source').count(), 0);
+    });
     await page.close();
   }
   assert.deepEqual(errors, [], 'browser runtime errors');
