@@ -175,6 +175,77 @@ Each host fence has its own namespace.
 If any selected input has errors, including an omitted unclosed or nested fence, the inventory is explicitly unavailable rather than reporting zero references.
 Names with no written references generate no new warnings, and the command never edits the source.
 
+## Compare commitments across revisions
+
+A structural comparison asks whether two graphs are the same.
+A commitment comparison asks what a revision retracted and what it added.
+It distinguishes a refinement, which only adds, from a revision, which also retracts.
+
+A commitment is a relation kind, an unordered set of sources and a target.
+Several Bearings may state one commitment; they stay distinct entities when something addresses them.
+Entailment between commitments has exactly two rules:
+
+- A commitment entails itself.
+- Every relation commits each of its sources to bearing on its target.
+  So a set jointly concerns a target once each member is a source of some relation to it, of any kind.
+
+Only relevance distributes.
+Joint support gives no member support of its own, separate supports are not one joint support,
+and bearing on a step is not bearing on its conclusion.
+Linked support is therefore a commitment of its own, while grouping under `[_]` adds none:
+`[_]` leaves open how its members bear, and refining it may decide that they bear together, separately or with a further premise.
+A grouping still matters as an entity when another relation addresses it.
+So `[_]` refined to `[_ +> ^]`, or split into sibling `[G]` occurrences, is a refinement,
+while merging two `[G]` into one `[_ +> ^]` is a revision.
+Selecting a Point is also counted: adding one refines and removing one retracts.
+
+| Before | After | Relation |
+| --- | --- | --- |
+| `[_]` with members a, b | `[_ +> ^]` with members a, b | refinement |
+| `[_]` with members a, b | `[G] a` and `[G] b` | refinement |
+| `[G] a` and `[G] b` | `[_ +> ^]` with members a, b | revision |
+| `[_ +> ^]` with members a, b | `[_]` with members a, b | weakening |
+| `[_]` with member a | `[_ +> ^]` with members a, b | refinement |
+| `[_]` with members a, b | `[_]` with member a | weakening |
+| `[O/]` on a step | `[O]` on its conclusion | revision |
+| `[G]` | `[G +> @claim]` | equivalent |
+
+Comparing two revisions requires knowing which entity continues which.
+Core does not infer this silently.
+`suggestCorrespondence(before, after)` proposes pairs by authored name, unique text and continued endpoints,
+lists every entity with several plausible continuations, and never chooses among equals.
+An edit tool knows what it moved and passes its own correspondence to `compareCommitments(before, after, correspondence)`.
+Continuity establishes identity only: a continued Point whose text or declaration changed is reported, not weighed.
+Graphs with errors, other format versions and invalid correspondences are `indeterminate`.
+
+The order classifies what an author committed to, never whether a reading is correct.
+Notes, body prose, names, marks, source order and positions are presentation; review their changes separately.
+
+## Preview relation edits
+
+```sh
+cog relation-edit --line 2 --decide supports inquiry.cog.md
+cog relation-edit --line 2 --separate inquiry.cog.md
+cog relation-edit --join 2,4 inquiry.cog.md
+```
+
+Three edits change recorded relations without touching Point text:
+
+- `--decide <kind>` gives the relation on a line another kind, such as `[_]` to `[_ +> ^]` or `[G]` to `[O]`.
+  A pure relation mark exchanges its letter; `Q`, `C` and neutral headers keep their mark and write the clause, as `[Q/]` to `[Q -> ^/]`.
+- `--separate` replaces a group whose sources are its direct members with one relation per member, each keeping the group's kind and target.
+- `--join` is its inverse: adjacent sibling relations of one kind and written target become the members of one new group.
+
+Each preview knows which entity continues which, so it supplies its own correspondence to `compareCommitments` and reports the resulting relation.
+The author sees whether the edit is a refinement, which only adds, or a weakening or revision, which retracts something already recorded.
+So deciding `[_]` as joint support, or separating it into supports, is a refinement; joining two supports is a revision.
+
+The preview recompiles the complete proposed source.
+It is unavailable when the input or result has errors, when Points would be added, removed or reworded, or when anything beyond the edited relations would change.
+Groups with a handle, a description or children other than members cannot be separated, and relations with a handle cannot be joined, because another relation may address them as entities.
+`Q` and `C` occurrences cannot be joined either: a member keeps only its operand, and their marks also declare the Point.
+Core provides `previewRelationEdit(source, { operation, line | lines, kind?, mode? })`; the command prints JSON and never writes to the input file.
+
 ## Preview named and positional targets
 
 ```sh

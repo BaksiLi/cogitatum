@@ -43,6 +43,7 @@ An agent can call the same commands as a person; no model account, API key or mo
 | `explain --format text` | Read every compiler effect, including local choices and host selection errors |
 | `export` | Preserve selected source units, AST, graph, notes and Explain together |
 | `target-form --line N --to named\|positional` | Preview naming one relation's target, or making it positional again |
+| `relation-edit --line N --decide K` / `--separate`, or `--join L1,L2` | Preview a relation edit and classify it as refinement, weakening or revision |
 
 Choose the command for the result you need: `ast` for parsed source, `graph` for compiled connections, `check` for diagnostics, and `explain` for the compilation trace.
 Use `export` for a source-backed artifact containing all four projections, in both document and host modes.
@@ -84,6 +85,7 @@ This command explains how the markup was compiled, without interpreting the pros
 | `explain` | One Explain trace | `{ version, mode, units, explanations, diagnostics }` |
 | `check --references` | Reference-analysis result | Reference-analysis result, with independent units |
 | `target-form` | Ready/unavailable preview | Ready/unavailable preview, using complete-file line numbers |
+| `relation-edit` | Ready/unavailable preview | Ready/unavailable preview, using complete-file line numbers |
 
 Host `explain` is a command-specific projection without `documents` or `graphs`, so it is not a source-envelope schema instance.
 Validate each `explanations[i]` with the Explain schema, or call Core `explainSource` for the complete envelope.
@@ -122,6 +124,16 @@ Text output is not a source formatter or interchange decoder.
 Host graph text is an argument error (exit 2); use host JSON to retain all units and aggregate diagnostics.
 `cog explain --format text` instead prints every active compiler effect, selected context, ordered sources, target, membership and note ownership.
 It accepts `--input host` and retains all units and aggregate selection diagnostics, including failures that produced no unit.
+
+## Relation edit preview
+
+```sh
+cog relation-edit --line 3 --decide supports inquiry.cog.md
+cog relation-edit --input host --join 12,14 notes.md
+```
+
+It calls Core `previewRelationEdit` and prints ready/unavailable JSON with the commitment comparison; the input file is never overwritten.
+See [relation edits](../../docs/graph-inspection.md#preview-relation-edits) for what each edit may change.
 
 ## Target form preview
 

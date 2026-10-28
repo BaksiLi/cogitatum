@@ -677,7 +677,7 @@ function parseBearingHost(
 }
 
 // Each mark abbreviates one relation. C and . state none.
-const MARK_RELATIONS: Partial<Record<Role, BearingKind>> = {
+export const MARK_RELATIONS: Partial<Record<Role, BearingKind>> = {
   Q: "concerns", G: "supports", O: "challenges", R: "respondsTo", D: "clarifies"
 };
 
@@ -719,9 +719,19 @@ export function isAbbreviatedClause(annotation: Annotation, clause: OperatorClau
  * operand, sources, operator spelling, handle and whitespace stay as written.
  */
 export function respellTarget(annotation: Annotation, target: TargetTerm): string {
+  return respellClause(annotation, { target });
+}
+
+/**
+ * Respell a relation-bearing header with another kind or target, as one
+ * lexical edit. Sources, mark, operand, handle and whitespace stay as
+ * written; an unchanged kind keeps its authored operator spelling, and the
+ * result is abbreviated exactly when the mark or family states the clause.
+ */
+export function respellClause(annotation: Annotation, change: { op?: BearingKind; target?: TargetTerm }): string {
   const authored = expandedClause(annotation);
   if (!authored || (annotation.kind !== "role" && annotation.kind !== "material" && annotation.kind !== "use" && annotation.kind !== "bearing")) {
-    throw new Error("respellTarget requires a header that authors a relation.");
+    throw new Error("respellClause requires a header that authors a relation.");
   }
   const raw = annotation.raw;
   const separator = raw.indexOf(";");
@@ -729,21 +739,23 @@ export function respellTarget(annotation: Annotation, target: TargetTerm): strin
   const tokens = [...main.matchAll(/\S+/g)].map(match => ({ text: match[0], start: match.index, end: match.index + match[0].length }));
   const mark = tokens[0];
   const opIndex = tokens.findIndex(token => isRelationSpelling(token.text));
-  const clause = { ...authored, target };
+  const clause = { ...authored, ...change };
   const abbreviated = isAbbreviatedClause(annotation, clause);
+  const operator = (written?: string) => clause.op === authored.op && written ? written : operatorSymbol(clause.op) ?? clause.op;
 
   // The clause occupies the operator and target tokens; a mark default writes none.
   let clauseStart: number, clauseEnd: number, spelled: string;
   if (opIndex >= 0) {
     clauseStart = tokens[opIndex - 1].end;
     clauseEnd = tokens[tokens.length - 1].end;
-    spelled = main.slice(clauseStart, tokens[opIndex + 1].start) + targetSpelling(target);
+    const gap = main.slice(clauseStart, tokens[opIndex].start);
+    spelled = gap + operator(tokens[opIndex].text) + main.slice(tokens[opIndex].end, tokens[opIndex + 1].start) + targetSpelling(clause.target);
   } else {
     clauseStart = clauseEnd = tokens[tokens.length - 1].end;
-    spelled = ` ${operatorSymbol(clause.op) ?? clause.op} ${targetSpelling(target)}`;
+    spelled = ` ${operator()} ${targetSpelling(clause.target)}`;
   }
   // Only the abbreviated form toward ^/ is spelled with a selector slash.
-  const markText = mark.text.replace(/\/$/, "") + (abbreviated && target.local === "bearing" ? "/" : "");
+  const markText = mark.text.replace(/\/$/, "") + (abbreviated && clause.target.local === "bearing" ? "/" : "");
   return main.slice(0, mark.start) + markText + main.slice(mark.end, clauseStart) + (abbreviated ? "" : spelled) + main.slice(clauseEnd) + raw.slice(main.length);
 }
 
