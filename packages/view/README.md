@@ -96,7 +96,12 @@ Earlier manual placements and separate fragments stay fixed.
 Motion settles within 900 ms of the last movement and stops scheduling frames; reduced motion and keyboard nudges move only the chosen mark.
 Reduced motion keeps neighbours still during direct manipulation.
 A press that does not move selects; dragging does not select or clear.
-Background drag pans, Ctrl/Command + wheel or a pinch zooms, and the ordinary wheel is left to the page. Positions are view-local and never modify the compiled graph or source; `resetLayout()` discards the arrangement.
+Background drag pans, Ctrl/Command + wheel or a pinch zooms, and the ordinary wheel is left to the page.
+During a continuous zoom, wording and its hit areas stay in place, then reflow when the wheel rests or the pinch ends.
+A pinch keeps the world point under its midpoint; either finger can leave first, and the other continues panning from that view.
+Cancellation, lost capture, camera controls, source update and destruction end the old gesture and release its contacts.
+A replacement graph with no continuing named items gets its own fitted view.
+Positions are view-local and never modify the compiled graph or source; `resetLayout()` discards the arrangement.
 
 `clear()` clears selection and guidance.
 `select(ref)` accepts a ref from the current compilation only and updates `aria-pressed` synchronously; `fit()` and `zoom(factor)` let the host supply controls.

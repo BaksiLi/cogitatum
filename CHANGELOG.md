@@ -31,6 +31,10 @@ Use the complete released schema set and [migrate retained source](docs/syntax.m
   Add `GraphLink.kind`; Map and Strands share structural endings, and positions remain a reading aid and never change the graph.
 - Bound drag calculations to the moving neighbourhood and its fixed neighbours.
   Keep the Map still while dragging: only the held mark's own junctions re-centre, and Shift pulls that step's other endpoints, never further than one step.
+  Hold wording DOM, hit areas and link bends while a pinch or wheel zoom is in motion; links clear the drawn wording and reflow once it rests.
+  A pinch keeps the point under the fingers; either surviving finger pans from that camera, and additional contacts cannot replace the pair.
+  Release both captures on cancellation, lost capture, camera controls, source update and destruction; these interruptions retire held zoom state too.
+  Refit a replacement graph when none of its named items continue from the previous revision.
 - Show in Reading what indentation commits each occurrence to.
   `ReadingUnit.commitments` indexes Explain evidence per occurrence (indentation, explicit, member, note, none or failed, with context row, crossed body and local sources);
   the view draws a commitment rail for the hovered or selected row and an inspection line from `describeCommitment`.
