@@ -1,7 +1,7 @@
 - Assay anomaly (hypothetical run)
   - [Q @signal] Why did the treated samples produce a weaker signal?
     - [C answers @signal] The detection reagent degraded before the run.
-      - [_ G] Weak controls implicate the reagent only if they shared its lot.
+      - [_ +> ^] Weak controls implicate the reagent only if they shared its lot.
         - [.] Positive controls were also weaker than their historical range.
         - [.] The controls used the same reagent lot as the treated samples.
           - [note] Confirm the lot numbers on the run sheet.

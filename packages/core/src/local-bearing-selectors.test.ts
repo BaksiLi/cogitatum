@@ -17,7 +17,7 @@ describe("local Bearing attachment selectors", () => {
     const prefix = "- [C @claim] Claim.\n  - [G @premise; @step] Premise.\n    - Narrative.\n";
     const suffix = "\n        - [R @reply] Reply.";
     const local = compile(prefix + "      - [G/ @warrant; @backing] Warrant.\n      - [O/ @objection; @attack] Objection." + suffix);
-    const explicit = compile(prefix + "      - [G @warrant +> @step; @backing] Warrant.\n      - [O @objection /> @step; @attack] Objection." + suffix);
+    const explicit = compile(prefix + "      - [G @warrant +> @step; @backing] Warrant.\n      - [O @objection -> @step; @attack] Objection." + suffix);
     expect(codes(local.graph)).toEqual(["IMPLICIT_ATTACHMENT_THROUGH_BODY", "IMPLICIT_ATTACHMENT_THROUGH_BODY"]);
     expect(codes(explicit.graph)).toEqual([]);
     expect(projection(local.graph)).toEqual(projection(explicit.graph));
@@ -35,28 +35,34 @@ describe("local Bearing attachment selectors", () => {
   });
 
   it("classifies linked sources, selectors and independent clauses once before lowering", () => {
-    const { graph, explain } = compile("- [C @claim] Claim.\n  - [_ G; @joint]\n    - [. @first] First.\n    - [. @second] Second.\n    - [G/ @warrant] Warrant.\n    - [O/ @objection] Objection.\n      - [R] Reply.\n    - [G @independent +> @missing] Independent invalid target.");
+    const { graph, explain } = compile("- [C @claim] Claim.\n  - [_ +> ^; @joint]\n    - [. @first] First.\n    - [. @second] Second.\n    - [G/ @warrant] Warrant.\n    - [O/ @objection] Objection.\n      - [R] Reply.\n    - [G @independent +> @missing] Independent invalid target.");
     expect(codes(graph)).toEqual(["UNKNOWN_TARGET"]);
     expect(graph.bearings.map(bearing => bearing.kind)).toEqual(["supports", "supports", "challenges", "respondsTo"]);
     expect(graph.bearings[0].sources.map(ref => graph.points.find(point => point.key === ref.key)?.id)).toEqual(["first", "second"]);
     expect(explain.entries.flatMap(entry => entry.effects.filter(effect => effect.kind === "localBearingMember").map(effect => effect.function))).toEqual(["source", "source", "commentary", "commentary", "independent"]);
   });
 
-  it.each(["[G +>]", "[G @missing @other]", "[G; @individual]", "[O]", "[linked]"])("rejects unclassified %s without reducing sources or restoring unary supports", header => {
-    const { graph } = compile("- [C @claim] Claim.\n  - [_ G; @joint]\n    - [. @first] First.\n    - " + header + " Invalid child.\n    - [. @second] Second.");
+  it.each(["[G +>]", "[G @missing @other]", "[G; @individual]", "[O]"])("rejects unclassified %s without reducing sources or restoring unary supports", header => {
+    const { graph } = compile("- [C @claim] Claim.\n  - [_ +> ^; @joint]\n    - [. @first] First.\n    - " + header + " Invalid child.\n    - [. @second] Second.");
     expect(graph.bearings).toEqual([]);
     expect(codes(graph)).toContain("INVALID_LOCAL_BEARING_MEMBER");
   });
 
+  it("diagnoses a failed nested constructor once, at its own header, without changing the joint", () => {
+    const { graph } = compile("- [C @claim] Claim.\n  - [_ +> ^; @joint]\n    - [. @first] First.\n    - [linked] Retired child.\n    - [. @second] Second.");
+    expect(codes(graph)).toEqual(["RETIRED_LINKED_ANNOTATION"]);
+    expect(graph.bearings.find(bearing => bearing.handle === "joint")?.sources).toHaveLength(2);
+  });
+
   it.each(["[G/ +> @claim]", "[O/ @a @b]", "[G/;]", "[O/"])("retains malformed selector commentary %s without shrinking the joint", header => {
-    const { graph } = compile("- [C @claim] Claim.\n  - [_ G; @joint]\n    - [. @first] First.\n    - " + header + " Invalid commentary.\n      - [G @child] Descendant.\n    - [. @second] Second.");
+    const { graph } = compile("- [C @claim] Claim.\n  - [_ +> ^; @joint]\n    - [. @first] First.\n    - " + header + " Invalid commentary.\n      - [G @child] Descendant.\n    - [. @second] Second.");
     expect(graph.bearings.find(bearing => bearing.handle === "joint")?.sources.map(ref => graph.points.find(point => point.key === ref.key)?.id)).toEqual(["first", "second"]);
     expect(codes(graph)).not.toContain("INVALID_LOCAL_BEARING_MEMBER");
     expect(graph.bearings.filter(bearing => bearing.sources.some(ref => graph.points.find(point => point.key === ref.key)?.id === "first"))).toHaveLength(1);
   });
 
   it.each(["G/", "O/", "Q/"])("does not invent a unary attachment for a linked member under %s", mark => {
-    const { graph } = compile("- [C] Claim.\n  - [_ G]\n    - [.] Member.\n      - [" + mark + "] Invalid member assessment.\n    - [.] Second.");
+    const { graph } = compile("- [C] Claim.\n  - [_ +> ^]\n    - [.] Member.\n      - [" + mark + "] Invalid member assessment.\n    - [.] Second.");
     expect(codes(graph)).toEqual(["NO_LOCAL_BEARING_ATTACHMENT"]);
     expect(graph.bearings).toHaveLength(1);
     expect(graph.bearings[0].sources).toHaveLength(2);
@@ -75,7 +81,7 @@ describe("local Bearing attachment selectors", () => {
   });
 
   it("rejects comments-only and failed constructors without outward fallback", () => {
-    const { graph } = compile("- [C @claim] Claim.\n  - [_ G]\n    - [G/] No sources.\n  - [edge]\n    - [O/] Failed edge.\n  - [G @independent +> @claim] Independent support.");
+    const { graph } = compile("- [C @claim] Claim.\n  - [_ +> ^]\n    - [G/] No sources.\n  - [edge cases]\n    - [O/] Failed edge.\n  - [G @independent +> @claim] Independent support.");
     expect(codes(graph)).toEqual(["MALFORMED_BEARING_MODE", "EMPTY_LOCAL_BEARING", "NO_LOCAL_BEARING_ATTACHMENT", "NO_LOCAL_BEARING_ATTACHMENT"]);
     expect(graph.bearings).toHaveLength(1);
   });

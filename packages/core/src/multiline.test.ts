@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { analyzeSourceReferences, explainSource, parseDocument, previewExplicitTarget } from "./index.js";
+import { analyzeSourceReferences, explainSource, parseDocument, previewTargetForm } from "./index.js";
 
 const errors = (source: string) => explainSource(source).diagnostics.filter(d => d.severity === "error").map(d => d.code);
 
@@ -75,7 +75,7 @@ describe("contiguous multiline block content", () => {
   it("gives linked and explicit constructors complete descriptions without adding sources", () => {
     const source = [
       "- [C @q] Claim.",
-      "  - [_ G; @joint] These reasons",
+      "  - [_ +> ^; @joint] These reasons",
       "    are offered together.",
       "    - [. @a] A.",
       "    - [. @b] B.",
@@ -172,12 +172,12 @@ describe("contiguous multiline block content", () => {
       text: "Ground.\nMore ground.",
       sourceSpan: { startLine: 4, startColumn: 7, endLine: 5, endColumn: lines[4].length + 1 }
     });
-    const preview = previewExplicitTarget(source, { mode: "host", line: 5 });
+    const preview = previewTargetForm(source, { mode: "host", line: 5, form: "named" });
     expect(preview.status).toBe("ready");
     if (preview.status !== "ready") return;
     expect(preview.proposedSource).toBe(source.replace("[G; @r]", "[G +> @q; @r]"));
     expect(explainSource(preview.proposedSource, "host").graphs[0].notes).toEqual(result.graphs[0].notes);
-    expect(previewExplicitTarget(source, { mode: "host", line: 7 }).status).toBe("unavailable");
+    expect(previewTargetForm(source, { mode: "host", line: 7, form: "named" }).status).toBe("unavailable");
   });
 
   it("uses per-line source offsets for a multiline span and checks mapping overflow", () => {
@@ -223,7 +223,7 @@ describe("contiguous multiline block content", () => {
     expect(note.children[0].text).toBe("[O @hidden] Literal child.\nContinued literal.");
     expect(note.children[0].annotation).toBeUndefined();
     expect(result.documents[0].blocks[1].text).toBe("Local reuse.\nContinued local prose.");
-    expect(previewExplicitTarget(source, { line: 4 })).toMatchObject({
+    expect(previewTargetForm(source, { line: 4, form: "named" })).toMatchObject({
       status: "ready", proposedSource: source.replace("[G @p; @r]", "[G @p +> @q; @r]")
     });
   });
@@ -275,7 +275,7 @@ describe("contiguous multiline block content", () => {
     expect(result.graphs[0].notes[0].sourceSpan).toEqual({
       startLine: 5, startColumn: 7, endLine: 6, endColumn: 22
     });
-    expect(previewExplicitTarget(source, { mode: "host", line: 4 })).toMatchObject({
+    expect(previewTargetForm(source, { mode: "host", line: 4, form: "named" })).toMatchObject({
       status: "ready", proposedSource: source.replace("[G; @r]", "[G +> @q; @r]")
     });
   });

@@ -255,10 +255,10 @@
       "expected": "diagnostics/point-bearing-id-conflict.expected.json"
     },
     {
-      "file": "diagnostics/pressure-target-kind.cog.md",
+      "file": "diagnostics/retired-bearing-operator.cog.md",
       "input": "document",
-      "purpose": "Undercuts require Bearing targets and challenges require Point targets; invalid routes do not enter the graph.",
-      "expected": "diagnostics/pressure-target-kind.expected.json"
+      "purpose": "The retired /> is diagnosed rather than compiled as ->; its Point remains, and -> reaches a Bearing through the target's name.",
+      "expected": "diagnostics/retired-bearing-operator.expected.json"
     },
     {
       "file": "diagnostics/rejected-route-chain.cog.md",

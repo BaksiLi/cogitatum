@@ -20,7 +20,7 @@ describe("graph text structure-v1", () => {
 - [G @q] Same text.
 - [edge @q, @p supports @c; @joint] Joint route.
 - [edge @q, @p supports @c; @parallel] Joint route.
-- [O /> @joint] Challenge just one instance.
+- [O -> @joint] Challenge just one instance.
 - [.] Missing evidence.
 - [.] Unclassified material.
 - [Q] A question.
@@ -131,7 +131,7 @@ b5: challenges([p1], b5) handle="self"`);
   });
 
   it("preserves an explicitly scoped local/edge projection but not changed names, roles or source order", () => {
-    const local = compile("- [C @c] Claim.\n  - [_ G; @joint]\n    - [. @p] First.\n    - [. @q] Second.");
+    const local = compile("- [C @c] Claim.\n  - [_ +> ^; @joint]\n    - [. @p] First.\n    - [. @q] Second.");
     const explicit = compile('- [C @c] Claim.\n- [. @p] First.\n- [. @q] Second.\n- [edge @p, @q supports @c; @joint]');
     expect(local.diagnostics).toEqual([]);
     expect(explicit.diagnostics).toEqual([]);

@@ -34,7 +34,7 @@ describe("source reference analysis", () => {
       "- [_ use @route] Review the original support.",
       "- [. use @measurement] Keep this occurrence's qualification.",
       "- [_ @calibration, @measurement supports @sampling; @route] Joint support.",
-      "- [O @bias /> @route; @attack] A shared offset may invalidate the route.",
+      "- [O @bias -> @route; @attack] A shared offset may invalidate the route.",
       "- [C @sampling] Wait ten minutes before sampling.",
       "- [G @measurement] Drift was below 0.1% after ten minutes.",
       "- [G @calibration] The instrument used an independent reference."
@@ -81,13 +81,13 @@ describe("source reference analysis", () => {
   it("does not invent references for linked members or count prose and literal note descendants", () => {
     const source = [
       "- [C @sampling] See @measurement in ordinary prose.",
-      "  - [_ G; @route] Joint explanation.",
+      "  - [_ +> ^; @route] Joint explanation.",
       "    - [. @measurement] Measured drift.",
       "    - [. @calibration] Calibration record.",
       "    - [note] Quoted markup.",
       "      - [C @sampling] A literal duplicate.",
       "      - [_ use @route] Literal reuse.",
-      "      - [O /> @missing] Literal target.",
+      "      - [O -> @missing] Literal target.",
       "      - [. use @calibration] Literal Point use.",
       "- [O-ring] Not an annotation: @sampling.",
       "- Ordinary body mentions @route and [G use @measurement]."
@@ -122,7 +122,7 @@ describe("source reference analysis", () => {
     ["unknown source", "- [C @a] Claim.\n- [_ @missing +> @a] Missing.", "UNKNOWN_SOURCE"],
     ["unknown target", "- [G @a +> @missing] Missing.", "UNKNOWN_TARGET"],
     ["wrong use kind", "- [C @a] Claim.\n- [_ use @a] Wrong kind.", "POINT_IS_NOT_BEARING_REFERENCE"],
-    ["wrong target kind", "- [C @a] Claim.\n- [O /> @a] Wrong target kind.", "CHALLENGE_REQUIRES_BEARING_TARGET"],
+    ["wrong target kind", "- [C @a] Claim.\n  - [G; @s] Reason.\n- [R respondsTo @s] Wrong target kind.", "BEARING_KIND_REQUIRES_POINT_TARGET"],
     ["malformed use", "- [C @a] Claim.\n- [. use] Missing operand.", "MALFORMED_POINT_USE"],
     ["malformed annotation", "- [C @a] Claim.\n- [G use @a", "MALFORMED_ANNOTATION_PREFIX"],
     ["invalid layout", "- [C @a] Claim.\n  - Spaced.\n\t- [. use @a] Invalid.", "MIXED_INDENTATION"],

@@ -37,7 +37,7 @@ describe("annotation recognition boundaries", () => {
     ["[c @claim]", "MALFORMED_ANNOTATION", "write C, not c"],
     ["[C?]", "RETIRED_CLAIM_OPENNESS", "C? is retired"],
     ["[Q?]", "ROLE_OPENNESS_UNSUPPORTED", "Keep tentative wording"],
-    ["[C/]", "UNSUPPORTED_LOCAL_BEARING_SELECTOR", "Only G/, O/ and Q/"],
+    ["[C/]", "UNSUPPORTED_LOCAL_BEARING_SELECTOR", "Only G/, O/, Q/ and D/"],
     ["[?/]", "RETIRED_GAP_ANNOTATION", "Gap [?] is retired"],
     ["[C major]", "MALFORMED_ROLE_ANNOTATION", "remove the brackets"],
     ["[O-> @outer", "MALFORMED_ANNOTATION_PREFIX", "closing ']'"]
@@ -60,7 +60,7 @@ describe("annotation recognition boundaries", () => {
 
   it.each([
     ["[O->@outer]", "[O -> @outer]", "role"],
-    ["[O/>@outer]", "[O /> @outer]", "role"],
+    ["[O/>@outer]", "[O -> @outer]", "role"],
     ["[Q @question~>@outer]", "[Q @question ~> @outer]", "role"],
     ["[G use @outer+>@outer]", "[G use @outer +> @outer]", "use"]
   ])("rejects only the clause of the spacing error in %s", (prefix, spaced, kind) => {
@@ -123,9 +123,9 @@ describe("clean edge annotations require an operator clause", () => {
     const clauseless = structuredClone(ast);
     delete clauseless.blocks[1].children[0].annotation.operatorClause;
     expect(validateAst(clauseless)).toBe(false);
-    for (const [malformed, error] of [["- [edge] Missing clause.", "mode"], ["- [_ @a +>] Missing target.", "operator"], ["- [edge @a +> @c", "operator"], ["- [_ @a,@b+>@c]", "operator"]]) {
+    for (const [malformed, error] of [["- [edge cases] Missing operator.", "mode"], ["- [_ @a +>] Missing target.", "operator"], ["- [edge @a +> @c", "operator"], ["- [_ @a,@b+>@c]", "operator"]]) {
       const parsed = json(parseDocument(malformed));
-      expect(parsed.blocks[0].annotation, malformed).toMatchObject({ kind: "explicitBearing", syntaxErrors: expect.arrayContaining([error]) });
+      expect(parsed.blocks[0].annotation, malformed).toMatchObject({ kind: "bearing", syntaxErrors: expect.arrayContaining([error]) });
       expect(parsed.blocks[0].annotation.operatorClause, malformed).toBeUndefined();
       expect(parsed.diagnostics.length, malformed).toBeGreaterThan(0);
       expect(validateAst(parsed), malformed).toBe(true);
@@ -139,7 +139,7 @@ describe("clean edge annotations require an operator clause", () => {
     delete topLevelAst.blocks[2].annotation.operatorClause;
     for (const [ast, at] of [[nestedAst, "3:5"], [topLevelAst, "3:3"]] as const) {
       const before = structuredClone(ast);
-      const expected = `Invalid AST: the edge annotation at ${at} has no operatorClause and records no syntax error`;
+      const expected = `Invalid AST: the Bearing constructor at ${at} has listed sources but no operatorClause and records no syntax error`;
       expect(() => compileGraph(ast)).toThrow(expected);
       expect(() => compileGraphWithExplain(ast)).toThrow(expected);
       expect(ast).toEqual(before);

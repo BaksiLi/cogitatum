@@ -3,5 +3,5 @@
   - [. @g1] The measured capacity is 100 requests per second.
   - [. @g2] The forecast peak is 80 requests per second.
   - [edge @g1, @g2 +> @c1; @joint-case] Compare capacity with the forecast peak.
-  - [O /> @joint-case] The measurements may use a different request mix.
+  - [O -> @joint-case] The measurements may use a different request mix.
     - [R] Both measurements use the current workload profile.

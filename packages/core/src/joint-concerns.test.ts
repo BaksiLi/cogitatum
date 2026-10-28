@@ -42,8 +42,8 @@ describe("joint concerns", () => {
     ]);
     for (const [index, bearing] of graph.bearings.entries()) {
       expect(blocks[index].annotation).toMatchObject({
-        kind: "explicitBearing", operatorClause: {
-          op: "concerns", targetKind: "either",
+        kind: "bearing", operatorClause: {
+          op: "concerns",
           sources: (index === 0 ? ["after", "before"] : ["before", "after"]).map(id => ({ id })),
           target: { id: index === 0 ? "change" : "comparison" }
         }
