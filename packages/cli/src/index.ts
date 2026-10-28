@@ -11,12 +11,14 @@ import {
   formatGraph,
   parseDocument,
   parseSource,
+  previewRelationEdit,
   previewTargetForm
 } from "@cogitatum/core";
-import type { Diagnostic, SourceParseMode, TargetForm } from "@cogitatum/core";
+import type { BearingKind, Diagnostic, RelationEdit, SourceParseMode, TargetForm } from "@cogitatum/core";
 
-type Command = "ast" | "graph" | "explain" | "export" | "check" | "target-form";
-const COMMANDS: readonly string[] = ["ast", "graph", "explain", "export", "check", "target-form"];
+type Command = "ast" | "graph" | "explain" | "export" | "check" | "target-form" | "relation-edit";
+const COMMANDS: readonly string[] = ["ast", "graph", "explain", "export", "check", "target-form", "relation-edit"];
+const BEARING_KINDS: readonly string[] = ["supports", "challenges", "concerns", "answers", "respondsTo", "clarifies"];
 // Published commands keep a diagnosed boundary instead of a silent alias.
 const RETIRED_COMMANDS = new Map([
   ["explicit-target", "explicit-target was retired in 0.6. Use target-form --line <n> --to named, which also restores a positional target with --to positional."]
@@ -31,6 +33,8 @@ type CliArgs = {
   references: boolean;
   line?: number;
   to?: TargetForm;
+  /** The relation edit, completed with --line for decide and separate. */
+  edit?: { operation: "decide"; kind: BearingKind } | { operation: "separate" } | { operation: "join"; lines: number[] };
   format: "json" | "text";
   diagnostics: Diagnostic[];
 };
@@ -80,6 +84,15 @@ async function main(): Promise<void> {
 
   if (args.command === "target-form") {
     const preview = previewTargetForm(source, { line: args.line!, form: args.to!, mode: args.inputMode });
+    printJson(preview);
+    process.exitCode = preview.status === "ready" ? 0 : 1;
+    return;
+  }
+
+  if (args.command === "relation-edit") {
+    const edit = args.edit!;
+    const request: RelationEdit = edit.operation === "join" ? edit : { ...edit, line: args.line! };
+    const preview = previewRelationEdit(source, { ...request, mode: args.inputMode });
     printJson(preview);
     process.exitCode = preview.status === "ready" ? 0 : 1;
     return;
@@ -177,8 +190,8 @@ function parseArgs(argv: string[]): CliArgs {
     }
     if (!optionsEnded && arg === "--line") {
       const value = argv[index + 1];
-      if (args.command !== "target-form" || args.line !== undefined || !value || !/^[1-9][0-9]*$/.test(value) || !Number.isSafeInteger(Number(value))) {
-        diagnostics.push({ severity: "error", code: "INVALID_LINE_OPTION", message: "--line requires one positive integer and is available only with target-form." });
+      if ((args.command !== "target-form" && args.command !== "relation-edit") || args.line !== undefined || !isLineNumber(value)) {
+        diagnostics.push({ severity: "error", code: "INVALID_LINE_OPTION", message: "--line requires one positive integer and is available only with target-form or relation-edit." });
         break;
       }
       args.line = Number(value);
@@ -193,6 +206,28 @@ function parseArgs(argv: string[]): CliArgs {
       }
       args.to = value;
       index += 1;
+      continue;
+    }
+    if (!optionsEnded && (arg === "--decide" || arg === "--separate" || arg === "--join")) {
+      const value = argv[index + 1];
+      const lines = arg === "--join" ? value?.split(",") : undefined;
+      const valid = args.command === "relation-edit" && args.edit === undefined && (
+        arg === "--separate" ||
+        (arg === "--decide" && value !== undefined && BEARING_KINDS.includes(value)) ||
+        (lines !== undefined && lines.length >= 2 && lines.every(isLineNumber))
+      );
+      if (!valid) {
+        diagnostics.push({
+          severity: "error",
+          code: "INVALID_EDIT_OPTION",
+          message: `relation-edit takes one edit: --decide <${BEARING_KINDS.join("|")}>, --separate, or --join <line,line,...>.`
+        });
+        break;
+      }
+      args.edit = arg === "--separate" ? { operation: "separate" }
+        : arg === "--decide" ? { operation: "decide", kind: value as BearingKind }
+        : { operation: "join", lines: lines!.map(Number) };
+      if (arg !== "--separate") index += 1;
       continue;
     }
     if (!optionsEnded && arg === "--input") {
@@ -243,10 +278,25 @@ function parseArgs(argv: string[]): CliArgs {
   if (args.command === "target-form" && args.to === undefined && !diagnostics.length) {
     diagnostics.push({ severity: "error", code: "INVALID_FORM_OPTION", message: "target-form requires --to named or --to positional." });
   }
+  if (args.command === "relation-edit" && !diagnostics.length) {
+    if (args.edit === undefined) {
+      diagnostics.push({ severity: "error", code: "INVALID_EDIT_OPTION", message: "relation-edit requires --decide <kind>, --separate, or --join <line,line,...>." });
+    } else if ((args.edit.operation === "join") !== (args.line === undefined)) {
+      diagnostics.push({
+        severity: "error",
+        code: "INVALID_LINE_OPTION",
+        message: "--decide and --separate require --line; --join names its lines itself and takes no --line."
+      });
+    }
+  }
   if (args.command === "graph" && args.format === "text" && args.inputMode === "host") {
     diagnostics.push({ severity: "error", code: "INVALID_OUTPUT_FORMAT", message: "Text inspection accepts one document graph. Use JSON for host input to retain every source unit and source-selection diagnostic." });
   }
   return args;
+}
+
+function isLineNumber(value: string | undefined): boolean {
+  return value !== undefined && /^[1-9][0-9]*$/.test(value) && Number.isSafeInteger(Number(value));
 }
 
 function isInputMode(value: string | undefined): value is SourceParseMode {
@@ -274,12 +324,19 @@ Commands:
   export           Preserve selected source, AST, graph and Explain together as JSON
   target-form      Preview naming a relation's target, or making it positional
                    again, as one JSON source edit; never write it
+  relation-edit    Preview deciding a relation's kind, separating a group
+                   into its members' relations, or joining sibling relations;
+                   classify the result as refinement, weakening or revision
 
 Options:
   --input <mode>   document (default) or host (Markdown Cogitatum fences)
   --format <kind>  json or text (graph or explain; graph text is document-only)
-  --line <number>  Required for target-form; one-based line in the full file
+  --line <number>  Required for target-form, relation-edit --decide and
+                   --separate; one-based line in the full file
   --to <form>      Required for target-form: named or positional
+  --decide <kind>  relation-edit: give the relation on --line this kind
+  --separate       relation-edit: one relation per member of the group
+  --join <lines>   relation-edit: comma-separated sibling relation lines
   --references     Include written-name references (check only)
   --               End options before an option-like filename
   -h, --help       Show this help
@@ -317,6 +374,8 @@ Examples:
   cog export inquiry.cog.md
   cog target-form --line 3 --to named inquiry.cog.md
   cog target-form --line 3 --to positional inquiry.cog.md
+  cog relation-edit --line 3 --decide supports inquiry.cog.md
+  cog relation-edit --join 3,4 inquiry.cog.md
 `);
 }
 

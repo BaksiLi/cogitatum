@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { analyzeSourceReferences, compileGraph, formatGraph, formatExplain, parseDocument, explainSource, previewTargetForm } from "../../core/src/index.js";
+import { analyzeSourceReferences, compileGraph, formatGraph, formatExplain, parseDocument, explainSource, previewRelationEdit, previewTargetForm } from "../../core/src/index.js";
 import type { SourceParseMode } from "../../core/src/index.js";
 
 const repoRoot = fileURLToPath(new URL("../../../", import.meta.url));
@@ -51,6 +51,25 @@ describe("cog CLI", () => {
     expect(runCli("target-form", "--input", mode, "--line", String(line), "--to", "named", file).status).toBe(1);
   });
 
+  it("prints relation-edit previews as the core API does, without writing", () => {
+    const source = "- [C] Claim.\n  - [_]\n    - [.] A.\n    - [.] B.\n";
+    const file = join(workingDirectory, "relation-edit.md");
+    writeFileSync(file, source);
+    const decided = runCli("relation-edit", "--line", "2", "--decide", "supports", file);
+    expect(decided.status).toBe(0);
+    expect(JSON.parse(decided.stdout)).toEqual(previewRelationEdit(source, { operation: "decide", line: 2, kind: "supports" }));
+    expect(JSON.parse(decided.stdout).comparison.relation).toBe("refinement");
+    const separated = runCli("relation-edit", "--separate", "--line", "2", file);
+    expect(separated.status).toBe(0);
+    const proposed = JSON.parse(separated.stdout).proposedSource as string;
+    writeFileSync(file, proposed);
+    const joined = runCli("relation-edit", "--join", "2,3", file);
+    expect(joined.status).toBe(0);
+    expect(JSON.parse(joined.stdout).proposedSource).toBe(source);
+    expect(readFileSync(file, "utf8")).toBe(proposed);
+    expect(runCli("relation-edit", "--line", "1", "--separate", file).status).toBe(1);
+  });
+
   it("prints source-selection errors in text Explain without a selected unit", () => {
     const file = join(workingDirectory, "unclosed-explain.md");
     writeFileSync(file, "```cog\n- [C] Unclosed.");
@@ -67,7 +86,15 @@ describe("cog CLI", () => {
     ["target-form", "--to", "explicit", "--line", "1", "valid.cog.md"],
     ["target-form", "--to", "named", "--line", "0", "valid.cog.md"],
     ["graph", "--to", "named", "valid.cog.md"],
-    ["target-form", "--to", "named", "--line", "1", "--format", "text", "valid.cog.md"]
+    ["target-form", "--to", "named", "--line", "1", "--format", "text", "valid.cog.md"],
+    ["relation-edit", "--line", "1", "valid.cog.md"],
+    ["relation-edit", "--separate", "valid.cog.md"],
+    ["relation-edit", "--line", "1", "--decide", "supported", "valid.cog.md"],
+    ["relation-edit", "--line", "1", "--decide", "supports", "--separate", "valid.cog.md"],
+    ["relation-edit", "--join", "1", "valid.cog.md"],
+    ["relation-edit", "--join", "1,2", "--line", "1", "valid.cog.md"],
+    ["relation-edit", "--to", "named", "--line", "1", "valid.cog.md"],
+    ["graph", "--separate", "valid.cog.md"]
   ])("rejects invalid preview arguments %j", (...args) => {
     expect(runCli(...args).status).toBe(2);
   });

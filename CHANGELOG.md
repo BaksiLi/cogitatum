@@ -8,6 +8,16 @@ Use the complete released schema set and [migrate retained source](docs/syntax.m
 
 ## Unreleased
 
+- Add a commitment order for classifying revisions (#63).
+  `graphCommitments`, `entailment`, `compareCommitments` and `suggestCorrespondence` compare two compiled graphs through an explicit entity correspondence and report `equivalent`, `refinement`, `weakening` or `revision`, with retracted and added commitments and Points.
+  Every relation commits each source to bearing on its target, so joint relevance holds of any set whose members are each sources of relations to it; nothing else is entailed.
+  Refining `[_]` into linked support, convergent supports or a support with a further premise is a refinement; merging separate supports is a revision.
+  Graphs with errors, another format or an invalid correspondence are indeterminate; similar texts are never paired silently.
+- Add Core `previewRelationEdit` and `cog relation-edit` (#63).
+  `--decide <kind>` changes one relation's kind, `--separate` turns a member-sourced group into one relation per member, and `--join` makes adjacent sibling relations the members of one group.
+  Each preview supplies the correspondence its edit implies and reports the commitment comparison, so deciding or separating `[_]` shows as a refinement and joining supports as a revision.
+  It refuses edits that would add, remove or reword Points or change anything beyond the edited relations.
+
 - Render single-backtick inline code in Map wording, measuring its monospace runs for wrapping and keeping authored text in callbacks and accessible labels.
   Keep wording below the complete scaled mark, including its focus ring.
 
