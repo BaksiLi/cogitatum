@@ -139,10 +139,34 @@ export function createBlockView(container: HTMLElement, options: BlockViewOption
     clearDetail();
     const prose = node.ref.kind === "point" ? node.text : graph?.bearings.find(bearing => bearing.key === node.ref.key)?.text;
     const occurrence = projection?.units[0]?.occurrences.find(row => row.references.some(reference =>
-      reference.kind !== "uses" && reference.ref.kind === node.ref.kind && reference.ref.key === node.ref.key));
+      (reference.kind === "declares" || reference.kind === "constructs") && reference.ref.kind === node.ref.kind && reference.ref.key === node.ref.key));
     if (prose !== undefined) {
-      if (!occurrence || occurrence.diagnostics.some(diagnostic => diagnostic.severity === "error")) detailText.textContent = prose;
-      else detailProse.render(detailText, prose);
+      // A host renderer can finish later and replace its own container.
+      // Keep it separate from note controls and their independently rendered prose.
+      const passage = element("div", "detail-prose", detailText);
+      if (!occurrence || occurrence.diagnostics.some(diagnostic => diagnostic.severity === "error")) passage.textContent = prose;
+      else detailProse.render(passage, prose);
+    }
+    for (const note of projection?.units[0]?.notes ?? []) {
+      if (note.record.target.kind !== node.ref.kind || note.record.target.key !== node.ref.key) continue;
+      const section = element("div", "note", detailText);
+      const sourceLink = element("button", "button", section);
+      sourceLink.classList.add("cog-block-note-source");
+      sourceLink.type = "button";
+      sourceLink.textContent = `${note.record.origin === "note" ? "Note" : "Description"} · line ${note.record.sourceSpan.startLine}`;
+      sourceLink.onclick = () => {
+        showMode("reading");
+        reading.selectOccurrence(note.occurrenceId, note.record.target);
+        selectedSpan = note.record.sourceSpan; updateEditTitle();
+        readingSurface.querySelector<HTMLElement>('.cog-reading-row[data-selected="true"]')?.focus({ preventScroll: true });
+      };
+      // Constructor prose is already the Bearing's displayed description.
+      if (note.record.origin === "note") for (const row of note.content) {
+        const text = element("div", "note-text", section);
+        text.style.marginInlineStart = `${row.depth - note.content[0].depth}em`;
+        if (row.diagnostics.some(diagnostic => diagnostic.severity === "error")) text.textContent = row.raw.trim();
+        else detailProse.render(text, row.text);
+      }
     }
     detail.hidden = false;
     if (!syncing) sync(() => reading.select(node.ref));

@@ -1,6 +1,6 @@
 import type { BearingTarget, Diagnostic, SourceSpan } from "@cogitatum/core";
 import { bearingMark, createBearingChip, createMarkChip, drawBearingGlyph } from "./marks.js";
-import { focusNeighborhood, projectExploration, projectGraph, referenceKey, type GraphProjection } from "./projection.js";
+import { focusNeighborhood, guidanceSubject, projectExploration, projectGraph, referenceKey, type GraphProjection } from "./projection.js";
 import type { ReadingEndpoint, ReadingOccurrence, ReadingProjection } from "./reading-projection.js";
 import { createProseScope, type ProseRenderer } from "./prose.js";
 
@@ -99,7 +99,7 @@ export function createReadingView(container: HTMLElement, options: ReadingViewOp
   const prose = createProseScope(options.renderProse, () => schedule());
 
   function guide(): void {
-    const active = hovered ?? selected;
+    const active = guidanceSubject(selected, hovered);
     const focused = root.contains(doc.activeElement) ?
       doc.activeElement?.closest<HTMLElement>("[data-occurrence]")?.dataset.occurrence : undefined;
     const tabStop = selected?.occurrenceId ?? focused ?? rows.keys().next().value;
@@ -110,6 +110,9 @@ export function createReadingView(container: HTMLElement, options: ReadingViewOp
       if (!bearingKeys.has(bearing.bearing.key)) continue;
       relevant.add(bearing.occurrenceId); relevant.add(bearing.target.occurrenceId);
       bearing.sources.forEach(source => relevant.add(source.occurrenceId));
+    }
+    if (active?.ref) for (const note of projection?.units[active.unitIndex].notes ?? []) {
+      if (sameRef(note.record.target, active.ref)) note.content.forEach(content => relevant.add(content.id));
     }
     root.dataset.guided = String(!!active?.ref);
     for (const [id, row] of rows) {
@@ -232,11 +235,12 @@ export function createReadingView(container: HTMLElement, options: ReadingViewOp
         const control = html("button", "cog-reading-select", glyph);
         control.type = "button"; control.tabIndex = -1;
         mark(source, control);
-        const authored = source.raw.slice(source.sourceSpan.startColumn - 1, source.sourceSpan.endColumn - 1);
+        const authored = source.raw.slice(source.sourceSpan.startColumn - 1);
         const failed = source.diagnostics.some(diagnostic => diagnostic.severity === "error");
-        if (source.recognition.kind === "note") html("span", "cog-reading-tag", content).textContent = "note";
+        if (source.recognition.kind === "note") html("span", "cog-reading-tag", content).textContent =
+          source.recognition.targetKind ? `${source.recognition.targetKind === "point" ? "Point" : "Bearing"} note` : "note";
         if (!failed) {
-          const declarations = source.references.filter(reference => reference.kind === "declares" && reference.name);
+          const declarations = source.references.filter(reference => reference.kind === "declares").filter(reference => reference.name);
           if (declarations.length) {
             const names = html("div", "cog-reading-names", content);
             for (const declared of declarations) reference(names, source.unitIndex, {
@@ -251,6 +255,23 @@ export function createReadingView(container: HTMLElement, options: ReadingViewOp
         if (failed) text.textContent = authored;
         else prose.render(text, source.text);
         if (!failed && !["edge", "linked"].includes(source.recognition.kind)) relation(source, content);
+        if (!failed) {
+          const unit = projection.units[source.unitIndex];
+          for (const annotated of source.references.filter(item => item.kind === "annotates")) {
+            const origin = unit.occurrences.find(row => row.references.some(item =>
+              (item.kind === "declares" || item.kind === "constructs") && sameRef(item.ref, annotated.ref)));
+            if (origin) reference(content, source.unitIndex, { occurrenceId: origin.id, ref: annotated.ref, basis: "declaration" });
+          }
+          for (const note of unit.notes.filter(note => note.occurrenceId !== source.id &&
+            source.references.some(item => item.kind !== "annotates" && sameRef(item.ref, note.record.target)))) {
+            const control = html("button", "cog-reading-reference cog-reading-note-source", content);
+            control.type = "button";
+            control.dataset.readingReference = note.occurrenceId;
+            control.dataset.ref = note.record.target.key; control.dataset.refKind = note.record.target.kind;
+            control.textContent = `${note.record.origin === "note" ? "Note" : "Description"} · L${note.record.sourceSpan.startLine}`;
+            control.title = "Read at its authored source location";
+          }
+        }
         for (const used of source.references) if (!failed && used.kind === "uses") {
           const graph = projection.units[source.unitIndex].graph;
           const entity = used.ref.kind === "point" ? graph.points.find(point => point.key === used.ref.key) :
@@ -462,7 +483,7 @@ export function createReadingView(container: HTMLElement, options: ReadingViewOp
       alive();
       if (selected?.unitIndex === unitIndex && sameRef(selected.ref, ref)) return;
       const candidates = [...rows.values()].filter(row => row.occurrence.unitIndex === unitIndex);
-      const row = candidates.find(row => row.occurrence.references.some(reference => reference.kind !== "uses" && sameRef(reference.ref, ref))) ??
+      const row = candidates.find(row => row.occurrence.references.some(reference => (reference.kind === "declares" || reference.kind === "constructs") && sameRef(reference.ref, ref))) ??
         candidates.find(row => row.occurrence.references.some(reference => sameRef(reference.ref, ref)));
       choose(row && selectionFor(row.occurrence, ref), false);
       if (row) reveal(row);

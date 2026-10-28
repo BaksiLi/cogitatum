@@ -1,13 +1,14 @@
 import { FORMAT_VERSION } from "@cogitatum/core";
 import type {
   AstBlock, Bearing, BearingRef, BearingTarget, Diagnostic, ExplainedSource,
-  ExplainEntry, ExplainRecognition, GraphIR, PointRef, SourceParseMode, SourceSpan
+  ExplainEntry, ExplainRecognition, GraphIR, ObjectNote, PointRef, SourceParseMode, SourceSpan
 } from "@cogitatum/core";
 import { referenceKey } from "./projection.js";
 
 export type ReadingReference =
   | { kind: "declares"; ref: PointRef; name?: string }
   | { kind: "uses"; ref: BearingTarget; name: string }
+  | { kind: "annotates"; ref: BearingTarget }
   | { kind: "constructs"; ref: BearingRef; name?: string };
 
 export type ReadingOccurrence = {
@@ -18,6 +19,7 @@ export type ReadingOccurrence = {
   line: number;
   depth: number;
   sourceSpan: SourceSpan;
+  /** Original physical lines for this occurrence, joined with LF. */
   raw: string;
   text: string;
   recognition: ExplainRecognition | { kind: "literal" };
@@ -52,6 +54,14 @@ export type ReadingUnit = {
   graph: GraphIR;
   occurrences: ReadingOccurrence[];
   bearings: ReadingBearing[];
+  notes: ReadingNote[];
+};
+
+export type ReadingNote = {
+  record: ObjectNote;
+  occurrenceId: string;
+  /** Existing source occurrences, in source order; never relocated to a use. */
+  content: ReadingOccurrence[];
 };
 
 export type ReadingProjection = {
@@ -86,6 +96,7 @@ export function projectReading(source: string, explained: ExplainedSource): Read
     if (line !== undefined) diagnosticsAt.set(line, [...diagnosticsAt.get(line) ?? [], diagnostic]);
   }
   const occurrencesByLine = new Map<number, ReadingOccurrence>();
+  const continuationLines = new Set<number>();
   const unitByLine = new Map<number, number>();
   const units = explained.units.map((unit, unitIndex): ReadingUnit => {
     const document = explained.documents[unitIndex], graph = explained.graphs[unitIndex];
@@ -117,20 +128,30 @@ export function projectReading(source: string, explained: ExplainedSource): Read
     if (graphRefs.size !== graph.points.length + graph.bearings.length) mismatch("duplicate graph identities");
     const origins = new Map<string, ReadingOccurrence>();
     const bySpan = new Map<string, ReadingOccurrence>();
+    const unitLines = unit.source.replace(/\r\n/g, "\n").split("\n");
     function visit(block: AstBlock, depth: number, literal: boolean): void {
       const span = block.sourceSpan, key = spanKey(span);
       const entry = entries.get(key);
       if (literal ? !!entry : !entry) mismatch("AST / Explain occurrence correspondence");
-      const line = lines[span.startLine - 1];
-      const content = /^[ \t]*-\s+(.*)$/s.exec(block.raw)?.[1];
-      if (span.startLine !== span.endLine || content === undefined ||
-        line?.slice(span.startColumn - 1, span.endColumn - 1) !== content) mismatch("occurrence span or source changed");
-      if (occurrencesByLine.has(span.startLine)) mismatch("duplicate occurrence line");
+      const original = lines.slice(span.startLine - 1, span.endLine);
+      const rawLines = block.raw.split("\n");
+      const content = /^[ \t]*-\s+(.*)$/s.exec(rawLines[0])?.[1];
+      if (span.startLine < unit.startLine || span.endLine > unit.endLine || span.endLine < span.startLine ||
+        rawLines.length !== original.length || content === undefined ||
+        original[0]?.slice(span.startColumn - 1) !== content ||
+        span.endColumn !== original.at(-1)!.length + 1 ||
+        unitLines.slice(span.startLine - unit.startLine, span.endLine - unit.startLine + 1).join("\n") !== block.raw) {
+        mismatch("occurrence span or source changed");
+      }
+      for (let line = span.startLine; line <= span.endLine; line++) {
+        if (occurrencesByLine.has(line) || continuationLines.has(line)) mismatch("overlapping occurrence lines");
+        if (line !== span.startLine) continuationLines.add(line);
+      }
       const occurrence: ReadingOccurrence = {
         kind: "occurrence", id: `u${unitIndex}:${key}`, unitIndex, line: span.startLine,
-        depth, sourceSpan: span, raw: line, text: block.text,
+        depth, sourceSpan: span, raw: original.join("\n"), text: block.text,
         recognition: literal ? { kind: "literal" } : entry!.recognition,
-        references: [], diagnostics: diagnosticsAt.get(span.startLine) ?? []
+        references: [], diagnostics: original.flatMap((_line, i) => diagnosticsAt.get(span.startLine + i) ?? [])
       };
       for (const effect of entry?.effects ?? []) {
         let reference: ReadingReference | undefined;
@@ -142,11 +163,14 @@ export function projectReading(source: string, explained: ExplainedSource): Read
           if (graph.bearings[effect.ref.graphIndex]?.key !== effect.ref.key) mismatch("Bearing index");
           reference = { kind: "constructs", ref: { kind: "bearing", key: effect.ref.key }, name: effect.ref.handle };
         }
+        if (effect.kind === "attachNote" && effect.note.origin === "note") {
+          reference = { kind: "annotates", ref: effect.note.target };
+        }
         if (reference) {
           const identity = referenceKey(reference.ref);
           if (!graphRefs.has(identity)) mismatch("emitted or focused entity missing from graph");
           occurrence.references.push(reference);
-          if (reference.kind !== "uses") {
+          if (reference.kind === "declares" || reference.kind === "constructs") {
             if (origins.has(identity)) mismatch("multiple entity origins");
             origins.set(identity, occurrence);
           }
@@ -203,10 +227,31 @@ export function projectReading(source: string, explained: ExplainedSource): Read
       } else target = endpoint(origin(bearing.target), bearing.target, "declaration");
       return { bearing, occurrenceId: occurrence.id, sources, target };
     });
-    return { graph, occurrences, bearings };
+    const noteOrigins = new Set(graph.notes.map(record => spanKey(record.sourceSpan)));
+    const attachedNotes = [...entryByOccurrence.values()].flatMap(entry => entry.effects.filter(effect => effect.kind === "attachNote"));
+    if (noteOrigins.size !== graph.notes.length || attachedNotes.length !== graph.notes.length) mismatch("incomplete or duplicate note evidence");
+    const notes = graph.notes.map((record): ReadingNote => {
+      const occurrence = bySpan.get(spanKey(record.sourceSpan));
+      if (!occurrence || !graphRefs.has(referenceKey(record.target))) mismatch("note source or target missing");
+      const effects = entryByOccurrence.get(occurrence!.id)?.effects;
+      if (!effects?.some(effect => effect.kind === "attachNote" &&
+        effect.note.origin === record.origin && sameRef(effect.note.target, record.target) &&
+        spanKey(effect.note.sourceSpan) === spanKey(record.sourceSpan))) mismatch("note / Explain disagreement");
+      const content = [occurrence!];
+      if (record.origin === "note") {
+        const index = occurrences.indexOf(occurrence!);
+        for (let i = index + 1; i < occurrences.length && occurrences[i].depth > occurrence!.depth; i++) {
+          if (occurrences[i].recognition.kind !== "literal") mismatch("active note descendant");
+          content.push(occurrences[i]);
+        }
+      }
+      return { record, occurrenceId: occurrence!.id, content };
+    });
+    return { graph, occurrences, bearings, notes };
   });
-  const rows = lines.map((raw, index): ReadingOccurrence | ReadingSourceLine => occurrencesByLine.get(index + 1) ?? {
-    kind: "source", line: index + 1, raw, unitIndex: unitByLine.get(index + 1), diagnostics: diagnosticsAt.get(index + 1) ?? []
-  });
+  const rows = lines.flatMap((raw, index): (ReadingOccurrence | ReadingSourceLine)[] =>
+    continuationLines.has(index + 1) ? [] : [occurrencesByLine.get(index + 1) ?? {
+      kind: "source", line: index + 1, raw, unitIndex: unitByLine.get(index + 1), diagnostics: diagnosticsAt.get(index + 1) ?? []
+    }]);
   return { version: explained.version, mode: explained.mode, source, rows, units, diagnostics: explained.diagnostics };
 }

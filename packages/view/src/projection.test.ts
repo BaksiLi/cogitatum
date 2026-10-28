@@ -1,9 +1,20 @@
 import { layoutGraph } from "./layout.js";
 import { describe, expect, it } from "vitest";
 import { compileSource } from "@cogitatum/core";
-import { focusNeighborhood, projectExploration, projectGraph, referenceKey } from "./projection.js";
+import { focusNeighborhood, guidanceSubject, projectExploration, projectGraph, referenceKey } from "./projection.js";
 
 describe("faithful graph projection", () => {
+  it("makes object notes discoverable without changing graph topology or main content", () => {
+    const graph = compileSource("- [C @c] Claim.\n  - [. note] First.\n  - [. note] Same.\n  - [G; @r] Reason.\n    - [_ note] Route.\n- [_ use @r]").graphs[0];
+    const projected = projectGraph(graph);
+    expect(projected.nodes).toHaveLength(3);
+    expect(projected.links).toHaveLength(2);
+    expect(projected.nodes.find(node => node.name === "c")).toMatchObject({ text: "Claim.", noteCount: 2 });
+    expect(projectExploration(projected).inlineBearings[0]).toMatchObject({ name: "r", noteCount: 1 });
+    graph.notes[0].target.key = "missing";
+    expect(() => projectGraph(graph)).toThrow("dangling note target");
+  });
+
   it("keeps the typed endpoint when both content and route objections are challenges", () => {
     const graph = compileSource('- [C @c] Claim.\n  - [G; @route] Reason.\n- [O -> @c; @content] Content objection.\n- [O /> @route; @step] Step objection.', 'document').graphs[0];
     const topology = projectGraph(graph);
@@ -39,6 +50,10 @@ describe("faithful graph projection", () => {
   it("rejects corrupt graph endpoints instead of drawing an invented connection", () => {
     const graph = compileSource('- [C] A.\n  - [G] B.','document').graphs[0];
     graph.points.pop(); expect(()=>projectGraph(graph)).toThrow('dangling');
+  });
+  it("requires source recompilation across the published format boundary", () => {
+    const graph = compileSource("- [C] Claim.").graphs[0];
+    expect(() => projectGraph({ ...graph, version: "0.5.0" })).toThrow("Recompile retained source");
   });
 });
 
@@ -83,6 +98,56 @@ describe("exploration presentation", () => {
 });
 
 describe("focus neighborhood", () => {
+  // An author keeps the original route and adds a better one; the reader examines one route at a time.
+  const alternativeRoutes = [
+    "- [C @water] Broad Street 水泵可能是這次霍亂暴發的來源。",
+    "- [G @cluster] 多數死亡病例集中在水泵周邊。",
+    "- [edge @cluster +> @water; @proximity] 地理上的接近，可能反映飲用該水泵水的機會。",
+    "- [O @exceptions /> @proximity] 附近濟貧院與啤酒廠幾乎沒有病例。",
+    "- [G @exposure] 這兩處不用該水泵；一些遠處患者卻曾飲用泵水。",
+    "- [edge @cluster, @exposure +> @water; @water-route] 真正重要的是飲水暴露，而不只是地理位置。"
+  ].join("\n");
+
+  it("separates alternative routes that share a source and a target", () => {
+    const compiled = compileSource(alternativeRoutes, "document");
+    expect(compiled.diagnostics).toEqual([]);
+    const graph = compiled.graphs[0], projection = projectGraph(graph);
+    const bearing = (handle: string) => graph.bearings.find(b => b.handle === handle)!;
+    const objection = graph.bearings.find(b => b.kind === "challenges")!;
+    const names = (ids: string[]) => ids.map(id => projection.nodes.find(node => node.id === id)!).map(node => node.name ?? node.ref.key);
+
+    const original = focusNeighborhood(projection, { kind: "bearing", key: bearing("proximity").key });
+    expect(original.bearingKeys).toEqual([bearing("proximity").key, objection.key]);
+    expect(names(original.nodeIds)).toEqual(["water", "cluster", "exceptions", "proximity", objection.key]);
+
+    // The objection addresses the proximity step, not the shared target or the alternative route.
+    const alternative = focusNeighborhood(projection, { kind: "bearing", key: bearing("water-route").key });
+    expect(alternative.bearingKeys).toEqual([bearing("water-route").key]);
+    expect(names(alternative.nodeIds)).toEqual(["water", "cluster", "exposure", "water-route"]);
+
+    // The shared target is where the routes meet, so its focus keeps both and the step objection.
+    const target = focusNeighborhood(projection, { kind: "point", key: graph.points.find(p => p.id === "water")!.key });
+    expect(target.bearingKeys).toEqual(graph.bearings.map(b => b.key));
+  });
+
+  it("keeps parallel Bearings of one kind between the same endpoints as distinct routes", () => {
+    const graph = compileSource("- [C @c] Claim.\n- [G @a] Reason.\n- [edge @a +> @c; @first] One reading.\n- [edge @a +> @c; @second] Another reading.\n- [O /> @second] Doubt.", "document").graphs[0];
+    const projection = projectGraph(graph);
+    const [first, second, doubt] = graph.bearings;
+    expect(focusNeighborhood(projection, { kind: "bearing", key: first.key }).bearingKeys).toEqual([first.key]);
+    expect(focusNeighborhood(projection, { kind: "bearing", key: second.key }).bearingKeys).toEqual([second.key, doubt.key]);
+  });
+
+  it("lets a selection keep guidance while hover or focus previews only without one", () => {
+    const route = { ref: { kind: "bearing" as const, key: "route" } }, other = { ref: { kind: "point" as const, key: "other" } };
+    expect(guidanceSubject(route, other)).toBe(route);
+    expect(guidanceSubject(undefined, other)).toBe(other);
+    // A selected passage without a graph reference has no neighborhood to keep.
+    const passage = { ref: undefined };
+    expect(guidanceSubject(passage, other)).toBe(other);
+    expect(guidanceSubject(passage, undefined)).toBe(passage);
+  });
+
   it("includes a whole joint Bearing without following further implications", () => {
     const graph = compileSource('- [C @c] Claim.\n- [G @a] First.\n- [G @b] Second.\n- [C @d] Next.\n- [edge @a, @b +> @c; @route]\n- [edge @c +> @d; @next]', 'document').graphs[0];
     const route = graph.bearings.find(b => b.handle === 'route')!;

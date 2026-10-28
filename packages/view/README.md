@@ -3,6 +3,12 @@
 Experimental, framework-neutral Map and Reading views of compiler-produced Cogitatum structure.
 Core owns parsing and relation semantics; View owns presentation and temporary selection.
 Currently available from this checkout, not the published Core/CLI release.
+The 0.6 checkout requires matching Core/format 0.6 projections.
+Reading retains typed notes in source order and provides links to their original passages from declarations and uses.
+`ReadingUnit.notes` joins each Core note record to existing source occurrences; reuse creates no copied note.
+Map marks show typed note counts, and the block preview's details include their full content and source navigation.
+`Point.text` remains the primary content; constructor descriptions remain distinct from typed notes.
+Hosts using only `createGraphView` receive `GraphNode.noteCount` and must use the complete source/Reading projection to display note prose.
 
 ## Host code blocks
 
@@ -78,10 +84,18 @@ Reduced motion keeps neighbours still during direct manipulation.
 A press that does not move selects; dragging does not select or clear.
 Background drag pans, Ctrl/Command + wheel or a pinch zooms, and the ordinary wheel is left to the page. Positions are view-local and never modify the compiled graph or source; `resetLayout()` discards the arrangement.
 
-`clear()` clears selection and guidance. `select(ref)` accepts a ref from the current compilation only and updates `aria-pressed` synchronously; `fit()` and `zoom(factor)` let the host supply controls. Positions live in world space and the camera maps them to pixels, so marks and wording keep a fixed, readable size at every zoom (14px wording, 12px names); the view frames itself once its container has size, including after being revealed from a hidden panel. Hover/focus/selection highlights a **focus neighborhood**: whole incident Bearings, including all joint sources.
+`clear()` clears selection and guidance. `select(ref)` accepts a ref from the current compilation only and updates `aria-pressed` synchronously; `fit()` and `zoom(factor)` let the host supply controls. Positions live in world space and the camera maps them to pixels, so marks and wording keep a fixed, readable size at every zoom (14px wording, 12px names); the view frames itself once its container has size, including after being revealed from a hidden panel. Selection highlights a **focus neighborhood**: whole incident Bearings, including all joint sources.
+Selection is what the reader is examining, so it keeps the guidance until it changes or is cleared (Escape or a background press).
+Hover and keyboard focus preview a neighborhood only while nothing is selected; during a selection a pointed or focused unrelated mark only lifts itself so it stays readable and selectable.
+`guidanceSubject(selected, previewed)` is that shared rule, used by both Map and Reading.
 For a Point, it also includes the relations directly targeting those incident Bearings, so a step challenge remains visible alongside a content challenge.
 This adds exactly one level of context, regardless of relation kind or source order; it does not follow further assessments or relations of neighbouring Points.
-For a Bearing, focus includes its own endpoints and direct incoming relations without further expansion. Guidance only dims temporarily; the declared shapes remain visible. Nodes support arrow-key navigation in source order, Space selection, Enter/double-click navigation and Escape to clear. A Bearing with one source is drawn as its own line with a circular kind symbol, so independent supports stay separate lines even when they reach the same target; a joint Bearing (several sources), an addressed Bearing (the target of a Bearing-directed `challenges`, `supports` or `about`), or a parallel/self-directed one keeps a diamond junction with one input line per source. Lines are never merged into a shared trunk. Motion respects system reduced-motion and an optional host `reducedMotion()` callback. Callbacks and accessible labels retain full text, including collapsed Bearings.
+For a Bearing, focus includes its own endpoints and direct incoming relations without further expansion.
+Selecting one of several alternative Bearings to the same target therefore shows that route, all its sources, and only the challenges or assessments addressed to it.
+Membership is by Bearing identity, so parallel Bearings of the same kind between the same endpoints remain separate routes.
+Emphasis means only "currently examined"; it expresses no confidence, acceptance or outcome, and does not depend on how many sources or objections a route has.
+Guidance only dims; the declared shapes remain visible and selectable.
+Nodes support arrow-key navigation in source order, Space selection, Enter/double-click navigation and Escape to clear. A Bearing with one source is drawn as its own line with a circular kind symbol, so independent supports stay separate lines even when they reach the same target; a joint Bearing (several sources), an addressed Bearing (the target of a Bearing-directed `challenges`, `supports` or `about`), or a parallel/self-directed one keeps a diamond junction with one input line per source. Lines are never merged into a shared trunk. Motion respects system reduced-motion and an optional host `reducedMotion()` callback. Callbacks and accessible labels retain full text, including collapsed Bearings.
 
 `projectGraph` exposes the incidence graph, and `layoutGraph` its deterministic reading arrangement for alternate renderers. The default direction is `down`; pass `direction: 'right'` to the view or `layoutGraph` options for horizontal flow. The incidence projection represents each Bearing as a node: multiple input links mean joint sources, and output links can target other Bearings. This is a view representation of Core's first-class relationship object, not a new Core Point. `projectExploration` provides the simplified visual topology and its `inlineBearings`; collapsed output links retain their original `bearingKey`. Use `focusNeighborhood` against the complete incidence projection, including collapsed Bearings. These pure view helpers neither invent transitive connections nor flatten joint support. Core owns typed identities and relation semantics; the view owns visual topology, neighborhood guidance and geometry. Host code should surface compiler diagnostics when rendering a partial graph.
 
@@ -120,6 +134,10 @@ Do not retain occurrence IDs across updates.
 
 `projectReading` is a pure projection, with no DOM access or additional parsing.
 It retains every source line, including blank lines, host prose, fences, literal note descendants and malformed lines, alongside the original string.
+One multiline block occupies one occurrence row, with a span from header content through its last continuation.
+Its `raw` contains the complete original physical lines joined with LF; continuation lines are not repeated as separate rows.
+Flattening each row's `raw.split("\n")` recovers the input's physical lines, while the original source retains exact line endings.
+Selection, Edit and note-source navigation use the full occurrence span.
 Occurrences expose their local text, recognition, diagnostics and typed `declares`, `uses` or `constructs` references.
 A rejected summary never becomes a selectable graph identity.
 Every compiler diagnostic remains available even when it belongs to an omitted host region.
@@ -146,7 +164,7 @@ Rendering failure keeps the original plain text.
 The host owns supported inline Markdown, link safety and any extensions such as math; backticks remain code and do not imply math.
 Raw source, malformed annotations, compiler diagnostics, marks and names never enter this renderer.
 Ordinary body prose and note prose may be rendered, including literal note descendants; rendering them cannot create Cogitatum entities.
-The complete `raw` line and original source remain in the projection and raw lines are available on occurrence tooltips.
+The complete `raw` block and original source remain in the projection and raw lines are available on occurrence tooltips.
 The reading surface presents authored Point names and structured Bearing summaries separately from prose.
 A summary names the relationship, its complete source set and its target; multi-source Bearings remain one joint relationship.
 Named references are typed controls, with source line and excerpt fallbacks for anonymous endpoints.
@@ -162,7 +180,8 @@ User selection invokes `onSelect` with `{ unitIndex, occurrenceId, sourceSpan, r
 Up/Down and Home/End move through occurrences in source order; Left/Right choose among the Point and Bearing references at one occurrence.
 Space selects, Enter or double-click navigates to source, and Escape clears.
 Each row is a focusable group with a separate selection control; prose links and native controls retain their own mouse and keyboard behavior.
-Hover/focus guides the same immediate neighborhood as Map; it does not infer a chain or hide the remaining source.
+Selection guides the same immediate neighborhood as Map, and hover/focus preview it only while nothing with a graph reference is selected; it does not infer a chain or hide the remaining source.
+Object notes on the focused Point or Bearing keep their complete literal subtrees in that emphasis, without creating extra graph references.
 An occurrence ID, unit index and typed key address only the current projection.
 `update` clears occurrence selection and calls `onClear`; it never carries a local occurrence across edits by line number or generated key.
 Call `update` on Reading before updating the Map if the host then wants to restore a named Map selection.

@@ -1,0 +1,16 @@
+- [point @p] Original premise.
+- [C @q] Claim.
+  - [G use @p; @r] Occurrence prose.
+    - [node note] Same wording.
+    - [bearing note] Here yesterday.
+      - [point @ignored] Literal source.
+    - Ordinary group
+      - [_ note] Through this group.
+- [edge use @r] Different occurrence prose.
+  - [note] Local only.
+  - [_ note] Here yesterday.
+- [bearing use @r]
+- [bearing @p supports @q; @s] Constructor description.
+  - [edge note] A different route with the same endpoints.
+- [. use @p]
+  - [. note] Same wording.

@@ -14,7 +14,7 @@ import {
 } from "@cogitatum/core";
 import type { Diagnostic, SourceParseMode } from "@cogitatum/core";
 
-type Command = "ast" | "graph" | "explain" | "check" | "explicit-target";
+type Command = "ast" | "graph" | "explain" | "export" | "check" | "explicit-target";
 
 const PACKAGE_VERSION: string = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
 
@@ -56,6 +56,13 @@ async function main(): Promise<void> {
   }
 
   const source = await readFile(args.file, "utf8");
+
+  if (args.command === "export") {
+    const explained = explainSource(source, args.inputMode);
+    printJson(explained);
+    process.exitCode = hasErrors(explained.diagnostics) ? 1 : 0;
+    return;
+  }
 
   if (args.command === "explicit-target") {
     const preview = previewExplicitTarget(source, { line: args.line!, mode: args.inputMode });
@@ -124,7 +131,7 @@ async function main(): Promise<void> {
 }
 
 function isCommand(value: string | undefined): value is Command {
-  return value === "ast" || value === "graph" || value === "explain" || value === "check" || value === "explicit-target";
+  return value === "ast" || value === "graph" || value === "explain" || value === "export" || value === "check" || value === "explicit-target";
 }
 
 function parseArgs(argv: string[]): CliArgs {
@@ -232,6 +239,7 @@ Commands:
   ast              Parse source to an ordered AST as JSON; no reference validation
   graph            Compile source to Point-Bearing Graph IR; JSON by default
   explain          Print an experimental compiler trace as JSON
+  export           Preserve selected source, AST, graph and Explain together as JSON
   explicit-target  Preview one explicit target clause as JSON; never write it
 
 Options:
@@ -246,12 +254,15 @@ Options:
 graph reads Cogitatum source, not saved Graph IR JSON.
 --format selects output notation; it does not format or rewrite source.
 All commands run locally without an LLM and leave input files unchanged.
-check, graph and explain all compile; ast stops at parsing.
+check, graph, explain and export all compile; ast stops at parsing.
 check validates markup; explain traces compilation. Neither evaluates reasoning.
 
 Output:
   Results and source/option diagnostics go to stdout; I/O failures go to stderr.
   Host JSON preserves source units; graph text accepts one document only.
+  Graph-only JSON omits note prose; graph text also omits note source/target records.
+  export preserves note prose, literal subtrees, targets and source locations.
+  Keep the original host file for surrounding Markdown outside selected fences.
   Error-bearing graphs are partial; inspect diagnostics and the exit status.
 
 Exit status:
@@ -267,6 +278,7 @@ Examples:
   cog graph --format text inquiry.cog.md
   cog graph --input host --format json notes.md
   cog explain inquiry.cog.md
+  cog export inquiry.cog.md
   cog explicit-target --line 3 inquiry.cog.md
 `);
 }

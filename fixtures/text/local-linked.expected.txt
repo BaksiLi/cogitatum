@@ -1,5 +1,5 @@
 cogitatum-graph-text 1
-format: "0.5.0"
+format: "0.6.0"
 projection: structure-v1
 status: no-errors
 

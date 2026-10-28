@@ -77,7 +77,11 @@ describe("local joint support", () => {
     expect(routes(graph)).toEqual([{ kind: "supports", handle: "route", sources: ["a", "b"], target: { kind: "point", name: "c" } }]);
     expect(graph.bearings[0]).toMatchObject({ text: "說明這一步。", derivedBy: "structural", sourceSpan: ast.blocks[0].children[0].sourceSpan });
     expect(ast.blocks[0].children[0]).toMatchObject({ annotation: { kind: "linked", handle: "route" }, text: "說明這一步。", children: [{ text: "Same prose." }, { text: "Same prose." }] });
-    expect(explain.entries[1]).toMatchObject({ recognition: { kind: "linked" }, effects: [{ kind: "implicitAttachment", contextSpan: ast.blocks[0].sourceSpan, crossedBodySpans: [] }, { kind: "emitBearing", reason: "linked-containment" }] });
+    expect(explain.entries[1]).toMatchObject({ recognition: { kind: "linked" }, effects: [
+      { kind: "attachNote", note: { origin: "constructor-description", target: { kind: "bearing", key: graph.bearings[0].key }, sourceSpan: ast.blocks[0].children[0].sourceSpan } },
+      { kind: "implicitAttachment", contextSpan: ast.blocks[0].sourceSpan, crossedBodySpans: [] },
+      { kind: "emitBearing", reason: "linked-containment" }
+    ] });
     for (const entry of explain.entries.slice(2)) {
       expect(entry.effects).toContainEqual({ kind: "linkedMember", linkedSpan: ast.blocks[0].children[0].sourceSpan, eligible: true, function: "source" });
       expect(entry.effects).toContainEqual({ kind: "skipBearing", reason: "linked-membership" });
