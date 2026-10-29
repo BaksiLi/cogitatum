@@ -1,11 +1,17 @@
 import type { GraphNode, GraphProjection, PositionedNode } from "./projection.js";
 
 export type Point2 = { x: number; y: number };
-export type LayoutOptions = { direction?: "down" | "right"; wrapWidth?: number };
+/**
+ * A mark's drawn extent at full scale: the width of its wording and how far the wording reaches below
+ * the mark's centre. A renderer that measures its type supplies this so wording never meets its neighbours.
+ */
+export type LabelExtent = { width: number; below: number };
+export type LayoutOptions = { direction?: "down" | "right"; wrapWidth?: number; measure?: (node: GraphNode) => LabelExtent };
 
 const sourceLine = (node: GraphNode) => node.sourceSpan?.startLine ?? Number.MAX_SAFE_INTEGER;
 // Named junctions need a text column too; anonymous junctions only need glyph spacing.
-const footprint = (node: GraphNode) => node.ref.kind === "point" || node.name ? 168 : 64;
+const defaultFootprint = (node: GraphNode): number => node.ref.kind === "point" || node.name ? 168 : 64;
+let footprint = defaultFootprint;
 const GAP = 18;
 /** How far a challenge sits to the right of what it contests: support stacks beneath, contest arrives from the side. */
 const FLANK = 108;
@@ -33,7 +39,9 @@ function settle(row: GraphNode[], wish: Map<string, number>): Map<string, number
  * Placement is a reading aid only: every link is still drawn, and nothing is inferred from position.
  */
 export function layoutGraph(topology: GraphProjection, options: LayoutOptions = {}): PositionedNode[] {
-  const { direction = "down", wrapWidth = 1100 } = options;
+  const { direction = "down", wrapWidth = 1100, measure } = options;
+  const extent = new Map(measure ? topology.nodes.map(node => [node.id, measure(node)]) : []);
+  footprint = measure ? (node: GraphNode) => Math.max(node.ref.kind === "point" ? 96 : 40, extent.get(node.id)!.width) : defaultFootprint;
   const ordered = [...topology.nodes].sort((a, b) => sourceLine(a) - sourceLine(b));
   const rank = new Map(ordered.map((node, i) => [node.id, i]));
   const byRank = (a: GraphNode, b: GraphNode) => rank.get(a.id)! - rank.get(b.id)!;
@@ -115,7 +123,13 @@ export function layoutGraph(topology: GraphProjection, options: LayoutOptions = 
     // just beneath the wording, a point further on. Below a layer of junctions alone the next sits closer.
     const ys: number[] = [];
     const hasPoint = (row: GraphNode[]) => row.some(node => node.ref.kind === "point");
-    const step = (above: GraphNode[], row: GraphNode[]) => !hasPoint(above) ? 92 : hasPoint(row) ? 136 : 116;
+    // With measured wording, the next layer starts below the deepest wording above it, plus room for its own mark.
+    const step = (above: GraphNode[], row: GraphNode[]) => {
+      const base = !hasPoint(above) ? 92 : hasPoint(row) ? 136 : 116;
+      if (!measure) return base;
+      const reach = Math.max(...above.map(node => extent.get(node.id)!.below));
+      return Math.max(base, reach + (hasPoint(row) ? 52 : 34));
+    };
     layers.forEach((row, depth) => { ys[depth] = depth ? ys[depth - 1] + step(layers[depth - 1], row) : 0; });
     const left = Math.min(...nodes.map(node => x.get(node.id)! - footprint(node) / 2));
     const w = Math.max(...nodes.map(node => x.get(node.id)! + footprint(node) / 2)) - left, h = ys[ys.length - 1];

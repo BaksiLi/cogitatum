@@ -34,6 +34,7 @@
 .cog-graph .cog-label { font: 12px ui-monospace, "IBM Plex Mono", Menlo, monospace; fill: var(--cog-muted-resolved); paint-order: stroke; stroke: var(--cog-canvas-resolved); stroke-width: 4px; }
 
 .cog-graph .cog-link { fill: none; stroke-width: 1.3; stroke-linecap: round; opacity: .82; transition: opacity 160ms ease; }
+.cog-graph .cog-guide { stroke: var(--cog-focus-resolved); stroke-width: 1; stroke-dasharray: 2 4; opacity: .55; pointer-events: none; }
 .cog-graph .cog-link.input { stroke-width: 1.1; opacity: .62; }
 .cog-graph .cog-dashed { stroke-dasharray: 4 4; }
 .cog-graph .cog-arrow { fill: currentColor; stroke: none; }
@@ -44,6 +45,8 @@
 .cog-graph[data-dragging] .cog-node { cursor: grabbing; }
 .cog-graph .cog-node:focus { outline: none; }
 .cog-graph .cog-hit { fill: transparent; pointer-events: visibleFill; }
+/* Wording sits on a plate of the canvas, so a link passing behind it never strikes through the words. */
+.cog-graph .cog-label-hit { fill: var(--cog-canvas-resolved); fill-opacity: .9; rx: 4px; }
 .cog-graph .cog-focus-ring { fill: none; stroke: var(--cog-focus-resolved); stroke-width: 1.5; opacity: 0; }
 .cog-graph .cog-node:focus-visible .cog-focus-ring { opacity: 1; stroke-dasharray: 3 2; }
 .cog-graph .cog-node[aria-pressed="true"] .cog-focus-ring { opacity: 1; stroke-dasharray: none; }

@@ -519,7 +519,7 @@ try {
       const lines = await page.locator('#map .cog-text tspan').evaluateAll(nodes => nodes.map(node => ({
         baseline: Number(node.getAttribute('y')), top: node.getBoundingClientRect().top, bottom: node.getBoundingClientRect().bottom,
       })));
-      assert.equal(lines.length, 3);
+      assert.ok(lines.length >= 3 && lines.length <= 4, `reading wording takes up to four lines, got ${lines.length}`);
       for (let i = 1; i < lines.length; i++) {
         assert.ok(Math.abs(lines[i].baseline - lines[i - 1].baseline - Math.round(fontSize * 1.28)) < .01,
           'label baselines use the attached probe’s host font size');

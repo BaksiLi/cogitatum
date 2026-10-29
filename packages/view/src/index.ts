@@ -1,6 +1,6 @@
 import type { BearingTarget, GraphIR } from "@cogitatum/core";
 import { endingPoints, focusNeighborhood, guidanceSubject, projectExploration, projectGraph, referenceKey, type GraphLink, type GraphNode, type GraphProjection } from "./projection.js";
-import { layoutGraph, type Point2 } from "./layout.js";
+import { layoutGraph, type LabelExtent, type Point2 } from "./layout.js";
 import { createDragMotion, type DragReach } from "./motion.js";
 import { labelWidth, wrapMapLabel, type LabelLine } from "./map-label.js";
 import { bearingMark, drawBearingGlyph, drawPointGlyph, MARK_TYPE, pointMark } from "./marks.js";
@@ -39,8 +39,12 @@ const NS = "http://www.w3.org/2000/svg";
 /** An ending's mark is drawn this much larger, so the conclusions anchor the drawing. */
 const ENDING = 1.3;
 const POINT_R = 9, FOCUS_R = 15, RING_GAP = 3.2, JUNCTION_R = 10, LABEL_K = .6, READ_K = .78, DRAG_SLOP = 4, MIN_K = .3, MAX_K = 2.2;
+/** Screen pixels within which a dragged mark snaps into line; how long a touch is held to open the source. */
+const SNAP = 7, LONG_PRESS = 520, DOUBLE_TAP = 320;
+/** Lines of wording at reading scale; the layout reserves this much below each mark. */
+const READING_LINES = 4, LABEL_FLOOR = .82;
 type Camera = { k: number; tx: number; ty: number };
-type Shape = { id: string; node: GraphNode; g: SVGGElement; glyph?: SVGGElement; label?: SVGTextElement; labelHit?: SVGRectElement; inline: boolean };
+type Shape = { id: string; node: GraphNode; g: SVGGElement; glyph?: SVGGElement; label?: SVGTextElement; labelHit?: SVGRectElement; inline: boolean; scale?: number };
 
 /**
  * Framework-neutral mount/update/destroy lifecycle. Positions live in a world space; the camera maps
@@ -72,6 +76,8 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
    */
   let zoomHold = false, zoomRest = 0;
   const bends = new Map<string, number>();
+  /** Alignment guides while a mark is dragged: the world x or y it snapped to. */
+  let guides: { x?: number; y?: number } = {};
   /** Positions to restore after an update; `held` are the marks the reader placed directly. */
   const arrangement = new Map<string, Point2>();
   const held = new Set<string>();
@@ -95,17 +101,36 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
   // Line height follows the host's label type, so a host may set the wording larger than the shared scale.
   let measure: CanvasRenderingContext2D | null | undefined, font = "", codeFont = "", lineHeight: number = MARK_TYPE.lineHeight;
   const wrapCache = new Map<string, LabelLine[]>();
-  function textWidth(s: string, code = false): number {
+  /** Wording is measured in the weight it is painted in: conclusions are set heavier, and wider. */
+  function textWidth(s: string, code = false, weight = 400): number {
     measure ??= doc.createElement("canvas").getContext?.("2d") ?? null;
-    if (measure) { measure.font = code ? codeFont : font; return measure.measureText(s).width; }
-    return s.length * MARK_TYPE.text * (code ? .6 : .55);
+    if (measure) { measure.font = code ? codeFont : `${weight} ${font}`; return measure.measureText(s).width; }
+    return s.length * MARK_TYPE.text * (code ? .6 : .55) * (weight > 400 ? 1.06 : 1);
   }
-  const lineWidth = (line: LabelLine) => labelWidth(line, textWidth);
+  const lineWidth = (line: LabelLine, weight = 400) => labelWidth(line, (text, code) => textWidth(text, code, weight));
   const literalLine = (text: string): LabelLine[] => [[{ text }]];
-  function wrap(text: string, width: number, lines: number): LabelLine[] {
-    const key = `${width}|${lines}|${text}`;
-    if (!wrapCache.has(key)) wrapCache.set(key, wrapMapLabel(text, width, lines, textWidth));
+  function wrap(text: string, width: number, lines: number, weight = 400): LabelLine[] {
+    const key = `${width}|${lines}|${weight}|${text}`;
+    if (!wrapCache.has(key)) wrapCache.set(key, wrapMapLabel(text, width, lines, (run, code) => textWidth(run, code, weight)));
     return wrapCache.get(key)!;
+  }
+  const weightOf = (shape: Shape) => endings.has(shape.id) ? 600 : shape.id === selected ? 500 : 400;
+  /**
+   * Room each Point's wording may take before it meets the wording of a mark beside it, in screen pixels.
+   * Recomputed per paint; a mark with no near neighbour keeps the full measure.
+   */
+  let room = new Map<string, number>();
+  function measureRoom(): void {
+    room = new Map();
+    const marks = [...shapes.values()].filter(shape => !shape.inline && shape.node.ref.kind === "point").map(shape => ({ id: shape.id, p: screen(world.get(shape.id)!) }));
+    // Wording hangs below its mark, so only marks on about the same row can meet it side by side.
+    const band = lineHeight * 2;
+    for (const a of marks) {
+      let nearest = Infinity;
+      for (const b of marks) if (a !== b && Math.abs(a.p.y - b.p.y) < band) nearest = Math.min(nearest, Math.abs(a.p.x - b.p.x));
+      // Screen pixels; each use divides by the scale its wording is drawn at.
+      if (nearest < Infinity) room.set(a.id, nearest - 14);
+    }
   }
 
   // ── build DOM for the current topology ──
@@ -162,8 +187,18 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
 
   // ── geometry ──
   function baseLayout(): Map<string, Point2> {
-    const positioned = layoutGraph(topology, { direction: options.direction, wrapWidth: Math.max(380, (size.w || 900) / .8) });
+    const positioned = layoutGraph(topology, { direction: options.direction, wrapWidth: Math.max(380, (size.w || 900) / .8), measure: extentAtFullScale });
     return new Map(positioned.map(node => [node.id, { x: node.x, y: node.y }]));
+  }
+  /** Wording at its reading measure, so the layout reserves the room the wording will take. */
+  function extentAtFullScale(node: GraphNode): LabelExtent {
+    const shape = shapes.get(node.id);
+    if (!shape || shape.inline) return { width: 40, below: 12 };
+    if (node.ref.kind === "bearing") return { width: node.name ? 2 * (JUNCTION_R + 7 + textWidth(`@${node.name}`)) : 40, below: 14 };
+    const ending = endings.has(node.id), weight = ending ? 600 : 400;
+    const lines = wrap(node.text, ending ? 200 : pointLabelWidth(1), READING_LINES, weight);
+    const width = Math.max(0, ...lines.map(line => lineWidth(line, weight))) + 22;
+    return { width, below: FOCUS_R * (ending ? ENDING : 1) + lineHeight * (lines.length + .4) };
   }
   function applyArrangement(positions: Map<string, Point2>): Map<string, Point2> {
     for (const node of topology.nodes) { const saved = arrangement.get(positionKey(node)); if (saved) positions.set(node.id, { ...saved }); }
@@ -178,6 +213,11 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
   const pointR = (k = camera.k) => POINT_R * pointScale(k);
   /** Links stop at a marked point's ring, not its disc, so arrowheads touch the ring. */
   const ringR = (k = camera.k) => (POINT_R + RING_GAP) * pointScale(k);
+  /**
+   * Below full scale wording shrinks with the drawing, to a floor that stays readable, so its line breaks
+   * and the room the layout reserved for it hold at every reading zoom. Above it wording keeps its size.
+   */
+  const labelScale = (k = camera.k) => Math.max(LABEL_FLOOR, Math.min(1, k));
   const pointLabelWidth = (k: number) => roomy(k) ? Math.min(200, 200 * k - 14) : Math.max(96, Math.min(150, 168 * k - 14));
   function labelLines(shape: Shape, k = camera.k, focused = shape.id === selected || shape.id === hovered): LabelLine[] {
     const node = shape.node;
@@ -185,25 +225,32 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
     if (node.ref.kind === "bearing") return node.name && (k >= LABEL_K || focused) ? literalLine(`@${node.name}`) : [];
     // The overview keeps a conclusion's wording, the subject of the drawing, and every other authored name,
     // so a wide inquiry is still navigable without all of its wording.
-    if (k < LABEL_K && !focused) return endings.has(shape.id) ? wrap(node.text, 240, 1) : node.name ? literalLine(`@${node.name}`) : [];
+    // Overview wording is unscaled and one line; beside a near neighbour it ends early rather than overlapping.
+    if (k < LABEL_K && !focused) return endings.has(shape.id) ? wrap(node.text, Math.max(56, Math.min(240, room.get(shape.id) ?? 240)), 1, weightOf(shape)) : node.name ? literalLine(`@${node.name}`) : [];
     // A conclusion always gets the wide measure, with as many lines as the layers below leave room for.
-    if (endings.has(shape.id)) return wrap(node.text, 200, k >= .75 ? 3 : 2);
-    const width = pointLabelWidth(k);
+    // Beside a near neighbour the measure narrows and the wording takes one more line rather than overlapping.
+    const fitted = (width: number, lines: number) => {
+      const near = room.get(shape.id), limit = near === undefined ? undefined : Math.max(104, near / labelScale(k));
+      return limit !== undefined && limit < width ? wrap(node.text, limit, lines + 1, weightOf(shape)) : wrap(node.text, width, lines, weightOf(shape));
+    };
+    if (endings.has(shape.id)) return fitted(200, k >= .75 ? READING_LINES : 2);
+    // Scaled wording keeps the full-scale measure; below the floor the measure narrows with the drawing.
+    const width = k >= 1 ? pointLabelWidth(k) : Math.max(96, pointLabelWidth(1) * Math.min(1, k / LABEL_FLOOR));
     // Three lines once the layers have room for them beneath a point; two in a denser drawing.
-    return wrap(node.text, focused ? Math.max(width, roomy(k) ? 200 : 150) : width, k >= .75 ? 3 : 2);
+    return fitted(focused ? Math.max(width, roomy(k) ? 200 : 150) : width, k >= .75 ? READING_LINES : 2);
   }
   /** Screen-pixel reach of a mark and its unfocused wording on either side of the mark's centre. */
   function reach(shape: Shape, k: number): { left: number; right: number } {
     const lines = labelLines(shape, k, false);
     if (!lines.length) return { left: 13, right: 13 };
     if (shape.node.ref.kind === "bearing") return { left: 13, right: JUNCTION_R + 7 + lineWidth(lines[0]) };
-    const half = Math.max(14, ...lines.map(line => lineWidth(line) / 2 + 4));
+    const half = Math.max(14, ...lines.map(line => lineWidth(line, weightOf(shape)) / 2 + 4) ) * labelScale(k);
     return { left: half, right: half };
   }
   /** The drawn baseline remains authoritative while a zoom holds the wording in place. */
   const wordingBottom = (shape?: Shape) => {
     const last = shape?.label?.lastElementChild;
-    return last ? Number(last.getAttribute("y")) + 5 : undefined;
+    return last ? (Number(last.getAttribute("y")) + 9) * (shape!.scale ?? 1) : undefined;
   };
   /**
    * Route links around a Point's wording whenever the other endpoint lies below it.
@@ -231,6 +278,7 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
     const rank = new Map(order.filter(id => !shapes.get(id)?.inline).map((id, index) => [id, index]));
     const pointIn = (id: string) => entranceAt((rank.get(id) ?? 0) * POINT_DELAY, POINT_IN);
     const lineIn = (source: string, target: string) => entranceAt(Math.max(rank.get(source) ?? 0, rank.get(target) ?? 0) * POINT_DELAY + POINT_IN * .6, LINE_IN);
+    const firstShape = [...shapes.values()].find(shape => !shape.inline);
     for (const shape of shapes.values()) {
       if (shape.inline) continue;
       const p = screen(world.get(shape.id)!);
@@ -240,14 +288,19 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
       shape.g.setAttribute("transform", `translate(${p.x.toFixed(1)} ${p.y.toFixed(1)})`);
       shape.glyph?.setAttribute("transform", `scale(${(pointScale() * (endings.has(shape.id) ? ENDING : 1)).toFixed(3)})`);
       if (!zoomHold) {
+        if (shape === firstShape) measureRoom();
         const lines = labelLines(shape), label = shape.label!, isPoint = shape.node.ref.kind === "point";
         label.replaceChildren();
         const overview = isPoint && camera.k < LABEL_K && shape.id !== selected && shape.id !== hovered;
         label.classList.toggle("cog-overview", overview && !endings.has(shape.id));
         label.classList.toggle("cog-overview-ending", overview && endings.has(shape.id));
-        const top = FOCUS_R * pointScale() * (endings.has(shape.id) ? ENDING : 1) + (overview ? 14 : lineHeight);
+        // The gap to the mark is kept at screen size; only the wording itself scales.
+        const s = shape.scale = overview ? 1 : labelScale(), scaled = s < 1 ? `scale(${s.toFixed(3)})` : "";
+        if (scaled) label.setAttribute("transform", scaled); else label.removeAttribute("transform");
+        if (scaled) shape.labelHit?.setAttribute("transform", scaled); else shape.labelHit?.removeAttribute("transform");
+        const top = (FOCUS_R * pointScale() * (endings.has(shape.id) ? ENDING : 1) + (overview ? 14 : lineHeight * s)) / s;
         lines.forEach((runs, i) => {
-          const line = element("tspan", isPoint ? { x: "0", y: String(top + i * lineHeight) } : { x: String(JUNCTION_R + 5), y: "4" }, label);
+          const line = element("tspan", isPoint ? { x: "0", y: String(top + i * lineHeight) } : { x: String((JUNCTION_R + 5) / s), y: String(4 / s) }, label);
           for (const run of runs) {
             if (run.code) element("tspan", { class: "cog-code" }, line).textContent = run.text;
             else line.append(doc.createTextNode(run.text));
@@ -257,6 +310,10 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
       shape.g.dataset.related = String(!guided || related.has(shape.id));
     }
     edgeLayer.replaceChildren();
+    if (svg.dataset.dragging === "node") {
+      if (guides.x !== undefined) { const x = screen({ x: guides.x, y: 0 }).x; element("line", { class: "cog-guide", x1: String(x), x2: String(x), y1: "0", y2: String(size.h), "aria-hidden": "true" }, edgeLayer); }
+      if (guides.y !== undefined) { const y = screen({ x: 0, y: guides.y }).y; element("line", { class: "cog-guide", x1: "0", x2: String(size.w), y1: String(y), y2: String(y), "aria-hidden": "true" }, edgeLayer); }
+    }
     const pairs = new Map<string, number>();
     // Marks and their wording are obstacles; a link prefers the candidate curve that crosses fewest.
     const obstacles = [...shapes.values()].filter(shape => !shape.inline).map(shape => {
@@ -265,7 +322,7 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
         const right = lines ? JUNCTION_R + 7 + textWidth(shape.label!.textContent ?? "") : 13;
         return { id: shape.id, x0: p.x - 13, x1: p.x + right, y0: p.y - 13, y1: p.y + 13 };
       }
-      const half = lines ? Math.max(14, ...[...shape.label!.children].map(line => (line as SVGTSpanElement).getComputedTextLength() / 2 + 4)) : 13;
+      const half = lines ? Math.max(14, ...[...shape.label!.children].map(line => (line as SVGTSpanElement).getComputedTextLength() / 2 + 4)) * (shape.scale ?? 1) : 13;
       return { id: shape.id, x0: p.x - half, x1: p.x + half, y0: p.y - pointR() - 4, y1: p.y + (wordingBottom(shape) ?? pointR() + 5) };
     });
     const at = (a: Point2, c1: Point2, c2: Point2, t: Point2, s: number) => {
@@ -539,6 +596,24 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
     motion.reheat(win.performance.now());
   }
 
+  /** The nearest other mark's column and row within a few screen pixels; connected marks win ties. */
+  function snapTo(id: string, p: Point2): { x?: number; y?: number } {
+    const reach = SNAP / camera.k;
+    const linked = new Set(topology.links.flatMap(link => link.source === id ? [link.target] : link.target === id ? [link.source] : []));
+    let best: { x?: number; y?: number } = {}, dx = reach, dy = reach;
+    for (const shape of shapes.values()) {
+      if (shape.inline || shape.id === id) continue;
+      const q = world.get(shape.id)!, bonus = linked.has(shape.id) ? .5 : 0;
+      const ex = Math.abs(q.x - p.x) - bonus, ey = Math.abs(q.y - p.y) - bonus;
+      if (ex < dx) { dx = ex; best = { ...best, x: q.x }; }
+      if (ey < dy) { dy = ey; best = { ...best, y: q.y }; }
+    }
+    return best;
+  }
+  // ── touch: a long press opens the source, a double tap zooms in (or back out to the whole map) ──
+  let pressTimer = 0, lastTap: { at: Point2; time: number; target?: string } | undefined;
+  const cancelPress = () => { win?.clearTimeout(pressTimer); pressTimer = 0; };
+
   // ── pointer: drag a mark, pan the background, pinch to zoom; a click is a press that did not move ──
   const pointers = new Map<number, Point2>();
   let gesture: { start: Point2; moved: boolean; target?: string; node?: string; origin?: Point2; camera: Camera; pinch?: { d: number; k: number; at: Point2 } } | undefined;
@@ -547,6 +622,7 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
   /** Retire every captured contact before replacement nodes or a different camera action can receive it. */
   function resetGesture(): void {
     suppressClick ||= !!gesture?.moved;
+    cancelPress(); guides = {};
     gesture = undefined; delete svg.dataset.dragging;
     const captured = [...pointers.keys()]; pointers.clear();
     for (const id of captured) if (svg.hasPointerCapture?.(id)) svg.releasePointerCapture(id);
@@ -565,7 +641,7 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
       gesture = { start: gesture.start, moved: true, camera: { ...camera },
         pinch: { d: Math.hypot(p.x - q.x, p.y - q.y) || 1, k: camera.k,
           at: { x: (mid.x - camera.tx) / camera.k, y: (mid.y - camera.ty) / camera.k } } };
-      hovered = undefined; svg.dataset.dragging = "camera"; holdWording(true);
+      hovered = undefined; svg.dataset.dragging = "camera"; holdWording(true); cancelPress();
       return;
     }
     finishZoom();
@@ -573,6 +649,18 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
     const draggable = target && shapes.has(target) && !shapes.get(target)!.inline ? target : undefined;
     gesture = { start: at, moved: false, target, node: draggable, origin: draggable ? { ...world.get(draggable)! } : undefined, camera: { ...camera } };
     suppressClick = false;
+    const pressed = target && shapes.has(target) ? target : undefined;
+    if (event.pointerType === "touch" && pressed && options.onNavigate && win) {
+      cancelPress();
+      pressTimer = win.setTimeout(() => {
+        pressTimer = 0;
+        if (!gesture || gesture.moved || gesture.pinch || pointers.size !== 1) return;
+        // The press is consumed: lifting the finger must not select again or start a drag.
+        gesture.moved = true;
+        (win.navigator as Navigator & { vibrate?: (ms: number) => boolean }).vibrate?.(8);
+        select(pressed); options.onNavigate?.(nodeById(pressed)!);
+      }, LONG_PRESS);
+    }
   }, on);
   svg.addEventListener("pointermove", event => {
     if (!gesture) {
@@ -591,9 +679,13 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
     }
     const at = local(event), dx = at.x - gesture.start.x, dy = at.y - gesture.start.y;
     if (!gesture.moved && Math.hypot(dx, dy) < DRAG_SLOP) return;
-    if (!gesture.moved) { gesture.moved = true; svg.dataset.dragging = gesture.node ? "node" : "camera"; }
+    if (!gesture.moved) { gesture.moved = true; cancelPress(); svg.dataset.dragging = gesture.node ? "node" : "camera"; }
     if (gesture.node) {
       const node = shapes.get(gesture.node)!.node, p = { x: gesture.origin!.x + dx / camera.k, y: gesture.origin!.y + dy / camera.k };
+      // Marks snap into line with another mark's column or row; Alt places freely.
+      guides = event.altKey ? {} : snapTo(gesture.node, p);
+      if (guides.x !== undefined) p.x = guides.x;
+      if (guides.y !== undefined) p.y = guides.y;
       moveNode(node, p, true, event.shiftKey ? "step" : "junctions");
       schedule();
     } else { camera = { ...gesture.camera, tx: gesture.camera.tx + dx, ty: gesture.camera.ty + dy }; cameraTouched = true; schedule(); }
@@ -604,6 +696,7 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
       stopMotion(); resetGesture(); finishZoom(); schedule(); return;
     }
     const { moved, target, pinch } = gesture;
+    cancelPress(); guides = {};
     pointers.delete(event.pointerId);
     if (pinch) { finishZoom(); schedule(); }
     const remaining = pointers.entries().next().value;
@@ -613,9 +706,21 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
     // Clear ownership before releasing capture: lostpointercapture must not cancel the surviving finger.
     if (svg.hasPointerCapture?.(event.pointerId)) svg.releasePointerCapture(event.pointerId);
     if (remaining) return;
-    if (moved) { suppressClick = true; return; }
+    if (moved) { suppressClick = true; schedule(); return; }
     // With pointer capture the event target is the svg; the press target decides what a click selects.
     const pressed = target && shapes.has(target) ? target : undefined;
+    if (event.pointerType === "touch" && win) {
+      const at = local(event), now = win.performance.now(), previous = lastTap;
+      lastTap = { at, time: now, target: pressed };
+      if (previous && now - previous.time < DOUBLE_TAP && Math.hypot(at.x - previous.at.x, at.y - previous.at.y) < 28 && previous.target === pressed) {
+        lastTap = undefined;
+        const node = nodeById(pressed);
+        if (node) { select(node.id); options.onNavigate?.(node); return; }
+        // On the canvas: closer in, or back to the whole map once already close.
+        if (camera.k >= MAX_K * .8) fit(); else zoomAt(1.8, at.x, at.y);
+        return;
+      }
+    }
     if (!pressed) hovered = undefined;
     select(pressed);
   };
