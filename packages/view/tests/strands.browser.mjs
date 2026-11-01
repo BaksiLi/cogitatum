@@ -144,7 +144,6 @@ try {
     assert.equal(await alternative.getAttribute('data-lit'), 'false', 'sharing a Ground does not put the alternative route under the same objection');
     const alternativeKey = await page.locator('.cog-strands-via-step').filter({ hasText: '@route' }).first().getAttribute('data-bearing');
     assert.ok(await page.locator(`.cog-strands-segment > [data-bearing="${alternativeKey}"][data-lit="false"]`).count() > 0, 'the alternative Bearing dims even when its source and target are lit');
-    await page.screenshot({ path: `/private/tmp/cogitatum-strands-review-${width}.png`, fullPage: true });
     await page.getByRole('button', { name: 'Show all', exact: true }).click(); await flush();
     assert.equal(await page.locator('.cog-strands').getAttribute('data-contest'), 'false', 'a pointer or touch user can leave focus without a keyboard');
     assert.equal(await page.getByRole('button', { name: 'Show all', exact: true }).count(), 0, 'the exit control appears only when needed');
