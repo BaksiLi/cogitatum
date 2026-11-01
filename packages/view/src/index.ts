@@ -61,6 +61,8 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
   const svg = element("svg", { class: "cog-graph", role: "group",
     "aria-label": `Inquiry graph. Select a mark to follow its connections. Arrow keys move; ${options.onNavigate ? "Enter opens source" : "Enter selects"}; Escape clears.` });
   const edgeLayer = element("g", { class: "cog-edges" }, svg), glyphLayer = element("g", { class: "cog-bearings" }, svg), nodeLayer = element("g", { class: "cog-nodes" }, svg);
+  // Above the marks: the sides of junctions that a challenge has inked.
+  const rimLayer = element("g", { class: "cog-rims" }, svg);
   container.append(svg);
 
   let full: GraphProjection = { nodes: [], links: [] }, topology: GraphProjection = { nodes: [], links: [] };
@@ -309,7 +311,7 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
       }
       shape.g.dataset.related = String(!guided || related.has(shape.id));
     }
-    edgeLayer.replaceChildren();
+    edgeLayer.replaceChildren(); rimLayer.replaceChildren();
     if (svg.dataset.dragging === "node") {
       if (guides.x !== undefined) { const x = screen({ x: guides.x, y: 0 }).x; element("line", { class: "cog-guide", x1: String(x), x2: String(x), y1: "0", y2: String(size.h), "aria-hidden": "true" }, edgeLayer); }
       if (guides.y !== undefined) { const y = screen({ x: 0, y: guides.y }).y; element("line", { class: "cog-guide", x1: "0", x2: String(size.w), y1: String(y), y2: String(y), "aria-hidden": "true" }, edgeLayer); }
@@ -359,7 +361,13 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
       const A0 = screen(world.get(link.source)!), T0 = screen(world.get(link.target)!);
       const pair = [link.source, link.target].sort().join("|"), nth = pairs.get(pair) ?? 0; pairs.set(pair, nth + 1);
       const tail = ports.get(`${index}:0`) ?? 0, head = ports.get(`${index}:1`) ?? 0;
-      const a = anchor(link.source, T0, tail), t = anchor(link.target, A0, head);
+      // A challenge to a step lands on the side of its junction that faces it: no bar stands off the diamond;
+      // that side of the diamond is inked instead, so the step itself reads as the thing challenged.
+      const target = nodeById(link.target), contest = link.segment === "output" && bearing.label === "challenges";
+      const onStep = contest && target?.ref.kind === "bearing" && !inline.has(link.target);
+      const side = { x: Math.sign(A0.x - T0.x) || 1, y: Math.sign(A0.y - T0.y) || 1 };
+      const a = anchor(link.source, T0, tail);
+      const t = onStep ? { x: T0.x + side.x * (JUNCTION_R / 2 + .6), y: T0.y + side.y * (JUNCTION_R / 2 + .6) } : anchor(link.target, A0, head);
       const dx = t.x - a.x, dy = t.y - a.y, len = Math.hypot(dx, dy) || 1;
       const curveFor = (bend: number): [Point2, Point2] => {
         // Layered links leave and enter vertically, as an S; parallel links and detours bow sideways.
@@ -367,7 +375,9 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
           const h = Math.sign(dy) * Math.max(Math.abs(dy) * .5, Math.min(60, Math.abs(dx) * .3));
           // Fanned ends splay along their port so neighbouring tails part at once instead of running parallel.
           // The head end arrives straight, so every arrowhead sits square to its mark.
-          return [{ x: a.x + tail * 4, y: a.y + h }, { x: t.x, y: t.y - h }];
+          // A challenge to a step arrives square to the junction side it rims.
+          const square = Math.min(48, Math.abs(dy) * .45, len * .4);
+          return [{ x: a.x + tail * 4, y: a.y + h }, onStep ? { x: t.x + side.x * square, y: t.y + side.y * square } : { x: t.x, y: t.y - h }];
         }
         const c = { x: (a.x + t.x) / 2 - dy / len * bend * len, y: (a.y + t.y) / 2 + dx / len * bend * len };
         return [c, c];
@@ -400,12 +410,18 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
       if (link.segment === "output") {
         const hx = t.x - c2.x, hy = t.y - c2.y, hl = Math.hypot(hx, hy) || 1, ux = hx / hl, uy = hy / hl;
         // Support arrives as a slim engraved barb, notched where the line enters it.
-        // A challenge ends in a bar across its line, the notation for a check rather than a push.
-        const contest = bearing.label === "challenges";
-        const head = element("path", { class: `cog-arrow${contest ? " cog-arrow-bar" : ""} cog-tone-${mark.tone}`, "data-active": String(on), "aria-hidden": "true",
-          d: contest
+        // A challenge ends in a bar across its line, the notation for a check rather than a push; on a step,
+        // the junction's facing side is that bar.
+        const head = element("path", { class: `cog-arrow${contest ? " cog-arrow-bar" : ""}${onStep ? " cog-arrow-step" : ""} cog-tone-${mark.tone}`, "data-active": String(on), "aria-hidden": "true",
+          d: onStep
+            ? (() => {
+              // On the diamond's facing side itself, short of its corners: the side is inked, nothing stands off it.
+              const r = JUNCTION_R * .88;
+              return `M${(T0.x + side.x * r).toFixed(1)} ${(T0.y + side.y * (JUNCTION_R - r)).toFixed(1)}L${(T0.x + side.x * (JUNCTION_R - r)).toFixed(1)} ${(T0.y + side.y * r).toFixed(1)}`;
+            })()
+            : contest
             ? `M${t.x - ux * 1.5 - uy * 5.5} ${t.y - uy * 1.5 + ux * 5.5}L${t.x - ux * 1.5 + uy * 5.5} ${t.y - uy * 1.5 - ux * 5.5}`
-            : `M${t.x} ${t.y}L${t.x - ux * 9 - uy * 3.2} ${t.y - uy * 9 + ux * 3.2}L${t.x - ux * 6.4} ${t.y - uy * 6.4}L${t.x - ux * 9 + uy * 3.2} ${t.y - uy * 9 - ux * 3.2}Z` }, edgeLayer);
+            : `M${t.x} ${t.y}L${t.x - ux * 9 - uy * 3.2} ${t.y - uy * 9 + ux * 3.2}L${t.x - ux * 6.4} ${t.y - uy * 6.4}L${t.x - ux * 9 + uy * 3.2} ${t.y - uy * 9 - ux * 3.2}Z` }, onStep ? rimLayer : edgeLayer);
         if (entrance) head.style.opacity = String(Math.max(0, traced * 4 - 3));
       }
       if (isInline) {

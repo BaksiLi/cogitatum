@@ -14,6 +14,7 @@ Use the complete released schema set and [migrate retained source](docs/syntax.m
   Reading wording takes up to four lines.
 - Snap a dragged Map mark into line with another mark's column or row, with a guide; Alt places it freely.
   On touch, a long press on a mark opens its source and a double tap on the canvas zooms in, or fits the whole Map once close.
+- Draw a challenge to a step on the Map as the junction's facing side inked in the challenge's colour, with its line arriving square to that side, instead of a bar standing off the diamond.
 
 - Keep Point-only guidance for `answers` and `respondsTo` when a requested `^/` slot is missing; suggest a Point target rather than another Bearing.
   Reading distinguishes a mark-supplied relation, a written clause and a constructor default independently of positional target selection.

@@ -331,3 +331,6 @@
 .cog-note-count { fill: currentColor; font-size: 10px; font-weight: 600; }
 .cog-block-note { margin-block-start: .7em; }
 .cog-block-note-text { margin-block-start: .3em; }
+/* A challenge to a step inks the junction's facing side instead of ending in a bar beside it. */
+.cog-graph .cog-rims { pointer-events: none; }
+.cog-graph .cog-arrow-step { stroke-width: 2.2; }
