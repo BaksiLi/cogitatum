@@ -97,6 +97,16 @@ describe("reading layout", () => {
     expect(topology).toEqual(before);
   });
 
+  it("reserves measured wording horizontally and below each layer without sharing measurement state", () => {
+    const { topology } = explore("- [C] Claim.\n  - [G] First reason.\n  - [G] Second reason.");
+    const ordinary = layoutGraph(topology);
+    const measured = layoutGraph(topology, { measure: () => ({ width: 280, below: 180 }) });
+    const [claim, first, second] = measured;
+    expect(Math.abs(first.x - second.x)).toBeGreaterThanOrEqual(298);
+    expect(first.y - claim.y).toBeGreaterThanOrEqual(232);
+    expect(layoutGraph(topology)).toEqual(ordinary);
+  });
+
   it("layers shared uses, joint and local routes so every link reads upward and junctions sit between their ends", () => {
     const { topology } = explore([
       "- [C @cause] The pool is exhausted.",

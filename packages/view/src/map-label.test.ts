@@ -50,4 +50,11 @@ describe("Map inline code", () => {
     expect(wording(wrapMapLabel("`aa`   ", 4, 1, measure))).toEqual(["aa"]);
     expect(wording(wrapMapLabel("`\u{1f600}\u{1f600}` after", 4, 1, measure))).toEqual(["\u{1f600}\u2026"]);
   });
+
+  it("breaks oversized identifiers by measured width while preserving code and Unicode", () => {
+    const lines = wrapMapLabel("`abcdefghij😀😀klmnop`", 10, 3, measure);
+    expect(wording(lines)).toEqual(["abcde", "fghij", "😀😀kl…"]);
+    expect(lines.every(line => labelWidth(line, measure) <= 10)).toBe(true);
+    expect(lines.every(line => line[0].code)).toBe(true);
+  });
 });

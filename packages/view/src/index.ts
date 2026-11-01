@@ -112,6 +112,8 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
   const lineWidth = (line: LabelLine, weight = 400) => labelWidth(line, (text, code) => textWidth(text, code, weight));
   const literalLine = (text: string): LabelLine[] => [[{ text }]];
   function wrap(text: string, width: number, lines: number, weight = 400): LabelLine[] {
+    // A drag changes available room continuously; cache pixel measures rather than every fractional position.
+    width = Math.floor(width);
     const key = `${width}|${lines}|${weight}|${text}`;
     if (!wrapCache.has(key)) wrapCache.set(key, wrapMapLabel(text, width, lines, (run, code) => textWidth(run, code, weight)));
     return wrapCache.get(key)!;
@@ -280,7 +282,7 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
     const rank = new Map(order.filter(id => !shapes.get(id)?.inline).map((id, index) => [id, index]));
     const pointIn = (id: string) => entranceAt((rank.get(id) ?? 0) * POINT_DELAY, POINT_IN);
     const lineIn = (source: string, target: string) => entranceAt(Math.max(rank.get(source) ?? 0, rank.get(target) ?? 0) * POINT_DELAY + POINT_IN * .6, LINE_IN);
-    const firstShape = [...shapes.values()].find(shape => !shape.inline);
+    if (!zoomHold) measureRoom();
     for (const shape of shapes.values()) {
       if (shape.inline) continue;
       const p = screen(world.get(shape.id)!);
@@ -290,7 +292,6 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
       shape.g.setAttribute("transform", `translate(${p.x.toFixed(1)} ${p.y.toFixed(1)})`);
       shape.glyph?.setAttribute("transform", `scale(${(pointScale() * (endings.has(shape.id) ? ENDING : 1)).toFixed(3)})`);
       if (!zoomHold) {
-        if (shape === firstShape) measureRoom();
         const lines = labelLines(shape), label = shape.label!, isPoint = shape.node.ref.kind === "point";
         label.replaceChildren();
         const overview = isPoint && camera.k < LABEL_K && shape.id !== selected && shape.id !== hovered;
@@ -633,12 +634,12 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
   // ── pointer: drag a mark, pan the background, pinch to zoom; a click is a press that did not move ──
   const pointers = new Map<number, Point2>();
   let gesture: { start: Point2; moved: boolean; target?: string; node?: string; origin?: Point2; camera: Camera; pinch?: { d: number; k: number; at: Point2 } } | undefined;
-  let suppressClick = false;
+  let suppressClick = false, touchPointer = false;
   const local = (event: PointerEvent | WheelEvent | MouseEvent) => { const r = svg.getBoundingClientRect(); return { x: event.clientX - r.left, y: event.clientY - r.top }; };
   /** Retire every captured contact before replacement nodes or a different camera action can receive it. */
   function resetGesture(): void {
     suppressClick ||= !!gesture?.moved;
-    cancelPress(); guides = {};
+    cancelPress(); lastTap = undefined; guides = {};
     gesture = undefined; delete svg.dataset.dragging;
     const captured = [...pointers.keys()]; pointers.clear();
     for (const id of captured) if (svg.hasPointerCapture?.(id)) svg.releasePointerCapture(id);
@@ -647,6 +648,8 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
     if (event.button !== 0 || pointers.size >= 2 || pointers.has(event.pointerId)) return;
     if (entrance) { finishEntrance(); schedule(); }
     stopMotion(); // A new gesture supersedes the previous settling or Arrange transition.
+    if (touchPointer !== (event.pointerType === "touch")) lastTap = undefined;
+    touchPointer = event.pointerType === "touch";
     const at = local(event);
     pointers.set(event.pointerId, at);
     svg.setPointerCapture?.(event.pointerId);
@@ -657,7 +660,7 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
       gesture = { start: gesture.start, moved: true, camera: { ...camera },
         pinch: { d: Math.hypot(p.x - q.x, p.y - q.y) || 1, k: camera.k,
           at: { x: (mid.x - camera.tx) / camera.k, y: (mid.y - camera.ty) / camera.k } } };
-      hovered = undefined; svg.dataset.dragging = "camera"; holdWording(true); cancelPress();
+      hovered = undefined; lastTap = undefined; svg.dataset.dragging = "camera"; holdWording(true); cancelPress();
       return;
     }
     finishZoom();
@@ -673,8 +676,10 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
         if (!gesture || gesture.moved || gesture.pinch || pointers.size !== 1) return;
         // The press is consumed: lifting the finger must not select again or start a drag.
         gesture.moved = true;
+        const node = nodeById(pressed)!;
+        resetGesture();
         (win.navigator as Navigator & { vibrate?: (ms: number) => boolean }).vibrate?.(8);
-        select(pressed); options.onNavigate?.(nodeById(pressed)!);
+        select(pressed); options.onNavigate?.(node);
       }, LONG_PRESS);
     }
   }, on);
@@ -695,7 +700,7 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
     }
     const at = local(event), dx = at.x - gesture.start.x, dy = at.y - gesture.start.y;
     if (!gesture.moved && Math.hypot(dx, dy) < DRAG_SLOP) return;
-    if (!gesture.moved) { gesture.moved = true; cancelPress(); svg.dataset.dragging = gesture.node ? "node" : "camera"; }
+    if (!gesture.moved) { gesture.moved = true; lastTap = undefined; cancelPress(); svg.dataset.dragging = gesture.node ? "node" : "camera"; }
     if (gesture.node) {
       const node = shapes.get(gesture.node)!.node, p = { x: gesture.origin!.x + dx / camera.k, y: gesture.origin!.y + dy / camera.k };
       // Marks snap into line with another mark's column or row; Alt places freely.
@@ -725,10 +730,10 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
     if (moved) { suppressClick = true; schedule(); return; }
     // With pointer capture the event target is the svg; the press target decides what a click selects.
     const pressed = target && shapes.has(target) ? target : undefined;
-    if (event.pointerType === "touch" && win) {
+    if (win) {
       const at = local(event), now = win.performance.now(), previous = lastTap;
       lastTap = { at, time: now, target: pressed };
-      if (previous && now - previous.time < DOUBLE_TAP && Math.hypot(at.x - previous.at.x, at.y - previous.at.y) < 28 && previous.target === pressed) {
+      if (touchPointer && previous && now - previous.time < DOUBLE_TAP && Math.hypot(at.x - previous.at.x, at.y - previous.at.y) < 28 && previous.target === pressed) {
         lastTap = undefined;
         const node = nodeById(pressed);
         if (node) { select(node.id); options.onNavigate?.(node); return; }
@@ -754,7 +759,10 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
     }
   }, { capture: true, signal: abort.signal });
   svg.addEventListener("dblclick", event => {
-    const target = (event.target as Element).closest<SVGElement>("[data-node]")?.dataset.node, node = nodeById(target);
+    // Touch taps are handled on pointerup; browsers may also synthesize a dblclick for them.
+    if (touchPointer) return;
+    // Captured mouse clicks target the svg, so retain the same press target used by pointerup.
+    const target = (event.target as Element).closest<SVGElement>("[data-node]")?.dataset.node ?? lastTap?.target, node = nodeById(target);
     if (node) { select(node.id); options.onNavigate?.(node); }
   }, on);
   svg.addEventListener("wheel", event => {

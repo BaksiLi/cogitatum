@@ -11,24 +11,10 @@ export type LayoutOptions = { direction?: "down" | "right"; wrapWidth?: number; 
 const sourceLine = (node: GraphNode) => node.sourceSpan?.startLine ?? Number.MAX_SAFE_INTEGER;
 // Named junctions need a text column too; anonymous junctions only need glyph spacing.
 const defaultFootprint = (node: GraphNode): number => node.ref.kind === "point" || node.name ? 168 : 64;
-let footprint = defaultFootprint;
 const GAP = 18;
 /** How far a challenge sits to the right of what it contests: support stacks beneath, contest arrives from the side. */
 const FLANK = 108;
 const contests = (kind?: string) => kind === "challenges";
-
-/**
- * Place each node in a row, keeping its order and the minimum spacing.
- * The node is pulled toward its wish. Averaging the left-packed and right-packed solutions keeps
- * every gap, because both satisfy it, and it does not drift to either side.
- */
-function settle(row: GraphNode[], wish: Map<string, number>): Map<string, number> {
-  const gap = (a: GraphNode, b: GraphNode) => (footprint(a) + footprint(b)) / 2 + GAP;
-  const left: number[] = [], right: number[] = [];
-  row.forEach((node, i) => { left[i] = i ? Math.max(wish.get(node.id)!, left[i - 1] + gap(row[i - 1], node)) : wish.get(node.id)!; });
-  for (let i = row.length - 1; i >= 0; i--) right[i] = i < row.length - 1 ? Math.min(wish.get(row[i].id)!, right[i + 1] - gap(row[i], row[i + 1])) : wish.get(row[i].id)!;
-  return new Map(row.map((node, i) => [node.id, (left[i] + right[i]) / 2]));
-}
 
 /**
  * The reading layout for any topology, usually the result of `projectExploration`.
@@ -41,7 +27,18 @@ function settle(row: GraphNode[], wish: Map<string, number>): Map<string, number
 export function layoutGraph(topology: GraphProjection, options: LayoutOptions = {}): PositionedNode[] {
   const { direction = "down", wrapWidth = 1100, measure } = options;
   const extent = new Map(measure ? topology.nodes.map(node => [node.id, measure(node)]) : []);
-  footprint = measure ? (node: GraphNode) => Math.max(node.ref.kind === "point" ? 96 : 40, extent.get(node.id)!.width) : defaultFootprint;
+  const footprint = measure ? (node: GraphNode) => Math.max(node.ref.kind === "point" ? 96 : 40, extent.get(node.id)!.width) : defaultFootprint;
+  /**
+   * Place each node in a row, keeping its order and the minimum spacing.
+   * Averaging the left-packed and right-packed solutions keeps every gap without drifting to either side.
+   */
+  function settle(row: GraphNode[], wish: Map<string, number>): Map<string, number> {
+    const gap = (a: GraphNode, b: GraphNode) => (footprint(a) + footprint(b)) / 2 + GAP;
+    const left: number[] = [], right: number[] = [];
+    row.forEach((node, i) => { left[i] = i ? Math.max(wish.get(node.id)!, left[i - 1] + gap(row[i - 1], node)) : wish.get(node.id)!; });
+    for (let i = row.length - 1; i >= 0; i--) right[i] = i < row.length - 1 ? Math.min(wish.get(row[i].id)!, right[i + 1] - gap(row[i], row[i + 1])) : wish.get(row[i].id)!;
+    return new Map(row.map((node, i) => [node.id, (left[i] + right[i]) / 2]));
+  }
   const ordered = [...topology.nodes].sort((a, b) => sourceLine(a) - sourceLine(b));
   const rank = new Map(ordered.map((node, i) => [node.id, i]));
   const byRank = (a: GraphNode, b: GraphNode) => rank.get(a.id)! - rank.get(b.id)!;

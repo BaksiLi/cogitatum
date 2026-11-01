@@ -46,7 +46,9 @@ try {
     await page.addStyleTag({ path: fileURLToPath(new URL('../src/style.css', import.meta.url)) });
     await page.addScriptTag({ content: bundle.outputFiles[0].text });
     const flush = () => page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
-    const centre = async locator => { const box = await locator.boundingBox(); return { x: box.x + box.width / 2, y: box.y + box.height / 2 }; };
+    const centre = locator => locator.evaluate(node => {
+      const matrix = node.getScreenCTM(); return { x: matrix.e, y: matrix.f };
+    });
     const mark = name => page.locator(`#map g.cog-node.point`).filter({ has: page.locator(`title`, { hasText: `@${name}` }) }).first();
 
     // Wording never overlaps other wording, at any measure the pane gives it.
@@ -65,6 +67,15 @@ try {
     // The overview keeps conclusions' wording on one line; beside each other they end early instead.
     await page.evaluate(() => window.view.zoom(.35)); await flush();
     await assertNoOverlap('overview');
+
+    for (const text of ['A long sentence about repeated acquisition failures. '.repeat(20), '連線耗盡應該仔細分析原因'.repeat(30), '`' + 'wide_identifier_'.repeat(35) + '`']) {
+      await page.evaluate(source => window.mount(source), `- [C] ${text}\n  - [G] ${text}\n  - [G] ${text}`); await flush();
+      await assertNoOverlap('extreme labels');
+      const tooWide = await page.locator('#map .cog-text').evaluateAll(nodes => nodes.some(node => node.getBoundingClientRect().width > node.ownerSVGElement.getBoundingClientRect().width));
+      assert.equal(tooWide, false, 'extreme wording stays narrower than its viewport');
+      await page.evaluate(() => window.view.zoom(.5)); await flush();
+      await assertNoOverlap('extreme labels, overview');
+    }
 
     // A dragged mark snaps into its neighbour's row and shows a guide; Alt places it freely.
     await page.evaluate(source => window.mount(source), siblings); await flush();
@@ -88,19 +99,38 @@ try {
 
     // Touch: a long press opens the source; a double tap on the canvas zooms in.
     const cdp = await context.newCDPSession(page);
-    const touch = (type, p) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: type === 'touchEnd' ? [] : [{ x: p.x, y: p.y }] });
+    const touch = (type, p) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: ['touchEnd', 'touchCancel'].includes(type) ? [] : [{ x: p.x, y: p.y }] });
     await page.evaluate(source => window.mount(source), siblings); await flush();
     const held = await centre(mark('c'));
     await touch('touchStart', held); await page.waitForTimeout(700); await touch('touchEnd', held); await flush();
     assert.equal((await page.evaluate(() => window.navigated)).length, 1, 'a long press opens the source once');
     assert.equal(await mark('c').getAttribute('aria-pressed'), 'true', 'a long press also selects the mark');
+    await touch('touchStart', held); await page.waitForTimeout(600);
+    await touch('touchMove', { x: held.x + 45, y: held.y + 30 }); await flush();
+    assert.deepEqual(await centre(mark('c')), held, 'moving after a consumed long press does not drag the mark');
+    await touch('touchEnd', held); await flush();
+    assert.equal((await page.evaluate(() => window.navigated)).length, 2, 'the next long press opens once');
+    for (let i = 0; i < 2; i++) { await touch('touchStart', held); await touch('touchEnd', held); await page.waitForTimeout(60); }
+    await flush();
+    assert.equal((await page.evaluate(() => window.navigated)).length, 3, 'a double tap on a mark opens its source exactly once');
     const spread = async () => (await centre(mark('b'))).x - (await centre(mark('a'))).x;
     const before = await spread(), box = await page.locator('#map svg').boundingBox();
     const empty = { x: box.x + 12, y: box.y + box.height - 12 };
     for (let i = 0; i < 2; i++) { await touch('touchStart', empty); await touch('touchEnd', empty); await page.waitForTimeout(60); }
     await flush();
-    assert.ok(await spread() > before * 1.2, 'a double tap on the canvas zooms in');
-    assert.equal((await page.evaluate(() => window.navigated)).length, 1, 'tapping the canvas opens nothing');
+    const after = await spread();
+    assert.ok(after > before * 1.2, `a double tap on the canvas zooms in (${before} -> ${after})`);
+    assert.equal((await page.evaluate(() => window.navigated)).length, 3, 'tapping the canvas opens nothing');
+    await page.evaluate(source => window.mount(source), siblings); await flush();
+    const cancelled = await centre(mark('c'));
+    await touch('touchStart', cancelled); await touch('touchCancel', cancelled);
+    await page.waitForTimeout(600); await flush();
+    assert.equal((await page.evaluate(() => window.navigated)).length, 3, 'cancelling a hold retires its navigation timer');
+    assert.equal(await page.locator('#map svg').getAttribute('data-dragging'), null);
+    await touch('touchStart', cancelled); await touch('touchEnd', cancelled); await flush();
+    assert.equal((await page.evaluate(() => window.navigated)).length, 3, 'a fresh tap after cancellation selects without navigating');
+    await mark('c').dblclick(); await flush();
+    assert.equal((await page.evaluate(() => window.navigated)).length, 4, 'a captured mouse double click opens once');
     await context.close(); runs++;
   }
   assert.deepEqual(errors, []);

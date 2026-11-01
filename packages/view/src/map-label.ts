@@ -47,15 +47,26 @@ function sliceLabel(runs: LabelLine, start: number, end: number): LabelLine {
 
 export function wrapMapLabel(text: string, width: number, limit: number, measure: Measure): LabelLine[] {
   const runs = mapLabel(text), plain = runs.map(run => run.text).join("");
-  const tokens = plain.matchAll(/[\u2e80-\u9fff\uf900-\ufaff\u3000-\u303f\uff00-\uffef]|[^\s\u2e80-\u9fff\uf900-\ufaff\u3000-\u303f\uff00-\uffef]+|\s+/gu);
+  function* tokens() {
+    for (const token of plain.matchAll(/[\u2e80-\u9fff\uf900-\ufaff\u3000-\u303f\uff00-\uffef]|[^\s\u2e80-\u9fff\uf900-\ufaff\u3000-\u303f\uff00-\uffef]+|\s+/gu)) {
+      let index = token.index;
+      // Keep ordinary words whole. A URL or identifier wider than the entire measure must break too.
+      if (/^\s+$/u.test(token[0]) || labelWidth(sliceLabel(runs, index, index + token[0].length), measure) <= width) {
+        yield { index, text: token[0] };
+      } else for (const character of token[0]) {
+        yield { index, text: character };
+        index += character.length;
+      }
+    }
+  }
   const out: LabelLine[] = [];
   const trimmed = (start: number, end: number) => {
     const line = plain.slice(start, end);
     return sliceLabel(runs, start + line.length - line.trimStart().length, end - line.length + line.trimEnd().length);
   };
   let start = 0, end = 0, truncated = false;
-  for (const token of tokens) {
-    const next = token.index + token[0].length;
+  for (const token of tokens()) {
+    const next = token.index + token.text.length;
     if (!plain.slice(start, end).trim() || labelWidth(sliceLabel(runs, start, next), measure) <= width) {
       end = next;
       continue;
