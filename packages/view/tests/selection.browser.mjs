@@ -509,9 +509,19 @@ try {
     await page.evaluate(() => window.views.map.zoom(1.25)); await flush();
     const zoomedIn = await mapGeometry();
     assert.ok(zoomedIn.spacing > zoomedOut.spacing + .1, 'Zoom in increases scale from a fitted overview');
+    await page.locator('#map').evaluate(map => { map.hidden = true; }); await flush();
+    assert.equal((await mapGeometry()).width, 0);
+    await page.locator('#map').evaluate(map => { map.hidden = false; }); await flush();
+    assert.deepEqual((await mapGeometry()).positions, zoomedIn.positions, 'hiding and revealing a Map preserves its chosen camera');
     await page.evaluate(() => window.views.map.resetLayout()); await flush();
     const reset = await mapGeometry();
     assert.ok(reset.spacing > overview.spacing * 2, 'Arrange restores the reading-scale opening');
+
+    await page.locator('#map').evaluate(map => { map.hidden = true; }); await flush();
+    await mount('- [C] Claim.\n  - [G] Ground.');
+    await page.locator('#map').evaluate(map => { map.hidden = false; }); await flush();
+    const firstReveal = await mapGeometry();
+    for (const node of firstReveal.nodes) assertInside(node, firstReveal, 'a Map first mounted while hidden still frames its contents');
 
     for (const fontSize of [16, 24]) {
       const style = await page.addStyleTag({ content: `#map .cog-text { font-size: ${fontSize}px; }` });

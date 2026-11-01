@@ -801,9 +801,11 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
 
   // Hosts may mount while hidden (e.g. a lazily revealed comparison side): frame once there is room.
   const observer = typeof ResizeObserver === "function" ? new ResizeObserver(entries => {
-    const box = entries[0].contentRect, wasEmpty = !size.w || !size.h;
+    const box = entries[0].contentRect;
+    // Hiding an existing view does not turn its next reveal into a first mount.
+    if (!box.width || !box.height) return;
+    const wasEmpty = !size.w || !size.h;
     size = { w: box.width, h: box.height };
-    if (!size.w || !size.h) return;
     if (wasEmpty || !cameraTouched) camera = fitCamera();
     schedule();
   }) : undefined;
