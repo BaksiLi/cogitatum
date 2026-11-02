@@ -32,6 +32,11 @@ export type GraphView = {
   clear(): void;
   fit(): void;
   zoom(factor: number): void;
+  /**
+   * Pixels along the bottom edge that the host covers with its own panel. The selection is kept
+   * clear of them by panning, never by resizing the drawing.
+   */
+  setBottomInset(pixels: number): void;
   destroy(): void;
 };
 
@@ -71,7 +76,7 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
   let endings = new Set<string>();
   let world = new Map<string, Point2>(), camera: Camera = { k: 1, tx: 0, ty: 0 }, size = { w: 0, h: 0 };
   let scope = "", selected: string | undefined, hovered: string | undefined;
-  let destroyed = false, cameraTouched = false, frame = 0, settleFrame = 0;
+  let destroyed = false, cameraTouched = false, frame = 0, settleFrame = 0, bottomInset = 0;
   /**
    * While a pinch or wheel zoom is in motion, wording keeps the line breaks it had when the zoom began and
    * links keep their curves, so nothing reflows under the fingers; both settle once, when the zoom rests.
@@ -522,16 +527,27 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
     cameraTouched = true; schedule();
   }
   /** Keep the focused mark and its wording visible without changing zoom or scrolling the host. */
-  function revealShape(shape: Shape): void {
+  function revealShape(shape: Shape, glide = false): void {
     const box = shape.g.getBoundingClientRect(), viewport = svg.getBoundingClientRect(), margin = 16;
     if (!viewport.width || !viewport.height) return;
     const shift = (start: number, end: number, low: number, high: number) =>
       end - start > high - low ? (low + high - start - end) / 2 : start < low ? low - start : end > high ? high - end : 0;
     const dx = shift(box.left, box.right, viewport.left + margin, viewport.right - margin);
-    const dy = shift(box.top, box.bottom, viewport.top + margin, viewport.bottom - margin);
+    const dy = shift(box.top, box.bottom, viewport.top + margin, viewport.bottom - Math.min(bottomInset, viewport.height / 2) - margin);
     if (!dx && !dy) return;
-    camera = { ...camera, tx: camera.tx + dx, ty: camera.ty + dy };
-    cameraTouched = true; schedule();
+    const to = { ...camera, tx: camera.tx + dx, ty: camera.ty + dy };
+    cameraTouched = true;
+    if (!glide || reduced() || !win) { camera = to; schedule(); return; }
+    // A covering panel slides in; the drawing eases aside with it rather than jumping under the finger.
+    stopMotion();
+    const from = camera, start = win.performance.now();
+    const step = (now: number) => {
+      const t = Math.min(1, (now - start) / 260), e = 1 - Math.pow(1 - t, 3);
+      camera = { k: to.k, tx: from.tx + (to.tx - from.tx) * e, ty: from.ty + (to.ty - from.ty) * e };
+      paint();
+      settleFrame = t < 1 ? win.requestAnimationFrame(step) : 0;
+    };
+    settleFrame = win.requestAnimationFrame(step);
   }
   /** Re-frame when new content would no longer read inside the current view. */
   function needsRefit(next: Map<string, Point2>): boolean {
@@ -571,6 +587,8 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
     // Selection state is announced synchronously (aria-pressed), not on the next frame.
     if (frame) { win?.cancelAnimationFrame(frame); frame = 0; }
     paint();
+    const shape = id === undefined ? undefined : shapes.get(id);
+    if (shape && bottomInset) revealShape(shape, true);
     const node = nodeById(id);
     if (!notify) return;
     if (node) options.onSelect?.(node); else options.onClear?.();
@@ -875,6 +893,11 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
     select(ref) { const id = referenceKey(ref); if (shapes.has(id)) select(id); },
     clear() { hovered = undefined; select(undefined); },
     fit() { measureSize(); fit(); },
+    setBottomInset(pixels) {
+      bottomInset = Math.max(0, pixels);
+      const shape = selected === undefined ? undefined : shapes.get(selected);
+      if (shape && bottomInset) revealShape(shape, true);
+    },
     zoom(factor) {
       if (!Number.isFinite(factor) || factor <= 0) throw new Error("Zoom factor must be positive and finite.");
       measureSize(); zoomAt(factor, size.w / 2, size.h / 2);

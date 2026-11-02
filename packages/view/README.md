@@ -105,6 +105,7 @@ Positions are view-local and never modify the compiled graph or source; `resetLa
 
 `clear()` clears selection and guidance.
 `select(ref)` accepts a ref from the current compilation only and updates `aria-pressed` synchronously; `fit()` and `zoom(factor)` let the host supply controls.
+`setBottomInset(pixels)` tells the Map that a host panel covers its lower edge; the selected mark is panned clear of it without resizing or refitting the drawing.
 Positions live in world space and the camera maps them to pixels.
 Wording retains its CSS reading size (14px wording, 12px names by default); line height follows the host font size, while Point glyphs scale within bounds.
 Map wording renders single-backtick inline code in monospace; longer backtick delimiters remain literal.
