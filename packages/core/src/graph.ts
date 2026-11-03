@@ -49,6 +49,7 @@ type CandidateBearing = {
 type SymbolKind = "point" | "bearing" | "invalid" | "unknown";
 
 type SymbolTable = {
+  pointKeys: WeakMap<AstBlock, string>;
   pointIds: Set<string>;
   duplicatePointIds: Set<string>;
   bearingIds: Set<string>;
@@ -115,14 +116,13 @@ export function compileGraphWithExplain(ast: DocumentAst): GraphCompilation {
     throw new Error(`Unsupported AST format ${ast.version}; expected ${FORMAT_VERSION}.`);
   }
   const diagnostics = [...ast.diagnostics];
-  const pointKeys = assignPointKeys(ast.blocks);
   const symbols = collectSymbols(ast.blocks, diagnostics);
   const compiledPoints: Point[] = [];
   const compiledBearings: CandidateBearing[] = [];
   const explainDrafts: ExplainDraft[] = [];
 
   for (const block of ast.blocks) {
-    compileBlock(block, undefined, pointKeys, compiledPoints, compiledBearings, explainDrafts, diagnostics);
+    compileBlock(block, undefined, symbols.pointKeys, compiledPoints, compiledBearings, explainDrafts, diagnostics);
   }
 
   const points = compiledPoints.filter((point) => !point.id || !symbols.duplicatePointIds.has(point.id));
@@ -656,6 +656,7 @@ function pointRef(key: string): PointRef {
 
 function collectSymbols(blocks: AstBlock[], diagnostics: Diagnostic[]): SymbolTable {
   const symbols: SymbolTable = {
+    pointKeys: new WeakMap(),
     pointIds: new Set(),
     duplicatePointIds: new Set(),
     bearingIds: new Set(),
@@ -666,8 +667,12 @@ function collectSymbols(blocks: AstBlock[], diagnostics: Diagnostic[]): SymbolTa
     bearingKeys: new Set(),
     keysById: new Map()
   };
+  let nextPoint = 1;
 
   walkBlocks(blocks, (block) => {
+    if (block.annotation?.kind === "role" || block.annotation?.kind === "material") {
+      symbols.pointKeys.set(block, `_p${nextPoint++}`);
+    }
     const anchor = pointAnchor(block);
     if (!anchor) {
       return;
@@ -765,7 +770,6 @@ function validateBearings(
       diagnostics.push({ severity: "error", code: "DUPLICATE_BEARING_SOURCES", message: "A Bearing cannot contain the same resolved Point more than once; the entire source set is rejected.", sourceSpan: bearing.sourceSpan });
     }
 
-    const targetLabel = referenceLabel(bearing.target, symbols);
     const targetKind = classifyReference(bearing.target, symbols);
     if (targetKind === "point" || targetKind === "bearing") {
       bearing.target = { key: resolveKey(bearing.target, symbols), kind: targetKind };
@@ -777,7 +781,7 @@ function validateBearings(
         diagnostics.push({
           severity: "error",
           code: "BEARING_KIND_REQUIRES_POINT_TARGET",
-          message: `${bearing.kind} target ${targetLabel} is a Bearing; ${bearing.kind} requires a Point target.`,
+          message: `${bearing.kind} target ${referenceLabel(bearing.target, symbols)} is a Bearing; ${bearing.kind} requires a Point target.`,
           sourceSpan: bearing.sourceSpan
         });
         isValid = false;
@@ -788,7 +792,7 @@ function validateBearings(
       diagnostics.push({
         severity: "error",
         code: "UNKNOWN_TARGET",
-        message: `Target ${targetLabel} not found.`,
+        message: `Target ${referenceLabel(bearing.target, symbols)} not found.`,
         sourceSpan: bearing.sourceSpan
       });
       isValid = false;
@@ -861,7 +865,6 @@ function buildExplainEntries(
   diagnostics: Diagnostic[],
   authoredNames: ReadonlySet<string>
 ): ExplainEntry[] {
-  const pointKeys = new Set(points.map((point) => point.key));
   const pointTargets = new Map(points.map(point => [point.key, point]));
   const bearingTargets = new Map(validation.bearings.map(bearing => [bearing.key, bearing]));
   const bearingIndexes = new Map(
@@ -910,7 +913,7 @@ function buildExplainEntries(
       const ref = pointRef(draft.point.key);
       const identity = draft.point.id ? { id: draft.point.id } : {};
       effects.push(
-        pointKeys.has(draft.point.key)
+        pointTargets.has(draft.point.key)
           ? { kind: "emitPoint", ref, ...identity, reason: draft.point.reason }
           : { kind: "rejectPoint", ref, ...identity, reason: "duplicate-anchor" }
       );
@@ -1142,20 +1145,6 @@ function pointKeyForBlock(block: AstBlock, pointKeys: WeakMap<AstBlock, string>)
     throw new Error("Compiler invariant violated: Point block has no compilation key.");
   }
   return generated;
-}
-
-function assignPointKeys(blocks: AstBlock[]): WeakMap<AstBlock, string> {
-  const pointKeys = new WeakMap<AstBlock, string>();
-  let nextId = 1;
-
-  walkBlocks(blocks, (block) => {
-    if (block.annotation?.kind === "role" || block.annotation?.kind === "material") {
-      pointKeys.set(block, `_p${nextId}`);
-      nextId += 1;
-    }
-  });
-
-  return pointKeys;
 }
 
 function walkBlocks(blocks: AstBlock[], visit: (block: AstBlock) => void): void {
