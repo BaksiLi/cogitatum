@@ -131,20 +131,20 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
   const weightOf = (shape: Shape) => endings.has(shape.id) ? 600 : shape.id === selected ? 500 : 400;
   /**
    * Room each Point's wording may take before it meets the wording of a mark beside it, in screen pixels.
-   * Recomputed per paint; a mark with no near neighbour keeps the full measure.
+   * Measured from the world at the requested scale; a mark with no near neighbour keeps the full measure.
    */
-  let room = new Map<string, number>();
-  function measureRoom(): void {
-    room = new Map();
-    const marks = [...shapes.values()].filter(shape => !shape.inline && shape.node.ref.kind === "point").map(shape => ({ id: shape.id, p: screen(world.get(shape.id)!) }));
+  function measureRoom(k: number): Map<string, number> {
+    const room = new Map<string, number>();
+    const marks = [...shapes.values()].filter(shape => !shape.inline && shape.node.ref.kind === "point").map(shape => ({ id: shape.id, p: world.get(shape.id)! }));
     // Wording hangs below its mark, so only marks on about the same row can meet it side by side.
-    const band = lineHeight * 2;
+    const band = lineHeight * 2 / k;
     for (const a of marks) {
       let nearest = Infinity;
       for (const b of marks) if (a !== b && Math.abs(a.p.y - b.p.y) < band) nearest = Math.min(nearest, Math.abs(a.p.x - b.p.x));
       // Screen pixels; each use divides by the scale its wording is drawn at.
-      if (nearest < Infinity) room.set(a.id, nearest - 14);
+      if (nearest < Infinity) room.set(a.id, nearest * k - 14);
     }
+    return room;
   }
 
   // ── build DOM for the current topology ──
@@ -236,7 +236,7 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
   const labelScale = (k = camera.k) => Math.max(LABEL_FLOOR, Math.min(1, k));
   const pointLabelWidth = (k: number) => roomy(k) ? Math.min(200, 200 * k - 14) : Math.max(96, Math.min(150, 168 * k - 14));
   const overviewAt = (shape: Shape, k = camera.k) => k < LABEL_K && shape.id !== selected && shape.id !== hovered;
-  function labelLines(shape: Shape, k = camera.k): LabelLine[] {
+  function labelLines(shape: Shape, k: number, room: ReadonlyMap<string, number>): LabelLine[] {
     const node = shape.node, focused = shape.id === selected || shape.id === hovered;
     if (shape.inline) return [];
     if (node.ref.kind === "bearing") return node.name && (k >= LABEL_K || focused) ? literalLine(`@${node.name}`) : [];
@@ -259,9 +259,9 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
   const labelTop = (shape: Shape, k: number, overview: boolean) =>
     FOCUS_R * pointScale(k) * (endings.has(shape.id) ? ENDING : 1) + (overview ? 14 : lineHeight * labelScale(k));
   /** Screen-pixel reach of a mark and its current wording from the mark's centre. */
-  function reach(shape: Shape, k: number) {
+  function reach(shape: Shape, k: number, room: ReadonlyMap<string, number>) {
     const r = Math.max(22, FOCUS_R * pointScale(k) * (endings.has(shape.id) ? ENDING : 1) + 2);
-    const lines = labelLines(shape, k);
+    const lines = labelLines(shape, k, room);
     if (shape.node.ref.kind === "bearing") return { left: 16, right: lines.length ? JUNCTION_R + 7 + lineWidth(lines[0]) : 16, above: 16, below: 16 };
     if (!lines.length) return { left: r, right: r, above: r, below: r };
     const overview = overviewAt(shape, k), s = overview ? 1 : labelScale(k);
@@ -308,7 +308,7 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
     const rank = new Map(order.filter(id => !shapes.get(id)?.inline).map((id, index) => [id, index]));
     const pointIn = (id: string) => entranceAt((rank.get(id) ?? 0) * POINT_DELAY, POINT_IN);
     const lineIn = (source: string, target: string) => entranceAt(Math.max(rank.get(source) ?? 0, rank.get(target) ?? 0) * POINT_DELAY + POINT_IN * .6, LINE_IN);
-    if (!zoomHold) measureRoom();
+    const room = zoomHold ? undefined : measureRoom(camera.k);
     for (const shape of shapes.values()) {
       if (shape.inline) continue;
       const p = screen(world.get(shape.id)!);
@@ -317,8 +317,8 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
       if (shape.glyph) shape.glyph.style.scale = entrance ? String(.4 + .6 * shown) : "";
       shape.g.setAttribute("transform", `translate(${p.x.toFixed(1)} ${p.y.toFixed(1)})`);
       shape.glyph?.setAttribute("transform", `scale(${(pointScale() * (endings.has(shape.id) ? ENDING : 1)).toFixed(3)})`);
-      if (!zoomHold) {
-        const lines = labelLines(shape), label = shape.label!, isPoint = shape.node.ref.kind === "point";
+      if (room) {
+        const lines = labelLines(shape, camera.k, room), label = shape.label!, isPoint = shape.node.ref.kind === "point";
         label.replaceChildren();
         const overview = isPoint && overviewAt(shape);
         label.classList.toggle("cog-overview", overview && !endings.has(shape.id));
@@ -506,9 +506,10 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
     const margin = size.w < 600 ? 16 : 32, height = Math.max(64, size.h - bottomInset);
     const placed = [...world].flatMap(([id, p]) => { const shape = shapes.get(id); return shape && !shape.inline ? [{ shape, ...p }] : []; });
     const span = (k: number) => {
+      const room = measureRoom(k);
       let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
       for (const { shape, x, y } of placed) {
-        const r = reach(shape, k);
+        const r = reach(shape, k, room);
         x0 = Math.min(x0, x * k - r.left); x1 = Math.max(x1, x * k + r.right);
         y0 = Math.min(y0, y * k - r.above); y1 = Math.max(y1, y * k + r.below);
       }
@@ -688,6 +689,8 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
     for (const id of captured) if (svg.hasPointerCapture?.(id)) svg.releasePointerCapture(id);
   }
   svg.addEventListener("pointerdown", event => {
+    // The host's menu takes focus; native secondary focus can pan the mark before contextmenu.
+    if (event.button === 2 && options.onContextMenu && (event.target as Element).closest("[data-node]")) event.preventDefault();
     if (event.button !== 0 || pointers.size >= 2 || pointers.has(event.pointerId)) return;
     if (entrance) { finishEntrance(); schedule(); }
     stopMotion(); // A new gesture supersedes the previous settling or Arrange transition.

@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 
 // Supply Playwright from the paired development repository through NODE_PATH.
 const require = createRequire(import.meta.url);
-const { chromium } = require('playwright');
+const { chromium, webkit } = require('playwright');
 const { build } = require('esbuild');
 const bundle = await build({
   stdin: {
@@ -124,6 +124,21 @@ try {
       await assertNoOverlap('extreme labels, overview');
     }
 
+    // Arrange restores both layout and framing, independent of the last drag's label spacing.
+    await page.evaluate(source => { window.mount(source); window.view.select({ kind: 'point', key: '_p2' }); window.view.resetLayout(); }, dense);
+    await page.mouse.move(0, 0); await flush();
+    const drawing = () => page.locator('#map svg').evaluate(svg => ({
+      camera: [svg.style.backgroundSize, svg.style.backgroundPosition],
+      nodes: [...svg.querySelectorAll('.cog-node')].map(node => [node.dataset.node, node.getAttribute('transform')]),
+    }));
+    const automatic = await drawing(), arrangeStart = await centre(mark('g'));
+    await page.mouse.move(arrangeStart.x, arrangeStart.y); await page.mouse.down();
+    await page.mouse.move(arrangeStart.x + 60, arrangeStart.y + 40, { steps: 6 }); await page.mouse.up();
+    await page.mouse.move(0, 0); await flush();
+    assert.notDeepEqual(await drawing(), automatic, 'drag changes the drawing');
+    await page.evaluate(() => window.view.resetLayout()); await flush();
+    assert.deepEqual(await drawing(), automatic, 'Arrange restores exact positions and camera');
+
     // A dragged mark snaps into its neighbour's row and shows a guide; Alt places it freely.
     await page.evaluate(source => window.mount(source), siblings); await flush();
     for (const p of await paper()) for (const axis of ['x', 'y']) assert.ok(Math.abs(p[axis] - Math.round(p[axis])) < .025, 'Arrange uses paper intersections');
@@ -236,6 +251,55 @@ try {
     assert.equal((await page.evaluate(() => window.navigated)).length, 5, 'a context callback preserves double-click source navigation');
     assert.equal((await page.evaluate(() => window.contextMenus)).length, 4, 'double-click navigation does not open context actions');
     await context.close(); runs++;
+  }
+  // Native secondary focus can reveal a clipped mark before its context menu is dispatched.
+  for (const engine of [chromium, webkit]) {
+    const secondaryBrowser = engine === chromium ? browser : await engine.launch();
+    try {
+      const page = await secondaryBrowser.newPage({ viewport: { width: 390, height: 900 }, reducedMotion: 'reduce' });
+      page.on('pageerror', error => errors.push(error.message));
+      await page.setContent('<button id="outside">Outside</button><div id="map" style="height:450px"></div>');
+      await page.addStyleTag({ path: fileURLToPath(new URL('../src/style.css', import.meta.url)) });
+      await page.addScriptTag({ content: bundle.outputFiles[0].text });
+      const flush = () => page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+      const drawing = () => page.locator('#map svg').evaluate(svg => ({
+        camera: [svg.style.backgroundSize, svg.style.backgroundPosition],
+        nodes: [...svg.querySelectorAll('.cog-node')].map(node => node.getAttribute('transform')),
+      }));
+      for (const contextMenu of [true, false]) {
+        await page.evaluate(({ source, contextMenu }) => {
+          window.contextMenus = []; window.mount(source, contextMenu);
+          const svg = document.querySelector('#map svg');
+          svg.addEventListener('pointerdown', event => { window.secondaryPrevented = event.defaultPrevented; });
+          svg.addEventListener('contextmenu', event => { window.menuPrevented = event.defaultPrevented; });
+        }, { source: siblings, contextMenu });
+        await flush();
+        const first = page.locator('#map .cog-node.point').first(), box = await page.locator('#map svg').boundingBox();
+        const at = await first.evaluate(node => { const m = node.getScreenCTM(); return { x: m.e, y: m.f }; });
+        await page.mouse.move(box.x + box.width - 4, box.y + box.height - 4); await page.mouse.down();
+        await page.mouse.move(box.x + box.width - 4 + box.x + 48 - at.x, box.y + box.height - 4 + box.y + 20 - at.y);
+        await page.mouse.up(); await flush();
+        await page.locator('#outside').focus();
+        await page.mouse.move(box.x + 48, box.y + 20); await flush();
+        const before = await drawing();
+        await page.mouse.down({ button: 'right' }); await flush();
+        if (contextMenu) assert.deepEqual(await drawing(), before, `${engine.name()}: secondary focus cannot pan before the menu`);
+        await page.mouse.up({ button: 'right' }); await flush();
+        assert.equal(await page.evaluate(() => window.secondaryPrevented), contextMenu, 'only a host-context node consumes secondary focus');
+        assert.equal(await page.evaluate(() => window.menuPrevented), contextMenu, 'native context menu remains available without a callback');
+        assert.equal((await page.evaluate(() => window.contextMenus)).length, contextMenu ? 1 : 0);
+        if (contextMenu) {
+          assert.equal(await page.evaluate(() => window.contextMenus[0].id), await first.getAttribute('data-node'));
+          assert.deepEqual(await drawing(), before, `${engine.name()}: opening context actions preserves the camera and marks`);
+          assert.equal(await first.getAttribute('aria-pressed'), 'true');
+        }
+        await page.mouse.click(box.x + box.width - 4, box.y + box.height - 4, { button: 'right' });
+        assert.equal(await page.evaluate(() => window.secondaryPrevented), false, 'background secondary focus is not consumed');
+        assert.equal(await page.evaluate(() => window.menuPrevented), false, 'background native menu is not consumed');
+      }
+      console.log(`Secondary context focus and native fallback passed: ${engine.name()}.`);
+      await page.close();
+    } finally { if (secondaryBrowser !== browser) await secondaryBrowser.close(); }
   }
   assert.deepEqual(errors, []);
   console.log(`Map gesture browser checks passed: ${runs} viewports; wording without overlap, snapping guides and Alt, long press and double tap, pointer/keyboard/touch context actions and navigation fallback.`);
