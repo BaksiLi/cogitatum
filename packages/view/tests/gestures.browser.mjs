@@ -37,6 +37,12 @@ const dense = [
   '  - [O/] Slow upstream calls would also hold connections open and produce these failures.',
 ].join('\n');
 const siblings = '- [C @c] Claim.\n  - [G @a] First ground.\n  - [G @b] Second ground.';
+const library = [
+  '- [C] The library should stay open until eight on weekdays.',
+  "  - [G] Forty people visited after six at last month's evening event.",
+  '    - [O] The count included repeat entries, so fewer than forty people may have visited.',
+  '    - [O/] People may have come for the special event, not for ordinary evening opening.',
+].join('\n');
 const browser = await chromium.launch();
 const errors = [];
 let runs = 0;
@@ -53,6 +59,44 @@ try {
       const matrix = node.getScreenCTM(); return { x: matrix.e, y: matrix.f };
     });
     const mark = name => page.locator(`#map g.cog-node.point`).filter({ has: page.locator(`title`, { hasText: `@${name}` }) }).first();
+    const paper = () => page.locator('#map svg').evaluate(svg => {
+      const step = parseFloat(svg.style.backgroundSize), [x, y] = svg.style.backgroundPosition.split(' ').map(parseFloat);
+      return [...svg.querySelectorAll('.cog-node:not(.cog-inline-bearing)')].map(node => {
+        const p = node.transform.baseVal.consolidate().matrix;
+        return { id: node.dataset.node, x: (p.e - x - step / 2) / step, y: (p.f - y - step / 2) / step };
+      });
+    });
+
+    // Explicit Fit includes wording and host controls; pressing a low mark does not move the camera.
+    await page.evaluate(source => { window.mount(source); window.view.setBottomInset(84); window.view.fit(); }, library);
+    await flush();
+    const outside = await page.locator('#map .cog-node').evaluateAll(nodes => {
+      const viewport = nodes[0].ownerSVGElement.getBoundingClientRect();
+      return nodes.some(node => {
+        const box = node.getBoundingClientRect();
+        return box.top < viewport.top || box.bottom > viewport.bottom - 84 || box.left < viewport.left || box.right > viewport.right;
+      });
+    });
+    assert.equal(outside, false, 'Fit keeps complete marks and wording above the host controls');
+    const low = page.locator('.cog-node.point[aria-label^="Objection: The count"]');
+    const pressed = await centre(low), claim = page.locator('.cog-node.point').first(), claimBefore = await centre(claim);
+    await page.mouse.move(pressed.x, pressed.y); await page.mouse.down(); await flush();
+    assert.deepEqual(await centre(claim), claimBefore, 'pointer focus does not pan a fitted drawing');
+    const ground = page.locator('.cog-node.point[aria-label^="Ground:"]'), groundAt = await centre(ground);
+    const plate = await ground.locator('.cog-label-hit').boundingBox();
+    await page.mouse.move(plate.x > 64 ? plate.x - 48 : plate.x + plate.width + 48, groundAt.y + 54, { steps: 6 });
+    await page.mouse.up(); await flush();
+    const hiddenRoute = await ground.evaluate(node => {
+      const box = node.querySelector('.cog-label-hit').getBoundingClientRect(), svg = node.ownerSVGElement, viewport = svg.getBoundingClientRect();
+      const path = svg.querySelector('.cog-link.output[data-bearing="_b2"]');
+      let hits = 0;
+      for (const ink of [path, path.nextElementSibling]) for (let i = 1; i < 32; i++) {
+        const p = ink.getPointAtLength(ink.getTotalLength() * i / 32);
+        if (p.x + viewport.x > box.left && p.x + viewport.x < box.right && p.y + viewport.y > box.top && p.y + viewport.y < box.bottom) hits++;
+      }
+      return hits;
+    });
+    assert.equal(hiddenRoute, 0, 'a side challenge and its arrow stay outside the target wording plate');
 
     // Wording never overlaps other wording, at any measure the pane gives it.
     await page.evaluate(source => window.mount(source), dense); await flush();
@@ -81,6 +125,18 @@ try {
     }
 
     // A dragged mark snaps into its neighbour's row and shows a guide; Alt places it freely.
+    await page.evaluate(source => window.mount(source), siblings); await flush();
+    for (const p of await paper()) for (const axis of ['x', 'y']) assert.ok(Math.abs(p[axis] - Math.round(p[axis])) < .025, 'Arrange uses paper intersections');
+    const arranged = await paper();
+    await page.mouse.move(10, 10); await page.mouse.down(); await page.mouse.move(41, 29); await page.mouse.up(); await flush();
+    await page.evaluate(() => window.view.zoom(.8)); await flush();
+    const movedPaper = await paper();
+    for (let i = 0; i < arranged.length; i++) for (const axis of ['x', 'y']) assert.ok(Math.abs(arranged[i][axis] - movedPaper[i][axis]) < .025, 'paper and marks pan and zoom together');
+    await mark('a').focus(); await flush();
+    const keyboardBefore = (await paper()).find(p => p.id === 'point:_p2');
+    await page.keyboard.press('Alt+ArrowRight'); await flush();
+    const keyboardAfter = (await paper()).find(p => p.id === keyboardBefore.id);
+    assert.ok(Math.abs(keyboardAfter.x - keyboardBefore.x - 1) < .025, 'keyboard placement advances one paper interval');
     await page.evaluate(source => window.mount(source), siblings); await flush();
     const a = mark('a'), b = mark('b');
     const target = await centre(b);

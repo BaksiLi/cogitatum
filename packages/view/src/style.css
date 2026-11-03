@@ -10,6 +10,7 @@
   --cog-focus-resolved: var(--cog-focus, var(--cog-ink, #18242a));
 }
 .cog-graph { display: block; width: 100%; height: 100%; min-height: 320px; touch-action: none; font-family: inherit; color: var(--cog-ink-resolved); user-select: none; -webkit-user-select: none; cursor: grab; }
+.cog-graph { background-image: radial-gradient(circle, var(--cog-grid, color-mix(in srgb, var(--cog-ink-resolved) 14%, transparent)) .7px, transparent .9px); }
 .cog-graph[data-dragging] { cursor: grabbing; }
 
 /* Point glyphs: filled is a marked Point, square is Material. */

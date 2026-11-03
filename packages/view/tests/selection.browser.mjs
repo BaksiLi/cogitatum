@@ -521,9 +521,13 @@ try {
     await page.locator('#before').focus();
     // This chain needs a scale below the manual zoom minimum to fit in either viewport.
     await mount(chain(30));
-    await page.evaluate(() => window.views.map.fit()); await flush();
+    await page.evaluate(() => {
+      window.views.map.select({ kind: 'point', key: '_p30' });
+      window.views.map.setBottomInset(84);
+      window.views.map.fit();
+    }); await flush();
     const overview = await mapGeometry();
-    for (const node of overview.nodes) assertInside(node, overview, 'explicit Fit includes every Point and Bearing');
+    for (const node of overview.nodes) assertInside(node, { ...overview, height: overview.height - 84 }, 'explicit Fit includes expanded selection wording above the host panel');
     await page.evaluate(() => window.views.map.zoom(.8)); await flush();
     const zoomedOut = await mapGeometry();
     assert.ok(zoomedOut.spacing <= overview.spacing + .1, 'Zoom out never zooms in from a fitted overview');
