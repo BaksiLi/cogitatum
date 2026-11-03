@@ -1006,8 +1006,10 @@ function reuseSpelling(block: AstBlock, anchor: string): string {
 
 function summarizeEmittedBearing(bearing: Bearing): ExplainEmittedBearingSummary {
   const { text: _text, sourceSpan: _sourceSpan, ...summary } = bearing;
-  // Explain owns its references; mutating it must not mutate the graph projection.
-  return structuredClone(summary);
+  // Explain owns its references; the remaining fields are scalar.
+  summary.sources = summary.sources.map(source => ({ ...source }));
+  summary.target = { ...summary.target };
+  return summary;
 }
 
 function pointAnchor(block: AstBlock): string | undefined {
