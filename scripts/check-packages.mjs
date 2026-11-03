@@ -333,6 +333,9 @@ const mount = (container: HTMLElement) => {
   reading.selectOccurrence({ kind: 'point', key: '_p1' });
   const projected: ReadingProjection = projectReading('- [C] Claim.', explainSource('- [C] Claim.'));
   reading.update(projected);
+  reading.update(projected, {notifyClear: false});
+  // @ts-expect-error Clear notification is a boolean policy, not a string.
+  reading.update(projected, {notifyClear: 'false'});
   reading.select({kind: 'point', key: 'opaque'}, 0);
   // @ts-expect-error Reading requires original source plus the complete Explain envelope.
   projectReading(graph);

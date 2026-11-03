@@ -224,9 +224,8 @@ function parseCurrentAnnotation(raw: string, sourceSpan?: SourceSpan): Annotatio
         errors.push("selector");
         diagnostics.push({ severity: "error", code: "LOCAL_SELECTOR_WITH_EXPLICIT_CLAUSE", message: "A local selector and an explicit operator clause are mutually exclusive.", sourceSpan });
       } else if (isRelationToken(suffix[0])) {
-        const clause = parseOperatorClause(suffix[0], "self", suffix.slice(1), sourceSpan, diagnostics);
-        if (clause) operatorClause = pointOperatorClause(clause);
-        else errors.push("operator");
+        operatorClause = parseOperatorClause(suffix[0], "self", suffix.slice(1), sourceSpan, diagnostics);
+        if (!operatorClause) errors.push("operator");
       } else {
         errors.push("operator");
         diagnostics.push({ severity: "error", code: "MALFORMED_POINT_USE", message: "After a Point use operand, only a complete symbolic operator or canonical named-kind clause is permitted." + kindHint(suffix[0]), sourceSpan });
@@ -322,7 +321,7 @@ function parseCurrentAnnotation(raw: string, sourceSpan?: SourceSpan): Annotatio
     return {
       annotation: {
         ...host,
-        operatorClause: operatorClause ? pointOperatorClause(operatorClause) : undefined,
+        operatorClause,
         syntaxErrors: syntaxErrors(!operatorClause, invalidHandle),
         handle
       },
@@ -395,6 +394,20 @@ function parseCurrentAnnotation(raw: string, sourceSpan?: SourceSpan): Annotatio
 
 function parseOperatorClause(
   opToken: string,
+  sourceTokens: "self",
+  targetTokens: string[],
+  sourceSpan: SourceSpan | undefined,
+  diagnostics: Diagnostic[]
+): PointOperatorClause | undefined;
+function parseOperatorClause(
+  opToken: string,
+  sourceTokens: "members" | string[],
+  targetTokens: string[],
+  sourceSpan: SourceSpan | undefined,
+  diagnostics: Diagnostic[]
+): BearingOperatorClause | undefined;
+function parseOperatorClause(
+  opToken: string,
   sourceTokens: string[] | "self" | "members",
   targetTokens: string[],
   sourceSpan: SourceSpan | undefined,
@@ -410,8 +423,8 @@ function parseOperatorClause(
     return undefined;
   }
   const op = RELATION_TOKENS.get(opToken);
-  const listed = Array.isArray(sourceTokens) ? sourceTokens : undefined;
-  if (!op || (listed && listed.length === 0) || targetTokens.length === 0) {
+  const listed = Array.isArray(sourceTokens);
+  if (!op || (listed && sourceTokens.length === 0) || targetTokens.length === 0) {
     // Only listed sources are written in the clause; self and member sources are implied.
     diagnostics.push({
       severity: "error",
@@ -425,7 +438,7 @@ function parseOperatorClause(
 
   let sources: OperatorClause["sources"];
   if (listed) {
-    const sourceResult = parseRefs(listed);
+    const sourceResult = parseRefs(sourceTokens);
     if (sourceResult.invalid.length > 0 || sourceResult.refs.length === 0) {
       diagnostics.push({ severity: "error", code: "MALFORMED_BEARING_SOURCES", message: invalidRefsMessage("sources", sourceResult.invalid), sourceSpan });
       return undefined;
@@ -442,7 +455,7 @@ function parseOperatorClause(
     }
     sources = sourceResult.refs;
   } else {
-    sources = sourceTokens as "self" | "members";
+    sources = sourceTokens;
   }
 
   const target = parseTargetTerm(targetTokens, sourceSpan, diagnostics);
@@ -516,14 +529,14 @@ function parseBearingConstructor(raw: string, head: AnnotationHead, sourceSpan?:
   } else if (ROLE_HEADED_BEARING_RE.test(rest[0])) {
     fail("mode", "MALFORMED_BEARING_MODE", "A Bearing header states a relation, not a role." + roleHeaderHint(rest[0]) + markCaseHint(rest[0]));
   } else if (head.sources === "members") {
-    operatorClause = parseOperatorClause(rest[0], "members", rest.slice(1), sourceSpan, diagnostics) as BearingOperatorClause | undefined;
+    operatorClause = parseOperatorClause(rest[0], "members", rest.slice(1), sourceSpan, diagnostics);
     if (!operatorClause) errors.add("operator");
   } else if (head.sources === "references") {
     const opIndex = rest.findIndex(isRelationToken);
     if (opIndex < 0) {
       fail("operator", "MALFORMED_EXPLICIT_BEARING", "Explicit Bearings require sources, a symbolic operator or canonical kind, and one target." + edgeKindHint(["_", ...rest]) + proseHint(["_", ...rest]));
     } else {
-      operatorClause = parseOperatorClause(rest[opIndex], rest.slice(0, opIndex), rest.slice(opIndex + 1), sourceSpan, diagnostics) as BearingOperatorClause | undefined;
+      operatorClause = parseOperatorClause(rest[opIndex], rest.slice(0, opIndex), rest.slice(opIndex + 1), sourceSpan, diagnostics);
       if (!operatorClause) errors.add("operator");
     }
   } else {
@@ -568,11 +581,6 @@ function targetTermHint(role: string, token: string): string | undefined {
   return clause
     ? ` ${term} is a target term and follows an operator: write [${mark}], or [${mark.replace("/", "")} ${clause}] to spell the relation.`
     : ` ${term} is a target term and follows an operator, as in [G +> ^].`;
-}
-
-function pointOperatorClause(clause: OperatorClause): PointOperatorClause {
-  if (clause.sources === "self") return { ...clause, sources: "self" };
-  throw new Error("Parser invariant violated: a Point clause must use a self source.");
 }
 
 function duplicateRefIds(refs: Ref[]): string[] {
@@ -687,6 +695,13 @@ export const MARK_RELATIONS: Partial<Record<Role, BearingKind>> = {
  * written clause is returned as authored. Defaults depend only on the
  * occurrence's own mark, never on its context. A failed header authors none.
  */
+export function expandedClause(
+  annotation: Extract<Annotation, { kind: "bearing" }> | undefined
+): BearingOperatorClause | undefined;
+export function expandedClause(
+  annotation: Extract<Annotation, { kind: "role" | "material" | "use" }> | undefined
+): PointOperatorClause | undefined;
+export function expandedClause(annotation: Annotation | undefined): OperatorClause | undefined;
 export function expandedClause(annotation: Annotation | undefined): OperatorClause | undefined {
   if (!annotation || annotation.kind === "invalid" || annotation.syntaxErrors?.length) return undefined;
   if (annotation.kind === "bearing") {

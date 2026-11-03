@@ -211,6 +211,10 @@ reading.destroy();
 For editor-to-Reading navigation, call `reading.selectOccurrence(occurrence.id, optionalRef)` using the current projection.
 This silently selects the exact local use, body or note; an unknown occurrence clears selection, and a ref belonging to another occurrence throws.
 Do not retain occurrence IDs across updates.
+`update(projection)` clears local selection and calls `onClear`.
+Hosts coordinating a revision across several views can use `update(projection, { notifyClear: false })`;
+local selection still clears, while the host owns the surrounding selection transition.
+User selection and Escape continue to notify normally.
 
 `projectReading` is a pure projection, with no DOM access or additional parsing.
 It retains every source line, including blank lines, host prose, fences, literal note descendants and malformed lines, alongside the original string.

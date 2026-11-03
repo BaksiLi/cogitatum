@@ -8,6 +8,8 @@ Use the complete released schema set and [migrate retained source](docs/syntax.m
 
 ## Unreleased
 
+- Let hosts replace Reading projections with `update(projection, { notifyClear: false })`.
+  Local selection still retires; the default update and user clearing retain their notifications.
 - Add `analyzeSourceEdits` for several checked previews over one privately owned original analysis.
   Each proposed input retains its independent compilation and preservation checks.
   Detached results and sibling line numbers let editors choose offers without sharing mutable compiler state.

@@ -106,11 +106,25 @@ try {
     assert.equal(await row(6).locator('.cog-reading-text').textContent(), '[C @literal] Literal syntax.');
     await page.keyboard.press('Enter');
     assert.equal(await page.evaluate(() => window.views.events.navigate.at(-1).ref), undefined);
-    await page.evaluate(() => {
-      const { reading, projection } = window.views;
+    const updateEvents = await page.evaluate(() => {
+      const { reading, projection, events } = window.views;
+      const before = events.clear;
       reading.update(projection);
+      return events.clear - before;
     });
     assert.equal(await page.locator('#reading [aria-pressed="true"]').count(), 0, 'updates clear local occurrence identity');
+    assert.equal(updateEvents, 1, 'the default update retains its clear notification');
+    const quietUpdate = await page.evaluate(() => {
+      const { reading, projection, events } = window.views;
+      reading.selectOccurrence(projection.units[0].occurrences[0].id);
+      const before = { clear: events.clear, select: events.reading.length };
+      reading.update(projection, { notifyClear: false });
+      return { before, after: { clear: events.clear, select: events.reading.length } };
+    });
+    assert.deepEqual(quietUpdate.after, quietUpdate.before, 'host-owned replacement emits no selection callbacks');
+    assert.equal(await page.locator('#reading [aria-pressed="true"]').count(), 0, 'silent replacement still retires local selection');
+    await row(3).focus(); await page.keyboard.press('Space'); await page.keyboard.press('Escape');
+    assert.equal(await page.evaluate(() => window.views.events.clear), quietUpdate.after.clear + 1, 'user clearing still notifies after a silent replacement');
 
     const mark = page.locator('#map [data-node="point:_p2"]');
     await mark.dispatchEvent('click', { detail: 0 });

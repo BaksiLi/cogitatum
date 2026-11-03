@@ -21,12 +21,13 @@ export type ReadingViewOptions = {
   onNavigateDiagnostic?: (diagnostic: Diagnostic) => void;
 };
 export type ReadingView = {
-  update(projection: ReadingProjection): void;
+  /** Replaces the projection and clears local selection; hosts may suppress the clear notification. */
+  update(projection: ReadingProjection, options?: { notifyClear?: boolean }): void;
   /** Silent; a current local occurrence of the same ref is retained. */
   select(ref: BearingTarget, unitIndex?: number): void;
   /** Silent; select an exact occurrence in the current projection, including body or notes. */
   selectOccurrence(occurrenceId: string, ref?: BearingTarget): void;
-  /** Silent; user Escape and update notify onClear. */
+  /** Silent; user Escape and, by default, update notify onClear. */
   clear(): void;
   destroy(): void;
 };
@@ -548,7 +549,7 @@ export function createReadingView(container: HTMLElement, options: ReadingViewOp
   const observer = typeof ResizeObserver === "function" ? new ResizeObserver(schedule) : undefined;
   observer?.observe(page);
   return {
-    update(next) {
+    update(next, updateOptions) {
       alive(); const hadFocus = root.contains(doc.activeElement);
       root.dataset.entering = String(!projection && !options.reducedMotion?.());
       projection = next; selected = undefined; hovered = undefined;
@@ -556,7 +557,8 @@ export function createReadingView(container: HTMLElement, options: ReadingViewOp
       inline = full.map(graph => new Set(projectExploration(graph).inlineBearings.map(node => node.ref.key)));
       commitments = new Map(next.units.flatMap(unit => unit.commitments.map(item => [item.occurrenceId, item] as const)));
       inspected = undefined;
-      build(); guide(); schedule(); options.onClear?.();
+      build(); guide(); schedule();
+      if (updateOptions?.notifyClear !== false) options.onClear?.();
       if (hadFocus) root.querySelector<HTMLElement>('[tabindex="0"]')?.focus({ preventScroll: true });
     },
     select(ref, unitIndex = 0) {
