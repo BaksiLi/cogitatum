@@ -352,6 +352,7 @@ export function createStrandsView(container: HTMLElement, options: StrandsViewOp
     },
     select(ref) {
       if (destroyed || !graph) return;
+      const changed = !sameRef(selected, ref);
       if (!items.some(item => item.refs.some(r => sameRef(r, ref)))) {
         let target: BearingTarget | undefined = ref;
         const seen = new Set<string>();
@@ -369,7 +370,8 @@ export function createStrandsView(container: HTMLElement, options: StrandsViewOp
       }
       choose(ref, false);
       const reduced = options.reducedMotion?.() || win?.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-      items.find(item => item.refs.some(r => sameRef(r, ref)))?.element.scrollIntoView?.({ block: "nearest", behavior: reduced ? "instant" : "smooth" });
+      // A host may echo a pointer selection; revealing it again moves the target between clicks.
+      if (changed) items.find(item => item.refs.some(r => sameRef(r, ref)))?.element.scrollIntoView?.({ block: "nearest", behavior: reduced ? "instant" : "smooth" });
     },
     clear() { if (!destroyed) { contest = undefined; choose(undefined, false); } },
     destroy() {
