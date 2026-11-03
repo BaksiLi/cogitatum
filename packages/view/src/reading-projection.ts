@@ -327,29 +327,35 @@ export function projectReading(source: string, explained: ExplainedSource): Read
   return { version: explained.version, mode: explained.mode, source, rows, units, diagnostics: explained.diagnostics };
 }
 
-/** A Point written beneath another Point without bearing on anything: kept together in the drawing only. */
+/** A declared Point nested without a relation at that occurrence: kept together in the drawing only. */
 export type OutlineTie = { child: PointRef; parent: PointRef };
 
 /**
- * Where the outline nests one Point under another and the inner Point states no relation, as a Claim
- * beneath a Question does. A Map may keep such Points near each other with a faint tie; the tie is the
- * author's arrangement, never a Bearing, a target or an inference about what the Point answers.
+ * Where the outline nests a declared Point under another and that occurrence itself states no relation,
+ * as a Claim or a neutral Point beneath a Question does. A Map may keep them together with a faint tie.
+ * The tie is the author's arrangement, never a Bearing or an inference about what the Point answers.
+ * A use, a failed occurrence, and a member do not provide that evidence. If a Bearing already joins this Point
+ * and its outline parent, that relation is the connection and no tie is added.
+ * Keys belong to this unit: host units repeat anonymous keys, so ties are never gathered across them.
  */
-export function outlineTies(reading: ReadingProjection): OutlineTie[] {
-  const ties: OutlineTie[] = [], seen = new Set<string>();
-  for (const unit of reading.units) {
-    const bearing = new Set(unit.graph.bearings.flatMap(item => item.sources.map(source => source.key)));
-    const stack: { depth: number; point?: PointRef }[] = [];
-    for (const occurrence of unit.occurrences) {
-      while (stack.length && stack[stack.length - 1].depth >= occurrence.depth) stack.pop();
-      const point = occurrence.references.find(reference => reference.ref.kind === "point" && (reference.kind === "declares" || reference.kind === "uses"))?.ref as PointRef | undefined;
-      const parent = [...stack].reverse().find(entry => entry.point)?.point;
-      if (point && parent && point.key !== parent.key && !bearing.has(point.key)) {
-        const key = `${point.key}>${parent.key}`;
-        if (!seen.has(key)) { seen.add(key); ties.push({ child: point, parent }); }
-      }
-      stack.push({ depth: occurrence.depth, point });
+export function outlineTies(unit: ReadingUnit): OutlineTie[] {
+  const quiet = new Set(unit.commitments.filter(commitment =>
+    commitment.basis === "none" && commitment.reason === "no-structural-rule").map(commitment => commitment.occurrenceId));
+  const joined = new Set(unit.graph.bearings.flatMap(bearing =>
+    bearing.target.kind === "point"
+      ? bearing.sources.map(source => `${source.key}>${bearing.target.key}`)
+      : []));
+  const ties: OutlineTie[] = [], stack: { depth: number; point?: PointRef }[] = [];
+  for (const occurrence of unit.occurrences) {
+    while (stack.length && stack[stack.length - 1].depth >= occurrence.depth) stack.pop();
+    const declared = occurrence.references.find(reference => reference.kind === "declares")?.ref;
+    const parent = [...stack].reverse().find(entry => entry.point)?.point;
+    if (declared && parent && declared.key !== parent.key && quiet.has(occurrence.id) &&
+      !joined.has(`${declared.key}>${parent.key}`) && !joined.has(`${parent.key}>${declared.key}`)) {
+      ties.push({ child: declared, parent });
     }
+    const used = occurrence.references.find(reference => reference.kind === "uses")?.ref;
+    stack.push({ depth: occurrence.depth, point: declared ?? (used?.kind === "point" ? used : undefined) });
   }
   return ties;
 }

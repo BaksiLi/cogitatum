@@ -319,10 +319,8 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
     const pointIn = (id: string) => entranceAt((rank.get(id) ?? 0) * POINT_DELAY, POINT_IN);
     const lineIn = (source: string, target: string) => entranceAt(Math.max(rank.get(source) ?? 0, rank.get(target) ?? 0) * POINT_DELAY + POINT_IN * .6, LINE_IN);
     const room = zoomHold ? undefined : measureRoom(camera.k);
-    // One swell and back over half a second, then the selection's steady emphasis.
-    const since = pulseAt && win ? (win.performance.now() - pulseAt) / PULSE : 1;
-    const pulse = since < 1 ? Math.sin(Math.PI * since) : 0;
-    if (since >= 1) pulseAt = 0;
+    const pulseElapsed = pulseAt && win ? win.performance.now() - pulseAt : PULSE;
+    if (pulseElapsed >= PULSE || reduced()) pulseAt = 0;
     for (const shape of shapes.values()) {
       if (shape.inline) continue;
       const p = screen(world.get(shape.id)!);
@@ -461,7 +459,12 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
       const d = `M${a.x.toFixed(1)} ${a.y.toFixed(1)}C${c1.x.toFixed(1)} ${c1.y.toFixed(1)} ${c2.x.toFixed(1)} ${c2.y.toFixed(1)} ${t.x.toFixed(1)} ${t.y.toFixed(1)}`;
       const on = !guided || active.has(link.bearingKey);
       const path = element("path", { d, class: `cog-link ${link.segment} cog-tone-${mark.tone}${mark.dashed ? " cog-dashed" : ""}`, "data-active": String(on), "data-bearing": link.bearingKey, "aria-hidden": "true" }, edgeLayer);
-      if (pulse && guided && on) path.style.strokeWidth = `${(1.7 + 1.1 * pulse).toFixed(2)}px`;
+      // The browser swells the stroke without redrawing or measuring the whole Map each frame.
+      // If a drag redraws this path meanwhile, continue the original pulse instead of restarting it.
+      if (pulseAt && guided && on) {
+        const animation = path.animate([{ strokeWidth: "1.7px" }, { strokeWidth: "2.8px", offset: .5 }, { strokeWidth: "1.7px" }], { duration: PULSE });
+        animation.currentTime = pulseElapsed;
+      }
       const traced = lineIn(link.source, link.target);
       if (entrance && traced < 1) {
         // Traced from its source to its mark; a dashed relation simply fades in, keeping its dashes.
@@ -515,7 +518,6 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
         : { x: 0, y: 0, width: 0, height: 0 };
       for (const [name, value] of Object.entries(box)) hit.setAttribute(name, String(value));
     }
-    if (pulseAt) schedule();
     if (entrance && !entrance.pending) {
       const last = Math.max(0, rank.size - 1) * POINT_DELAY + POINT_IN * .6 + LINE_IN;
       if ((win?.performance.now() ?? Infinity) - entrance.began >= last) { entrance = undefined; schedule(); }

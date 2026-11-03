@@ -240,6 +240,10 @@ A local Bearing use remains a local row; a target at the Bearing's construction 
 These display locations do not create extra graph entities, independent evidence or inferred relations.
 Repeated names and keys in different source units remain separate.
 
+`outlineTies(unit)` returns outline placement for that one unit.
+A declared Point whose occurrence states no relation is tied to its outline parent unless a Bearing already joins that pair.
+Host units repeat anonymous keys, so each unit is passed separately with its own graph.
+
 `ReadingUnit.commitments` records active occurrences' relation and note decisions from Explain, with the matching AST for written syntax:
 `indentation` (the nearest context selected the target, with that context row and any crossed body rows),
 `explicit` (a named target fixed it), `member` (a constructor's member source, adding no relation of its own), `note`,
