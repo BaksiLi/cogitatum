@@ -8,6 +8,12 @@ Use the complete released schema set and [migrate retained source](docs/syntax.m
 
 ## Unreleased
 
+- Add `analyzeSourceEdits` for several checked previews over one privately owned original analysis.
+  Each proposed input retains its independent compilation and preservation checks.
+  Detached results and sibling line numbers let editors choose offers without sharing mutable compiler state.
+- Index commitment lookup once per compared graph, sharing the same entailment rules and first-witness order with one-off queries.
+  Keep authored Point names in one declaration index rather than two overlapping tables.
+
 - Give the private Map's wording the room it is drawn in.
   The layout reserves each mark's measured wording, conclusions are measured in the heavier weight they are painted in, and wording beside a near neighbour narrows and takes another line instead of overlapping.
   Below full scale wording shrinks with the drawing to a readable floor, so its line breaks hold; it sits on a plate of the canvas, so links pass behind it, and links stop clear of its descenders.

@@ -104,17 +104,44 @@ export function entailment(
   commitment: Omit<Commitment, "bearings">
 ): Omit<Commitment, "bearings">[] | undefined {
   const key = commitmentKey(commitment);
-  const exact = stated.find(c => commitmentKey(c) === key);
+  let toTarget: typeof stated | undefined;
+  return entailmentWitnesses(commitment, stated.find(c => commitmentKey(c) === key), source =>
+    (toTarget ??= stated.filter(c => c.target.kind === commitment.target.kind && c.target.key === commitment.target.key))
+      .find(c => c.sources.includes(source)));
+}
+
+function entailmentWitnesses(
+  commitment: Omit<Commitment, "bearings">,
+  exact: Omit<Commitment, "bearings"> | undefined,
+  firstWitness: (source: string) => Omit<Commitment, "bearings"> | undefined
+): Omit<Commitment, "bearings">[] | undefined {
   if (exact) return [exact];
   if (commitment.kind !== "concerns") return undefined;
-  const toTarget = stated.filter(c => sameTarget(c.target, commitment.target));
   const witnesses = new Set<Omit<Commitment, "bearings">>();
   for (const source of commitment.sources) {
-    const witness = toTarget.find(c => c.sources.includes(source));
+    const witness = firstWitness(source);
     if (!witness) return undefined;
     witnesses.add(witness);
   }
   return [...witnesses];
+}
+
+// Index the two rules once per theory. Keep first witnesses and return the
+// original statements, in query-source order, just as a left-to-right search.
+function indexEntailment(stated: readonly Omit<Commitment, "bearings">[]) {
+  const exact = new Map<string, Omit<Commitment, "bearings">>();
+  const relevant = new Map<string, Map<string, Omit<Commitment, "bearings">>>();
+  for (const statement of stated) {
+    const key = commitmentKey(statement), target = targetKey(statement.target);
+    if (!exact.has(key)) exact.set(key, statement);
+    const sources = relevant.get(target) ?? new Map<string, Omit<Commitment, "bearings">>();
+    for (const source of statement.sources) if (!sources.has(source)) sources.set(source, statement);
+    relevant.set(target, sources);
+  }
+  return (commitment: Omit<Commitment, "bearings">) => {
+    const sources = relevant.get(targetKey(commitment.target));
+    return entailmentWitnesses(commitment, exact.get(commitmentKey(commitment)), source => sources?.get(source));
+  };
 }
 
 /**
@@ -144,8 +171,9 @@ export function compareCommitments(before: GraphIR, after: GraphIR, corresponden
     return { kind: c.kind, sources: sourceSetOf(sources as string[]), target: { kind: c.target.kind, key: target } as BearingTarget };
   });
   const continuing = restated.filter(c => c !== undefined);
-  const retracted = earlier.filter((_, i) => !restated[i] || !entailment(later, restated[i]));
-  const added = later.filter(c => !entailment(continuing, c));
+  const laterEntails = indexEntailment(later), continuingEntails = indexEntailment(continuing);
+  const retracted = earlier.filter((_, i) => !restated[i] || !laterEntails(restated[i]));
+  const added = later.filter(c => !continuingEntails(c));
 
   const removed = <T extends { key: string }>(items: T[], map: Map<string, string>) => items.filter(e => !map.has(e.key)).map(e => e.key);
   const introduced = <T extends { key: string }>(items: T[], map: Map<string, string>) => {
@@ -279,8 +307,8 @@ function entries(map: Record<string, string>): Map<string, string> {
   return new Map(Object.entries(map));
 }
 
-function sameTarget(left: BearingTarget, right: BearingTarget): boolean {
-  return left.kind === right.kind && left.key === right.key;
+function targetKey(target: BearingTarget): string {
+  return JSON.stringify([target.kind, target.key]);
 }
 
 function commitmentKey(c: Omit<Commitment, "bearings">): string {

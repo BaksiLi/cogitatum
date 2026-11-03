@@ -76,8 +76,11 @@ type Plan = {
  * and classifies the result with compareCommitments.
  */
 export function previewRelationEdit(source: string, options: RelationEditOptions): RelationEditPreview {
-  const mode = options.mode ?? "document";
-  const before = explainSource(source, mode);
+  return previewRelationEditFrom(source, explainSource(source, options.mode ?? "document"), options);
+}
+
+/** @internal Only used with Core's private analysis of this exact source. */
+export function previewRelationEditFrom(source: string, before: ExplainedSource, options: RelationEdit): RelationEditPreview {
   const base = { version: FORMAT_VERSION, mode: before.mode, diagnostics: before.diagnostics };
   const unavailable = (reason: RelationEditUnavailableReason, message: string): RelationEditPreview => ({ ...base, status: "unavailable", reason, message });
   const lines = options.operation === "join" ? options.lines : [options.line];

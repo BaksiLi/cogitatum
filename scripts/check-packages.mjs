@@ -54,7 +54,7 @@ for (const name of ["ast", "graph-ir", "explain", "source"]) {
 }
 const probe = `
 import assert from 'node:assert/strict';
-import { analyzeSourceReferences, compileGraph, compileGraphWithExplain, compileSource, explainSource, formatGraph, formatExplain, GRAPH_TEXT_VERSION, EXPLAIN_TEXT_VERSION, parseDocument, previewTargetForm } from '@cogitatum/core';
+import { analyzeSourceEdits, analyzeSourceReferences, compileGraph, compileGraphWithExplain, compileSource, explainSource, formatGraph, formatExplain, GRAPH_TEXT_VERSION, EXPLAIN_TEXT_VERSION, parseDocument, previewTargetForm } from '@cogitatum/core';
 const { graph, explain } = compileGraphWithExplain(parseDocument('- Ordinary context.\\n  - [C @claim] A claim.\\n    - [G; @route] A reason.\\n- [O -> @route] A route objection.\\n'));
 assert.equal(GRAPH_TEXT_VERSION, '1');
 assert.ok(formatGraph(graph).includes('b2: challenges([p3], b1)'));
@@ -118,6 +118,9 @@ const explicitPreview = previewTargetForm(explicitSource, {line: 2, form: 'named
 assert.equal(explicitPreview.status, 'ready');
 assert.equal(explicitPreview.originalSource, explicitSource);
 assert.equal(explicitPreview.proposedSource, explicitSource.replace('[G;', '[G +> @claim;'));
+const edits = analyzeSourceEdits(explicitSource);
+assert.deepEqual(edits.preview({kind: 'target-form', line: 2, form: 'named'}), explicitPreview);
+assert.deepEqual(edits.siblingsAt(3), {lines: [3], index: 0});
 assert.equal(formatGraph(compileGraph(parseDocument(explicitSource))), formatGraph(compileGraph(parseDocument(explicitPreview.proposedSource))));
 assert.equal(previewTargetForm('- [C] Anonymous.\\n  - [G] Reason.', {line: 2, form: 'named'}).reason, 'unnamed-target');
 const jointSelectorSource = '- [C @c] Claim.\\n  - [G; @step] Reason.\\n    - [_ -> ^/; @review]\\n      - [. @a] First.\\n      - [. @b] Second.\\n      - [_ note] Review note.';
@@ -261,7 +264,7 @@ const apiReferences = JSON.parse(run(process.execPath, ["--input-type=module", "
 assert.deepEqual(cliReferences, apiReferences);
 assert.equal(cliReferences.references.status, "complete");
 
-writeFileSync(join(temporary, "consumer.mts"), `import {type Point, type PointDeclaration, type Bearing, type Annotation, type ObjectNote, type OperatorClause, type ExplainEmittedBearingSummary, type ExplainRecognition, type SourceReferenceAnalysis, type ReferencedName, type WrittenReference, type TargetFormPreview, type TargetTerm, type SourceEdit, previewTargetForm, analyzeSourceReferences, explainSource, formatExplain, EXPLAIN_TEXT_VERSION, formatGraph, GRAPH_TEXT_VERSION, compileGraph, parseDocument} from '@cogitatum/core';
+writeFileSync(join(temporary, "consumer.mts"), `import {type Point, type PointDeclaration, type Bearing, type Annotation, type ObjectNote, type OperatorClause, type ExplainEmittedBearingSummary, type ExplainRecognition, type SourceReferenceAnalysis, type ReferencedName, type WrittenReference, type TargetFormPreview, type TargetTerm, type SourceEdit, type SourceEditAnalysis, previewTargetForm, analyzeSourceEdits, analyzeSourceReferences, explainSource, formatExplain, EXPLAIN_TEXT_VERSION, formatGraph, GRAPH_TEXT_VERSION, compileGraph, parseDocument} from '@cogitatum/core';
 import { createGraphView, declarationMark, projectReading, createReadingView, type ReadingProjection } from '@cogitatum/view';
 import { createBlockView, type BlockEditRequest, type BlockView } from '@cogitatum/view/block';
 function mountHostBlock(container: HTMLElement): BlockView {
@@ -272,6 +275,12 @@ function mountHostBlock(container: HTMLElement): BlockView {
   } });
 }
 const preview: TargetFormPreview = previewTargetForm('- [C @c] Claim.\\n  - [G] Reason.', {line: 2, form: 'named', mode: 'document'});
+const edits: SourceEditAnalysis = analyzeSourceEdits('- [C @c] Claim.\\n  - [G] Reason.');
+edits.preview({kind: 'relation', edit: {operation: 'decide', line: 2, kind: 'challenges'}});
+// @ts-expect-error A relation request must carry a relation edit.
+edits.preview({kind: 'relation', line: 2, form: 'named'});
+// @ts-expect-error A snapshot cannot accept another source or caller-supplied analysis.
+edits.preview('replacement source');
 if (preview.status === 'ready') {
   const original: string = preview.originalSource;
   const updated: string = preview.proposedSource;

@@ -37,7 +37,11 @@ export type TargetFormPreview = {
  * originalSource comparison; editing invalidates it.
  */
 export function previewTargetForm(source: string, options: TargetFormOptions): TargetFormPreview {
-  const before = explainSource(source, options.mode ?? "document");
+  return previewTargetFormFrom(source, explainSource(source, options.mode ?? "document"), options);
+}
+
+/** @internal Only used with Core's private analysis of this exact source. */
+export function previewTargetFormFrom(source: string, before: ExplainedSource, options: Omit<TargetFormOptions, "mode">): TargetFormPreview {
   const base = { version: FORMAT_VERSION, mode: before.mode, diagnostics: before.diagnostics };
   const unavailable = (reason: TargetFormUnavailableReason, message: string): TargetFormPreview =>
     ({ ...base, status: "unavailable", reason, message });

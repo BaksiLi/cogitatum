@@ -50,12 +50,11 @@ type SymbolKind = "point" | "bearing" | "invalid" | "unknown";
 
 type SymbolTable = {
   pointKeys: WeakMap<AstBlock, string>;
-  pointIds: Set<string>;
+  declaredPointIds: Set<string>;
   duplicatePointIds: Set<string>;
   bearingIds: Set<string>;
   conflictingIds: Set<string>;
   duplicateBearingIds: Set<string>;
-  allIds: Map<string, AstBlock>;
   pointsByKey: Map<string, Point>;
   bearingKeys: Set<string>;
   keysById: Map<string, string>;
@@ -164,7 +163,7 @@ export function compileGraphWithExplain(ast: DocumentAst): GraphCompilation {
     if (result.status === "rejected") diagnostics.push(result.diagnostic);
   }
   resolveNotes(explainDrafts, symbols, validation.bearings, diagnostics);
-  const entries = buildExplainEntries(explainDrafts, points, validation, diagnostics, new Set([...symbols.allIds.keys(), ...symbols.bearingIds]));
+  const entries = buildExplainEntries(explainDrafts, points, validation, diagnostics, new Set([...symbols.declaredPointIds, ...symbols.bearingIds]));
 
   const graph = {
     version: FORMAT_VERSION,
@@ -660,12 +659,11 @@ function pointRef(key: string): PointRef {
 function collectSymbols(blocks: AstBlock[], diagnostics: Diagnostic[]): SymbolTable {
   const symbols: SymbolTable = {
     pointKeys: new WeakMap(),
-    pointIds: new Set(),
+    declaredPointIds: new Set(),
     duplicatePointIds: new Set(),
     bearingIds: new Set(),
     conflictingIds: new Set(),
     duplicateBearingIds: new Set(),
-    allIds: new Map(),
     pointsByKey: new Map(),
     bearingKeys: new Set(),
     keysById: new Map()
@@ -680,7 +678,7 @@ function collectSymbols(blocks: AstBlock[], diagnostics: Diagnostic[]): SymbolTa
     if (!anchor) {
       return;
     }
-    if (symbols.allIds.has(anchor)) {
+    if (symbols.declaredPointIds.has(anchor)) {
       symbols.duplicatePointIds.add(anchor);
       diagnostics.push({
         severity: "error",
@@ -692,13 +690,8 @@ function collectSymbols(blocks: AstBlock[], diagnostics: Diagnostic[]): SymbolTa
         sourceSpan: block.sourceSpan
       });
     }
-    symbols.allIds.set(anchor, block);
-    symbols.pointIds.add(anchor);
+    symbols.declaredPointIds.add(anchor);
   });
-
-  for (const id of symbols.duplicatePointIds) {
-    symbols.pointIds.delete(id);
-  }
 
   return symbols;
 }
@@ -724,7 +717,7 @@ function collectBearingSymbols(
         sourceSpan: bearing.sourceSpan
       });
     }
-    if (symbols.allIds.has(bearing.handle)) {
+    if (symbols.declaredPointIds.has(bearing.handle)) {
       symbols.conflictingIds.add(bearing.handle);
     }
     symbols.bearingIds.add(bearing.handle);
@@ -801,7 +794,7 @@ function validateBearings(
       isValid = false;
     }
 
-    if (bearing.handle && symbols.allIds.has(bearing.handle)) {
+    if (bearing.handle && symbols.declaredPointIds.has(bearing.handle)) {
       diagnostics.push({
         severity: "error",
         code: "POINT_BEARING_ID_CONFLICT",
@@ -1126,7 +1119,7 @@ function classifyId(id: string, symbols: SymbolTable): SymbolKind {
   if (symbols.duplicatePointIds.has(id) || symbols.conflictingIds.has(id)) {
     return "invalid";
   }
-  if (symbols.pointIds.has(id)) {
+  if (symbols.declaredPointIds.has(id)) {
     return "point";
   }
   if (symbols.bearingIds.has(id)) {
