@@ -500,6 +500,8 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
 
   // ── camera ──
   function fitCamera(readingScale = true): Camera {
+    // A host can mount in a hidden tab; its first measured viewport supplies the fit.
+    if (!size.w || !size.h) return camera;
     // Fit the ink, including wording and the host's covering controls, rather than only mark centres.
     const margin = size.w < 600 ? 16 : 32, height = Math.max(64, size.h - bottomInset);
     const placed = [...world].flatMap(([id, p]) => { const shape = shapes.get(id); return shape && !shape.inline ? [{ shape, ...p }] : []; });

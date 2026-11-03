@@ -82,13 +82,22 @@ type BearingDraft =
       reason: "no-eligible-ancestor" | "no-structural-rule" | "local-bearing-membership";
     };
 
+type FocusResolution =
+  | { status: "resolved"; operand: Ref; ref: BearingTarget; diagnostic?: never }
+  | { status: "rejected"; operand?: Ref; reason: "reference-error"; diagnostic: Diagnostic };
+
+type FocusDraft =
+  | { status: "pending"; kind: "point" | "bearing"; operand?: Ref }
+  | FocusResolution
+  | { status: "rejected"; operand?: Ref; reason: "annotation-syntax-error"; diagnostic?: never };
+
 type ExplainDraft = {
   block: AstBlock;
   recognition: ExplainRecognition;
   point?: PointDraft;
   membership?: { localBearingSpan: SourceSpan; eligible: boolean; function: LocalBearingChildFunction };
   selection?: { ownerSpan?: SourceSpan; contextSpan?: SourceSpan; target?: BearingRef | Ref };
-  focus?: { kind: "point" | "bearing"; operand?: Ref; ref?: BearingTarget; reason?: "reference-error" | "annotation-syntax-error" };
+  focus?: FocusDraft;
   bearing?: BearingDraft;
   parentSpan?: SourceSpan;
   implicit?: { contextSpan: SourceSpan; crossedBodySpans: SourceSpan[] };
@@ -135,15 +144,10 @@ export function compileGraphWithExplain(ast: DocumentAst): GraphCompilation {
 
   collectBearingSymbols(compiledBearings, symbols, diagnostics);
   for (const draft of explainDrafts) {
-    if (!draft.focus || draft.focus.kind !== "point" || draft.focus.reason) continue;
-    const operand = draft.focus.operand;
-    const kind = operand ? classifyReference(operand, symbols) : "invalid";
-    if (kind === "point" && operand) {
-      draft.focus.ref = pointRef(resolveKey(operand, symbols));
-    } else {
-      draft.focus.reason = "reference-error";
-      diagnostics.push({ severity: "error", code: kind === "bearing" ? "BEARING_IS_NOT_POINT_REFERENCE" : kind === "unknown" ? "UNKNOWN_POINT_REFERENCE" : "INVALID_POINT_REFERENCE", message: "Point use operand " + (operand ? "@" + operand.id : "(missing)") + " does not resolve to a unique Point in this source unit.", sourceSpan: draft.block.sourceSpan });
-    }
+    if (draft.focus?.status !== "pending" || draft.focus.kind !== "point") continue;
+    const result = resolvePointFocus(draft.focus.operand, symbols, draft.block.sourceSpan);
+    draft.focus = result;
+    if (result.status === "rejected") diagnostics.push(result.diagnostic);
   }
   const validation = validateBearings(compiledBearings, symbols, diagnostics);
   const validBearingKeys = new Set(validation.bearings.map(bearing => bearing.key));
@@ -154,15 +158,10 @@ export function compileGraphWithExplain(ast: DocumentAst): GraphCompilation {
       ? { kind: "bearing", key: resolveKey(target, symbols) } : undefined;
   }
   for (const draft of explainDrafts) {
-    if (!draft.focus || draft.focus.kind !== "bearing" || draft.focus.reason) continue;
-    const operand = draft.focus.operand;
-    const kind = operand ? classifyReference(operand, symbols) : "invalid";
-    if (operand && kind === "bearing" && validBearingKeys.has(resolveKey(operand, symbols))) {
-      draft.focus.ref = { kind: "bearing", key: resolveKey(operand, symbols) };
-    } else {
-      draft.focus.reason = "reference-error";
-      diagnostics.push({ severity: "error", code: kind === "point" ? "POINT_IS_NOT_BEARING_REFERENCE" : kind === "unknown" ? "UNKNOWN_BEARING_REFERENCE" : "INVALID_BEARING_REFERENCE", message: "Bearing use operand " + (operand ? "@" + operand.id : "(missing)") + " does not resolve to a unique validated Bearing in this source unit.", sourceSpan: draft.block.sourceSpan });
-    }
+    if (draft.focus?.status !== "pending" || draft.focus.kind !== "bearing") continue;
+    const result = resolveBearingFocus(draft.focus.operand, symbols, validBearingKeys, draft.block.sourceSpan);
+    draft.focus = result;
+    if (result.status === "rejected") diagnostics.push(result.diagnostic);
   }
   resolveNotes(explainDrafts, symbols, validation.bearings, diagnostics);
   const entries = buildExplainEntries(explainDrafts, points, validation, diagnostics, new Set([...symbols.allIds.keys(), ...symbols.bearingIds]));
@@ -238,7 +237,9 @@ function compileBlock(
 
   if (annotation.kind === "bearingUse") {
     const syntaxFailed = Boolean(annotation.syntaxErrors?.length);
-    draft.focus = { kind: "bearing", operand: annotation.ref, ...(syntaxFailed ? { reason: "annotation-syntax-error" as const } : {}) };
+    draft.focus = syntaxFailed
+      ? { status: "rejected", operand: annotation.ref, reason: "annotation-syntax-error" }
+      : { status: "pending", kind: "bearing", operand: annotation.ref };
     compileChildren({ kind: "bearing", block, exposedBearing: syntaxFailed ? undefined : annotation.ref });
     return;
   }
@@ -256,7 +257,9 @@ function compileBlock(
 
   // A Point declaration or use.
   if (annotation.kind === "use") {
-    draft.focus = { kind: "point", operand: annotation.ref, ...(annotation.syntaxErrors?.includes("reference") ? { reason: "annotation-syntax-error" as const } : {}) };
+    draft.focus = annotation.syntaxErrors?.includes("reference")
+      ? { status: "rejected", operand: annotation.ref, reason: "annotation-syntax-error" }
+      : { status: "pending", kind: "point", operand: annotation.ref };
   } else {
     const point = pointFromBlock(block, pointKeys);
     points.push(point);
@@ -903,10 +906,7 @@ function buildExplainEntries(
       }
     }
     if (draft.focus) {
-      const focus = draft.focus;
-      effects.push(focus.ref && focus.operand
-        ? focus.ref.kind === "point" ? { kind: "focusPoint", ref: { ...focus.ref }, operand: { ...focus.operand } } : { kind: "focusBearing", ref: { ...focus.ref }, operand: { ...focus.operand } }
-        : { kind: "rejectFocus", ...(focus.operand ? { operand: { ...focus.operand } } : {}), reason: focus.reason ?? "reference-error" });
+      effects.push(explainFocus(draft.focus));
     }
 
     if (draft.point) {
@@ -1071,6 +1071,53 @@ function requiresPointTarget(
   kind: BearingKind
 ): kind is "answers" | "respondsTo" {
   return kind === "answers" || kind === "respondsTo";
+}
+
+function resolvePointFocus(operand: Ref | undefined, symbols: SymbolTable, sourceSpan: SourceSpan): FocusResolution {
+  const kind = operand ? classifyReference(operand, symbols) : "invalid";
+  if (operand && kind === "point") {
+    return { status: "resolved", operand, ref: pointRef(resolveKey(operand, symbols)) };
+  }
+  return {
+    status: "rejected", operand, reason: "reference-error",
+    diagnostic: {
+      severity: "error",
+      code: kind === "bearing" ? "BEARING_IS_NOT_POINT_REFERENCE" : kind === "unknown" ? "UNKNOWN_POINT_REFERENCE" : "INVALID_POINT_REFERENCE",
+      message: "Point use operand " + (operand ? "@" + operand.id : "(missing)") + " does not resolve to a unique Point in this source unit.",
+      sourceSpan
+    }
+  };
+}
+
+function resolveBearingFocus(operand: Ref | undefined, symbols: SymbolTable, validBearingKeys: ReadonlySet<string>, sourceSpan: SourceSpan): FocusResolution {
+  const kind = operand ? classifyReference(operand, symbols) : "invalid";
+  const key = operand && kind === "bearing" ? resolveKey(operand, symbols) : undefined;
+  if (operand && key !== undefined && validBearingKeys.has(key)) {
+    return { status: "resolved", operand, ref: { kind: "bearing", key } };
+  }
+  return {
+    status: "rejected", operand, reason: "reference-error",
+    diagnostic: {
+      severity: "error",
+      code: kind === "point" ? "POINT_IS_NOT_BEARING_REFERENCE" : kind === "unknown" ? "UNKNOWN_BEARING_REFERENCE" : "INVALID_BEARING_REFERENCE",
+      message: "Bearing use operand " + (operand ? "@" + operand.id : "(missing)") + " does not resolve to a unique validated Bearing in this source unit.",
+      sourceSpan
+    }
+  };
+}
+
+function explainFocus(focus: FocusDraft): ExplainEffect {
+  switch (focus.status) {
+    case "resolved":
+      return focus.ref.kind === "point"
+        ? { kind: "focusPoint", ref: { ...focus.ref }, operand: { ...focus.operand } }
+        : { kind: "focusBearing", ref: { ...focus.ref }, operand: { ...focus.operand } };
+    case "rejected":
+      return { kind: "rejectFocus", ...(focus.operand ? { operand: { ...focus.operand } } : {}), reason: focus.reason };
+    case "pending":
+      throw new Error("Compiler invariant violated: focus was not resolved before Explain.");
+  }
+  return focus satisfies never;
 }
 
 function classifyId(id: string, symbols: SymbolTable): SymbolKind {
