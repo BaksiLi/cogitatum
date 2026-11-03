@@ -295,7 +295,8 @@ export function projectReading(source: string, explained: ExplainedSource): Read
       }
       const emitted = find("emitBearing");
       if (emitted) {
-        const route = bearings.find(item => item.bearing.key === emitted.ref.key)!;
+        // The occurrence pass validated this index; projected Bearings retain graph order.
+        const route = bearings[emitted.ref.graphIndex];
         const context = find("implicitAttachment");
         const annotation = evidence!.block.annotation;
         const written = annotation && "operatorClause" in annotation && annotation.operatorClause;

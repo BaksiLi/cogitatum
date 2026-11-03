@@ -1,5 +1,5 @@
 import { expandedClause, isRelationSpelling, respellTarget, targetSpelling } from "./annotation.js";
-import { annotationOffset, findBlock, minimalEdit, same } from "./source-edit.js";
+import { annotationOffset, findBlock, locateSourceBlock, minimalEdit, same } from "./source-edit.js";
 import type { SourceEdit } from "./source-edit.js";
 import { explainSource } from "./source.js";
 import { FORMAT_VERSION, isNamedTarget } from "./types.js";
@@ -45,17 +45,17 @@ export function previewTargetForm(source: string, options: TargetFormOptions): T
   if (options.form !== "named" && options.form !== "positional") return unavailable("invalid-form", "Choose named or positional.");
   if (before.diagnostics.some(d => d.severity === "error")) return unavailable("source-errors", "Fix errors in the complete input before preparing an edit.");
 
-  const unitIndex = before.documents.findIndex(d => findBlock(d.blocks, options.line));
-  const block = unitIndex < 0 ? undefined : findBlock(before.documents[unitIndex].blocks, options.line);
-  const annotation = block?.annotation;
-  const entry = block && before.explanations[unitIndex].entries.find(e => e.sourceSpan.startLine === block.sourceSpan.startLine);
+  const located = locateSourceBlock(before, options.line);
+  const annotation = located?.block.annotation;
+  const entry = located?.entry;
   const emission = entry?.effects.find(e => e.kind === "emitBearing");
   const clause = expandedClause(annotation);
-  if (!block || !annotation || !emission || !clause) {
+  if (!located || !annotation || !emission || !clause) {
     return unavailable("no-bearing", entry?.effects.some(e => e.kind === "localBearingMember" && e.eligible && e.function === "source")
       ? "This Point is a source of the enclosing constructor and has no target of its own; select the constructor, whose target can change without moving its members."
       : "Select an occurrence or constructor that authors a validated Bearing.");
   }
+  const { unitIndex, block } = located;
   const positional = !isNamedTarget(clause.target);
   if (positional === (options.form === "positional")) {
     return unavailable(positional ? "already-positional" : "already-named", `This relation's target is already ${options.form}.`);

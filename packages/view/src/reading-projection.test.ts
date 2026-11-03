@@ -281,6 +281,8 @@ describe("source-aware Reading projection", () => {
     expect(new Set(unit.bearings.map(item => item.occurrenceId)).size).toBe(4);
     expect(lineOf(result, route(result, 6).target.occurrenceId)).toBe(7);
     expect(lineOf(result, route(result, 7).target.occurrenceId)).toBe(6);
+    expect(unit.commitments.filter(item => item.basis === "explicit").map(item => [item.occurrenceId, item.kind, item.target]))
+      .toEqual(unit.bearings.map(item => [item.occurrenceId, item.bearing.kind, item.bearing.target]));
   });
 
   it("scopes repeated keys and authored names to host units and preserves the complete original host", () => {
@@ -321,6 +323,10 @@ describe("source-aware Reading projection", () => {
     const stale = structuredClone(explained);
     stale.explanations[0].entries[1].effects = stale.explanations[0].entries[1].effects.filter(effect => effect.kind !== "implicitAttachment");
     expect(() => projectReading(source, stale)).toThrow("attachment context");
+    const badIndex = structuredClone(explained);
+    const emitted = badIndex.explanations[0].entries[1].effects.find(effect => effect.kind === "emitBearing")!;
+    emitted.ref.graphIndex++;
+    expect(() => projectReading(source, badIndex)).toThrow("Bearing index");
     expect(() => projectReading(source, { ...explained, explanations: [] })).toThrow("unaligned source units");
     expect(() => projectReading(source, { ...explained, version: "0.4.0" })).toThrow("unsupported format");
   });

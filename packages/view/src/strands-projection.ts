@@ -75,7 +75,9 @@ export function strandRootOf(graph: GraphIR, point: PointRef): Point | undefined
   const up = new Map<string, BearingTarget[]>();
   const byBearing = new Map(graph.bearings.map(bearing => [bearing.key, bearing]));
   for (const bearing of graph.bearings) for (const source of bearing.sources) {
-    up.set(source.key, [...up.get(source.key) ?? [], bearing.target]);
+    const targets = up.get(source.key) ?? [];
+    targets.push(bearing.target);
+    up.set(source.key, targets);
   }
   const seen = new Set<string>(), queue: BearingTarget[] = [point];
   const roots = new Set(strandRoots(graph).map(root => root.key));
@@ -102,7 +104,11 @@ export function projectStrands(graph: GraphIR, focusRef?: PointRef): StrandsProj
   if (!focus) return undefined;
   const bySource = (a: Bearing, b: Bearing) => line(a) - line(b) || Math.min(...a.sources.map(s => line(point(s.key)))) - Math.min(...b.sources.map(s => line(point(s.key))));
   const into = new Map<string, Bearing[]>();
-  for (const bearing of graph.bearings) into.set(key(bearing.target), [...into.get(key(bearing.target)) ?? [], bearing]);
+  for (const bearing of graph.bearings) {
+    const target = key(bearing.target), incoming = into.get(target) ?? [];
+    incoming.push(bearing);
+    into.set(target, incoming);
+  }
   const stepsByTarget = new Map(graph.points.map(point => [point.key, (into.get(`point:${point.key}`) ?? []).filter(isStrandStep).sort(bySource)]));
   const stepsInto = (k: string) => stepsByTarget.get(k)!;
 
@@ -127,9 +133,9 @@ export function projectStrands(graph: GraphIR, focusRef?: PointRef): StrandsProj
   const knotOf = (bearing: Bearing, on: BearingTarget): StrandKnot => {
     const own = [...bearing.sources.map(s => `point:${s.key}`), `bearing:${bearing.key}`];
     const relations = own.flatMap(k => into.get(k) ?? []).filter(b => b.key !== bearing.key && !strandSteps.has(b.key)).sort(bySource);
-    const displayed = new Set([bearing.key, ...relations.map(relation => relation.key), ...strandSteps]);
+    const displayed = new Set([bearing.key, ...relations.map(relation => relation.key)]);
     const further = new Set(relations.flatMap(relation => [...relation.sources.map(s => `point:${s.key}`), `bearing:${relation.key}`])
-      .flatMap(k => into.get(k) ?? []).filter(b => !displayed.has(b.key)).map(b => b.key)).size;
+      .flatMap(k => into.get(k) ?? []).filter(b => !displayed.has(b.key) && !strandSteps.has(b.key)).map(b => b.key)).size;
     for (const b of [bearing, ...relations]) { shown.add(`bearing:${b.key}`); b.sources.forEach(s => shown.add(`point:${s.key}`)); }
     return { bearing, on, relations, further,
       polarity: bearing.kind === "challenges" ? "challenge" : bearing.kind === "supports" ? "support" : "neutral" };
@@ -148,7 +154,9 @@ export function projectStrands(graph: GraphIR, focusRef?: PointRef): StrandsProj
   }
   const via = new Map<string, Bearing[]>();
   for (const bearing of graph.bearings) if (strandSteps.has(bearing.key)) for (const source of bearing.sources) {
-    via.set(source.key, [...via.get(source.key) ?? [], bearing]);
+    const steps = via.get(source.key) ?? [];
+    steps.push(bearing);
+    via.set(source.key, steps);
   }
   const knotsPlaced = new Set<string>();
   for (const p of order) {
