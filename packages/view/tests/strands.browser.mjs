@@ -147,6 +147,14 @@ try {
     await page.getByRole('button', { name: 'Show all', exact: true }).click(); await flush();
     assert.equal(await page.locator('.cog-strands').getAttribute('data-contest'), 'false', 'a pointer or touch user can leave focus without a keyboard');
     assert.equal(await page.getByRole('button', { name: 'Show all', exact: true }).count(), 0, 'the exit control appears only when needed');
+    await page.waitForFunction(() => [...document.querySelectorAll('.cog-strands-segment > [data-lit="false"]')]
+      .every(mark => Number(getComputedStyle(mark).opacity) > .12));
+    await alternative.locator('.cog-strands-knot-head').first().click(); await flush();
+    assert.equal(await direct.getAttribute('data-lit'), 'false', 'reentering Challenge Focus replaces the previous scope');
+    assert.equal(await alternative.getAttribute('data-lit'), 'true');
+    await page.keyboard.press('Escape'); await flush();
+    await page.waitForFunction(() => [...document.querySelectorAll('.cog-strands-segment > [data-lit="false"]')]
+      .every(mark => Number(getComputedStyle(mark).opacity) > .12));
 
     const reused = '- [C @shared] Shared wording.\n- [C @claim] Claim.\n  - [G use @shared] Used here.';
     await page.evaluate(source => window.mount(source), reused);

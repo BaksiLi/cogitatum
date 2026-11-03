@@ -190,14 +190,15 @@ export function createStrandsView(container: HTMLElement, options: StrandsViewOp
     }
     const tab = items.find(item => item.element.dataset.selected === "true") ?? items[0];
     for (const item of items) item.element.tabIndex = item === tab ? 0 : -1;
+    // Without Challenge Focus, the root's CSS already shows every lane.
+    if (!scope) return;
     // A lane segment belongs to the Points it joins, not to the row it passes through.
-    const litPoints = scope?.pointKeys;
     for (const segment of svg.querySelectorAll<SVGGElement>("[data-row]")) {
-      const rowLit = !lit || lit.has(Number(segment.dataset.row));
+      const rowLit = scope.rows.has(Number(segment.dataset.row));
       for (const mark of segment.children) {
         const { to, bearing, through } = (mark as SVGElement).dataset;
-        (mark as SVGElement).dataset.lit = String(!scope || (bearing ? scope.bearingKeys.has(bearing)
-          : to ? litPoints!.has(to) && (rowLit || through === "true") : rowLit));
+        (mark as SVGElement).dataset.lit = String(bearing ? scope.bearingKeys.has(bearing)
+          : to ? scope.pointKeys.has(to) && (rowLit || through === "true") : rowLit);
       }
     }
   }
@@ -373,7 +374,7 @@ export function createStrandsView(container: HTMLElement, options: StrandsViewOp
       // A host may echo a pointer selection; revealing it again moves the target between clicks.
       if (changed) items.find(item => item.refs.some(r => sameRef(r, ref)))?.element.scrollIntoView?.({ block: "nearest", behavior: reduced ? "instant" : "smooth" });
     },
-    clear() { if (!destroyed) { contest = undefined; choose(undefined, false); } },
+    clear() { if (!destroyed && (selected || contest)) choose(undefined, false); },
     destroy() {
       if (destroyed) return;
       destroyed = true; abort.abort(); observer?.disconnect(); if (frame) win?.cancelAnimationFrame(frame);
