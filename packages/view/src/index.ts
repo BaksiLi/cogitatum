@@ -23,6 +23,7 @@ export type GraphViewOptions = {
   onSelect?: (node: GraphNode) => void;
   onClear?: () => void;
   onNavigate?: (node: GraphNode) => void;
+  onContextMenu?: (node: GraphNode, at: { clientX: number; clientY: number }) => void;
 };
 export type GraphView = {
   /** Scope identifies one source unit; anonymous keys never survive an update. */
@@ -533,7 +534,7 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
     const shift = (start: number, end: number, low: number, high: number) =>
       end - start > high - low ? (low + high - start - end) / 2 : start < low ? low - start : end > high ? high - end : 0;
     const dx = shift(box.left, box.right, viewport.left + margin, viewport.right - margin);
-    const dy = shift(box.top, box.bottom, viewport.top + margin, viewport.bottom - Math.min(bottomInset, viewport.height / 2) - margin);
+    const dy = shift(box.top, box.bottom, viewport.top + margin, viewport.bottom - Math.min(bottomInset, Math.max(0, viewport.height - 64)) - margin);
     if (!dx && !dy) return;
     const to = { ...camera, tx: camera.tx + dx, ty: camera.ty + dy };
     cameraTouched = true;
@@ -687,7 +688,7 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
     gesture = { start: at, moved: false, target, node: draggable, origin: draggable ? { ...world.get(draggable)! } : undefined, camera: { ...camera } };
     suppressClick = false;
     const pressed = target && shapes.has(target) ? target : undefined;
-    if (event.pointerType === "touch" && pressed && options.onNavigate && win) {
+    if (event.pointerType === "touch" && pressed && (options.onContextMenu || options.onNavigate) && win) {
       cancelPress();
       pressTimer = win.setTimeout(() => {
         pressTimer = 0;
@@ -697,7 +698,9 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
         const node = nodeById(pressed)!;
         resetGesture();
         (win.navigator as Navigator & { vibrate?: (ms: number) => boolean }).vibrate?.(8);
-        select(pressed); options.onNavigate?.(node);
+        select(pressed);
+        if (options.onContextMenu) options.onContextMenu(node, { clientX: event.clientX, clientY: event.clientY });
+        else options.onNavigate?.(node);
       }, LONG_PRESS);
     }
   }, on);
@@ -795,10 +798,26 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
     paint(); revealShape(shape);
   }, on);
   svg.addEventListener("focusout", () => { hovered = undefined; schedule(); }, on);
+  svg.addEventListener("contextmenu", event => {
+    const id = (event.target as Element).closest<SVGElement>("[data-node]")?.dataset.node;
+    const node = nodeById(id);
+    if (!node || !options.onContextMenu) return;
+    event.preventDefault();
+    resetGesture();
+    select(node.id);
+    options.onContextMenu(node, { clientX: event.clientX, clientY: event.clientY });
+  }, on);
   svg.addEventListener("keydown", event => {
     const id = (event.target as Element).closest<SVGElement>("[data-node]")?.dataset.node;
     if (!id) return;
     const node = nodeById(id)!, shape = shapes.get(id)!;
+    if (options.onContextMenu && (event.key === "ContextMenu" || (event.shiftKey && event.key === "F10"))) {
+      event.preventDefault();
+      const bounds = shape.g.getBoundingClientRect();
+      select(id);
+      options.onContextMenu(node, { clientX: bounds.left, clientY: bounds.bottom });
+      return;
+    }
     if (event.altKey && event.key.startsWith("Arrow") && !shape.inline) {
       event.preventDefault();
       const p = world.get(id)!, step = 20 / camera.k;

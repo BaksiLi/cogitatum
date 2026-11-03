@@ -498,23 +498,25 @@ try {
     assertInside(moved.focused, moved, 'keyboard arrangement also reveals the moved mark');
 
     // A host panel over the lower edge: selecting a mark beneath it pans the mark clear, at the same zoom.
-    await mount(chain(10));
-    const inset = Math.round((await mapGeometry()).height / 3);
-    await page.evaluate(px => window.views.map.setBottomInset(px), inset);
-    const covered = await page.locator('#map .cog-node.point').evaluateAll((nodes, edge) => {
-      const box = nodes[0].ownerSVGElement.getBoundingClientRect();
-      return nodes.findIndex(node => { const r = node.getBoundingClientRect(); return r.top - box.top > box.height - edge && r.bottom < box.bottom; });
-    }, inset);
-    assert.ok(covered >= 0, 'the fixture has a mark under the inset');
-    const before = await mapGeometry();
-    await page.locator('#map .cog-node.point').nth(covered).click(); await page.waitForTimeout(400);
-    const after = await mapGeometry();
-    const chosen = await page.locator('#map .cog-node.point').nth(covered).evaluate(node => {
-      const box = node.ownerSVGElement.getBoundingClientRect(), r = node.getBoundingClientRect(); return r.bottom - box.top;
-    });
-    assert.ok(chosen <= after.height - inset, `the selected mark clears the inset: ${chosen} > ${after.height - inset}`);
-    assert.ok(Math.abs(after.spacing - before.spacing) < .2, 'clearing the inset pans without changing zoom');
-    await page.evaluate(() => { window.views.map.setBottomInset(0); window.views.map.clear(); });
+    for (const fraction of [1 / 3, 2 / 3]) {
+      await mount(chain(10));
+      const inset = Math.round((await mapGeometry()).height * fraction);
+      await page.evaluate(px => window.views.map.setBottomInset(px), inset);
+      const covered = await page.locator('#map .cog-node.point').evaluateAll((nodes, edge) => {
+        const box = nodes[0].ownerSVGElement.getBoundingClientRect();
+        return nodes.findIndex(node => { const r = node.getBoundingClientRect(); return r.top - box.top > box.height - edge && r.bottom < box.bottom; });
+      }, inset);
+      assert.ok(covered >= 0, 'the fixture has a mark under the inset');
+      const before = await mapGeometry();
+      await page.locator('#map .cog-node.point').nth(covered).click(); await page.waitForTimeout(400);
+      const after = await mapGeometry();
+      const chosen = await page.locator('#map .cog-node.point').nth(covered).evaluate(node => {
+        const box = node.ownerSVGElement.getBoundingClientRect(), r = node.getBoundingClientRect(); return r.bottom - box.top;
+      });
+      assert.ok(chosen <= after.height - inset, `the selected mark clears the inset: ${chosen} > ${after.height - inset}`);
+      assert.ok(Math.abs(after.spacing - before.spacing) < .2, 'clearing the inset pans without changing zoom');
+      await page.evaluate(() => { window.views.map.setBottomInset(0); window.views.map.clear(); });
+    }
 
     await page.locator('#before').focus();
     // This chain needs a scale below the manual zoom minimum to fit in either viewport.

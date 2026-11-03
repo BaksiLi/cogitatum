@@ -12,9 +12,12 @@ const bundle = await build({
       import { compileSource } from '../../core/src/index.ts';
       import { createGraphView } from './index.ts';
       window.navigated = [];
-      window.mount = source => {
+      window.contextMenus = [];
+      window.mount = (source, contextMenu = false) => {
         window.view?.destroy();
-        window.view = createGraphView(document.querySelector('#map'), { onNavigate: node => window.navigated.push(node.id) });
+        const options = { onNavigate: node => window.navigated.push(node.id) };
+        if (contextMenu) options.onContextMenu = (node, at) => window.contextMenus.push({ id: node.id, ...at });
+        window.view = createGraphView(document.querySelector('#map'), options);
         window.view.update(compileSource(source, 'document').graphs[0], 'test');
       };
     `,
@@ -131,10 +134,55 @@ try {
     assert.equal((await page.evaluate(() => window.navigated)).length, 3, 'a fresh tap after cancellation selects without navigating');
     await mark('c').dblclick(); await flush();
     assert.equal((await page.evaluate(() => window.navigated)).length, 4, 'a captured mouse double click opens once');
+
+    // Hosts with context actions receive the mark and client coordinates without source navigation.
+    await page.evaluate(source => window.mount(source, true), siblings); await flush();
+    const assertContext = async (locator, at, count) => {
+      const menus = await page.evaluate(() => window.contextMenus);
+      assert.equal(menus.length, count, 'each context gesture calls the host exactly once');
+      const menu = menus.at(-1);
+      assert.equal(menu.id, await locator.getAttribute('data-node'), 'the context callback receives the requested mark');
+      assert.ok(Math.abs(menu.clientX - at.x) < 1 && Math.abs(menu.clientY - at.y) < 1,
+        `context coordinates match the gesture: ${JSON.stringify(menu)} vs ${JSON.stringify(at)}`);
+      assert.equal(await locator.getAttribute('aria-pressed'), 'true', 'context actions select their mark');
+      assert.equal((await page.evaluate(() => window.navigated)).length, 4, 'context actions do not also navigate');
+    };
+    const clicked = await centre(mark('c'));
+    const menuAt = { x: Math.round(clicked.x), y: Math.round(clicked.y) };
+    await page.mouse.click(menuAt.x, menuAt.y, { button: 'right' }); await flush();
+    await assertContext(mark('c'), menuAt, 1);
+
+    const bearing = page.locator('#map g.cog-node[data-node^="bearing:"]').first();
+    for (const [i, key] of ['Shift+F10', 'ContextMenu'].entries()) {
+      const focused = i ? bearing : mark('a');
+      await focused.focus(); await flush();
+      const bounds = await focused.boundingBox();
+      await page.keyboard.press(key); await flush();
+      await assertContext(focused, { x: bounds.x, y: bounds.y + bounds.height }, i + 2);
+    }
+
+    await page.evaluate(() => window.view.clear()); await flush();
+    const contextHeld = await centre(mark('c'));
+    await touch('touchStart', contextHeld); await page.waitForTimeout(700); await flush();
+    await assertContext(mark('c'), contextHeld, 4);
+    await touch('touchMove', { x: contextHeld.x + 45, y: contextHeld.y + 30 });
+    await touch('touchEnd', contextHeld); await flush();
+    assert.deepEqual(await centre(mark('c')), contextHeld, 'moving after a context long press does not drag the mark');
+    await assertContext(mark('c'), contextHeld, 4);
+    await touch('touchStart', contextHeld); await touch('touchCancel', contextHeld);
+    await page.waitForTimeout(600); await flush();
+    assert.equal((await page.evaluate(() => window.contextMenus)).length, 4, 'cancelling a hold retires its context timer');
+
+    const canvas = await page.locator('#map svg').boundingBox();
+    await page.mouse.click(canvas.x + 4, canvas.y + 4, { button: 'right' }); await flush();
+    assert.equal((await page.evaluate(() => window.contextMenus)).length, 4, 'right-clicking the background has no mark context');
+    await mark('c').dblclick(); await flush();
+    assert.equal((await page.evaluate(() => window.navigated)).length, 5, 'a context callback preserves double-click source navigation');
+    assert.equal((await page.evaluate(() => window.contextMenus)).length, 4, 'double-click navigation does not open context actions');
     await context.close(); runs++;
   }
   assert.deepEqual(errors, []);
-  console.log(`Map gesture browser checks passed: ${runs} viewports; wording without overlap, snapping guides and Alt, long press and double tap.`);
+  console.log(`Map gesture browser checks passed: ${runs} viewports; wording without overlap, snapping guides and Alt, long press and double tap, pointer/keyboard/touch context actions and navigation fallback.`);
 } finally {
   await browser.close();
 }
