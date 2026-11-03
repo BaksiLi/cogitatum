@@ -326,3 +326,30 @@ export function projectReading(source: string, explained: ExplainedSource): Read
     }]);
   return { version: explained.version, mode: explained.mode, source, rows, units, diagnostics: explained.diagnostics };
 }
+
+/** A Point written beneath another Point without bearing on anything: kept together in the drawing only. */
+export type OutlineTie = { child: PointRef; parent: PointRef };
+
+/**
+ * Where the outline nests one Point under another and the inner Point states no relation, as a Claim
+ * beneath a Question does. A Map may keep such Points near each other with a faint tie; the tie is the
+ * author's arrangement, never a Bearing, a target or an inference about what the Point answers.
+ */
+export function outlineTies(reading: ReadingProjection): OutlineTie[] {
+  const ties: OutlineTie[] = [], seen = new Set<string>();
+  for (const unit of reading.units) {
+    const bearing = new Set(unit.graph.bearings.flatMap(item => item.sources.map(source => source.key)));
+    const stack: { depth: number; point?: PointRef }[] = [];
+    for (const occurrence of unit.occurrences) {
+      while (stack.length && stack[stack.length - 1].depth >= occurrence.depth) stack.pop();
+      const point = occurrence.references.find(reference => reference.ref.kind === "point" && (reference.kind === "declares" || reference.kind === "uses"))?.ref as PointRef | undefined;
+      const parent = [...stack].reverse().find(entry => entry.point)?.point;
+      if (point && parent && point.key !== parent.key && !bearing.has(point.key)) {
+        const key = `${point.key}>${parent.key}`;
+        if (!seen.has(key)) { seen.add(key); ties.push({ child: point, parent }); }
+      }
+      stack.push({ depth: occurrence.depth, point });
+    }
+  }
+  return ties;
+}

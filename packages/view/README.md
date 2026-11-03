@@ -141,7 +141,7 @@ Nodes support arrow-key navigation in source order, Space selection, Enter/doubl
 `marks` is the shared vocabulary for every surface: `POINT_MARKS`, `BEARING_MARKS`, `pointMark(label)`, `declarationMark(point.declaration)` and `bearingMark(kind)` give canonical names, auxiliary Chinese readings, glyph shapes and kind symbols.
 `drawPointGlyph`, `drawBearingGlyph`, `createMarkChip` and `createBearingChip` draw the same glyphs for host chips and lists; `MARK_TYPE` is the type scale.
 Display names follow the [glossary](../../docs/glossary.md): the `Material` key, matching Graph IR `declaration.form: "material"`, displays as Neutral Point (中性點).
-Role-marked Points use circles; Neutral Points use squares.
+Role-marked Points use filled circles with their letter; Neutral Points use an open ring around a point, as `[.]` is written.
 Colour distinguishes authored support from objection and never judges correctness.
 `layoutGraph` owns automatic placement; `relaxLayout` owns bounded local adjustment.
 The pre-release layout selector, `GraphLayout`, `setLayout`, `layoutFlow`, `layoutConstellation` and `layoutGraphSettled` have been removed; hosts use the single Map and `resetLayout()`.

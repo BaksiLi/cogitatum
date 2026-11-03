@@ -63,14 +63,16 @@ export function drawPointGlyph(parent: SVGElement, label: string, radius = 9): S
   const doc = parent.ownerDocument, mark = pointMark(label);
   const g = doc.createElementNS(SVG, "g");
   g.setAttribute("class", `cog-glyph cog-shape-${mark.shape}`);
-  const shape = mark.shape === "material" ? doc.createElementNS(SVG, "rect") : doc.createElementNS(SVG, "circle");
-  if (mark.shape === "material") {
-    const side = radius * 1.6;
-    shape.setAttribute("x", String(-side / 2)); shape.setAttribute("y", String(-side / 2));
-    shape.setAttribute("width", String(side)); shape.setAttribute("height", String(side)); shape.setAttribute("rx", "2");
-  } else shape.setAttribute("r", String(radius));
+  // A Neutral Point is drawn as its mark is written, `[.]`: an open ring around a point, with no letter.
+  const shape = doc.createElementNS(SVG, "circle");
+  shape.setAttribute("r", String(mark.shape === "material" ? radius * .82 : radius));
   shape.setAttribute("class", "cog-glyph-shape");
   g.append(shape);
+  if (mark.shape === "material") {
+    const point = doc.createElementNS(SVG, "circle");
+    point.setAttribute("r", String(radius * .22)); point.setAttribute("class", "cog-glyph-point");
+    g.append(point);
+  }
   if (mark.letter) {
     const text = doc.createElementNS(SVG, "text");
     text.setAttribute("class", "cog-glyph-letter"); text.setAttribute("text-anchor", "middle"); text.setAttribute("dy", "0.36em");

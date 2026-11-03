@@ -4,6 +4,7 @@ import { layoutGraph, type LabelExtent, type Point2 } from "./layout.js";
 import { createDragMotion, type DragReach } from "./motion.js";
 import { labelWidth, wrapMapLabel, type LabelLine } from "./map-label.js";
 import { bearingMark, drawBearingGlyph, drawPointGlyph, MARK_TYPE, pointMark } from "./marks.js";
+import type { OutlineTie } from "./reading-projection.js";
 export * from "./projection.js";
 export * from "./layout.js";
 export * from "./marks.js";
@@ -26,8 +27,11 @@ export type GraphViewOptions = {
   onContextMenu?: (node: GraphNode, at: { clientX: number; clientY: number }) => void;
 };
 export type GraphView = {
-  /** Scope identifies one source unit; anonymous keys never survive an update. */
-  update(graph: GraphIR, scope: string): void;
+  /**
+   * Scope identifies one source unit; anonymous keys never survive an update.
+   * `outline` keeps Points the author nested together near each other, with a faint tie and no Bearing.
+   */
+  update(graph: GraphIR, scope: string, context?: { outline?: readonly OutlineTie[] }): void;
   resetLayout(): void;
   select(ref: BearingTarget): void;
   clear(): void;
@@ -77,6 +81,8 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
 
   let full: GraphProjection = { nodes: [], links: [] }, topology: GraphProjection = { nodes: [], links: [] };
   let inline = new Map<string, GraphLink>(), shapes = new Map<string, Shape>(), order: string[] = [];
+  /** Outline ties as child and parent node ids: placement and a faint line only, never selection or focus. */
+  let ties: { source: string; target: string }[] = [];
   /** Points that bear on nothing yet have something bearing on them: the inquiry's conclusions. */
   let endings = new Set<string>();
   let world = new Map<string, Point2>(), camera: Camera = { k: 1, tx: 0, ty: 0 }, size = { w: 0, h: 0 };
@@ -87,6 +93,8 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
    * links keep their curves, so nothing reflows under the fingers; both settle once, when the zoom rests.
    */
   let zoomHold = false, zoomRest = 0;
+  /** When the current selection was made: its links swell once, briefly, so the eye finds them. */
+  let pulseAt = 0;
   const bends = new Map<string, number>();
   /** Alignment guides while a mark is dragged: the world x or y it snapped to. */
   let guides: { x?: number; y?: number } = {};
@@ -102,7 +110,7 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
 
   // ── entrance: once, the first time a drawing is seen, like a constellation being traced ──
   // `pending` waits for the drawing to come into view; `began` is when tracing started.
-  const POINT_DELAY = 110, POINT_IN = 520, LINE_IN = 640;
+  const POINT_DELAY = 110, POINT_IN = 520, LINE_IN = 640, PULSE = 520;
   let entrance: { pending: boolean; began: number } | undefined = options.entrance ? { pending: true, began: 0 } : undefined;
   // Each point and line starts at once and settles slowly, as a pen sets down and a star steadies (quartic ease-out).
   const entranceEase = (t: number) => 1 - (1 - t) ** 4;
@@ -202,7 +210,9 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
   // ── geometry ──
   function baseLayout(): Map<string, Point2> {
     // Reserve one grid interval before rounding, so snapping cannot take away the wording's clearance.
-    const positioned = layoutGraph(topology, { direction: options.direction, wrapWidth: Math.max(380, (size.w || 900) / .8),
+    // A tie places a nested Point beneath its outline parent, as a link would, without being drawn as one.
+    const placing = ties.length ? { nodes: topology.nodes, links: [...topology.links, ...ties.map(tie => ({ ...tie, bearingKey: "", segment: "output" as const }))] } : topology;
+    const positioned = layoutGraph(placing, { direction: options.direction, wrapWidth: Math.max(380, (size.w || 900) / .8),
       measure: node => { const extent = extentAtFullScale(node); return { width: extent.width + GRID, below: extent.below + GRID }; } });
     return new Map(positioned.map(node => [node.id, { x: onGrid(node.x), y: onGrid(node.y) }]));
   }
@@ -309,6 +319,10 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
     const pointIn = (id: string) => entranceAt((rank.get(id) ?? 0) * POINT_DELAY, POINT_IN);
     const lineIn = (source: string, target: string) => entranceAt(Math.max(rank.get(source) ?? 0, rank.get(target) ?? 0) * POINT_DELAY + POINT_IN * .6, LINE_IN);
     const room = zoomHold ? undefined : measureRoom(camera.k);
+    // One swell and back over half a second, then the selection's steady emphasis.
+    const since = pulseAt && win ? (win.performance.now() - pulseAt) / PULSE : 1;
+    const pulse = since < 1 ? Math.sin(Math.PI * since) : 0;
+    if (since >= 1) pulseAt = 0;
     for (const shape of shapes.values()) {
       if (shape.inline) continue;
       const p = screen(world.get(shape.id)!);
@@ -361,6 +375,15 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
       }
       return boxes;
     });
+    // Outline ties: a dotted hairline from the nested Point up to the wording it was written under, no head.
+    for (const tie of ties) {
+      const child = screen(world.get(tie.source)!), parent = screen(world.get(tie.target)!);
+      const a = anchor(tie.source, parent), t = anchor(tie.target, child, 0, wording.get(tie.target));
+      const h = (t.y - a.y) * .5;
+      const path = element("path", { class: "cog-outline-tie", d: `M${a.x.toFixed(1)} ${a.y.toFixed(1)}C${a.x.toFixed(1)} ${(a.y + h).toFixed(1)} ${t.x.toFixed(1)} ${(t.y - h).toFixed(1)} ${t.x.toFixed(1)} ${t.y.toFixed(1)}`,
+        "data-active": String(!guided || (related.has(tie.source) && related.has(tie.target))), "aria-hidden": "true" }, edgeLayer);
+      if (entrance) path.style.opacity = String(lineIn(tie.source, tie.target));
+    }
     const at = (a: Point2, c1: Point2, c2: Point2, t: Point2, s: number) => {
       const u = 1 - s;
       return { x: u*u*u*a.x + 3*u*u*s*c1.x + 3*u*s*s*c2.x + s*s*s*t.x, y: u*u*u*a.y + 3*u*u*s*c1.y + 3*u*s*s*c2.y + s*s*s*t.y };
@@ -438,6 +461,7 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
       const d = `M${a.x.toFixed(1)} ${a.y.toFixed(1)}C${c1.x.toFixed(1)} ${c1.y.toFixed(1)} ${c2.x.toFixed(1)} ${c2.y.toFixed(1)} ${t.x.toFixed(1)} ${t.y.toFixed(1)}`;
       const on = !guided || active.has(link.bearingKey);
       const path = element("path", { d, class: `cog-link ${link.segment} cog-tone-${mark.tone}${mark.dashed ? " cog-dashed" : ""}`, "data-active": String(on), "data-bearing": link.bearingKey, "aria-hidden": "true" }, edgeLayer);
+      if (pulse && guided && on) path.style.strokeWidth = `${(1.7 + 1.1 * pulse).toFixed(2)}px`;
       const traced = lineIn(link.source, link.target);
       if (entrance && traced < 1) {
         // Traced from its source to its mark; a dashed relation simply fades in, keeping its dashes.
@@ -491,6 +515,7 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
         : { x: 0, y: 0, width: 0, height: 0 };
       for (const [name, value] of Object.entries(box)) hit.setAttribute(name, String(value));
     }
+    if (pulseAt) schedule();
     if (entrance && !entrance.pending) {
       const last = Math.max(0, rank.size - 1) * POINT_DELAY + POINT_IN * .6 + LINE_IN;
       if ((win?.performance.now() ?? Infinity) - entrance.began >= last) { entrance = undefined; schedule(); }
@@ -610,6 +635,7 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
   // ── selection ──
   function select(id: string | undefined, notify = true): void {
     finishEntrance(); finishZoom();
+    if (id && id !== selected && !reduced()) pulseAt = win?.performance.now() ?? 0;
     selected = id;
     // Selection state is announced synchronously (aria-pressed), not on the next frame.
     if (frame) { win?.cancelAnimationFrame(frame); frame = 0; }
@@ -903,7 +929,7 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
   }, on);
 
   const view: GraphView = {
-    update(graph, nextScope) {
+    update(graph, nextScope, context) {
       if (destroyed) throw new Error("This graph view has been destroyed.");
       stopMotion(); resetGesture(); finishZoom(); bends.clear(); hovered = undefined;
       const previous = nodeById(selected), hadFocus = svg.contains(doc.activeElement);
@@ -918,6 +944,9 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
       const exploration = projectExploration(full);
       topology = { nodes: exploration.nodes, links: exploration.links };
       inline = new Map(exploration.inlineBearings.map(node => [node.id, exploration.links.find(link => link.bearingKey === node.ref.key)!]));
+      const drawn = new Set(topology.nodes.map(node => node.id));
+      ties = (context?.outline ?? []).map(tie => ({ source: referenceKey(tie.child), target: referenceKey(tie.parent) }))
+        .filter(tie => drawn.has(tie.source) && drawn.has(tie.target));
       const names = new Set(full.nodes.map(positionKey));
       for (const key of [...arrangement.keys()]) if (!names.has(key) || !key.includes(":@")) arrangement.delete(key);
       for (const key of [...held]) if (!arrangement.has(key)) held.delete(key);

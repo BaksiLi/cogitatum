@@ -13,10 +13,11 @@
 .cog-graph { background-image: radial-gradient(circle, var(--cog-grid, color-mix(in srgb, var(--cog-ink-resolved) 14%, transparent)) .7px, transparent .9px); }
 .cog-graph[data-dragging] { cursor: grabbing; }
 
-/* Point glyphs: filled is a marked Point, square is Material. */
+/* Point glyphs: filled is a marked Point; an open ring around a point is a Neutral Point (`[.]`). */
 .cog-glyph-shape { stroke: var(--cog-ink-resolved); stroke-width: 1.3; fill: var(--cog-ink-resolved); }
 .cog-glyph-letter { font: 500 10.5px/1 ui-monospace, "IBM Plex Mono", Menlo, monospace; fill: var(--cog-surface-resolved); pointer-events: none; }
-.cog-shape-material .cog-glyph-shape { fill: var(--cog-surface-resolved); }
+.cog-shape-material .cog-glyph-shape { fill: var(--cog-surface-resolved); stroke-width: 1.1; }
+.cog-glyph-point { fill: var(--cog-ink-resolved); pointer-events: none; }
 .cog-glyph-halo { fill: none; stroke: var(--cog-ink-resolved); stroke-width: .7; opacity: .55; }
 
 /* Bearing glyphs: a circle marks one Bearing on its line; a diamond is a junction (joint or addressed Bearing). */
@@ -26,6 +27,10 @@
 .cog-tone-support { color: var(--cog-positive); stroke: var(--cog-positive); }
 .cog-tone-objection { color: var(--cog-negative); stroke: var(--cog-negative); }
 .cog-tone-neutral { color: var(--cog-muted-resolved); stroke: var(--cog-line-resolved); }
+
+/* An outline tie: the author nested these Points together; it states no relation, so it has no tone and no head. */
+.cog-outline-tie { fill: none; stroke: var(--cog-line-resolved); stroke-width: 1; stroke-dasharray: 1 3.5; stroke-linecap: round; opacity: .8; transition: opacity 160ms ease; }
+.cog-graph[data-guided="true"] .cog-outline-tie[data-active="false"] { opacity: .25; }
 
 /* Fixed, readable type: the camera never scales text. */
 .cog-graph text { pointer-events: none; }

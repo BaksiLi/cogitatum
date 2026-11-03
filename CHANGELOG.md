@@ -22,6 +22,11 @@ Use the complete released schema set and [migrate retained source](docs/syntax.m
   Reading wording takes up to four lines.
 - Snap a dragged Map mark into line with another mark's column or row, with a guide; Alt places it freely.
   On touch, a long press on a mark opens its source and a double tap on the canvas zooms in, or fits the whole Map once close.
+- Add `outlineTies(reading)` and an optional `outline` context to `GraphView.update`.
+  A Point nested beneath another Point without stating a relation, such as a Claim beneath a Question, is placed under its outline parent and drawn with a faint dotted tie.
+  The tie has no tone, no head, and no Bearing; Graph IR, selection and focus are unchanged.
+- Draw a Neutral Point (`[.]`) as an open ring around a point instead of a square, so it reads as its written mark rather than a checkbox.
+- Swell a newly selected mark's links once, briefly, so the eye finds them; reduced motion keeps the steady emphasis only.
 - Add `GraphView.setBottomInset(pixels)`: a host panel lying over the Map's lower edge keeps the selected mark in view by easing the drawing aside, without resizing or refitting it.
 - Add optional `GraphViewOptions.onContextMenu` for host actions on right click, Shift+F10 or a held touch.
   Hosts without it retain long-press source navigation.
