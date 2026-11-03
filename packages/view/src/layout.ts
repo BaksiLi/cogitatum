@@ -73,7 +73,11 @@ export function layoutGraph(topology: GraphProjection, options: LayoutOptions = 
   const rootOf = (id: string): string => { const up = fragment.get(id) ?? id; return up === id ? id : rootOf(up); };
   for (const [id, set] of targets) for (const target of set) { const a = rootOf(id), b = rootOf(target); if (a !== b) fragment.set(rank.get(a)! < rank.get(b)! ? b : a, rank.get(a)! < rank.get(b)! ? a : b); }
   const fragments = new Map<string, GraphNode[]>();
-  for (const node of ordered) { const root = rootOf(node.id); fragments.set(root, [...fragments.get(root) ?? [], node]); }
+  for (const node of ordered) {
+    const root = rootOf(node.id), nodes = fragments.get(root) ?? [];
+    nodes.push(node);
+    fragments.set(root, nodes);
+  }
   // A lone, unconnected Point waits after the connected argument instead of interrupting it.
   const ordering = [...fragments.values()].sort((a, b) => Number(a.length === 1) - Number(b.length === 1));
 

@@ -71,6 +71,11 @@ describe("reading layout", () => {
     const before = structuredClone(topology);
     for (const direction of ["down", "right"] as const) {
       const placed = layoutGraph(topology, { direction });
+      placed.forEach((node, i) => {
+        expect(node).not.toBe(topology.nodes[i]);
+        expect(node.ref).toBe(topology.nodes[i].ref);
+        expect(node.sourceSpan).toBe(topology.nodes[i].sourceSpan);
+      });
       const [claim, first, second] = placed;
       const depth = direction === "down" ? "y" : "x";
       const order = direction === "down" ? "x" : "y";

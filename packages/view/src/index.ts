@@ -366,10 +366,11 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
       return { x: u*u*u*a.x + 3*u*u*s*c1.x + 3*u*s*s*c2.x + s*s*s*t.x, y: u*u*u*a.y + 3*u*u*s*c1.y + 3*u*s*s*c2.y + s*s*s*t.y };
     };
     const crossings = (ends: string[], a: Point2, c1: Point2, c2: Point2, t: Point2) => {
+      const samples = Array.from({ length: 15 }, (_, i) => at(a, c1, c2, t, (i + 1) / 16));
       let hits = 0;
       for (const box of obstacles) {
         if (!box.label && ends.includes(box.id)) continue;
-        for (let i = 1; i < 16; i++) { const p = at(a, c1, c2, t, i / 16); if (p.x > box.x0 && p.x < box.x1 && p.y > box.y0 && p.y < box.y1) { hits++; break; } }
+        for (const p of samples) if (p.x > box.x0 && p.x < box.x1 && p.y > box.y0 && p.y < box.y1) { hits++; break; }
       }
       return hits;
     };

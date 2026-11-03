@@ -35,7 +35,7 @@ export function createStrandsView(container: HTMLElement, options: StrandsViewOp
     const element = doc.createElement(tag);
     element.className = className; parent?.append(element); return element;
   };
-  const svgElement = <K extends keyof SVGElementTagNameMap>(tag: K, attrs: Record<string, string>, parent: Element) => {
+  const svgElement = <K extends keyof SVGElementTagNameMap>(tag: K, attrs: Record<string, string>, parent: Element | DocumentFragment) => {
     const element = doc.createElementNS(NS, tag);
     for (const [k, v] of Object.entries(attrs)) element.setAttribute(k, v);
     parent.append(element); return element;
@@ -214,7 +214,8 @@ export function createStrandsView(container: HTMLElement, options: StrandsViewOp
   function paint(): void {
     frame = 0;
     if (destroyed || !projection) return;
-    svg.replaceChildren();
+    // Detached ink cannot invalidate layout while subsequent rows are measured.
+    const drawing = doc.createDocumentFragment();
     const pitch = setGutter(), x = (lane: number) => PAD + lane * pitch;
     const box = page.getBoundingClientRect();
     svg.setAttribute("width", String(box.width)); svg.setAttribute("height", String(box.height));
@@ -237,7 +238,7 @@ export function createStrandsView(container: HTMLElement, options: StrandsViewOp
       const textTop = text ? text.getBoundingClientRect().top - box.top : undefined;
       const lineHeight = text ? parseFloat(win?.getComputedStyle(text).lineHeight ?? "") || 22 : 22;
       const top = rect.top - box.top, bottom = rect.bottom - box.top, mid = textTop !== undefined ? textTop + lineHeight / 2 : top + FIRST;
-      const group = svgElement("g", { "data-row": String(index), class: "cog-strands-segment" }, svg);
+      const group = svgElement("g", { "data-row": String(index), class: "cog-strands-segment" }, drawing);
       const path = (d: string, className = "cog-strands-lane", to?: string, through = false, bearing?: string) => {
         const element = svgElement("path", { d, class: className }, group);
         if (to) element.dataset.to = to;
@@ -288,6 +289,7 @@ export function createStrandsView(container: HTMLElement, options: StrandsViewOp
       if (index === 0) svgElement("circle", { r: String(FOCUS + 4), class: "cog-strands-focus-ring" }, node);
       drawPointGlyph(node, label(row.point), index === 0 ? FOCUS : NODE);
     });
+    svg.replaceChildren(drawing);
     guide();
   }
   const schedule = () => { if (!destroyed && !frame) { if (win) frame = win.requestAnimationFrame(paint); else paint(); } };
