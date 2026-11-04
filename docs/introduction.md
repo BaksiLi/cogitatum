@@ -28,7 +28,10 @@ A connection between Points is a **Bearing**.
 The map shows those connections; Reading keeps your prose in order.
 The marks make an argument easier to inspect without deciding whether its reasons are good enough.
 
-Paste the example into the website [Playground](https://cogitatum.onesimos.org/playground), change a sentence, and inspect the result.
+## Try it
+
+Open the example's **Try in Playground** link on the website, change a sentence, and inspect the result.
+You can also paste it into the [Playground](https://onesimos.org/playground).
 No installation or account is needed.
 The [quick start](quick-start.md) walks through a first note; [Bearings](bearings.md#argument-structures) shows separate reasons, joint reasons and chains of reasoning.
 

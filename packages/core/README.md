@@ -181,7 +181,7 @@ Keys are opaque strings: their numbering is not an integration contract.
 Store application metadata separately from canonical compiler output.
 The source-envelope export is absent from the historical npm `0.3.0-alpha.1` tarball.
 
-Read the [introduction](https://cogitatum.onesimos.org/docs/introduction), [syntax](https://cogitatum.onesimos.org/docs/syntax), or try the [playground](https://cogitatum.onesimos.org/playground).
+Read the [introduction](https://onesimos.org/docs/introduction), [syntax](https://onesimos.org/docs/syntax), or try the [playground](https://onesimos.org/playground).
 
 ## Inspection and target form
 
