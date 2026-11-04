@@ -9,7 +9,7 @@
     "reasoning",
     "argument-mapping"
   ],
-  "homepage": "https://cogitatum.onesimos.net",
+  "homepage": "https://cogitatum.onesimos.org",
   "engines": {
     "node": ">=22.12.0"
   },

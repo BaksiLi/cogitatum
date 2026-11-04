@@ -8,8 +8,9 @@ audience: Ten minutes
 
 # Try a note in ten minutes
 
-Open the [playground](https://cogitatum.onesimos.net/playground).
+Open the website [Playground](https://cogitatum.onesimos.org/playground); no installation or account is needed.
 You can also keep the source in a file such as `inquiry.cog.md`.
+Experimental Obsidian and Logseq adapters support Reading and Map inside your notes; check their [version limits](introduction.md) before using them with this tutorial.
 
 ## Start with ordinary writing
 

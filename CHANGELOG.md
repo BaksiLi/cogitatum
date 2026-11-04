@@ -1,12 +1,11 @@
 # Changelog
 
-Published Core and CLI **0.5.0** use **format 0.5.0**.
-This checkout prepares **0.6.0 / format 0.6.0**.
+Core and CLI **0.6.0** use **format 0.6.0**.
 The historical `alpha` tag remains at **0.3.0-alpha.1**.
 Earlier 0.4 entries below are unpublished source milestones included in this first 0.4 npm release.
 Use the complete released schema set and [migrate retained source](docs/syntax.md#compatibility-and-migration) rather than relabelling old JSON.
 
-## Unreleased
+## 0.6.0 — 4 November 2026
 
 - Let hosts replace Reading projections with `update(projection, { notifyClear: false })`.
   Local selection still retires; the default update and user clearing retain their notifications.
@@ -155,8 +154,8 @@ The original published schemas remain unchanged in `spec/0.5.0/`.
   Extend block spans through their own continuations; Reading presents one complete occurrence without duplicate lines.
   Target-form previews selected from a continuation edit the owning header.
   Recompile retained drafts and adapt consumers that assume one physical line per occurrence.
-- Consumer verification is scoped to the checkout Core/CLI, packed packages and private View.
-  No npm publication, website deployment or installed Obsidian migration is included.
+- Consumer verification covers Core/CLI, packed packages and private View.
+  Website deployment and installed-host adoption are verified separately from this package release.
   The finite interpretation fixture is rechecked against 0.6 without extending its theory or changing its source.
 - Restructure the public learning path around a first note and small Convergent, Linked and Serial examples.
   Keep alias spellings, optional operators, detailed selector comparisons and migrations in the syntax reference.

@@ -28,9 +28,12 @@ A connection between Points is a **Bearing**.
 The map shows those connections; Reading keeps your prose in order.
 The marks make an argument easier to inspect without deciding whether its reasons are good enough.
 
-Paste the example into the [playground](https://cogitatum.onesimos.net/playground), change a sentence, and inspect the result.
+Paste the example into the website [Playground](https://cogitatum.onesimos.org/playground), change a sentence, and inspect the result.
 No installation or account is needed.
 The [quick start](quick-start.md) walks through a first note; [Bearings](bearings.md#argument-structures) shows separate reasons, joint reasons and chains of reasoning.
 
-These pages describe the **0.6.0 development version**.
+Experimental Obsidian and Logseq adapters bring Reading and Map to `cog` or `cogitatum` code blocks while you edit in the host.
+They require local installation and currently use Core/format 0.5.0; compatibility with 0.6 notes has not been verified.
+
+These pages describe **format 0.6.0**.
 For saved notes or an installed compiler, check the [version and migration reference](syntax.md#compatibility-and-migration).

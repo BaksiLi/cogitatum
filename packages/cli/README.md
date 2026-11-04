@@ -2,8 +2,7 @@
 
 Check Cogitatum inquiry markup and inspect the reasoning connections marked in ordinary prose.
 
-Checkout version **0.6.0**, format **0.6.0**, not yet published, with equivalent Point/Bearing family spellings and local object notes.
-Build the checkout below to use the new syntax.
+Version **0.6.0**, format **0.6.0**, with equivalent Point/Bearing family spellings and local object notes.
 `export` retains note prose and literal subtrees through the complete `explainSource` envelope.
 `graph` retains note target/origin records but omits note prose; graph-text `structure-v1` also omits those records.
 Explicit Bearing constructors, Point declarations and Point uses accept all canonical kind names, including `answers`, `respondsTo` and `clarifies`.
@@ -11,11 +10,11 @@ The historical npm `alpha` tag provides **0.3.0-alpha.1** without linked.
 Requires Node.js 22.12 or newer.
 Use the matching Core/CLI and schema versions when upgrading from 0.5.0.
 
-The published 0.5 compiler remains available without a global installation for 0.5 source:
+Run the CLI without a global installation:
 
 ```sh
-npx --package @cogitatum/cli@0.5.0 cog check inquiry.cog.md
-npx --package @cogitatum/cli@0.5.0 cog graph inquiry.cog.md
+npx --package @cogitatum/cli@0.6.0 cog check inquiry.cog.md
+npx --package @cogitatum/cli@0.6.0 cog graph inquiry.cog.md
 ```
 
 Or, from a source checkout:
@@ -112,7 +111,7 @@ The option adds no diagnostics, changes no source, and retains the ordinary `che
 Without the option, all command output remains unchanged; using it with `ast`, `graph` or `explain` is an argument error.
 The inventory is an additional analysis projection, not an extension to any of the four existing JSON Schemas.
 
-Read the [quick start](https://cogitatum.onesimos.net/docs/quick-start), browse [examples](https://cogitatum.onesimos.net/examples), or try the [playground](https://cogitatum.onesimos.net/playground).
+Read the [quick start](https://cogitatum.onesimos.org/docs/quick-start), browse [examples](https://cogitatum.onesimos.org/examples), or try the [playground](https://cogitatum.onesimos.org/playground).
 
 ## Text inspection
 
