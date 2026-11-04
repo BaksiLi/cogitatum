@@ -1,4 +1,4 @@
-import type { AstBlock, SourceParseMode } from "./types.js";
+import type { AstBlock, ExplainedSource, SourceParseMode } from "./types.js";
 
 /** offset counts UTF-16 code units in originalSource. */
 export type SourceEdit = { offset: number; remove: string; insert: string };
@@ -19,6 +19,18 @@ export function findBlock(blocks: AstBlock[], line: number): AstBlock | undefine
     if (block.annotation?.kind !== "note") {
       const found = findBlock(block.children, line);
       if (found) return found;
+    }
+  }
+  return undefined;
+}
+
+/** Locate a block and its compiler entry together, using complete-input line numbers. */
+export function locateSourceBlock(source: ExplainedSource, line: number) {
+  for (const [unitIndex, document] of source.documents.entries()) {
+    const block = findBlock(document.blocks, line);
+    if (block) {
+      const entry = source.explanations[unitIndex].entries.find(e => e.sourceSpan.startLine === block.sourceSpan.startLine);
+      return { unitIndex, block, entry };
     }
   }
   return undefined;

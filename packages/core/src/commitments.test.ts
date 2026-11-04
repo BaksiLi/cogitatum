@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { compareCommitments, entailment, graphCommitments, suggestCorrespondence } from "./commitments.js";
-import type { CommitmentComparison, Correspondence } from "./commitments.js";
+import type { Commitment, CommitmentComparison, Correspondence } from "./commitments.js";
 import { compileSource } from "./index.js";
 import type { GraphIR } from "./types.js";
 
@@ -66,6 +66,23 @@ describe("the commitment order", () => {
     expect(entailment([joint], { kind: "supports", sources: [b], target: joint.target })).toBeUndefined();
     const separate = graphCommitments(graph(convergent));
     expect(entailment(separate, { kind: "supports", sources: [...separate.flatMap(c => c.sources)].sort(), target: separate[0].target })).toBeUndefined();
+  });
+
+  it("prefers an exact statement, otherwise keeps the first witnesses in query-source order", () => {
+    const a: Omit<Commitment, "bearings"> = { kind: "supports", sources: ["a", "b"], target: { kind: "point", key: "t" } };
+    const b = { ...a, kind: "challenges" as const, sources: ["b", "c"] };
+    const duplicate = structuredClone(a);
+    const exact = { ...a, kind: "concerns" as const, sources: ["c", "a", "b"] };
+    expect(entailment([a, duplicate, b, exact], exact)?.[0]).toBe(exact);
+    expect(entailment([a, duplicate, b], a)?.[0]).toBe(a);
+    const witnesses = entailment([a, duplicate, b], exact)!;
+    expect(witnesses).toHaveLength(2);
+    expect(witnesses[0]).toBe(b);
+    expect(witnesses[1]).toBe(a);
+    expect(entailment([a, b], { ...exact, sources: ["missing"] })).toBeUndefined();
+    expect(entailment([a, b], { ...exact, target: { kind: "bearing", key: "t" } })).toBeUndefined();
+    expect(entailment([], { ...exact, sources: [] })).toEqual([]);
+    expect(entailment([], a)).toBeUndefined();
   });
 
   it("treats grouping as no commitment of relevance", () => {

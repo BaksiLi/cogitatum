@@ -1,12 +1,37 @@
 # Changelog
 
-Published Core and CLI **0.5.0** use **format 0.5.0**.
-This checkout prepares **0.6.0 / format 0.6.0**.
+Core and CLI **0.6.0** use **format 0.6.0**.
 The historical `alpha` tag remains at **0.3.0-alpha.1**.
 Earlier 0.4 entries below are unpublished source milestones included in this first 0.4 npm release.
 Use the complete released schema set and [migrate retained source](docs/syntax.md#compatibility-and-migration) rather than relabelling old JSON.
 
-## Unreleased
+## 0.6.0 — 4 November 2026
+
+- Let hosts replace Reading projections with `update(projection, { notifyClear: false })`.
+  Local selection still retires; the default update and user clearing retain their notifications.
+- Add `analyzeSourceEdits` for several checked previews over one privately owned original analysis.
+  Each proposed input retains its independent compilation and preservation checks.
+  Detached results and sibling line numbers let editors choose offers without sharing mutable compiler state.
+- Index commitment lookup once per compared graph, sharing the same entailment rules and first-witness order with one-off queries.
+  Keep authored Point names in one declaration index rather than two overlapping tables.
+
+- Give the private Map's wording the room it is drawn in.
+  The layout reserves each mark's measured wording, conclusions are measured in the heavier weight they are painted in, and wording beside a near neighbour narrows and takes another line instead of overlapping.
+  Below full scale wording shrinks with the drawing to a readable floor, so its line breaks hold; it sits on a plate of the canvas, so links pass behind it, and links stop clear of its descenders.
+  Reading wording takes up to four lines.
+- Snap a dragged Map mark into line with another mark's column or row, with a guide; Alt places it freely.
+  On touch, a long press on a mark opens its source and a double tap on the canvas zooms in, or fits the whole Map once close.
+- Add `outlineTies(unit)` and an optional `outline` context to `GraphView.update`.
+  A Point nested beneath another Point without stating a relation, such as a Claim beneath a Question, is placed under its outline parent and drawn with a faint dotted tie.
+  The tie has no tone, no head, and no Bearing; Graph IR, selection and focus are unchanged.
+  Only an occurrence's unconnected declaration supplies a tie; uses, failed attachments and joint members do not.
+  Selection pulses use browser animations without scheduling repeated full Map redraws.
+- Draw a Neutral Point (`[.]`) as an open ring around a point instead of a square, so it reads as its written mark rather than a checkbox.
+- Swell a newly selected mark's links once, briefly, so the eye finds them; reduced motion keeps the steady emphasis only.
+- Add `GraphView.setBottomInset(pixels)`: a host panel lying over the Map's lower edge keeps the selected mark in view by easing the drawing aside, without resizing or refitting it.
+- Add optional `GraphViewOptions.onContextMenu` for host actions on right click, Shift+F10 or a held touch.
+  Hosts without it retain long-press source navigation.
+- Draw a challenge to a step on the Map as the junction's facing side inked in the challenge's colour, with its line arriving square to that side, instead of a bar standing off the diamond.
 
 - Keep Point-only guidance for `answers` and `respondsTo` when a requested `^/` slot is missing; suggest a Point target rather than another Bearing.
   Reading distinguishes a mark-supplied relation, a written clause and a constructor default independently of positional target selection.
@@ -129,8 +154,8 @@ The original published schemas remain unchanged in `spec/0.5.0/`.
   Extend block spans through their own continuations; Reading presents one complete occurrence without duplicate lines.
   Target-form previews selected from a continuation edit the owning header.
   Recompile retained drafts and adapt consumers that assume one physical line per occurrence.
-- Consumer verification is scoped to the checkout Core/CLI, packed packages and private View.
-  No npm publication, website deployment or installed Obsidian migration is included.
+- Consumer verification covers Core/CLI, packed packages and private View.
+  Website deployment and installed-host adoption are verified separately from this package release.
   The finite interpretation fixture is rechecked against 0.6 without extending its theory or changing its source.
 - Restructure the public learning path around a first note and small Convergent, Linked and Serial examples.
   Keep alias spellings, optional operators, detailed selector comparisons and migrations in the syntax reference.

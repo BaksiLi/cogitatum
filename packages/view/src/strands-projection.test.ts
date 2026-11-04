@@ -75,6 +75,42 @@ describe("Strands projection", () => {
     expect(knot.further).toBe(1);
   });
 
+  it("keeps shared-source steps ordered and excludes displayed steps from deeper knot counts without mutating the graph", () => {
+    const source = [
+      "- [C @first] First.", "- [C @second] Second.",
+      "- [G @shared +> @first; @one] Shared.",
+      "- [G use @shared +> @second; @two] Another ending.",
+      "- [G use @shared +> @first; @parallel] Parallel step.",
+      "- [G @last +> @first; @last-step] Last ground.",
+      "  - [O/ @o] Objection.", "    - [R use @shared] Shared response.",
+      "- [G @below +> @shared; @below-step] Below shared."
+    ].join("\n");
+    const compiled = compileSource(source, "document"), graph = compiled.graphs[0];
+    expect(compiled.diagnostics).toEqual([]);
+    const before = structuredClone(graph);
+    const freeze = (value: unknown) => {
+      if (value && typeof value === "object") { Object.values(value).forEach(freeze); Object.freeze(value); }
+    };
+    freeze(graph);
+    const shared = graph.points.find(point => point.id === "shared")!;
+    expect(strandRootOf(graph, { kind: "point", key: shared.key })?.id).toBe("first");
+    const strands = projectStrands(graph)!;
+    expect(strands.roots.map(point => point.id)).toEqual(["first", "second"]);
+    expect(strands.rows.map(row => row.kind === "point" ? row.point.id : "knot")).toEqual([
+      "first", "shared", "below", "knot", "last"
+    ]);
+    const rows = pointRows(strands.rows);
+    expect(rows[0].steps.map(step => [step.bearing.handle, step.lanes])).toEqual([
+      ["one", [0]], ["parallel", [0]], ["last-step", [1]]
+    ]);
+    expect(rows[1].via.map(bearing => bearing.handle)).toEqual(["one", "parallel"]);
+    const knot = (strands.rows[3] as Extract<StrandRow, { kind: "knot" }>).knot;
+    expect(knot.relations.map(bearing => bearing.kind)).toEqual(["respondsTo"]);
+    expect(knot.further).toBe(0);
+    expect(strands.outside).toEqual({ points: 1, bearings: 1 });
+    expect(graph).toEqual(before);
+  });
+
   it("lights a contest from the focus to the contested step and what it rests on", () => {
     const strands = projectStrands(graph)!;
     const knot = strands.rows.findIndex(row => row.kind === "knot");

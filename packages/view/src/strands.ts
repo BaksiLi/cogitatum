@@ -35,7 +35,7 @@ export function createStrandsView(container: HTMLElement, options: StrandsViewOp
     const element = doc.createElement(tag);
     element.className = className; parent?.append(element); return element;
   };
-  const svgElement = <K extends keyof SVGElementTagNameMap>(tag: K, attrs: Record<string, string>, parent: Element) => {
+  const svgElement = <K extends keyof SVGElementTagNameMap>(tag: K, attrs: Record<string, string>, parent: Element | DocumentFragment) => {
     const element = doc.createElementNS(NS, tag);
     for (const [k, v] of Object.entries(attrs)) element.setAttribute(k, v);
     parent.append(element); return element;
@@ -190,14 +190,15 @@ export function createStrandsView(container: HTMLElement, options: StrandsViewOp
     }
     const tab = items.find(item => item.element.dataset.selected === "true") ?? items[0];
     for (const item of items) item.element.tabIndex = item === tab ? 0 : -1;
+    // Without Challenge Focus, the root's CSS already shows every lane.
+    if (!scope) return;
     // A lane segment belongs to the Points it joins, not to the row it passes through.
-    const litPoints = scope?.pointKeys;
     for (const segment of svg.querySelectorAll<SVGGElement>("[data-row]")) {
-      const rowLit = !lit || lit.has(Number(segment.dataset.row));
+      const rowLit = scope.rows.has(Number(segment.dataset.row));
       for (const mark of segment.children) {
         const { to, bearing, through } = (mark as SVGElement).dataset;
-        (mark as SVGElement).dataset.lit = String(!scope || (bearing ? scope.bearingKeys.has(bearing)
-          : to ? litPoints!.has(to) && (rowLit || through === "true") : rowLit));
+        (mark as SVGElement).dataset.lit = String(bearing ? scope.bearingKeys.has(bearing)
+          : to ? scope.pointKeys.has(to) && (rowLit || through === "true") : rowLit);
       }
     }
   }
@@ -213,7 +214,8 @@ export function createStrandsView(container: HTMLElement, options: StrandsViewOp
   function paint(): void {
     frame = 0;
     if (destroyed || !projection) return;
-    svg.replaceChildren();
+    // Detached ink cannot invalidate layout while subsequent rows are measured.
+    const drawing = doc.createDocumentFragment();
     const pitch = setGutter(), x = (lane: number) => PAD + lane * pitch;
     const box = page.getBoundingClientRect();
     svg.setAttribute("width", String(box.width)); svg.setAttribute("height", String(box.height));
@@ -236,7 +238,7 @@ export function createStrandsView(container: HTMLElement, options: StrandsViewOp
       const textTop = text ? text.getBoundingClientRect().top - box.top : undefined;
       const lineHeight = text ? parseFloat(win?.getComputedStyle(text).lineHeight ?? "") || 22 : 22;
       const top = rect.top - box.top, bottom = rect.bottom - box.top, mid = textTop !== undefined ? textTop + lineHeight / 2 : top + FIRST;
-      const group = svgElement("g", { "data-row": String(index), class: "cog-strands-segment" }, svg);
+      const group = svgElement("g", { "data-row": String(index), class: "cog-strands-segment" }, drawing);
       const path = (d: string, className = "cog-strands-lane", to?: string, through = false, bearing?: string) => {
         const element = svgElement("path", { d, class: className }, group);
         if (to) element.dataset.to = to;
@@ -287,6 +289,7 @@ export function createStrandsView(container: HTMLElement, options: StrandsViewOp
       if (index === 0) svgElement("circle", { r: String(FOCUS + 4), class: "cog-strands-focus-ring" }, node);
       drawPointGlyph(node, label(row.point), index === 0 ? FOCUS : NODE);
     });
+    svg.replaceChildren(drawing);
     guide();
   }
   const schedule = () => { if (!destroyed && !frame) { if (win) frame = win.requestAnimationFrame(paint); else paint(); } };
@@ -352,6 +355,7 @@ export function createStrandsView(container: HTMLElement, options: StrandsViewOp
     },
     select(ref) {
       if (destroyed || !graph) return;
+      const changed = !sameRef(selected, ref);
       if (!items.some(item => item.refs.some(r => sameRef(r, ref)))) {
         let target: BearingTarget | undefined = ref;
         const seen = new Set<string>();
@@ -369,9 +373,10 @@ export function createStrandsView(container: HTMLElement, options: StrandsViewOp
       }
       choose(ref, false);
       const reduced = options.reducedMotion?.() || win?.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-      items.find(item => item.refs.some(r => sameRef(r, ref)))?.element.scrollIntoView?.({ block: "nearest", behavior: reduced ? "instant" : "smooth" });
+      // A host may echo a pointer selection; revealing it again moves the target between clicks.
+      if (changed) items.find(item => item.refs.some(r => sameRef(r, ref)))?.element.scrollIntoView?.({ block: "nearest", behavior: reduced ? "instant" : "smooth" });
     },
-    clear() { if (!destroyed) { contest = undefined; choose(undefined, false); } },
+    clear() { if (!destroyed && (selected || contest)) choose(undefined, false); },
     destroy() {
       if (destroyed) return;
       destroyed = true; abort.abort(); observer?.disconnect(); if (frame) win?.cancelAnimationFrame(frame);

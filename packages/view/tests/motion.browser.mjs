@@ -70,6 +70,12 @@ try {
       await page.mouse.up();
     };
 
+    await page.evaluate(() => window.mount('- [C] Claim.\n  - [G] Ground.'));
+    await advance(20);
+    await page.evaluate(() => window.view.select({ kind: 'point', key: '_p2' }));
+    assert.ok(await page.locator('#map .cog-link[data-active="true"]').first().evaluate(path => path.getAnimations().length > 0), 'selection retains its browser-owned stroke pulse');
+    assert.equal(await page.evaluate(() => window.pendingFrames()), 0, 'selection pulse schedules no whole-Map animation frames');
+
     await page.evaluate(() => window.mount('- [C @a] A.\n- [C @b] B.\n'));
     const unrelated = await point('_p2').getAttribute('transform');
     await drag('_p1'); await advance(1000 / 60);

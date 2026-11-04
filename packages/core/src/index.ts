@@ -12,4 +12,6 @@ export { previewRelationEdit } from "./relation-edit.js";
 export type { RelationEdit, RelationEditOptions, RelationEditPreview, RelationEditUnavailableReason } from "./relation-edit.js";
 export { previewTargetForm } from "./target-form.js";
 export type { TargetForm, TargetFormOptions, TargetFormPreview, TargetFormUnavailableReason, SourceEdit } from "./target-form.js";
+export { analyzeSourceEdits } from "./edit-previews.js";
+export type { SourceEditAnalysis, SourceEditRequest, SourceEditPreview } from "./edit-previews.js";
 export { formatExplain, EXPLAIN_TEXT_VERSION } from "./explain-text.js";

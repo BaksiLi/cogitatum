@@ -295,7 +295,8 @@ export function projectReading(source: string, explained: ExplainedSource): Read
       }
       const emitted = find("emitBearing");
       if (emitted) {
-        const route = bearings.find(item => item.bearing.key === emitted.ref.key)!;
+        // The occurrence pass validated this index; projected Bearings retain graph order.
+        const route = bearings[emitted.ref.graphIndex];
         const context = find("implicitAttachment");
         const annotation = evidence!.block.annotation;
         const written = annotation && "operatorClause" in annotation && annotation.operatorClause;
@@ -324,4 +325,37 @@ export function projectReading(source: string, explained: ExplainedSource): Read
       kind: "source", line: index + 1, raw, unitIndex: unitByLine.get(index + 1), diagnostics: diagnosticsAt.get(index + 1) ?? []
     }]);
   return { version: explained.version, mode: explained.mode, source, rows, units, diagnostics: explained.diagnostics };
+}
+
+/** A declared Point nested without a relation at that occurrence: kept together in the drawing only. */
+export type OutlineTie = { child: PointRef; parent: PointRef };
+
+/**
+ * Where the outline nests a declared Point under another and that occurrence itself states no relation,
+ * as a Claim or a neutral Point beneath a Question does. A Map may keep them together with a faint tie.
+ * The tie is the author's arrangement, never a Bearing or an inference about what the Point answers.
+ * A use, a failed occurrence, and a member do not provide that evidence. If a Bearing already joins this Point
+ * and its outline parent, that relation is the connection and no tie is added.
+ * Keys belong to this unit: host units repeat anonymous keys, so ties are never gathered across them.
+ */
+export function outlineTies(unit: ReadingUnit): OutlineTie[] {
+  const quiet = new Set(unit.commitments.filter(commitment =>
+    commitment.basis === "none" && commitment.reason === "no-structural-rule").map(commitment => commitment.occurrenceId));
+  const joined = new Set(unit.graph.bearings.flatMap(bearing =>
+    bearing.target.kind === "point"
+      ? bearing.sources.map(source => `${source.key}>${bearing.target.key}`)
+      : []));
+  const ties: OutlineTie[] = [], stack: { depth: number; point?: PointRef }[] = [];
+  for (const occurrence of unit.occurrences) {
+    while (stack.length && stack[stack.length - 1].depth >= occurrence.depth) stack.pop();
+    const declared = occurrence.references.find(reference => reference.kind === "declares")?.ref;
+    const parent = [...stack].reverse().find(entry => entry.point)?.point;
+    if (declared && parent && declared.key !== parent.key && quiet.has(occurrence.id) &&
+      !joined.has(`${declared.key}>${parent.key}`) && !joined.has(`${parent.key}>${declared.key}`)) {
+      ties.push({ child: declared, parent });
+    }
+    const used = occurrence.references.find(reference => reference.kind === "uses")?.ref;
+    stack.push({ depth: occurrence.depth, point: declared ?? (used?.kind === "point" ? used : undefined) });
+  }
+  return ties;
 }

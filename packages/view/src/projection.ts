@@ -90,15 +90,16 @@ export function focusNeighborhood(projection: GraphProjection, ref?: BearingTarg
 
 /** Visual topology only. A collapsed line still identifies exactly one compiled Bearing. */
 export function projectExploration(projection: GraphProjection): GraphProjection & { inlineBearings: GraphNode[] } {
-  const inputs = new Map<string, GraphLink[]>(), outputs = new Map<string, GraphLink>();
+  // Only a sole input can be collapsed; null keeps every joint Bearing explicit.
+  const inputs = new Map<string, GraphLink | null>(), outputs = new Map<string, GraphLink>();
   const addressed = new Set<string>(), pairs = new Map<string, number>();
   for (const link of projection.links) {
-    if (link.segment === "input") inputs.set(link.target, [...inputs.get(link.target) ?? [], link]);
+    if (link.segment === "input") inputs.set(link.target, inputs.has(link.target) ? null : link);
     else { outputs.set(link.source, link); addressed.add(link.target); }
   }
   const pair = (node: GraphNode) => {
     const input = inputs.get(node.id), output = outputs.get(node.id);
-    return input?.length === 1 && output ? [input[0].source, output.target].sort().join("\0") : undefined;
+    return input && output ? [input.source, output.target].sort().join("\0") : undefined;
   };
   for (const node of projection.nodes.filter(node => node.ref.kind === "bearing")) {
     const key = pair(node); if (key) pairs.set(key, (pairs.get(key) ?? 0) + 1);
@@ -106,14 +107,14 @@ export function projectExploration(projection: GraphProjection): GraphProjection
   const inlineBearings = projection.nodes.filter(node => {
     if (node.ref.kind !== "bearing" || addressed.has(node.id)) return false;
     const input = inputs.get(node.id), output = outputs.get(node.id), key = pair(node);
-    return input?.length === 1 && !!output && input[0].source !== output.target && !!key && pairs.get(key) === 1;
+    return !!input && !!output && input.source !== output.target && !!key && pairs.get(key) === 1;
   });
   const collapsed = new Set(inlineBearings.map(node => node.id));
   return {
     nodes: projection.nodes.filter(node => !collapsed.has(node.id)),
     links: projection.links.flatMap(link => {
       if (link.segment === "input" && collapsed.has(link.target)) return [];
-      if (link.segment === "output" && collapsed.has(link.source)) return [{ ...link, source: inputs.get(link.source)![0].source }];
+      if (link.segment === "output" && collapsed.has(link.source)) return [{ ...link, source: inputs.get(link.source)!.source }];
       return [link];
     }),
     inlineBearings

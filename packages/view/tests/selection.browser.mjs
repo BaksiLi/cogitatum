@@ -106,11 +106,25 @@ try {
     assert.equal(await row(6).locator('.cog-reading-text').textContent(), '[C @literal] Literal syntax.');
     await page.keyboard.press('Enter');
     assert.equal(await page.evaluate(() => window.views.events.navigate.at(-1).ref), undefined);
-    await page.evaluate(() => {
-      const { reading, projection } = window.views;
+    const updateEvents = await page.evaluate(() => {
+      const { reading, projection, events } = window.views;
+      const before = events.clear;
       reading.update(projection);
+      return events.clear - before;
     });
     assert.equal(await page.locator('#reading [aria-pressed="true"]').count(), 0, 'updates clear local occurrence identity');
+    assert.equal(updateEvents, 1, 'the default update retains its clear notification');
+    const quietUpdate = await page.evaluate(() => {
+      const { reading, projection, events } = window.views;
+      reading.selectOccurrence(projection.units[0].occurrences[0].id);
+      const before = { clear: events.clear, select: events.reading.length };
+      reading.update(projection, { notifyClear: false });
+      return { before, after: { clear: events.clear, select: events.reading.length } };
+    });
+    assert.deepEqual(quietUpdate.after, quietUpdate.before, 'host-owned replacement emits no selection callbacks');
+    assert.equal(await page.locator('#reading [aria-pressed="true"]').count(), 0, 'silent replacement still retires local selection');
+    await row(3).focus(); await page.keyboard.press('Space'); await page.keyboard.press('Escape');
+    assert.equal(await page.evaluate(() => window.views.events.clear), quietUpdate.after.clear + 1, 'user clearing still notifies after a silent replacement');
 
     const mark = page.locator('#map [data-node="point:_p2"]');
     await mark.dispatchEvent('click', { detail: 0 });
@@ -497,21 +511,56 @@ try {
     const moved = await mapGeometry();
     assertInside(moved.focused, moved, 'keyboard arrangement also reveals the moved mark');
 
+    // A host panel over the lower edge: selecting a mark beneath it pans the mark clear, at the same zoom.
+    for (const fraction of [1 / 3, 2 / 3]) {
+      await mount(chain(10));
+      const inset = Math.round((await mapGeometry()).height * fraction);
+      await page.evaluate(px => window.views.map.setBottomInset(px), inset);
+      const covered = await page.locator('#map .cog-node.point').evaluateAll((nodes, edge) => {
+        const box = nodes[0].ownerSVGElement.getBoundingClientRect();
+        return nodes.findIndex(node => { const r = node.getBoundingClientRect(); return r.top - box.top > box.height - edge && r.bottom < box.bottom; });
+      }, inset);
+      assert.ok(covered >= 0, 'the fixture has a mark under the inset');
+      const before = await mapGeometry();
+      await page.locator('#map .cog-node.point').nth(covered).click(); await page.waitForTimeout(400);
+      const after = await mapGeometry();
+      const chosen = await page.locator('#map .cog-node.point').nth(covered).evaluate(node => {
+        const box = node.ownerSVGElement.getBoundingClientRect(), r = node.getBoundingClientRect(); return r.bottom - box.top;
+      });
+      assert.ok(chosen <= after.height - inset, `the selected mark clears the inset: ${chosen} > ${after.height - inset}`);
+      assert.ok(Math.abs(after.spacing - before.spacing) < .2, 'clearing the inset pans without changing zoom');
+      await page.evaluate(() => { window.views.map.setBottomInset(0); window.views.map.clear(); });
+    }
+
     await page.locator('#before').focus();
     // This chain needs a scale below the manual zoom minimum to fit in either viewport.
     await mount(chain(30));
-    await page.evaluate(() => window.views.map.fit()); await flush();
+    await page.evaluate(() => {
+      window.views.map.select({ kind: 'point', key: '_p30' });
+      window.views.map.setBottomInset(84);
+      window.views.map.fit();
+    }); await flush();
     const overview = await mapGeometry();
-    for (const node of overview.nodes) assertInside(node, overview, 'explicit Fit includes every Point and Bearing');
+    for (const node of overview.nodes) assertInside(node, { ...overview, height: overview.height - 84 }, 'explicit Fit includes expanded selection wording above the host panel');
     await page.evaluate(() => window.views.map.zoom(.8)); await flush();
     const zoomedOut = await mapGeometry();
     assert.ok(zoomedOut.spacing <= overview.spacing + .1, 'Zoom out never zooms in from a fitted overview');
     await page.evaluate(() => window.views.map.zoom(1.25)); await flush();
     const zoomedIn = await mapGeometry();
     assert.ok(zoomedIn.spacing > zoomedOut.spacing + .1, 'Zoom in increases scale from a fitted overview');
+    await page.locator('#map').evaluate(map => { map.hidden = true; }); await flush();
+    assert.equal((await mapGeometry()).width, 0);
+    await page.locator('#map').evaluate(map => { map.hidden = false; }); await flush();
+    assert.deepEqual((await mapGeometry()).positions, zoomedIn.positions, 'hiding and revealing a Map preserves its chosen camera');
     await page.evaluate(() => window.views.map.resetLayout()); await flush();
     const reset = await mapGeometry();
     assert.ok(reset.spacing > overview.spacing * 2, 'Arrange restores the reading-scale opening');
+
+    await page.locator('#map').evaluate(map => { map.hidden = true; }); await flush();
+    await mount('- [C] Claim.\n  - [G] Ground.');
+    await page.locator('#map').evaluate(map => { map.hidden = false; }); await flush();
+    const firstReveal = await mapGeometry();
+    for (const node of firstReveal.nodes) assertInside(node, firstReveal, 'a Map first mounted while hidden still frames its contents');
 
     for (const fontSize of [16, 24]) {
       const style = await page.addStyleTag({ content: `#map .cog-text { font-size: ${fontSize}px; }` });
@@ -519,7 +568,7 @@ try {
       const lines = await page.locator('#map .cog-text tspan').evaluateAll(nodes => nodes.map(node => ({
         baseline: Number(node.getAttribute('y')), top: node.getBoundingClientRect().top, bottom: node.getBoundingClientRect().bottom,
       })));
-      assert.equal(lines.length, 3);
+      assert.ok(lines.length >= 3 && lines.length <= 4, `reading wording takes up to four lines, got ${lines.length}`);
       for (let i = 1; i < lines.length; i++) {
         assert.ok(Math.abs(lines[i].baseline - lines[i - 1].baseline - Math.round(fontSize * 1.28)) < .01,
           'label baselines use the attached probe’s host font size');

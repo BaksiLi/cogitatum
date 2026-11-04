@@ -7,7 +7,7 @@ Every relation is a relation plus one target term: `@name`, `^` for the nearest 
 Marks abbreviate default clauses: `[G]` is `[G +> ^]`, and G / O / R / D / Q state `supports` / `challenges` / `respondsTo` / `clarifies` / `concerns`, irrespective of the parent's mark.
 C and neutral Points state no relation; author `answers` explicitly when intended.
 
-Checkout version **0.6.0**, format **0.6.0**, not yet published.
+Version **0.6.0**, format **0.6.0**.
 `point` / `node` / `.` and `bearing` / `edge` / `_` share construction, use and local note operations.
 A Bearing constructor writes `[_ OP TARGET]`: its direct neutral children are its ordered sources, or `[_ @a, @b OP TARGET]` lists them; `[_]` and `[_/]` record joint `concerns`.
 The first token after the family spelling selects construction, `use` for reuse or `note` for note mode; a role letter such as `[_ G]` is `MALFORMED_BEARING_MODE`.
@@ -54,11 +54,10 @@ The complete Point content is shared at uses; use prose remains local, and note 
 AST text/raw use LF and spans include continuations but exclude children; annotation recognition is confined to the bullet header.
 Keep shared content, occurrence notes, quoted source context and proposed reconstructions separate; retained original source plus AST/Explain is required for reading, not Graph IR alone.
 The historical npm `alpha` tag provides **0.3.0-alpha.1**, predating local Bearing construction.
-The published package below uses the 0.5 API and syntax.
-Build this source checkout to try 0.6; do not send 0.6 notes to a 0.5 compiler.
+Use the matching Core and schema versions; do not send 0.6 notes to a 0.5 compiler.
 
 ```sh
-npm install @cogitatum/core@0.5.0
+npm install @cogitatum/core@0.6.0
 ```
 
 ```js
@@ -182,7 +181,7 @@ Keys are opaque strings: their numbering is not an integration contract.
 Store application metadata separately from canonical compiler output.
 The source-envelope export is absent from the historical npm `0.3.0-alpha.1` tarball.
 
-Read the [introduction](https://cogitatum.onesimos.net/docs/introduction), [syntax](https://cogitatum.onesimos.net/docs/syntax), or try the [playground](https://cogitatum.onesimos.net/playground).
+Read the [introduction](https://cogitatum.onesimos.org/docs/introduction), [syntax](https://cogitatum.onesimos.org/docs/syntax), or try the [playground](https://cogitatum.onesimos.org/playground).
 
 ## Inspection and target form
 

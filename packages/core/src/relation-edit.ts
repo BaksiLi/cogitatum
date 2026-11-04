@@ -1,7 +1,7 @@
 import { expandedClause, MARK_RELATIONS, operatorSymbol, respellClause, targetSpelling } from "./annotation.js";
 import { compareCommitments } from "./commitments.js";
 import type { CommitmentComparison, Correspondence } from "./commitments.js";
-import { annotationOffset, findBlock, minimalEdit, parentBlock, same, splitLines, subtreeEndLine } from "./source-edit.js";
+import { annotationOffset, locateSourceBlock, minimalEdit, parentBlock, same, splitLines, subtreeEndLine } from "./source-edit.js";
 import type { SourceEdit, SourceLine } from "./source-edit.js";
 import { explainSource } from "./source.js";
 import { FORMAT_VERSION, isNamedTarget } from "./types.js";
@@ -76,8 +76,11 @@ type Plan = {
  * and classifies the result with compareCommitments.
  */
 export function previewRelationEdit(source: string, options: RelationEditOptions): RelationEditPreview {
-  const mode = options.mode ?? "document";
-  const before = explainSource(source, mode);
+  return previewRelationEditFrom(source, explainSource(source, options.mode ?? "document"), options);
+}
+
+/** @internal Only used with Core's private analysis of this exact source. */
+export function previewRelationEditFrom(source: string, before: ExplainedSource, options: RelationEdit): RelationEditPreview {
   const base = { version: FORMAT_VERSION, mode: before.mode, diagnostics: before.diagnostics };
   const unavailable = (reason: RelationEditUnavailableReason, message: string): RelationEditPreview => ({ ...base, status: "unavailable", reason, message });
   const lines = options.operation === "join" ? options.lines : [options.line];
@@ -242,12 +245,12 @@ function planJoin(source: string, before: ExplainedSource, selected: number[]): 
 
 /** The validated relation an occurrence or constructor at line authors. */
 function locate(before: ExplainedSource, line: number) {
-  const index = before.documents.findIndex(d => findBlock(d.blocks, line));
-  if (index < 0) return undefined;
+  const located = locateSourceBlock(before, line);
+  if (!located) return undefined;
+  const { unitIndex: index, block, entry } = located;
   const blocks = before.documents[index].blocks;
-  const block = findBlock(blocks, line)!;
   const clause = expandedClause(block.annotation);
-  const emission = before.explanations[index].entries.find(e => e.sourceSpan.startLine === block.sourceSpan.startLine)?.effects.find(e => e.kind === "emitBearing");
+  const emission = entry?.effects.find(e => e.kind === "emitBearing");
   if (!clause || !emission || emission.kind !== "emitBearing") return undefined;
   return { unit: { index, graph: before.graphs[index], blocks }, block, clause, bearing: emission.bearing.key };
 }

@@ -29,10 +29,19 @@ import type {
 import { FORMAT_VERSION, isNamedTarget } from "./types.js";
 import { clauseSpelling, expandedClause, respellTarget } from "./annotation.js";
 
-type Context = (
-  | { kind: "point"; block: AstBlock; focus?: PointRef | Ref; exposedBearing?: BearingRef }
-  | { kind: "bearing"; block: AstBlock; exposedBearing?: BearingRef | Ref; localBearingChildren?: ReadonlyMap<AstBlock, LocalBearingChildFunction> }
-) & { crossedBodySpans?: SourceSpan[] } | undefined;
+type PointSlot = { target: PointRef | Ref } | { failure: PointSlotFailure };
+
+// Slots offer references before validation. A failed slot blocks outer lookup;
+// the Point remains available even when its owned attachment fails.
+type Context = {
+  sourceSpan: SourceSpan;
+  pointSlot: PointSlot;
+  bearingSlot:
+    | { origin: "attachment"; target?: BearingRef }
+    | { origin: "use"; target?: Ref };
+  localBearingChildren?: ReadonlyMap<AstBlock, LocalBearingChildFunction>;
+  crossedBodySpans?: SourceSpan[];
+} | undefined;
 
 type CandidateBearing = {
   key: string;
@@ -49,12 +58,12 @@ type CandidateBearing = {
 type SymbolKind = "point" | "bearing" | "invalid" | "unknown";
 
 type SymbolTable = {
-  pointIds: Set<string>;
+  pointKeys: WeakMap<AstBlock, string>;
+  declaredPointIds: Set<string>;
   duplicatePointIds: Set<string>;
   bearingIds: Set<string>;
   conflictingIds: Set<string>;
   duplicateBearingIds: Set<string>;
-  allIds: Map<string, AstBlock>;
   pointsByKey: Map<string, Point>;
   bearingKeys: Set<string>;
   keysById: Map<string, string>;
@@ -81,13 +90,24 @@ type BearingDraft =
       reason: "no-eligible-ancestor" | "no-structural-rule" | "local-bearing-membership";
     };
 
+type FocusResolution =
+  | { status: "resolved"; operand: Ref; ref: BearingTarget; diagnostic?: never }
+  | { status: "rejected"; operand?: Ref; reason: "reference-error"; diagnostic: Diagnostic };
+
+type FocusDraft =
+  | { status: "pending"; kind: "point" | "bearing"; operand?: Ref }
+  | FocusResolution
+  | { status: "rejected"; operand?: Ref; reason: "annotation-syntax-error"; diagnostic?: never };
+
 type ExplainDraft = {
   block: AstBlock;
   recognition: ExplainRecognition;
   point?: PointDraft;
   membership?: { localBearingSpan: SourceSpan; eligible: boolean; function: LocalBearingChildFunction };
-  selection?: { ownerSpan?: SourceSpan; contextSpan?: SourceSpan; target?: BearingRef | Ref };
-  focus?: { kind: "point" | "bearing"; operand?: Ref; ref?: BearingTarget; reason?: "reference-error" | "annotation-syntax-error" };
+  selection?:
+    | { origin: "attachment"; ownerSpan?: SourceSpan; target?: BearingRef }
+    | { origin: "use"; contextSpan: SourceSpan; target?: BearingRef | Ref };
+  focus?: FocusDraft;
   bearing?: BearingDraft;
   parentSpan?: SourceSpan;
   implicit?: { contextSpan: SourceSpan; crossedBodySpans: SourceSpan[] };
@@ -115,14 +135,13 @@ export function compileGraphWithExplain(ast: DocumentAst): GraphCompilation {
     throw new Error(`Unsupported AST format ${ast.version}; expected ${FORMAT_VERSION}.`);
   }
   const diagnostics = [...ast.diagnostics];
-  const pointKeys = assignPointKeys(ast.blocks);
   const symbols = collectSymbols(ast.blocks, diagnostics);
   const compiledPoints: Point[] = [];
   const compiledBearings: CandidateBearing[] = [];
   const explainDrafts: ExplainDraft[] = [];
 
   for (const block of ast.blocks) {
-    compileBlock(block, undefined, pointKeys, compiledPoints, compiledBearings, explainDrafts, diagnostics);
+    compileBlock(block, undefined, symbols.pointKeys, compiledPoints, compiledBearings, explainDrafts, diagnostics);
   }
 
   const points = compiledPoints.filter((point) => !point.id || !symbols.duplicatePointIds.has(point.id));
@@ -135,37 +154,27 @@ export function compileGraphWithExplain(ast: DocumentAst): GraphCompilation {
 
   collectBearingSymbols(compiledBearings, symbols, diagnostics);
   for (const draft of explainDrafts) {
-    if (!draft.focus || draft.focus.kind !== "point" || draft.focus.reason) continue;
-    const operand = draft.focus.operand;
-    const kind = operand ? classifyReference(operand, symbols) : "invalid";
-    if (kind === "point" && operand) {
-      draft.focus.ref = pointRef(resolveKey(operand, symbols));
-    } else {
-      draft.focus.reason = "reference-error";
-      diagnostics.push({ severity: "error", code: kind === "bearing" ? "BEARING_IS_NOT_POINT_REFERENCE" : kind === "unknown" ? "UNKNOWN_POINT_REFERENCE" : "INVALID_POINT_REFERENCE", message: "Point use operand " + (operand ? "@" + operand.id : "(missing)") + " does not resolve to a unique Point in this source unit.", sourceSpan: draft.block.sourceSpan });
-    }
+    if (draft.focus?.status !== "pending" || draft.focus.kind !== "point") continue;
+    const result = resolvePointFocus(draft.focus.operand, symbols, draft.block.sourceSpan);
+    draft.focus = result;
+    if (result.status === "rejected") diagnostics.push(result.diagnostic);
   }
   const validation = validateBearings(compiledBearings, symbols, diagnostics);
   const validBearingKeys = new Set(validation.bearings.map(bearing => bearing.key));
   for (const draft of explainDrafts) {
-    if (!draft.selection?.contextSpan) continue;
+    if (draft.selection?.origin !== "use") continue;
     const target = draft.selection.target;
     draft.selection.target = target && classifyReference(target, symbols) === "bearing" && validBearingKeys.has(resolveKey(target, symbols))
       ? { kind: "bearing", key: resolveKey(target, symbols) } : undefined;
   }
   for (const draft of explainDrafts) {
-    if (!draft.focus || draft.focus.kind !== "bearing" || draft.focus.reason) continue;
-    const operand = draft.focus.operand;
-    const kind = operand ? classifyReference(operand, symbols) : "invalid";
-    if (operand && kind === "bearing" && validBearingKeys.has(resolveKey(operand, symbols))) {
-      draft.focus.ref = { kind: "bearing", key: resolveKey(operand, symbols) };
-    } else {
-      draft.focus.reason = "reference-error";
-      diagnostics.push({ severity: "error", code: kind === "point" ? "POINT_IS_NOT_BEARING_REFERENCE" : kind === "unknown" ? "UNKNOWN_BEARING_REFERENCE" : "INVALID_BEARING_REFERENCE", message: "Bearing use operand " + (operand ? "@" + operand.id : "(missing)") + " does not resolve to a unique validated Bearing in this source unit.", sourceSpan: draft.block.sourceSpan });
-    }
+    if (draft.focus?.status !== "pending" || draft.focus.kind !== "bearing") continue;
+    const result = resolveBearingFocus(draft.focus.operand, symbols, validBearingKeys, draft.block.sourceSpan);
+    draft.focus = result;
+    if (result.status === "rejected") diagnostics.push(result.diagnostic);
   }
   resolveNotes(explainDrafts, symbols, validation.bearings, diagnostics);
-  const entries = buildExplainEntries(explainDrafts, points, validation, diagnostics, new Set([...symbols.allIds.keys(), ...symbols.bearingIds]));
+  const entries = buildExplainEntries(explainDrafts, points, validation, diagnostics, new Set([...symbols.declaredPointIds, ...symbols.bearingIds]));
 
   const graph = {
     version: FORMAT_VERSION,
@@ -195,9 +204,9 @@ function compileBlock(
   diagnostics: Diagnostic[],
   sourceParent?: AstBlock
 ): void {
-  const memberContext = context?.kind === "bearing" && context.localBearingChildren ? context : undefined;
+  const memberContext = context?.localBearingChildren ? context : undefined;
   const childFunction = memberContext?.localBearingChildren?.get(block);
-  const membership = memberContext ? { localBearingSpan: memberContext.block.sourceSpan, eligible: childFunction === "source", function: childFunction ?? "unclassified" as const } : undefined;
+  const membership = memberContext ? { localBearingSpan: memberContext.sourceSpan, eligible: childFunction === "source", function: childFunction ?? "unclassified" as const } : undefined;
   if (!block.annotation) {
     explainDrafts.push({ block, recognition: { kind: "body" }, membership });
     for (const child of block.children) {
@@ -222,9 +231,9 @@ function compileBlock(
     if (annotation.targetKind) {
       draft.noteSelection = {
         targetKind: annotation.targetKind,
-        ...(context ? { contextSpan: context.block.sourceSpan } : {}),
+        ...(context ? { contextSpan: context.sourceSpan } : {}),
         crossedBodySpans: context?.crossedBodySpans ?? [],
-        candidate: annotation.targetKind === "point" ? pointSlot(context) : context?.exposedBearing
+        candidate: annotation.targetKind === "point" ? pointTarget(context) : context?.bearingSlot.target
       };
     }
     return;
@@ -232,23 +241,25 @@ function compileBlock(
 
   if (annotation.kind === "invalid") {
     draft.bearing = { outcome: "rejected", reason: "annotation-syntax-error" };
-    compileChildren({ kind: "point", block });
+    compileChildren({ sourceSpan: block.sourceSpan, pointSlot: { failure: "failed-context" }, bearingSlot: { origin: "attachment" } });
     return;
   }
 
   if (annotation.kind === "bearingUse") {
     const syntaxFailed = Boolean(annotation.syntaxErrors?.length);
-    draft.focus = { kind: "bearing", operand: annotation.ref, ...(syntaxFailed ? { reason: "annotation-syntax-error" as const } : {}) };
-    compileChildren({ kind: "bearing", block, exposedBearing: syntaxFailed ? undefined : annotation.ref });
+    draft.focus = syntaxFailed
+      ? { status: "rejected", operand: annotation.ref, reason: "annotation-syntax-error" }
+      : { status: "pending", kind: "bearing", operand: annotation.ref };
+    compileChildren({ sourceSpan: block.sourceSpan, pointSlot: { failure: "bearing-use" }, bearingSlot: { origin: "use", target: syntaxFailed ? undefined : annotation.ref } });
     return;
   }
 
   if (annotation.kind === "bearing") {
     const { bearing: produced, memberFunctions } = compileBearingConstructor(block, context, draft, pointKeys, bearings, diagnostics);
     compileChildren({
-      kind: "bearing",
-      block,
-      exposedBearing: produced ? { kind: "bearing", key: produced.key } : undefined,
+      sourceSpan: block.sourceSpan,
+      pointSlot: { failure: annotation.members ? "member-constructor" : annotation.syntaxErrors?.includes("mode") ? "unselected-constructor" : "reference-constructor" },
+      bearingSlot: { origin: "attachment", target: produced ? { kind: "bearing", key: produced.key } : undefined },
       ...(annotation.members ? { localBearingChildren: memberFunctions ?? classifyMembers(block) } : {})
     });
     return;
@@ -256,7 +267,9 @@ function compileBlock(
 
   // A Point declaration or use.
   if (annotation.kind === "use") {
-    draft.focus = { kind: "point", operand: annotation.ref, ...(annotation.syntaxErrors?.includes("reference") ? { reason: "annotation-syntax-error" as const } : {}) };
+    draft.focus = annotation.syntaxErrors?.includes("reference")
+      ? { status: "rejected", operand: annotation.ref, reason: "annotation-syntax-error" }
+      : { status: "pending", kind: "point", operand: annotation.ref };
   } else {
     const point = pointFromBlock(block, pointKeys);
     points.push(point);
@@ -311,13 +324,13 @@ function compileBlock(
     });
   }
   if (produced?.derivedBy === "structural" && context) {
-    draft.implicit = { contextSpan: context.block.sourceSpan, crossedBodySpans: context.crossedBodySpans ?? [] };
+    draft.implicit = { contextSpan: context.sourceSpan, crossedBodySpans: context.crossedBodySpans ?? [] };
   }
+  const focus = annotation.kind === "use" && annotation.syntaxErrors?.includes("reference") ? undefined : source;
   compileChildren({
-    kind: "point",
-    block,
-    focus: annotation.kind === "use" ? annotation.syntaxErrors?.includes("reference") ? undefined : annotation.ref : pointRef(pointKeyForBlock(block, pointKeys)),
-    exposedBearing: produced ? { kind: "bearing", key: produced.key } : undefined
+    sourceSpan: block.sourceSpan,
+    pointSlot: focus ? { target: focus } : { failure: "failed-context" },
+    bearingSlot: { origin: "attachment", target: produced ? { kind: "bearing", key: produced.key } : undefined }
   });
 }
 
@@ -339,23 +352,28 @@ type PointSlotFailure =
   | "member-constructor"    // [_ +> ^], whose direct children are its sources
   | "unselected-constructor"; // a Bearing header whose first token selected no mode
 
-function pointSlot(context: Context): PointRef | Ref | undefined {
-  return context?.kind === "point" ? context.focus : undefined;
+function pointTarget(context: Context): PointRef | Ref | undefined {
+  const slot = resolvePointSlot(context);
+  return "target" in slot ? slot.target : undefined;
 }
 
-function resolvePointSlot(context: Context): { target: PointRef | Ref } | { failure: PointSlotFailure } {
-  if (!context) return { failure: "no-context" };
-  if (context.kind === "point") return context.focus ? { target: context.focus } : { failure: "failed-context" };
-  const annotation = context.block.annotation;
-  if (annotation?.kind !== "bearing") return { failure: "bearing-use" };
-  if (annotation.members) return { failure: "member-constructor" };
-  return { failure: annotation.syntaxErrors?.includes("mode") ? "unselected-constructor" : "reference-constructor" };
+function resolvePointSlot(context: Context): PointSlot {
+  return context?.pointSlot ?? { failure: "no-context" };
 }
 
 function resolveBearingSlot(context: Context, draft: ExplainDraft): BearingRef | Ref | undefined {
-  const selected = context?.exposedBearing;
+  if (context?.bearingSlot.origin === "use") {
+    const selected = context.bearingSlot.target;
+    draft.selection = {
+      origin: "use", contextSpan: context.sourceSpan,
+      ...(selected ? { target: { ...selected } } : {})
+    };
+    return selected;
+  }
+  const selected = context?.bearingSlot.target;
   draft.selection = {
-    ...(context?.block.annotation?.kind === "bearingUse" ? { contextSpan: context.block.sourceSpan } : context ? { ownerSpan: context.block.sourceSpan } : {}),
+    origin: "attachment",
+    ...(context ? { ownerSpan: context.sourceSpan } : {}),
     ...(selected ? { target: { ...selected } } : {})
   };
   return selected;
@@ -465,7 +483,7 @@ function compileBearingConstructor(
     sources = block.children.filter(child => memberFunctions!.get(child) === "source")
       .map(child => child.annotation?.kind === "use" ? { ...child.annotation.ref! } : pointRef(pointKeyForBlock(child, pointKeys)));
   } else {
-    sources = (clause.sources as Ref[]).map(ref => ({ id: ref.id }));
+    sources = clause.sources.map(ref => ({ id: ref.id }));
   }
 
   const reason = clause.sources === "members" ? "local-bearing-containment" as const
@@ -477,7 +495,7 @@ function compileBearingConstructor(
   }
   const bearing = addBearing(bearings, candidate(block, clause.op, sources, target, targetFocusKind ? "structural" : "operator", targetFocusKind));
   draft.bearing = { outcome: "candidate", candidate: bearing, reason };
-  if (targetFocusKind && context) draft.implicit = { contextSpan: context.block.sourceSpan, crossedBodySpans: context.crossedBodySpans ?? [] };
+  if (targetFocusKind && context) draft.implicit = { contextSpan: context.sourceSpan, crossedBodySpans: context.crossedBodySpans ?? [] };
   return { bearing, memberFunctions };
 }
 
@@ -580,7 +598,7 @@ function noLocalBearingMessage(context: Context, annotation: Annotation, kind: B
     return `${kind} requires a Point target; ^/ selects a Bearing. ` +
       `Write [${respellTarget(annotation, { local: "point" })}] for the nearest Point, or name a Point explicitly.`;
   }
-  if (context?.kind === "point" && context.focus) {
+  if (pointTarget(context)) {
     const action = kind === "supports" ? "support" : kind === "challenges" ? "challenge" : kind === "clarifies" ? "clarify" : "concern";
     return `The nearest enclosing Point has no attachment, so ^/ has no step to ${action}. ` +
       `To ${action} the Point itself, write [${respellTarget(annotation, { local: "point" })}]; to address another step, name that Bearing explicitly.`;
@@ -656,23 +674,27 @@ function pointRef(key: string): PointRef {
 
 function collectSymbols(blocks: AstBlock[], diagnostics: Diagnostic[]): SymbolTable {
   const symbols: SymbolTable = {
-    pointIds: new Set(),
+    pointKeys: new WeakMap(),
+    declaredPointIds: new Set(),
     duplicatePointIds: new Set(),
     bearingIds: new Set(),
     conflictingIds: new Set(),
     duplicateBearingIds: new Set(),
-    allIds: new Map(),
     pointsByKey: new Map(),
     bearingKeys: new Set(),
     keysById: new Map()
   };
+  let nextPoint = 1;
 
   walkBlocks(blocks, (block) => {
+    if (block.annotation?.kind === "role" || block.annotation?.kind === "material") {
+      symbols.pointKeys.set(block, `_p${nextPoint++}`);
+    }
     const anchor = pointAnchor(block);
     if (!anchor) {
       return;
     }
-    if (symbols.allIds.has(anchor)) {
+    if (symbols.declaredPointIds.has(anchor)) {
       symbols.duplicatePointIds.add(anchor);
       diagnostics.push({
         severity: "error",
@@ -684,13 +706,8 @@ function collectSymbols(blocks: AstBlock[], diagnostics: Diagnostic[]): SymbolTa
         sourceSpan: block.sourceSpan
       });
     }
-    symbols.allIds.set(anchor, block);
-    symbols.pointIds.add(anchor);
+    symbols.declaredPointIds.add(anchor);
   });
-
-  for (const id of symbols.duplicatePointIds) {
-    symbols.pointIds.delete(id);
-  }
 
   return symbols;
 }
@@ -716,7 +733,7 @@ function collectBearingSymbols(
         sourceSpan: bearing.sourceSpan
       });
     }
-    if (symbols.allIds.has(bearing.handle)) {
+    if (symbols.declaredPointIds.has(bearing.handle)) {
       symbols.conflictingIds.add(bearing.handle);
     }
     symbols.bearingIds.add(bearing.handle);
@@ -765,7 +782,6 @@ function validateBearings(
       diagnostics.push({ severity: "error", code: "DUPLICATE_BEARING_SOURCES", message: "A Bearing cannot contain the same resolved Point more than once; the entire source set is rejected.", sourceSpan: bearing.sourceSpan });
     }
 
-    const targetLabel = referenceLabel(bearing.target, symbols);
     const targetKind = classifyReference(bearing.target, symbols);
     if (targetKind === "point" || targetKind === "bearing") {
       bearing.target = { key: resolveKey(bearing.target, symbols), kind: targetKind };
@@ -777,7 +793,7 @@ function validateBearings(
         diagnostics.push({
           severity: "error",
           code: "BEARING_KIND_REQUIRES_POINT_TARGET",
-          message: `${bearing.kind} target ${targetLabel} is a Bearing; ${bearing.kind} requires a Point target.`,
+          message: `${bearing.kind} target ${referenceLabel(bearing.target, symbols)} is a Bearing; ${bearing.kind} requires a Point target.`,
           sourceSpan: bearing.sourceSpan
         });
         isValid = false;
@@ -788,13 +804,13 @@ function validateBearings(
       diagnostics.push({
         severity: "error",
         code: "UNKNOWN_TARGET",
-        message: `Target ${targetLabel} not found.`,
+        message: `Target ${referenceLabel(bearing.target, symbols)} not found.`,
         sourceSpan: bearing.sourceSpan
       });
       isValid = false;
     }
 
-    if (bearing.handle && symbols.allIds.has(bearing.handle)) {
+    if (bearing.handle && symbols.declaredPointIds.has(bearing.handle)) {
       diagnostics.push({
         severity: "error",
         code: "POINT_BEARING_ID_CONFLICT",
@@ -861,7 +877,6 @@ function buildExplainEntries(
   diagnostics: Diagnostic[],
   authoredNames: ReadonlySet<string>
 ): ExplainEntry[] {
-  const pointKeys = new Set(points.map((point) => point.key));
   const pointTargets = new Map(points.map(point => [point.key, point]));
   const bearingTargets = new Map(validation.bearings.map(bearing => [bearing.key, bearing]));
   const bearingIndexes = new Map(
@@ -893,24 +908,21 @@ function buildExplainEntries(
     }
     if (draft.selection) {
       const target = draft.selection.target;
-      if (draft.selection.contextSpan) {
+      if (draft.selection.origin === "use") {
         effects.push({ kind: "selectBearing", contextSpan: draft.selection.contextSpan, ...(target && "key" in target ? { target } : {}) });
       } else {
         effects.push({ kind: "selectAttachment", ...(draft.selection.ownerSpan ? { ownerSpan: draft.selection.ownerSpan } : {}), ...(target && "key" in target ? { target } : {}) });
       }
     }
     if (draft.focus) {
-      const focus = draft.focus;
-      effects.push(focus.ref && focus.operand
-        ? focus.ref.kind === "point" ? { kind: "focusPoint", ref: { ...focus.ref }, operand: { ...focus.operand } } : { kind: "focusBearing", ref: { ...focus.ref }, operand: { ...focus.operand } }
-        : { kind: "rejectFocus", ...(focus.operand ? { operand: { ...focus.operand } } : {}), reason: focus.reason ?? "reference-error" });
+      effects.push(explainFocus(draft.focus));
     }
 
     if (draft.point) {
       const ref = pointRef(draft.point.key);
       const identity = draft.point.id ? { id: draft.point.id } : {};
       effects.push(
-        pointKeys.has(draft.point.key)
+        pointTargets.has(draft.point.key)
           ? { kind: "emitPoint", ref, ...identity, reason: draft.point.reason }
           : { kind: "rejectPoint", ref, ...identity, reason: "duplicate-anchor" }
       );
@@ -1003,8 +1015,10 @@ function reuseSpelling(block: AstBlock, anchor: string): string {
 
 function summarizeEmittedBearing(bearing: Bearing): ExplainEmittedBearingSummary {
   const { text: _text, sourceSpan: _sourceSpan, ...summary } = bearing;
-  // Explain owns its references; mutating it must not mutate the graph projection.
-  return structuredClone(summary);
+  // Explain owns its references; the remaining fields are scalar.
+  summary.sources = summary.sources.map(source => ({ ...source }));
+  summary.target = { ...summary.target };
+  return summary;
 }
 
 function pointAnchor(block: AstBlock): string | undefined {
@@ -1070,11 +1084,58 @@ function requiresPointTarget(
   return kind === "answers" || kind === "respondsTo";
 }
 
+function resolvePointFocus(operand: Ref | undefined, symbols: SymbolTable, sourceSpan: SourceSpan): FocusResolution {
+  const kind = operand ? classifyReference(operand, symbols) : "invalid";
+  if (operand && kind === "point") {
+    return { status: "resolved", operand, ref: pointRef(resolveKey(operand, symbols)) };
+  }
+  return {
+    status: "rejected", operand, reason: "reference-error",
+    diagnostic: {
+      severity: "error",
+      code: kind === "bearing" ? "BEARING_IS_NOT_POINT_REFERENCE" : kind === "unknown" ? "UNKNOWN_POINT_REFERENCE" : "INVALID_POINT_REFERENCE",
+      message: "Point use operand " + (operand ? "@" + operand.id : "(missing)") + " does not resolve to a unique Point in this source unit.",
+      sourceSpan
+    }
+  };
+}
+
+function resolveBearingFocus(operand: Ref | undefined, symbols: SymbolTable, validBearingKeys: ReadonlySet<string>, sourceSpan: SourceSpan): FocusResolution {
+  const kind = operand ? classifyReference(operand, symbols) : "invalid";
+  const key = operand && kind === "bearing" ? resolveKey(operand, symbols) : undefined;
+  if (operand && key !== undefined && validBearingKeys.has(key)) {
+    return { status: "resolved", operand, ref: { kind: "bearing", key } };
+  }
+  return {
+    status: "rejected", operand, reason: "reference-error",
+    diagnostic: {
+      severity: "error",
+      code: kind === "point" ? "POINT_IS_NOT_BEARING_REFERENCE" : kind === "unknown" ? "UNKNOWN_BEARING_REFERENCE" : "INVALID_BEARING_REFERENCE",
+      message: "Bearing use operand " + (operand ? "@" + operand.id : "(missing)") + " does not resolve to a unique validated Bearing in this source unit.",
+      sourceSpan
+    }
+  };
+}
+
+function explainFocus(focus: FocusDraft): ExplainEffect {
+  switch (focus.status) {
+    case "resolved":
+      return focus.ref.kind === "point"
+        ? { kind: "focusPoint", ref: { ...focus.ref }, operand: { ...focus.operand } }
+        : { kind: "focusBearing", ref: { ...focus.ref }, operand: { ...focus.operand } };
+    case "rejected":
+      return { kind: "rejectFocus", ...(focus.operand ? { operand: { ...focus.operand } } : {}), reason: focus.reason };
+    case "pending":
+      throw new Error("Compiler invariant violated: focus was not resolved before Explain.");
+  }
+  return focus satisfies never;
+}
+
 function classifyId(id: string, symbols: SymbolTable): SymbolKind {
   if (symbols.duplicatePointIds.has(id) || symbols.conflictingIds.has(id)) {
     return "invalid";
   }
-  if (symbols.pointIds.has(id)) {
+  if (symbols.declaredPointIds.has(id)) {
     return "point";
   }
   if (symbols.bearingIds.has(id)) {
@@ -1142,20 +1203,6 @@ function pointKeyForBlock(block: AstBlock, pointKeys: WeakMap<AstBlock, string>)
     throw new Error("Compiler invariant violated: Point block has no compilation key.");
   }
   return generated;
-}
-
-function assignPointKeys(blocks: AstBlock[]): WeakMap<AstBlock, string> {
-  const pointKeys = new WeakMap<AstBlock, string>();
-  let nextId = 1;
-
-  walkBlocks(blocks, (block) => {
-    if (block.annotation?.kind === "role" || block.annotation?.kind === "material") {
-      pointKeys.set(block, `_p${nextId}`);
-      nextId += 1;
-    }
-  });
-
-  return pointKeys;
 }
 
 function walkBlocks(blocks: AstBlock[], visit: (block: AstBlock) => void): void {

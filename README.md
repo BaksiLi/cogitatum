@@ -1,4 +1,4 @@
-# <a href="https://cogitatum.onesimos.net"><img src="https://cogitatum.onesimos.net/mark.svg" alt="" width="32" height="32"> Cogitatum</a>
+# <a href="https://cogitatum.onesimos.org"><img src="https://cogitatum.onesimos.org/mark.svg" alt="" width="32" height="32"> Cogitatum</a>
 
 **Keep the prose. See the reasoning.**
 
@@ -18,20 +18,19 @@ Four marked Points and three connections: a reason for the Claim, an Objection a
 The opening context remains ordinary prose.
 The compiler makes these connections inspectable without deciding whether the reasons are good enough.
 
-[Try the playground](https://cogitatum.onesimos.net/playground) · [One-minute introduction](docs/introduction.md) · [Ten-minute quick start](docs/quick-start.md) · [Examples](https://cogitatum.onesimos.net/examples)
+[Try the playground](https://cogitatum.onesimos.org/playground) · [One-minute introduction](docs/introduction.md) · [Ten-minute quick start](docs/quick-start.md) · [Examples](https://cogitatum.onesimos.org/examples)
 
 ## Release status
 
-This checkout prepares **Core/CLI 0.6.0 / format 0.6.0**, not yet published.
+**Core/CLI 0.6.0** implements **format 0.6.0**.
 It includes multiline content, target terms `^` and `^/` with Bearing constructors such as `[_ +> ^]`, object notes, and revised local relation rules.
-The Docs describe this development version.
+The Docs describe this version.
 See the [migration from 0.5](docs/syntax.md#from-published-05) and [changelog](CHANGELOG.md) before recompiling saved notes.
 
-Published packages remain **@cogitatum/core 0.5.0** and **@cogitatum/cli 0.5.0**, with **format 0.5.0**.
-Install with `npm install @cogitatum/core@0.5.0`, or run `npx --package @cogitatum/cli@0.5.0 cog check inquiry.cog.md`.
-Build this checkout to try 0.6.
+Install with `npm install @cogitatum/core@0.6.0`, or run `npx --package @cogitatum/cli@0.6.0 cog check inquiry.cog.md`.
+Use the matching compiler and schema bundle; retained 0.5 source needs migration and recompilation.
 
-The production [playground](https://cogitatum.onesimos.net/playground) is deployed separately from npm packages.
+The production [playground](https://cogitatum.onesimos.org/playground) is deployed separately from npm packages.
 The experimental View remains private; publishing Core/CLI does not deploy the website or release host adapters.
 
 With Node.js 22.12 or newer, from a source checkout:

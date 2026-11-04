@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { explainSource } from "../../core/src/index.js";
 import type { ExplainedSource, SourceParseMode } from "../../core/src/index.js";
-import { projectReading, type ReadingProjection } from "./reading-projection.js";
+import { outlineTies, projectReading, type ReadingProjection } from "./reading-projection.js";
 
 const project = (source: string, mode: SourceParseMode = "document") => projectReading(source, explainSource(source, mode));
 const occurrence = (reading: ReadingProjection, line: number) =>
@@ -281,6 +281,8 @@ describe("source-aware Reading projection", () => {
     expect(new Set(unit.bearings.map(item => item.occurrenceId)).size).toBe(4);
     expect(lineOf(result, route(result, 6).target.occurrenceId)).toBe(7);
     expect(lineOf(result, route(result, 7).target.occurrenceId)).toBe(6);
+    expect(unit.commitments.filter(item => item.basis === "explicit").map(item => [item.occurrenceId, item.kind, item.target]))
+      .toEqual(unit.bearings.map(item => [item.occurrenceId, item.bearing.kind, item.bearing.target]));
   });
 
   it("scopes repeated keys and authored names to host units and preserves the complete original host", () => {
@@ -321,6 +323,10 @@ describe("source-aware Reading projection", () => {
     const stale = structuredClone(explained);
     stale.explanations[0].entries[1].effects = stale.explanations[0].entries[1].effects.filter(effect => effect.kind !== "implicitAttachment");
     expect(() => projectReading(source, stale)).toThrow("attachment context");
+    const badIndex = structuredClone(explained);
+    const emitted = badIndex.explanations[0].entries[1].effects.find(effect => effect.kind === "emitBearing")!;
+    emitted.ref.graphIndex++;
+    expect(() => projectReading(source, badIndex)).toThrow("Bearing index");
     expect(() => projectReading(source, { ...explained, explanations: [] })).toThrow("unaligned source units");
     expect(() => projectReading(source, { ...explained, version: "0.4.0" })).toThrow("unsupported format");
   });
@@ -352,5 +358,79 @@ describe("Reading over the conformance corpus", () => {
       const ids = new Set(unit.occurrences.map(occurrence => occurrence.id));
       expect(unit.bearings.every(item => [item.target, ...item.sources].every(endpoint => ids.has(endpoint.occurrenceId)))).toBe(true);
     }
+  });
+
+  it("ties Points nested without a relation to their outline parent, and nothing else", () => {
+    const reading = project([
+      "- [Q] Should the library open later?",
+      "  - [C] Yes, evening demand is real.",
+      "    - [G] Forty people came after six.",
+      "  - [C] No, the budget cannot cover it.",
+      "  - [.] A note on staffing.",
+      "- [C] An unrelated root claim.",
+    ].join("\n"));
+    const graph = reading.units[0].graph, at = (line: number) => graph.points.find(point => point.sourceSpan?.startLine === line)!.key;
+    // The Ground bears on its Claim, and a root Point has no parent: neither is tied.
+    expect(outlineTies(reading.units[0]).map(tie => [tie.child.key, tie.parent.key])).toEqual([[at(2), at(1)], [at(4), at(1)], [at(5), at(1)]]);
+  });
+
+  it("leaves members of a joint step to their Bearing", () => {
+    const reading = project("- [C] Claim.\n  - [_ +> ^]\n    - [.] First member.\n    - [.] Second member.");
+    expect(outlineTies(reading.units[0])).toEqual([]);
+  });
+
+  it.each([
+    ["a neutral Point", "- [C] Claim.\n  - [.] Staffing.", [["Staffing.", "Claim."]]],
+    ["Grounds rejected as joint members", "- [C] Claim.\n  - [_ +> ^]\n    - [G] First.\n    - [G] Second.", []],
+    ["a failed target", "- [Q] Question.\n  - [C supports @missing] Broken.\n  - [.] Aside.", [["Aside.", "Question."]]],
+    ["a Point bearing elsewhere", [
+      "- [Q] Parent.", "  - [C @child] Nested.", "- [C @other] Other.", "  - [G use @child supports @other] Reused.",
+    ].join("\n"), [["Nested.", "Parent."]]],
+    ["a use", [
+      "- [C @claim] The claim.", "- [Q @question] Question.", "  - [C] Local.", "  - [. use @claim]",
+      "    - [C] New beneath the use.", "    - [. use @question]",
+    ].join("\n"), [["Local.", "Question."], ["New beneath the use.", "The claim."]]],
+    ["a Bearing already joining the pair", [
+      "- [C @parent supports @child] Parent.", "  - [C @child] Child.", "  - [.] Aside.",
+      "- [C @ancestor supports @grandchild] Ancestor.", "  - [C @middle] Middle.",
+      "    - [C @grandchild] Grandchild.", "    - [.] Note.",
+    ].join("\n"), [["Aside.", "Parent."], ["Middle.", "Ancestor."], ["Grandchild.", "Middle."], ["Note.", "Middle."]]],
+  ])("ties only an unconnected declaration: %s", (name, source, expected) => {
+    const reading = project(source);
+    if (name === "a neutral Point") {
+      const staffing = reading.units[0].occurrences.find(item => item.text === "Staffing.")!;
+      // Nested `[.]` is skipped as no-structural-rule; that is the tie's evidence.
+      expect(reading.units[0].commitments.find(item => item.occurrenceId === staffing.id)).toMatchObject({
+        basis: "none", reason: "no-structural-rule"
+      });
+    }
+    const text = new Map(reading.units[0].graph.points.map(point => [point.key, point.text]));
+    expect(outlineTies(reading.units[0]).map(tie => [text.get(tie.child.key), text.get(tie.parent.key)])).toEqual(expected);
+  });
+
+  it("keeps each host unit's ties inside that unit when point keys repeat", () => {
+    const fence = "```";
+    const reading = project([
+      "Before.",
+      fence + "cog",
+      "- [Q] First?",
+      "  - [C] One.",
+      fence,
+      "Between.",
+      fence + "cog",
+      "- [Q] Second?",
+      "  - [C] Two.",
+      "    - [.] Detail.",
+      fence,
+    ].join("\n"), "host");
+    const point = (unit: number, text: string) => reading.units[unit].graph.points.find(item => item.text === text)!;
+    expect(point(0, "One.").key).toBe(point(1, "Two.").key);
+    expect(outlineTies(reading.units[0])).toEqual([
+      { child: { kind: "point", key: point(0, "One.").key }, parent: { kind: "point", key: point(0, "First?").key } },
+    ]);
+    expect(outlineTies(reading.units[1])).toEqual([
+      { child: { kind: "point", key: point(1, "Two.").key }, parent: { kind: "point", key: point(1, "Second?").key } },
+      { child: { kind: "point", key: point(1, "Detail.").key }, parent: { kind: "point", key: point(1, "Two.").key } },
+    ]);
   });
 });

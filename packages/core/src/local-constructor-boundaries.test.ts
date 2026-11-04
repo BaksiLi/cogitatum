@@ -17,11 +17,14 @@ describe("nearest constructor failure boundaries", () => {
   });
 
   it("keeps valid Point focus when only its explicit attachment is malformed", () => {
-    const { graph } = compileGraphWithExplain(parseDocument("- [C @outer] Outer.\n  - [O @objection +>] Malformed attachment.\n    - [G @child] Ground for the objection."));
-    expect(graph.points.map(point => point.id)).toEqual(["outer", "objection", "child"]);
+    const ast = parseDocument("- [C @outer] Outer.\n  - [O @objection +>] Malformed attachment.\n    - [G @child] Ground for the objection.\n    - Narrative.\n      - [O/ @blocked] No attachment to challenge.\n      - [. note] Point note.\n      - [_ note] No attachment to annotate.");
+    const { graph, explain } = compileGraphWithExplain(ast);
+    expect(graph.points.map(point => point.id)).toEqual(["outer", "objection", "child", "blocked"]);
     expect(graph.bearings).toHaveLength(1);
     expect(graph.bearings[0].target.key).toBe(graph.points[1].key);
-    expect(graph.diagnostics.map(diagnostic => diagnostic.code)).toEqual(["MALFORMED_EXPLICIT_BEARING"]);
+    expect(graph.notes.map(note => note.target)).toEqual([{ kind: "point", key: graph.points[1].key }]);
+    expect(explain.entries[4].effects[0]).toStrictEqual({ kind: "selectAttachment", ownerSpan: ast.blocks[0].children[0].sourceSpan });
+    expect(graph.diagnostics.map(diagnostic => diagnostic.code)).toEqual(["MALFORMED_EXPLICIT_BEARING", "NO_LOCAL_BEARING_ATTACHMENT", "NO_LOCAL_NOTE_TARGET"]);
   });
 
   it("retains duplicate Point and failed Bearing boundaries without searching outward", () => {

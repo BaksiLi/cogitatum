@@ -10,12 +10,14 @@
   --cog-focus-resolved: var(--cog-focus, var(--cog-ink, #18242a));
 }
 .cog-graph { display: block; width: 100%; height: 100%; min-height: 320px; touch-action: none; font-family: inherit; color: var(--cog-ink-resolved); user-select: none; -webkit-user-select: none; cursor: grab; }
+.cog-graph { background-image: radial-gradient(circle, var(--cog-grid, color-mix(in srgb, var(--cog-ink-resolved) 14%, transparent)) .7px, transparent .9px); }
 .cog-graph[data-dragging] { cursor: grabbing; }
 
-/* Point glyphs: filled is a marked Point, square is Material. */
+/* Point glyphs: filled is a marked Point; an open ring around a point is a Neutral Point (`[.]`). */
 .cog-glyph-shape { stroke: var(--cog-ink-resolved); stroke-width: 1.3; fill: var(--cog-ink-resolved); }
 .cog-glyph-letter { font: 500 10.5px/1 ui-monospace, "IBM Plex Mono", Menlo, monospace; fill: var(--cog-surface-resolved); pointer-events: none; }
-.cog-shape-material .cog-glyph-shape { fill: var(--cog-surface-resolved); }
+.cog-shape-material .cog-glyph-shape { fill: var(--cog-surface-resolved); stroke-width: 1.1; }
+.cog-glyph-point { fill: var(--cog-ink-resolved); pointer-events: none; }
 .cog-glyph-halo { fill: none; stroke: var(--cog-ink-resolved); stroke-width: .7; opacity: .55; }
 
 /* Bearing glyphs: a circle marks one Bearing on its line; a diamond is a junction (joint or addressed Bearing). */
@@ -26,6 +28,10 @@
 .cog-tone-objection { color: var(--cog-negative); stroke: var(--cog-negative); }
 .cog-tone-neutral { color: var(--cog-muted-resolved); stroke: var(--cog-line-resolved); }
 
+/* An outline tie: the author nested these Points together; it states no relation, so it has no tone and no head. */
+.cog-outline-tie { fill: none; stroke: var(--cog-line-resolved); stroke-width: 1; stroke-dasharray: 1 3.5; stroke-linecap: round; opacity: .8; transition: opacity 160ms ease; }
+.cog-graph[data-guided="true"] .cog-outline-tie[data-active="false"] { opacity: .25; }
+
 /* Fixed, readable type: the camera never scales text. */
 .cog-graph text { pointer-events: none; }
 .cog-graph .cog-text { font-size: 14px; fill: var(--cog-ink-resolved); paint-order: stroke; stroke: var(--cog-canvas-resolved); stroke-width: 4px; stroke-linejoin: round; }
@@ -34,6 +40,7 @@
 .cog-graph .cog-label { font: 12px ui-monospace, "IBM Plex Mono", Menlo, monospace; fill: var(--cog-muted-resolved); paint-order: stroke; stroke: var(--cog-canvas-resolved); stroke-width: 4px; }
 
 .cog-graph .cog-link { fill: none; stroke-width: 1.3; stroke-linecap: round; opacity: .82; transition: opacity 160ms ease; }
+.cog-graph .cog-guide { stroke: var(--cog-focus-resolved); stroke-width: 1; stroke-dasharray: 2 4; opacity: .55; pointer-events: none; }
 .cog-graph .cog-link.input { stroke-width: 1.1; opacity: .62; }
 .cog-graph .cog-dashed { stroke-dasharray: 4 4; }
 .cog-graph .cog-arrow { fill: currentColor; stroke: none; }
@@ -44,6 +51,8 @@
 .cog-graph[data-dragging] .cog-node { cursor: grabbing; }
 .cog-graph .cog-node:focus { outline: none; }
 .cog-graph .cog-hit { fill: transparent; pointer-events: visibleFill; }
+/* Wording sits on a plate of the canvas, so a link passing behind it never strikes through the words. */
+.cog-graph .cog-label-hit { fill: var(--cog-canvas-resolved); fill-opacity: .9; rx: 4px; }
 .cog-graph .cog-focus-ring { fill: none; stroke: var(--cog-focus-resolved); stroke-width: 1.5; opacity: 0; }
 .cog-graph .cog-node:focus-visible .cog-focus-ring { opacity: 1; stroke-dasharray: 3 2; }
 .cog-graph .cog-node[aria-pressed="true"] .cog-focus-ring { opacity: 1; stroke-dasharray: none; }
@@ -328,3 +337,6 @@
 .cog-note-count { fill: currentColor; font-size: 10px; font-weight: 600; }
 .cog-block-note { margin-block-start: .7em; }
 .cog-block-note-text { margin-block-start: .3em; }
+/* A challenge to a step inks the junction's facing side instead of ending in a bar beside it. */
+.cog-graph .cog-rims { pointer-events: none; }
+.cog-graph .cog-arrow-step { stroke-width: 2.2; }

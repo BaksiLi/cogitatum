@@ -1422,6 +1422,9 @@ describe("Cogitatum language contracts", () => {
           expect(effect.ref.key, entry.file).toBe(bearing.key);
           expect(effect.bearing.sources, entry.file).toEqual(bearing.sources);
           expect(effect.bearing.target, entry.file).toEqual(bearing.target);
+          expect(effect.bearing.sources, entry.file).not.toBe(bearing.sources);
+          effect.bearing.sources.forEach((source, index) => expect(source, entry.file).not.toBe(bearing.sources[index]));
+          expect(effect.bearing.target, entry.file).not.toBe(bearing.target);
         }
       });
     }

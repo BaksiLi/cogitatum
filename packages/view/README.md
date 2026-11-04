@@ -105,6 +105,9 @@ Positions are view-local and never modify the compiled graph or source; `resetLa
 
 `clear()` clears selection and guidance.
 `select(ref)` accepts a ref from the current compilation only and updates `aria-pressed` synchronously; `fit()` and `zoom(factor)` let the host supply controls.
+`setBottomInset(pixels)` tells the Map that a host panel covers its lower edge; the selected mark is panned clear of it without resizing or refitting the drawing.
+An optional `onContextMenu(node, { clientX, clientY })` lets a host offer actions on right click, Shift+F10 or a held touch.
+Hosts without this callback retain the held touch's source navigation.
 Positions live in world space and the camera maps them to pixels.
 Wording retains its CSS reading size (14px wording, 12px names by default); line height follows the host font size, while Point glyphs scale within bounds.
 Map wording renders single-backtick inline code in monospace; longer backtick delimiters remain literal.
@@ -138,7 +141,7 @@ Nodes support arrow-key navigation in source order, Space selection, Enter/doubl
 `marks` is the shared vocabulary for every surface: `POINT_MARKS`, `BEARING_MARKS`, `pointMark(label)`, `declarationMark(point.declaration)` and `bearingMark(kind)` give canonical names, auxiliary Chinese readings, glyph shapes and kind symbols.
 `drawPointGlyph`, `drawBearingGlyph`, `createMarkChip` and `createBearingChip` draw the same glyphs for host chips and lists; `MARK_TYPE` is the type scale.
 Display names follow the [glossary](../../docs/glossary.md): the `Material` key, matching Graph IR `declaration.form: "material"`, displays as Neutral Point (中性點).
-Role-marked Points use circles; Neutral Points use squares.
+Role-marked Points use filled circles with their letter; Neutral Points use an open ring around a point, as `[.]` is written.
 Colour distinguishes authored support from objection and never judges correctness.
 `layoutGraph` owns automatic placement; `relaxLayout` owns bounded local adjustment.
 The pre-release layout selector, `GraphLayout`, `setLayout`, `layoutFlow`, `layoutConstellation` and `layoutGraphSettled` have been removed; hosts use the single Map and `resetLayout()`.
@@ -208,6 +211,10 @@ reading.destroy();
 For editor-to-Reading navigation, call `reading.selectOccurrence(occurrence.id, optionalRef)` using the current projection.
 This silently selects the exact local use, body or note; an unknown occurrence clears selection, and a ref belonging to another occurrence throws.
 Do not retain occurrence IDs across updates.
+`update(projection)` clears local selection and calls `onClear`.
+Hosts coordinating a revision across several views can use `update(projection, { notifyClear: false })`;
+local selection still clears, while the host owns the surrounding selection transition.
+User selection and Escape continue to notify normally.
 
 `projectReading` is a pure projection, with no DOM access or additional parsing.
 It retains every source line, including blank lines, host prose, fences, literal note descendants and malformed lines, alongside the original string.
@@ -232,6 +239,10 @@ Listed sources use their named operands' canonical declarations.
 A local Bearing use remains a local row; a target at the Bearing's construction reaches its junction.
 These display locations do not create extra graph entities, independent evidence or inferred relations.
 Repeated names and keys in different source units remain separate.
+
+`outlineTies(unit)` returns outline placement for that one unit.
+A declared Point whose occurrence states no relation is tied to its outline parent unless a Bearing already joins that pair.
+Host units repeat anonymous keys, so each unit is passed separately with its own graph.
 
 `ReadingUnit.commitments` records active occurrences' relation and note decisions from Explain, with the matching AST for written syntax:
 `indentation` (the nearest context selected the target, with that context row and any crossed body rows),

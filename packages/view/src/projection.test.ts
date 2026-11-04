@@ -72,14 +72,17 @@ describe("exploration presentation", () => {
   it("keeps joint support and an addressed connection as explicit junctions", () => {
     for (const source of [
       '- [C @c] Claim.\n- [G @a] First.\n- [G @b] Second.\n- [edge @a, @b +> @c; @route]',
+      '- [C @c] Claim.\n- [G @a] First.\n- [G @b] Second.\n- [G @d] Third.\n- [_ @a, @b, @d +> @c; @route]',
       '- [C @c] Claim.\n- [G @a +> @c; @route] First.\n- [O @o -> @route; @pressure] Weak route.'
     ]) {
       const graph = compileSource(source, 'document').graphs[0];
-      const display = projectExploration(projectGraph(graph));
+      const canonical = projectGraph(graph), display = projectExploration(canonical);
       const route = graph.bearings.find(b => b.handle === 'route')!;
       expect(display.nodes.some(node => node.ref.kind === 'bearing' && node.ref.key === route.key)).toBe(true);
       expect(display.inlineBearings.some(node => node.ref.key === route.key)).toBe(false);
-      expect(display.links.filter(link => link.bearingKey === route.key && link.segment === 'input')).toHaveLength(route.sources.length);
+      const inputs = display.links.filter(link => link.bearingKey === route.key && link.segment === 'input');
+      expect(inputs.map(link => link.source)).toEqual(route.sources.map(referenceKey));
+      expect(inputs.every(link => canonical.links.includes(link))).toBe(true);
     }
   });
   it("does not hide distinct parallel, opposite or self-directed relationships", () => {

@@ -71,6 +71,11 @@ describe("reading layout", () => {
     const before = structuredClone(topology);
     for (const direction of ["down", "right"] as const) {
       const placed = layoutGraph(topology, { direction });
+      placed.forEach((node, i) => {
+        expect(node).not.toBe(topology.nodes[i]);
+        expect(node.ref).toBe(topology.nodes[i].ref);
+        expect(node.sourceSpan).toBe(topology.nodes[i].sourceSpan);
+      });
       const [claim, first, second] = placed;
       const depth = direction === "down" ? "y" : "x";
       const order = direction === "down" ? "x" : "y";
@@ -95,6 +100,16 @@ describe("reading layout", () => {
     expect(positions.get(pinned)).toEqual(at);
     expect([...positions.values()].every(p => Number.isFinite(p.x) && Number.isFinite(p.y))).toBe(true);
     expect(topology).toEqual(before);
+  });
+
+  it("reserves measured wording horizontally and below each layer without sharing measurement state", () => {
+    const { topology } = explore("- [C] Claim.\n  - [G] First reason.\n  - [G] Second reason.");
+    const ordinary = layoutGraph(topology);
+    const measured = layoutGraph(topology, { measure: () => ({ width: 280, below: 180 }) });
+    const [claim, first, second] = measured;
+    expect(Math.abs(first.x - second.x)).toBeGreaterThanOrEqual(298);
+    expect(first.y - claim.y).toBeGreaterThanOrEqual(232);
+    expect(layoutGraph(topology)).toEqual(ordinary);
   });
 
   it("layers shared uses, joint and local routes so every link reads upward and junctions sit between their ends", () => {

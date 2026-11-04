@@ -262,6 +262,13 @@ Selecting a continuation line locates the same occurrence and edits its first-li
 Core provides `previewTargetForm(source, { line, form: 'named' | 'positional', mode? })`.
 The command prints JSON and never writes to the input file.
 
+An editor offering several choices can call `analyzeSourceEdits(source, mode?)` once.
+Its `preview(request)` accepts `{ kind: "target-form", line, form }` or `{ kind: "relation", edit }`, using the same checks as the standalone previews.
+It reuses the original analysis and recompiles each proposed source independently.
+`diagnostics`, preview results and `siblingsAt(line)`'s `{ lines, index }` are detached values; literal note descendants are not selectable occurrences.
+The editor chooses which requests to offer and in which order, and analyzes a new snapshot after an edit.
+Applying a preview still requires the exact original source and the editor's revision checks.
+
 Before the edit, the Ground below selects the Claim through ordinary body:
 
 ```md cog-check require=supports,challenges points=3 bearings=2 diagnostics=1
