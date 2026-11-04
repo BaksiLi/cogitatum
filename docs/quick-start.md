@@ -8,9 +8,10 @@ audience: Ten minutes
 
 # Try a note in ten minutes
 
-Open the website [Playground](https://cogitatum.onesimos.org/playground); no installation or account is needed.
+Open the website [Playground](https://onesimos.org/playground); no installation or account is needed.
 You can also keep the source in a file such as `inquiry.cog.md`.
-Experimental Obsidian and Logseq adapters support Reading and Map inside your notes; check their [version limits](introduction.md) before using them with this tutorial.
+Experimental Obsidian and Logseq adapters use Core/format 0.5.0; compatibility with 0.6 notes is unverified.
+Use the website for this 0.6 tutorial; see the [adapter limits](introduction.md#try-it) before working in a host.
 
 ## Start with ordinary writing
 
@@ -64,8 +65,8 @@ An explicit target keeps this Objection connected to `@cause` even if you move i
 
 ## Read the connections
 
-Switch between Reading, Map and Strands.
-Reading retains the context and wording; Map makes the selected connections easier to follow;
+Switch between **Read**, **Map** and **Strands** in the Playground.
+Read retains the context and wording; Map makes the selected connections easier to follow;
 Strands follows the paths that support or answer a chosen Point, with challenges placed where they bear.
 Select a Point or a Bearing to inspect what it connects.
 

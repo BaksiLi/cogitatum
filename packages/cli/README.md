@@ -111,7 +111,7 @@ The option adds no diagnostics, changes no source, and retains the ordinary `che
 Without the option, all command output remains unchanged; using it with `ast`, `graph` or `explain` is an argument error.
 The inventory is an additional analysis projection, not an extension to any of the four existing JSON Schemas.
 
-Read the [quick start](https://cogitatum.onesimos.org/docs/quick-start), browse [examples](https://cogitatum.onesimos.org/examples), or try the [playground](https://cogitatum.onesimos.org/playground).
+Read the [quick start](https://onesimos.org/docs/quick-start), browse [examples](https://onesimos.org/examples), or try the [playground](https://onesimos.org/playground).
 
 ## Text inspection
 

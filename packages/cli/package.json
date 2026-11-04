@@ -9,7 +9,7 @@
     "reasoning",
     "cli"
   ],
-  "homepage": "https://cogitatum.onesimos.org",
+  "homepage": "https://onesimos.org",
   "engines": {
     "node": ">=22.12.0"
   },
