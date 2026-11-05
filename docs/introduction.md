@@ -36,7 +36,10 @@ No installation or account is needed.
 The [quick start](quick-start.md) walks through a first note; [Bearings](bearings.md#argument-structures) shows separate reasons, joint reasons and chains of reasoning.
 
 Experimental Obsidian and Logseq adapters bring Reading and Map to `cog` or `cogitatum` code blocks while you edit in the host.
-They require local installation and currently use Core/format 0.5.0; compatibility with 0.6 notes has not been verified.
+The current experimental builds use Core, View and format 0.6.0 and require local installation.
+Check the installed plugin's version before opening a note; older 0.5 notes need [source migration](syntax.md#from-published-05).
+Browser harness checks exercise the adapters with real Core/View, but do not establish native desktop or mobile compatibility.
+Validate the exact installed build in your host; historical checks of an earlier bundle do not validate the current one.
 
 These pages describe **format 0.6.0**.
 For saved notes or an installed compiler, check the [version and migration reference](syntax.md#compatibility-and-migration).
