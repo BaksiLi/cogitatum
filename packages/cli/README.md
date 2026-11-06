@@ -2,7 +2,7 @@
 
 Check Cogitatum inquiry markup and inspect the reasoning connections marked in ordinary prose.
 
-Version **0.6.0**, format **0.6.0**, with equivalent Point/Bearing family spellings and local object notes.
+Version **0.6.1**, format **0.6.0**, with equivalent Point/Bearing family spellings and local object notes.
 `export` retains note prose and literal subtrees through the complete `explainSource` envelope.
 `graph` retains note target/origin records but omits note prose; graph-text `structure-v1` also omits those records.
 Explicit Bearing constructors, Point declarations and Point uses accept all canonical kind names, including `answers`, `respondsTo` and `clarifies`.
@@ -13,8 +13,8 @@ Use the matching Core/CLI and schema versions when upgrading from 0.5.0.
 Run the CLI without a global installation:
 
 ```sh
-npx --package @cogitatum/cli@0.6.0 cog check inquiry.cog.md
-npx --package @cogitatum/cli@0.6.0 cog graph inquiry.cog.md
+npx --package @cogitatum/cli@0.6.1 cog check inquiry.cog.md
+npx --package @cogitatum/cli@0.6.1 cog graph inquiry.cog.md
 ```
 
 Or, from a source checkout:
@@ -167,5 +167,4 @@ Graph text omits ordinary body, notes and occurrence-local prose, so it cannot s
 
 Interpretation, supplying an unstated premise or deciding whether to move a reason to another conclusion remains an attributable authoring choice.
 A future model-assisted workflow should expose its source selection, assumptions and proposed change separately from deterministic checks; no such model command is currently shipped.
-The repository-only `npm run probe:interpretation` checks explicit finite interpretations without an LLM and is not an installed `cog` command.
 See [writing with an assistant](../../docs/writing-style.md#work-with-an-assistant) for the authoring boundary.

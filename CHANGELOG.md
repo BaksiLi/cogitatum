@@ -1,9 +1,17 @@
 # Changelog
 
-Core and CLI **0.6.0** use **format 0.6.0**.
+Core and CLI **0.6.1** use **format 0.6.0**.
 The historical `alpha` tag remains at **0.3.0-alpha.1**.
 Earlier 0.4 entries below are unpublished source milestones included in this first 0.4 npm release.
 Use the complete released schema set and [migrate retained source](docs/syntax.md#compatibility-and-migration) rather than relabelling old JSON.
+
+## 0.6.1 — 7 November 2026
+
+- Export Core's TypeScript sources under the private `@cogitatum/source` condition instead of `development`.
+  Vite and Vitest enable `development` by default, so their consumers silently compiled the shipped sources instead of `dist`.
+  Consumers that set `development` now receive `dist`; packed-package checks cover Node, tsx with `development`, and TypeScript, and a packed Vitest consumer was checked by hand.
+  Format, schemas and compiled output are unchanged.
+- Move the repository-only interpretation probe out of the public source; it was a research experiment, not a shipped command.
 
 ## 0.6.0 — 4 November 2026
 

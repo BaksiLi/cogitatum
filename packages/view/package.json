@@ -1,19 +1,19 @@
 {
   "name": "@cogitatum/view",
   "private": true,
-  "version": "0.6.0",
+  "version": "0.6.1",
   "description": "Source-aware Reading, Map and Strands views of Cogitatum Points and Bearings.",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
-  "exports": { ".": { "development": "./src/index.ts", "types": "./dist/index.d.ts", "default": "./dist/index.js" }, "./block": { "development": "./src/block.ts", "types": "./dist/block.d.ts", "default": "./dist/block.js" }, "./style.css": { "development": "./src/style.css", "default": "./dist/style.css" } },
+  "exports": { ".": { "@cogitatum/source": "./src/index.ts", "types": "./dist/index.d.ts", "default": "./dist/index.js" }, "./block": { "@cogitatum/source": "./src/block.ts", "types": "./dist/block.d.ts", "default": "./dist/block.js" }, "./style.css": { "@cogitatum/source": "./src/style.css", "default": "./dist/style.css" } },
   "files": ["dist/*.js", "dist/*.d.ts", "dist/*.js.map", "dist/style.css", "src/*.ts", "src/style.css", "!src/*.test.ts"],
   "scripts": {
     "build": "tsc -b && node -e \"require('node:fs').copyFileSync('src/style.css','dist/style.css')\"",
     "test:browser": "node tests/selection.browser.mjs && node tests/block.browser.mjs && node tests/prose.browser.mjs && node tests/multiline.browser.mjs && node tests/motion.browser.mjs && node tests/strands.browser.mjs && node tests/gestures.browser.mjs",
     "prepack": "npm run build"
   },
-  "dependencies": { "@cogitatum/core": "0.6.0" },
+  "dependencies": { "@cogitatum/core": "0.6.1" },
   "engines": { "node": ">=22.12.0" },
   "license": "MIT",
   "repository": { "type": "git", "url": "git+https://github.com/BaksiLi/cogitatum.git", "directory": "packages/view" }
