@@ -25,7 +25,7 @@ const bundle = await build({
     `,
     resolveDir: fileURLToPath(new URL('../src/', import.meta.url)),
   },
-  bundle: true, write: false, format: 'iife', platform: 'browser', conditions: ['development'],
+  bundle: true, write: false, format: 'iife', platform: 'browser', conditions: ['@cogitatum/source'],
 });
 const sourceFor = indent => [
   '- [C @p] The method may work',

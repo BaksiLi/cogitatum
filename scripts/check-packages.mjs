@@ -197,7 +197,11 @@ assert.deepEqual(incompleteInventory.references, { status: 'unavailable', reason
 assert.equal(incompleteInventory.diagnostics[0].code, 'UNCLOSED_COGITATUM_FENCE');
 `;
 run(process.execPath, ["--input-type=module", "-e", probe], temporary);
-// Consumers may set the development condition; the package must remain usable.
+// Consumers' development builds must select the built files, not the shipped sources.
+for (const name of ["core", "view"]) {
+  const exported = JSON.stringify(JSON.parse(readFileSync(join(temporary, `node_modules/@cogitatum/${name}/package.json`), "utf8")).exports);
+  assert.ok(!exported.includes('"development"'), `@cogitatum/${name} must not export a development condition.`);
+}
 const tsx = resolve(root, "node_modules/tsx/dist/loader.mjs");
 run(process.execPath, ["--conditions", "development", "--import", tsx, "--input-type=module", "-e", probe], temporary);
 const integrationProbe = `

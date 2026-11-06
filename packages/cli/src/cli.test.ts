@@ -381,7 +381,7 @@ describe("cog CLI", () => {
 });
 
 function runCli(...args: string[]): { status: number | null; stdout: string; stderr: string } {
-  const result = spawnSync(process.execPath, ["--conditions", "development", "--import", tsxImport, cliPath, ...args], {
+  const result = spawnSync(process.execPath, ["--conditions", "@cogitatum/source", "--import", tsxImport, cliPath, ...args], {
     cwd: workingDirectory,
     encoding: "utf8"
   });

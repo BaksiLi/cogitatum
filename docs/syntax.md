@@ -7,7 +7,7 @@ order: 4
 
 # Complete syntax
 
-Reference for **format 0.6.0**, implemented by Core/CLI **0.6.0**.
+Reference for **format 0.6.0**, implemented by Core/CLI **0.6.1**.
 Published **0.5.0** is a separate contract; see [migration](#compatibility-and-migration).
 Use the complete released compiler and schema set; earlier unpublished 0.4 candidates may report the same format identifier with different contracts.
 Examples, schemas, and conformance fixtures are checked against the implementation.
@@ -984,7 +984,7 @@ Diagnostics without a span, or on a line that forms no block, appear only in the
 
 ## Compatibility and migration
 
-This edition documents the unreleased package 0.6.0 / format 0.6.0.
+This edition documents package 0.6.1 / format 0.6.0.
 Published 0.5.0 / format 0.5.0 schemas remain byte-for-byte in `spec/0.5.0/`.
 Published 0.4.12 / format 0.4.0 remains a separate contract.
 
