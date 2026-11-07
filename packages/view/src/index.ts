@@ -8,6 +8,7 @@ import type { OutlineTie } from "./reading-projection.js";
 export * from "./projection.js";
 export * from "./layout.js";
 export * from "./marks.js";
+export * from "./map-controls.js";
 export * from "./reading-projection.js";
 export * from "./reading.js";
 export * from "./commitment.js";

@@ -131,7 +131,7 @@ try {
     });
     window.block.update(source);
   }, source);
-  await page.getByRole('button', { name: 'Map', exact: true }).click();
+  await page.getByRole('tab', { name: 'Map', exact: true }).click();
   const points = page.locator('.cog-node.point');
   await points.nth(0).dispatchEvent('click', { detail: 0 });
   const firstIndex = await page.evaluate(() => window.renders.length - 1);
@@ -174,7 +174,7 @@ try {
     });
     window.block.update('- [C @first] C\n- [C @second] Target.\n- [G +>] **Invalid** prose.\n- [_ @first +> @second; @route]');
   });
-  await page.getByRole('button', { name: 'Map', exact: true }).click();
+  await page.getByRole('tab', { name: 'Map', exact: true }).click();
   await page.locator('.cog-node.point').nth(0).dispatchEvent('click', { detail: 0 });
   assert.equal(await page.locator('.cog-block-detail-text').textContent(), 'C', 'Prose equal to the compact role label is still authored prose');
   const beforeInvalid = await page.evaluate(() => window.renders.length);
@@ -193,7 +193,7 @@ try {
       });
       window.block.update('- [C @p] Main.\n  - [. note] Note.\n    - [bearing @literal] Quoted.');
     });
-    await page.getByRole('button', { name: 'Map', exact: true }).click();
+    await page.getByRole('tab', { name: 'Map', exact: true }).click();
     const start = await page.evaluate(() => window.renders.length);
     await page.locator('.cog-node.point').dispatchEvent('click', { detail: 0 });
     assert.equal(await page.evaluate(() => window.renders.length), start + 3);

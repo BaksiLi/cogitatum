@@ -76,7 +76,7 @@ try {
     assert.deepEqual(await page.evaluate(() => window.requests[0].sourceSpan), {
       startLine: 6, startColumn: indent.length * 2 + 3, endLine: 9, endColumn: source.split('\n')[8].length + 1
     });
-    await button('Map').click();
+    await root.getByRole('tab', { name: 'Map', exact: true }).click();
     const ref = await page.evaluate(() => window.refAt(4, 'bearing'));
     const mark = root.locator(`.cog-node[data-node="${ref}"]`);
     await mark.dispatchEvent('click', { detail: 0 });

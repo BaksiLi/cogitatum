@@ -2,7 +2,8 @@ import { explainSource, type BearingTarget, type GraphIR, type SourceSpan } from
 import { createGraphView, type GraphView } from "./index.js";
 import { createReadingView } from "./reading.js";
 import { createStrandsView, type StrandsView } from "./strands.js";
-import { projectReading } from "./reading-projection.js";
+import { outlineTies, projectReading } from "./reading-projection.js";
+import { MAP_CONTROLS } from "./map-controls.js";
 import { bearingMark, declarationMark } from "./marks.js";
 import { referenceKey } from "./projection.js";
 import { createProseScope, type ProseRenderer } from "./prose.js";
@@ -34,6 +35,8 @@ export type BlockView = {
   destroy(): void;
 };
 
+let blockSequence = 0;
+
 /** A shared code-block preview; native editors and storage remain host-owned. */
 export function createBlockView(container: HTMLElement, options: BlockViewOptions = {}): BlockView {
   const doc = container.ownerDocument, win = doc.defaultView!;
@@ -60,11 +63,23 @@ export function createBlockView(container: HTMLElement, options: BlockViewOption
   }
   element("span", "title", toolbar).textContent = "Cogitatum";
   const modes = element("div", "modes", toolbar);
-  modes.setAttribute("role", "group"); modes.setAttribute("aria-label", "View");
+  modes.setAttribute("role", "tablist"); modes.setAttribute("aria-label", "View");
+  const id = `cog-block-${++blockSequence}`;
   const modeButtons = new Map<BlockMode, HTMLButtonElement>();
-  for (const [mode, label] of [["reading", "Reading"], ["map", "Map"], ["strands", "Strands"]] as const) {
-    modeButtons.set(mode, button(modes, label, () => showMode(mode)));
+  for (const [mode, label] of [["reading", "Read"], ["map", "Map"], ["strands", "Strands"]] as const) {
+    const tab = button(modes, label, () => showMode(mode));
+    tab.id = `${id}-${mode}-tab`; tab.setAttribute("role", "tab"); tab.setAttribute("aria-controls", `${id}-${mode}`);
+    modeButtons.set(mode, tab);
   }
+  modes.addEventListener("keydown", event => {
+    const tabs = [...modeButtons.values()].filter(tab => !tab.disabled);
+    const index = tabs.indexOf(doc.activeElement as HTMLButtonElement);
+    if (index < 0 || !["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+    event.preventDefault();
+    const next = event.key === "Home" ? 0 : event.key === "End" ? tabs.length - 1
+      : (index + (event.key === "ArrowRight" ? 1 : -1) + tabs.length) % tabs.length;
+    tabs[next].focus(); tabs[next].click();
+  }, on);
   const issues = button(toolbar, "", () => {
     showMode("reading");
     const diagnostics = readingSurface.querySelector<HTMLDetailsElement>(".cog-reading-diagnostics");
@@ -83,13 +98,33 @@ export function createBlockView(container: HTMLElement, options: BlockViewOption
   const readingSurface = element("div", "reading", body);
   const mapPanel = element("div", "map-panel", body);
   const strandsSurface = element("div", "strands", body);
-  const mapToolbar = element("div", "map-toolbar", mapPanel);
-  mapToolbar.setAttribute("role", "group"); mapToolbar.setAttribute("aria-label", "Map controls");
-  button(mapToolbar, "Fit", () => map?.fit(), "Fit the whole map");
-  button(mapToolbar, "-", () => map?.zoom(1 / 1.25), "Zoom out").setAttribute("aria-label", "Zoom out");
-  button(mapToolbar, "+", () => map?.zoom(1.25), "Zoom in").setAttribute("aria-label", "Zoom in");
-  button(mapToolbar, "Arrange", () => map?.resetLayout(), "Restore automatic arrangement");
+  for (const [mode, panel] of [["reading", readingSurface], ["map", mapPanel], ["strands", strandsSurface]] as const) {
+    panel.id = `${id}-${mode}`; panel.setAttribute("role", "tabpanel");
+    panel.setAttribute("aria-labelledby", modeButtons.get(mode)!.id);
+  }
   const mapSurface = element("div", "map", mapPanel);
+  const mapToolbar = element("div", "map-toolbar", mapPanel);
+  mapToolbar.classList.add("cog-map-controls");
+  const zoomControls = doc.createElement("div");
+  zoomControls.className = "cog-map-zoom";
+  zoomControls.setAttribute("role", "group"); zoomControls.setAttribute("aria-label", "Map zoom controls");
+  const mapActions = {
+    arrange: () => map?.resetLayout(), zoomOut: () => map?.zoom(1 / 1.25),
+    zoomIn: () => map?.zoom(1.25), fit: () => map?.fit()
+  };
+  for (const [parent, controls] of [[mapToolbar, [MAP_CONTROLS.arrange]], [zoomControls, MAP_CONTROLS.zoom]] as const) for (const control of controls) {
+    const node = button(parent, "", mapActions[control.action], control.title);
+    node.className = control.action === "arrange" ? "cog-map-arrange" : "cog-map-zoom-button";
+    node.setAttribute(control.attribute, "");
+    node.setAttribute("aria-label", control.label);
+    const icon = doc.createElementNS("http://www.w3.org/2000/svg", "svg");
+    icon.setAttribute("viewBox", "0 0 16 16");
+    icon.setAttribute("aria-hidden", "true"); icon.setAttribute("focusable", "false");
+    const path = doc.createElementNS(icon.namespaceURI, "path");
+    path.setAttribute("d", control.path); icon.append(path); node.append(icon);
+    if ("text" in control) node.append(control.text);
+  }
+  mapToolbar.append(zoomControls);
   const detail = element("div", "detail", mapPanel);
   detail.hidden = true;
   detail.setAttribute("aria-live", "polite");
@@ -214,7 +249,9 @@ export function createBlockView(container: HTMLElement, options: BlockViewOption
     mode = next !== "reading" && modeButtons.get(next)!.disabled ? "reading" : next;
     root.dataset.mode = mode;
     if (remember) { interacted = true; options.onMode?.(mode); }
-    for (const [key, node] of modeButtons) node.setAttribute("aria-pressed", String(key === mode));
+    for (const [key, node] of modeButtons) {
+      node.setAttribute("aria-selected", String(key === mode)); node.tabIndex = key === mode ? 0 : -1;
+    }
     readingSurface.hidden = mode !== "reading"; mapPanel.hidden = mode !== "map"; strandsSurface.hidden = mode !== "strands";
     if (mode === "strands" && !strands && graph) {
       strands = createStrandsView(strandsSurface, {
@@ -231,7 +268,7 @@ export function createBlockView(container: HTMLElement, options: BlockViewOption
         onClear: () => choose(),
         onNavigate: options.onEdit ? () => { void revealSource(selectedSpan); } : undefined
       });
-      sync(() => { map!.update(graph!, "code-block"); if (selected) map!.select(selected); });
+      sync(() => { map!.update(graph!, "code-block", { outline: outlineTies(projection!.units[0]) }); if (selected) map!.select(selected); });
       showDetail();
     }
   }
@@ -267,6 +304,7 @@ export function createBlockView(container: HTMLElement, options: BlockViewOption
       if (destroyed) throw new Error("This Cogitatum block has been destroyed.");
       if (source === next) return;
       const first = source === undefined;
+      const hadTabFocus = modes.contains(doc.activeElement);
       source = next; cancelEdit();
       selected = undefined; selectedSpan = undefined; clearDetail(); updateEditTitle();
       try {
@@ -274,11 +312,15 @@ export function createBlockView(container: HTMLElement, options: BlockViewOption
         graph = explained.graphs[0];
         projection = projectReading(next, explained);
         if (!graph) { map?.destroy(); map = undefined; strands?.destroy(); strands = undefined; }
-        sync(() => { reading.update(projection!); map?.clear(); if (graph) { map?.update(graph, "code-block"); strands?.update(graph); } });
+        sync(() => { reading.update(projection!); map?.clear(); if (graph) { map?.update(graph, "code-block", { outline: outlineTies(projection!.units[0]) }); strands?.update(graph); } });
         modeButtons.get("map")!.disabled = !graph || (!graph.points.length && !graph.bearings.length);
         modeButtons.get("strands")!.disabled = !graph?.points.length;
-        issues.textContent = `${explained.diagnostics.length} issue${explained.diagnostics.length === 1 ? "" : "s"}`;
-        issues.hidden = !explained.diagnostics.length;
+        const errors = explained.diagnostics.filter(diagnostic => diagnostic.severity === "error").length;
+        const count = explained.diagnostics.length;
+        issues.textContent = `${count} issue${count === 1 ? "" : "s"}`;
+        issues.setAttribute("aria-label", `Diagnostics (${count} issue${count === 1 ? "" : "s"}${errors ? `, ${errors} error${errors === 1 ? "" : "s"}` : ""})`);
+        issues.classList.toggle("has-errors", errors > 0);
+        issues.hidden = !count;
         failure.hidden = true; body.hidden = false;
         if (first) restoreMode(); else showMode(mode, false);
       } catch (error) {
@@ -287,6 +329,7 @@ export function createBlockView(container: HTMLElement, options: BlockViewOption
         failure.textContent = `Could not render this block: ${error instanceof Error ? error.message : String(error)}`;
         failure.hidden = false; body.hidden = true;
       }
+      if (hadTabFocus && !modes.contains(doc.activeElement)) modeButtons.get(mode)!.focus();
     },
     destroy() {
       if (destroyed) return;

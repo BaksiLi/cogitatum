@@ -7,6 +7,10 @@ Use the complete released schema set and [migrate retained source](docs/syntax.m
 
 ## 0.6.1 — 7 November 2026
 
+- Keep private View's native block Maps consistent with the website: preserve outline context on first display and updates, and let the camera own the dotted paper.
+  Share Map command labels, icons, theme styles and touch targets; hosts supply interface and monospace faces through `--cog-ui` and `--cog-mono`.
+  Point marks stay in ink; relation colours belong to Bearings.
+
 - Export Core's TypeScript sources under the private `@cogitatum/source` condition instead of `development`.
   Vite and Vitest enable `development` by default, so their consumers silently compiled the shipped sources instead of `dist`.
   Consumers that set `development` now receive `dist`; packed-package checks cover Node, tsx with `development`, and TypeScript, and a packed Vitest consumer was checked by hand.
