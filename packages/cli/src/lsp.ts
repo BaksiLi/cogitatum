@@ -1,6 +1,6 @@
 import type { Readable, Writable } from "node:stream";
-import { analyzeSourceReferences, explainSource } from "@cogitatum/core";
-import type { AstBlock, Diagnostic, ExplainedSource, SourceParseMode, SourceReferenceAnalysis, SourceSpan } from "@cogitatum/core";
+import { analyzeSourceReferences, explainSource, extractCogitatumSourceUnits, tokenizeSource } from "@cogitatum/core";
+import type { AstBlock, Diagnostic, ExplainedSource, SourceParseMode, SourceReferenceAnalysis, SourceSpan, SourceTokenKind } from "@cogitatum/core";
 
 // A Language Server Protocol endpoint over the existing compiler.
 // Core spans are one-based UTF-16 line/column positions: LSP's default
@@ -22,7 +22,12 @@ type OpenDocument = {
 };
 
 const NAME_RE = /^[a-z][a-z0-9_-]*$/;
-const NAME_TOKEN_RE = /@([a-z][a-z0-9_-]*)(?![a-z0-9_-])/g;
+// Semantic token types are LSP's standard names, so clients colour them with existing themes.
+const TOKEN_TYPES = ["keyword", "type", "variable", "operator", "string", "comment"] as const;
+const TOKEN_MODIFIERS = ["deprecated"] as const;
+const SEMANTIC: Partial<Record<SourceTokenKind, [type: number, modifiers: number]>> = {
+  mark: [0, 0], role: [1, 0], name: [2, 0], operator: [3, 0], relation: [3, 0], code: [4, 0], note: [5, 0], retired: [0, 1]
+};
 const SEVERITY = { error: 1, warning: 2, suggestion: 3 } as const;
 const METHOD_NOT_FOUND = -32601;
 const INTERNAL_ERROR = -32603;
@@ -41,7 +46,7 @@ export function createLanguageServer(send: (message: Message) => void) {
   const explained = (document: OpenDocument) =>
     document.explained ??= explainSource(document.text, document.mode);
   const occurrences = (document: OpenDocument) =>
-    document.occurrences ??= locateOccurrences(document.text, analyzeSourceReferences(document.text, document.mode));
+    document.occurrences ??= locateOccurrences(document.text, analyzeSourceReferences(document.text, document.mode, explained(document)));
 
   function publishDiagnostics(uri: string, document?: OpenDocument): void {
     const diagnostics = document ? explained(document).diagnostics.map(toLspDiagnostic) : [];
@@ -78,7 +83,8 @@ export function createLanguageServer(send: (message: Message) => void) {
         definitionProvider: true,
         referencesProvider: true,
         hoverProvider: true,
-        renameProvider: { prepareProvider: true }
+        renameProvider: { prepareProvider: true },
+        semanticTokensProvider: { legend: { tokenTypes: TOKEN_TYPES, tokenModifiers: TOKEN_MODIFIERS }, full: true }
       },
       serverInfo: { name: "cogitatum" }
     }),
@@ -89,6 +95,10 @@ export function createLanguageServer(send: (message: Message) => void) {
     "textDocument/documentSymbol": ({ textDocument }) => {
       const document = documents.get(textDocument.uri);
       return document ? explained(document).documents.flatMap(ast => ast.blocks.map(toSymbol)) : null;
+    },
+    "textDocument/semanticTokens/full": ({ textDocument }) => {
+      const document = documents.get(textDocument.uri);
+      return document ? { data: semanticTokens(document.text, document.mode) } : null;
     },
     "textDocument/definition": params => {
       const declaration = entityAt(params)?.all.find(occurrence => occurrence.declaration);
@@ -282,18 +292,45 @@ function locateOccurrences(text: string, analysis: SourceReferenceAnalysis): Occ
   return located;
 }
 
+/** The `@name` tokens on a header line, found by the shared lexer rather than another pattern. */
 function nameTokens(lines: string[], span: SourceSpan, name: string): Range[] {
-  const line = lines[span.startLine - 1] ?? "";
-  const start = span.startColumn - 1;
-  if (line[start] !== "[") return [];
-  const close = line.indexOf("]", start);
-  const header = line.slice(start, close === -1 ? undefined : close);
-  return [...header.matchAll(NAME_TOKEN_RE)]
-    .filter(match => match[1] === name)
-    .map(match => {
-      const character = start + match.index + 1;
-      return { start: { line: span.startLine - 1, character }, end: { line: span.startLine - 1, character: character + name.length } };
+  const line = span.startLine - 1;
+  const [tokens] = tokenizeSource(lines[line] ?? "");
+  const ranges: Range[] = [];
+  let character = 0;
+  for (const token of tokens.tokens) {
+    if (token.kind === "name" && token.text === `@${name}` && character >= span.startColumn - 1) {
+      ranges.push({ start: { line, character: character + 1 }, end: { line, character: character + token.text.length } });
+    }
+    character += token.text.length;
+  }
+  return ranges;
+}
+
+/**
+ * LSP's relative encoding of lexical tokens. A Markdown host contributes only its Cogitatum
+ * fences; each fence line is tokenized without the indentation its fence removes.
+ */
+export function semanticTokens(text: string, mode: SourceParseMode): number[] {
+  const hostLines = text.split(/\r\n|\r|\n/);
+  const units = extractCogitatumSourceUnits(text, mode);
+  const data: number[] = [];
+  let previousLine = 0, previousCharacter = 0;
+  for (const unit of units) {
+    tokenizeSource(unit.source).forEach((line, index) => {
+      const hostLine = unit.startLine - 1 + index;
+      let character = (hostLines[hostLine]?.length ?? 0) - line.tokens.reduce((length, token) => length + token.text.length, 0);
+      for (const token of line.tokens) {
+        const semantic = token.kind && SEMANTIC[token.kind];
+        if (semantic && token.text.length) {
+          data.push(hostLine - previousLine, hostLine === previousLine ? character - previousCharacter : character, token.text.length, ...semantic);
+          previousLine = hostLine; previousCharacter = character;
+        }
+        character += token.text.length;
+      }
     });
+  }
+  return data;
 }
 
 function sameStart(a: Range, b: Range): boolean {

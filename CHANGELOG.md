@@ -7,10 +7,12 @@ Use the complete released schema set and [migrate retained source](docs/syntax.m
 
 ## Unreleased
 
-- Add `cog lsp`, a Language Server Protocol endpoint over the existing compiler: diagnostics, outline, definition, references, hover and rename for `.cog.md` documents and Markdown `cog` fences.
+- Add `tokenizeSource`, the language's one lexical definition for highlighting: bullets, structural marks, roles, names, operators, relation words, retired spellings, inline code and literal note subtrees.
+  It agrees with the outline parser about which lines carry annotations and never interprets them; editors, terminals and language servers share it instead of keeping their own patterns.
+- Add `cog lsp`, a Language Server Protocol endpoint over the existing compiler: diagnostics, outline, semantic tokens, definition, references, hover and rename for `.cog.md` documents and Markdown `cog` fences.
   Name features index the compiler's resolved references and stay unavailable while source errors remain.
   The language, format and other commands are unchanged.
-- Add Vim support in `editors/vim`: filetype detection, syntax highlighting, and an ALE linter that starts `cog lsp`.
+- Let `analyzeSourceReferences` reuse a caller's existing `explainSource` result for the same source and mode, so editors compile each revision once.
 - Let private View's block previews follow a native editor's cursor with `reveal(line)`, which selects that line's local occurrence without editing or taking focus.
 
 ## 0.6.1 — 7 November 2026

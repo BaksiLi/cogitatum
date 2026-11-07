@@ -4,6 +4,8 @@ export { parseDocument } from "./outline.js";
 export { compileGraph, compileGraphWithExplain } from "./graph.js";
 export { compileSource, explainSource, extractCogitatumSourceUnits, parseSource } from "./source.js";
 export { analyzeSourceReferences } from "./source-references.js";
+export { tokenizeSource } from "./source-tokens.js";
+export type { SourceLine, SourceToken, SourceTokenKind } from "./source-tokens.js";
 export type { WrittenReference, ReferencedName, SourceReferenceAnalysis } from "./source-references.js";
 export { formatGraph, GRAPH_TEXT_VERSION } from "./graph-text.js";
 export { compareCommitments, entailment, graphCommitments, suggestCorrespondence } from "./commitments.js";

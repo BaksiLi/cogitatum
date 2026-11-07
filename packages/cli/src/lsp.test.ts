@@ -3,7 +3,7 @@ import { createRequire } from "node:module";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { createLanguageServer, sourceModeFor } from "./lsp.js";
+import { createLanguageServer, semanticTokens, sourceModeFor } from "./lsp.js";
 import type { Message, Position } from "./lsp.js";
 
 const DOCUMENT = "file:///notes/inquiry.cog.md";
@@ -109,6 +109,26 @@ describe("cog lsp", () => {
     expect(definition.range.start).toEqual(nameAt(host, 3, "claim"));
     const references = at("textDocument/references", nameAt(host, 8, "claim"), { context: { includeDeclaration: true } }, uri).result as unknown[];
     expect(references).toHaveLength(1);
+  });
+
+  it("encodes the shared lexical tokens, including only the fences of a Markdown host", () => {
+    // Decode LSP's relative encoding back to [line, character, text, type, modifiers].
+    const decode = (text: string, data: number[]) => {
+      const lines = text.split("\n"), tokens: [number, number, string, number, number][] = [];
+      let line = 0, character = 0;
+      for (let index = 0; index < data.length; index += 5) {
+        line += data[index]; character = data[index] ? data[index + 1] : character + data[index + 1];
+        tokens.push([line, character, lines[line].slice(character, character + data[index + 2]), data[index + 3], data[index + 4]]);
+      }
+      return tokens;
+    };
+    const document = "- [C @claim] 漢字 😀 `code`.\n  - [G /> @claim] Old.";
+    expect(decode(document, semanticTokens(document, "document"))).toEqual([
+      [0, 2, "[", 0, 0], [0, 3, "C", 1, 0], [0, 5, "@claim", 2, 0], [0, 11, "]", 0, 0], [0, 19, "`code`", 4, 0],
+      [1, 4, "[", 0, 0], [1, 5, "G", 1, 0], [1, 7, "/>", 0, 1], [1, 10, "@claim", 2, 0], [1, 16, "]", 0, 0]
+    ]);
+    const host = "Prose with - [C] in it.\n\n  ```cog\n  - [O @doubt] Indented fence.\n  ```";
+    expect(decode(host, semanticTokens(host, "host"))).toEqual([[3, 4, "[", 0, 0], [3, 5, "O", 1, 0], [3, 7, "@doubt", 2, 0], [3, 13, "]", 0, 0]]);
   });
 
   it("speaks framed JSON-RPC over stdio and exits cleanly after shutdown", async () => {

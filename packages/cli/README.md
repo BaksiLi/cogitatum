@@ -168,11 +168,12 @@ Files ending in `.cog.md` or `.cog` compile in document mode; other Markdown fil
 | --- | --- |
 | Diagnostics | Every compiler diagnostic for each revision, with UTF-16 ranges and its code |
 | Outline | Document symbols follow the AST's block nesting, also while the source has errors |
+| Semantic tokens | Core's `tokenizeSource` classes in standard token types; Markdown hosts contribute only their fences |
 | Definition, references, hover | Follow names the compiler resolved; unavailable while any error remains |
 | Rename | Rewrites one entity's `@name` tokens in its source unit; rejects invalid or already declared names |
 
 Name features use the same inventory as `check --references`, so they wait for an error-free source rather than guessing.
-Vim support, including syntax highlighting and an ALE linter, lives in [`editors/vim`](../../editors/vim/README.md).
+Any client that starts `cog lsp` over stdio can use it; Vim support, with matching syntax highlighting and a browser preview, is a separate host plugin.
 
 ## Using the CLI from an assistant
 

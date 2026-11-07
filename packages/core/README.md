@@ -132,9 +132,28 @@ This API reads source without editing, inventing names or reconstructing text fr
 Retain the exact original source alongside the report; host unit text is a selected, normalised projection.
 Any later edit needs its own preservation contract and recompilation, including occurrence notes and how local attachments respond to moves.
 
+An editor that has already called `explainSource(source, mode)` may pass that result as a third argument; it must be the compilation of the same source and mode.
+
 `SourceReferenceAnalysis`, `ReferencedName` and `WrittenReference` are exported TypeScript types.
 The result is a separate analysis projection, not an instance of the Source envelope schema; `version` identifies the underlying format, while the package/source revision identifies this API.
 No existing AST, Graph IR, Explain or Source schema is extended.
+
+## Highlighting
+
+`tokenizeSource(source)` returns one `SourceLine` per line of a document-mode unit, whose token texts concatenate back to the line exactly:
+
+```js
+import { tokenizeSource } from '@cogitatum/core';
+
+for (const line of tokenizeSource(source)) {
+  for (const token of line.tokens) paint(token.text, token.kind); // kind is undefined for prose
+}
+```
+
+Kinds are `bullet`, `mark` (brackets, `.`, `_`, family words, `use` and `note`), `role`, `name`, `operator`, `relation`, `punct`, `code`, `note` (a literal note line) and `retired` (a spelling the compiler diagnoses).
+`line.role` is the header's first mark as written, such as `G/`, `.`, `_` or `note`, for hosts that tint a whole header.
+Tokens are lexical only: a highlighted name may be unknown, and a role may sit on a failed boundary; diagnostics remain the compiler's.
+For a Markdown host, tokenize each `extractCogitatumSourceUnits(source, 'host')` unit and place its lines at the unit's `startLine`.
 
 ## Graph inspection
 
