@@ -15,6 +15,7 @@ import {
   previewTargetForm
 } from "@cogitatum/core";
 import type { BearingKind, Diagnostic, RelationEdit, SourceParseMode, TargetForm } from "@cogitatum/core";
+import { serveStdio } from "./lsp.js";
 
 type Command = "ast" | "graph" | "explain" | "export" | "check" | "target-form" | "relation-edit";
 const COMMANDS: readonly string[] = ["ast", "graph", "explain", "export", "check", "target-form", "relation-edit"];
@@ -51,6 +52,18 @@ async function main(): Promise<void> {
 
   if (argv.length === 1 && (argv[0] === "--version" || argv[0] === "-v")) {
     process.stdout.write(`cog ${PACKAGE_VERSION} (format ${FORMAT_VERSION})\n`);
+    return;
+  }
+
+  // The language server reads its documents from the client, not from a file.
+  // Clients conventionally pass --stdio, the only transport offered.
+  if (argv[0] === "lsp") {
+    if (argv.slice(1).some(arg => arg !== "--stdio")) {
+      printJson({ diagnostics: [{ severity: "error", code: "INVALID_OPTION", message: "lsp takes no file and no options other than --stdio." }] });
+      process.exitCode = 2;
+      return;
+    }
+    process.exitCode = await serveStdio();
     return;
   }
 
@@ -318,6 +331,8 @@ Usage: cog <command> [options] <file>
 
 Commands:
   check            Check syntax and references; print diagnostics as JSON
+  lsp              Serve diagnostics, outline, names and rename to an editor
+                   over the Language Server Protocol on stdin/stdout
   ast              Parse source to an ordered AST as JSON; no reference validation
   graph            Compile source to Point-Bearing Graph IR; JSON by default
   explain          Inspect compiler decisions; JSON by default, optional text

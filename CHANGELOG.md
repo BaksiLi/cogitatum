@@ -5,6 +5,13 @@ The historical `alpha` tag remains at **0.3.0-alpha.1**.
 Earlier 0.4 entries below are unpublished source milestones included in this first 0.4 npm release.
 Use the complete released schema set and [migrate retained source](docs/syntax.md#compatibility-and-migration) rather than relabelling old JSON.
 
+## Unreleased
+
+- Add `cog lsp`, a Language Server Protocol endpoint over the existing compiler: diagnostics, outline, definition, references, hover and rename for `.cog.md` documents and Markdown `cog` fences.
+  Name features index the compiler's resolved references and stay unavailable while source errors remain.
+  The language, format and other commands are unchanged.
+- Add Vim support in `editors/vim`: filetype detection, syntax highlighting, and an ALE linter that starts `cog lsp`.
+
 ## 0.6.1 — 7 November 2026
 
 - Keep private View's native block Maps consistent with the website: preserve outline context on first display and updates, and let the camera own the dotted paper.

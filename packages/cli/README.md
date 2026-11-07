@@ -158,6 +158,22 @@ Exit 0 means ready; 1 means unavailable or an I/O failure; 2 means invalid optio
 The published `explicit-target` command is retired and exits 2 with `RETIRED_COMMAND`, naming `target-form --to named`.
 The [inspection reference](../../docs/graph-inspection.md#preview-named-and-positional-targets) gives the full preservation scope.
 
+## Editor integration
+
+`cog lsp` serves the same compiler to an editor over the Language Server Protocol on stdin and stdout.
+It is the one command that reads no file: the editor sends each open document, including unsaved changes, and the server never writes.
+Files ending in `.cog.md` or `.cog` compile in document mode; other Markdown files compile their `cog` fences in host mode.
+
+| Feature | Behavior |
+| --- | --- |
+| Diagnostics | Every compiler diagnostic for each revision, with UTF-16 ranges and its code |
+| Outline | Document symbols follow the AST's block nesting, also while the source has errors |
+| Definition, references, hover | Follow names the compiler resolved; unavailable while any error remains |
+| Rename | Rewrites one entity's `@name` tokens in its source unit; rejects invalid or already declared names |
+
+Name features use the same inventory as `check --references`, so they wait for an error-free source rather than guessing.
+Vim support, including syntax highlighting and an ALE linter, lives in [`editors/vim`](../../editors/vim/README.md).
+
 ## Using the CLI from an assistant
 
 An LLM can propose a reconstruction, a wording revision or a reading of a passage, then call `check`, `graph` and `explain` to inspect the represented result.
