@@ -48,6 +48,8 @@ The host supplies installed package versions and source provenance at build time
 Edit and Enter request native source navigation; omitting `onEdit` removes the edit action.
 The callback receives the exact source revision, its optional local occurrence span, and a cancellation signal.
 Check that signal after asynchronous work, then validate the live native buffer before selecting or focusing it.
+In the other direction, `reveal(line)` follows a native editor's cursor: it selects the local occurrence at that one-based line of the current fragment, or the nearest one before it, without editing or taking focus.
+Body lines without a Point or Bearing leave the selection unchanged.
 Repeated requests are ignored while the same block is opening; revisions and destruction abort that request.
 Expansion moves the existing views into a native dialog and returns them before invoking the editor callback.
 The shell never writes source, persists selection or creates an editor buffer.

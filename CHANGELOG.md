@@ -11,6 +11,7 @@ Use the complete released schema set and [migrate retained source](docs/syntax.m
   Name features index the compiler's resolved references and stay unavailable while source errors remain.
   The language, format and other commands are unchanged.
 - Add Vim support in `editors/vim`: filetype detection, syntax highlighting, and an ALE linter that starts `cog lsp`.
+- Let private View's block previews follow a native editor's cursor with `reveal(line)`, which selects that line's local occurrence without editing or taking focus.
 
 ## 0.6.1 — 7 November 2026
 

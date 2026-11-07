@@ -2,7 +2,7 @@ import { explainSource, type BearingTarget, type GraphIR, type SourceSpan } from
 import { createGraphView, type GraphView } from "./index.js";
 import { createReadingView } from "./reading.js";
 import { createStrandsView, type StrandsView } from "./strands.js";
-import { outlineTies, projectReading } from "./reading-projection.js";
+import { occurrenceAtLine, outlineTies, projectReading } from "./reading-projection.js";
 import { MAP_CONTROLS } from "./map-controls.js";
 import { bearingMark, declarationMark } from "./marks.js";
 import { referenceKey } from "./projection.js";
@@ -32,6 +32,8 @@ export type BlockView = {
   /** Theme and host event boundaries belong on this element. */
   element: HTMLElement;
   update(source: string): void;
+  /** Select the passage at a one-based line of the current source, as a native editor's cursor moves; never edits or takes focus. */
+  reveal(line: number): void;
   destroy(): void;
 };
 
@@ -300,6 +302,17 @@ export function createBlockView(container: HTMLElement, options: BlockViewOption
 
   return {
     element: root,
+    reveal(line) {
+      if (destroyed || !projection?.units[0]) return;
+      const occurrence = occurrenceAtLine(projection.units[0], line);
+      const reference = occurrence?.references.find(item => item.kind === "declares" || item.kind === "constructs") ?? occurrence?.references[0];
+      if (!occurrence || !reference) return;
+      const span = occurrence.sourceSpan;
+      if (selected && referenceKey(selected) === referenceKey(reference.ref) && selectedSpan?.startLine === span.startLine && selectedSpan.startColumn === span.startColumn) return;
+      // Keep the local occurrence selected, as a note's source link does, rather than its declaration.
+      reading.selectOccurrence(occurrence.id, reference.ref);
+      choose(reference.ref, span);
+    },
     update(next) {
       if (destroyed) throw new Error("This Cogitatum block has been destroyed.");
       if (source === next) return;
