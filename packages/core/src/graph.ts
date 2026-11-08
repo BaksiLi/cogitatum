@@ -127,10 +127,22 @@ type BearingValidation = {
 };
 
 export function compileGraph(ast: DocumentAst): GraphIR {
-  return compileGraphWithExplain(ast).graph;
+  return compileDocument(ast).graph;
 }
 
 export function compileGraphWithExplain(ast: DocumentAst): GraphCompilation {
+  const compiled = compileDocument(ast);
+  return {
+    graph: compiled.graph,
+    explain: {
+      version: FORMAT_VERSION,
+      entries: buildExplainEntries(compiled),
+      diagnostics: [...compiled.graph.diagnostics]
+    }
+  };
+}
+
+function compileDocument(ast: DocumentAst) {
   if (ast.version !== FORMAT_VERSION) {
     throw new Error(`Unsupported AST format ${ast.version}; expected ${FORMAT_VERSION}.`);
   }
@@ -173,10 +185,31 @@ export function compileGraphWithExplain(ast: DocumentAst): GraphCompilation {
     draft.focus = result;
     if (result.status === "rejected") diagnostics.push(result.diagnostic);
   }
-  resolveNotes(explainDrafts, symbols, validation.bearings, diagnostics);
-  const entries = buildExplainEntries(explainDrafts, points, validation, diagnostics, new Set([...symbols.declaredPointIds, ...symbols.bearingIds]));
+  const bearingTargets = new Map(validation.bearings.map(bearing => [bearing.key, bearing]));
+  resolveNotes(explainDrafts, symbols, bearingTargets, diagnostics);
+  const authoredNames = new Set([...symbols.declaredPointIds, ...symbols.bearingIds]);
+  const visibleDiagnosticCounts = explainDrafts.map(draft => {
+    const candidate = draft.bearing?.outcome === "candidate" ? draft.bearing.candidate : undefined;
+    if (draft.implicit?.crossedBodySpans.length && candidate && bearingTargets.has(candidate.key)) {
+      const target = candidate.target;
+      if (!("key" in target)) throw new Error("Compiler invariant violated: validated attachment has no target key.");
+      const entity = target.kind === "point" ? symbols.pointsByKey.get(target.key) : bearingTargets.get(target.key);
+      const targetSpan = entity?.sourceSpan;
+      const name = entity && ("declaration" in entity ? entity.id : entity.handle);
+      const spanLabel = (span: SourceSpan) => span.startLine + ":" + span.startColumn + "–" + span.endLine + ":" + span.endColumn;
+      const targetLabel = name ? "@" + name : target.kind + (targetSpan ? " at " + spanLabel(targetSpan) : "");
+      diagnostics.push({
+        severity: "suggestion",
+        code: "IMPLICIT_ATTACHMENT_THROUGH_BODY",
+        message: "Implicit " + candidate.kind + " selects " + targetLabel + " through ordinary body at " + draft.implicit.crossedBodySpans.map(spanLabel).join(", ") + ".",
+        explanation: implicitAttachmentAdvice(draft.block, target.kind, name || undefined, authoredNames),
+        sourceSpan: draft.block.sourceSpan
+      });
+    }
+    return diagnostics.length;
+  });
 
-  const graph = {
+  const graph: GraphIR = {
     version: FORMAT_VERSION,
     points,
     bearings: validation.bearings,
@@ -186,11 +219,11 @@ export function compileGraphWithExplain(ast: DocumentAst): GraphCompilation {
 
   return {
     graph,
-    explain: {
-      version: FORMAT_VERSION,
-      entries,
-      diagnostics: [...diagnostics]
-    }
+    drafts: explainDrafts,
+    validation,
+    pointTargets: symbols.pointsByKey,
+    bearingTargets,
+    visibleDiagnosticCounts
   };
 }
 
@@ -636,8 +669,7 @@ function pointReasonForBlock(block: AstBlock): PointDraft["reason"] {
 
 // Resolve only the nearest context's selected slot after graph validation.
 // No endpoint search or fallback: a rejected local object stays unavailable.
-function resolveNotes(drafts: ExplainDraft[], symbols: SymbolTable, bearings: Bearing[], diagnostics: Diagnostic[]): void {
-  const byKey = new Map(bearings.map(bearing => [bearing.key, bearing]));
+function resolveNotes(drafts: ExplainDraft[], symbols: SymbolTable, byKey: ReadonlyMap<string, Bearing>, diagnostics: Diagnostic[]): void {
   for (const draft of drafts) {
     const selection = draft.noteSelection;
     if (selection) {
@@ -870,20 +902,14 @@ function validateBearings(
   };
 }
 
-function buildExplainEntries(
-  drafts: ExplainDraft[],
-  points: Point[],
-  validation: BearingValidation,
-  diagnostics: Diagnostic[],
-  authoredNames: ReadonlySet<string>
-): ExplainEntry[] {
-  const pointTargets = new Map(points.map(point => [point.key, point]));
-  const bearingTargets = new Map(validation.bearings.map(bearing => [bearing.key, bearing]));
+function buildExplainEntries(compiled: ReturnType<typeof compileDocument>): ExplainEntry[] {
+  const { graph: { diagnostics }, drafts, validation, pointTargets, bearingTargets, visibleDiagnosticCounts } = compiled;
   const bearingIndexes = new Map(
     validation.accepted.map((bearing, graphIndex) => [bearing, graphIndex] as const)
   );
 
-  return drafts.map((draft) => {
+  const codesForSpan = diagnosticCodesBySpan(diagnostics);
+  return drafts.map((draft, index) => {
     const effects: ExplainEffect[] = [];
 
     if (draft.recognition.kind === "body") {
@@ -930,9 +956,8 @@ function buildExplainEntries(
 
     if (draft.bearing?.outcome === "candidate") {
       const graphIndex = bearingIndexes.get(draft.bearing.candidate);
-      const summary = summarizeCandidate(draft.bearing.candidate);
       if (graphIndex === undefined) {
-        effects.push({ kind: "rejectBearing", bearing: summary, reason: "validation-error" });
+        effects.push({ kind: "rejectBearing", bearing: summarizeCandidate(draft.bearing.candidate), reason: "validation-error" });
       } else {
         const { key, handle } = draft.bearing.candidate;
         const canonical = validation.bearings[graphIndex];
@@ -940,22 +965,12 @@ function buildExplainEntries(
           const target = canonical.target;
           const entity = target.kind === "point" ? pointTargets.get(target.key) : bearingTargets.get(target.key);
           const targetSpan = entity?.sourceSpan;
-          const name = entity && ("declaration" in entity ? entity.id : entity.handle);
-          const spanLabel = (span: SourceSpan) => span.startLine + ":" + span.startColumn + "–" + span.endLine + ":" + span.endColumn;
-          const targetLabel = name ? "@" + name : target.kind + (targetSpan ? " at " + spanLabel(targetSpan) : "");
           effects.push({
             kind: "implicitAttachment",
             target: { ...target },
             ...(targetSpan ? { targetSpan: { ...targetSpan } } : {}),
             contextSpan: { ...draft.implicit.contextSpan },
             crossedBodySpans: draft.implicit.crossedBodySpans.map(span => ({ ...span }))
-          });
-          if (draft.implicit.crossedBodySpans.length) diagnostics.push({
-            severity: "suggestion",
-            code: "IMPLICIT_ATTACHMENT_THROUGH_BODY",
-            message: "Implicit " + canonical.kind + " selects " + targetLabel + " through ordinary body at " + draft.implicit.crossedBodySpans.map(spanLabel).join(", ") + ".",
-            explanation: implicitAttachmentAdvice(draft.block, target.kind, name || undefined, authoredNames),
-            sourceSpan: draft.block.sourceSpan
           });
         }
         effects.push({
@@ -975,7 +990,7 @@ function buildExplainEntries(
       sourceSpan: draft.block.sourceSpan,
       recognition: draft.recognition,
       effects,
-      diagnosticCodes: diagnosticCodesForSpan(draft.block.sourceSpan, diagnostics)
+      diagnosticCodes: codesForSpan(draft.block.sourceSpan, visibleDiagnosticCounts[index])
     };
   });
 }
@@ -1036,19 +1051,33 @@ function summarizeCandidate(candidate: CandidateBearing): ExplainBearingSummary 
   };
 }
 
-function diagnosticCodesForSpan(sourceSpan: SourceSpan, diagnostics: Diagnostic[]): string[] {
-  return [
-    ...new Set(
-      diagnostics
-        .filter(
-          (diagnostic) =>
-            diagnostic.sourceSpan &&
-            diagnostic.sourceSpan.startLine <= sourceSpan.endLine &&
-            diagnostic.sourceSpan.endLine >= sourceSpan.startLine
-        )
-        .map((diagnostic) => diagnostic.code)
-    )
-  ];
+function diagnosticCodesBySpan(diagnostics: Diagnostic[]): (span: SourceSpan, count: number) => string[] {
+  type Range = { startLine: number; endLine: number; code: string; index: number };
+  type Interval = Range & { maxEndLine: number; left?: Interval; right?: Interval };
+  const ranges = diagnostics.flatMap((diagnostic, index) => {
+    const span = diagnostic.sourceSpan;
+    return span ? [{ startLine: span.startLine, endLine: span.endLine, code: diagnostic.code, index }] : [];
+  }).sort((left, right) => left.startLine - right.startLine);
+  const build = (start: number, end: number): Interval | undefined => {
+    if (start >= end) return undefined;
+    const middle = Math.floor((start + end) / 2);
+    const range = ranges[middle];
+    const left = build(start, middle), right = build(middle + 1, end);
+    return { ...range, left, right, maxEndLine: Math.max(range.endLine, left?.maxEndLine ?? -Infinity, right?.maxEndLine ?? -Infinity) };
+  };
+  const root = build(0, ranges.length);
+  return (span, count) => {
+    const matches: Range[] = [];
+    const visit = (interval: Interval | undefined): void => {
+      if (!interval || interval.maxEndLine < span.startLine) return;
+      visit(interval.left);
+      if (interval.startLine > span.endLine) return;
+      if (interval.endLine >= span.startLine && interval.index < count) matches.push(interval);
+      visit(interval.right);
+    };
+    visit(root);
+    return [...new Set(matches.sort((left, right) => left.index - right.index).map(match => match.code))];
+  };
 }
 
 function toCanonicalBearing(bearing: CandidateBearing): Bearing {
