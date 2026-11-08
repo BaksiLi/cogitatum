@@ -18,7 +18,7 @@ Four marked Points and three connections: a reason for the Claim, an Objection a
 The opening context remains ordinary prose.
 The compiler makes these connections inspectable without deciding whether the reasons are good enough.
 
-[Try the playground](https://onesimos.org/playground) · [One-minute introduction](docs/introduction.md) · [Ten-minute quick start](docs/quick-start.md) · [Examples](https://onesimos.org/examples)
+[Try the playground](https://onesimos.org/playground) · [One-minute introduction](docs/introduction.md) · [Ten-minute quick start](docs/quick-start.md) · [Examples](https://onesimos.org/examples) · [Hosts: editors and the command line](https://onesimos.org/docs/hosts)
 
 ## Release status
 

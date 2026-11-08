@@ -10,8 +10,7 @@ audience: Ten minutes
 
 Open the website [Playground](https://onesimos.org/playground); no installation or account is needed.
 You can also keep the source in a file such as `inquiry.cog.md`.
-Experimental Obsidian and Logseq adapters also target Core/View/format 0.6.0.
-They require local installation; see the [adapter limits](introduction.md#try-it) before working in a host.
+To write in Obsidian, Logseq or Vim instead, see [Hosts](https://onesimos.org/docs/hosts).
 
 ## Start with ordinary writing
 
