@@ -7,7 +7,7 @@ Every relation is a relation plus one target term: `@name`, `^` for the nearest 
 Marks abbreviate default clauses: `[G]` is `[G +> ^]`, and G / O / R / D / Q state `supports` / `challenges` / `respondsTo` / `clarifies` / `concerns`, irrespective of the parent's mark.
 C and neutral Points state no relation; author `answers` explicitly when intended.
 
-Version **0.6.1**, format **0.6.0**.
+Version **0.6.2**, format **0.6.0**.
 `point` / `node` / `.` and `bearing` / `edge` / `_` share construction, use and local note operations.
 A Bearing constructor writes `[_ OP TARGET]`: its direct neutral children are its ordered sources, or `[_ @a, @b OP TARGET]` lists them; `[_]` and `[_/]` record joint `concerns`.
 The first token after the family spelling selects construction, `use` for reuse or `note` for note mode; a role letter such as `[_ G]` is `MALFORMED_BEARING_MODE`.
@@ -57,7 +57,7 @@ The historical npm `alpha` tag provides **0.3.0-alpha.1**, predating local Beari
 Use the matching Core and schema versions; do not send 0.6 notes to a 0.5 compiler.
 
 ```sh
-npm install @cogitatum/core@0.6.1
+npm install @cogitatum/core@0.6.2
 ```
 
 ```js

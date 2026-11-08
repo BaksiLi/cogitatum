@@ -1,11 +1,12 @@
 # Changelog
 
-Core and CLI **0.6.1** use **format 0.6.0**.
+Core and CLI **0.6.2** use **format 0.6.0**.
 The historical `alpha` tag remains at **0.3.0-alpha.1**.
-Earlier 0.4 entries below are unpublished source milestones included in this first 0.4 npm release.
+Earlier 0.4 entries below are unpublished source milestones included in this first 0.4 npm release;
+0.6.1 was likewise never published to npm and ships in 0.6.2.
 Use the complete released schema set and [migrate retained source](docs/syntax.md#compatibility-and-migration) rather than relabelling old JSON.
 
-## Unreleased
+## 0.6.2 — 9 November 2026
 
 - Add `tokenizeSource`, the language's one lexical definition for highlighting: bullets, structural marks, roles, names, operators, relation words, retired spellings, inline code and literal note subtrees.
   It agrees with the outline parser about which lines carry annotations and never interprets them; editors, terminals and language servers share it instead of keeping their own patterns.

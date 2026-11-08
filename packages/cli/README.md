@@ -2,7 +2,7 @@
 
 Check Cogitatum inquiry markup and inspect the reasoning connections marked in ordinary prose.
 
-Version **0.6.1**, format **0.6.0**, with equivalent Point/Bearing family spellings and local object notes.
+Version **0.6.2**, format **0.6.0**, with equivalent Point/Bearing family spellings and local object notes.
 `export` retains note prose and literal subtrees through the complete `explainSource` envelope.
 `graph` retains note target/origin records but omits note prose; graph-text `structure-v1` also omits those records.
 Explicit Bearing constructors, Point declarations and Point uses accept all canonical kind names, including `answers`, `respondsTo` and `clarifies`.
@@ -13,8 +13,8 @@ Use the matching Core/CLI and schema versions when upgrading from 0.5.0.
 Run the CLI without a global installation:
 
 ```sh
-npx --package @cogitatum/cli@0.6.1 cog check inquiry.cog.md
-npx --package @cogitatum/cli@0.6.1 cog graph inquiry.cog.md
+npx --package @cogitatum/cli@0.6.2 cog check inquiry.cog.md
+npx --package @cogitatum/cli@0.6.2 cog graph inquiry.cog.md
 ```
 
 Or, from a source checkout:

@@ -9,7 +9,7 @@ order: 5
 
 Cogitatum 0.5 provides a plain-text inspection view of one compiled graph.
 It exposes individual Points and Bearings without reconstructing the author's document or evaluating its reasoning.
-This page specifies the `structure-v1` projection and graph-text version 1 retained by the Core/CLI 0.6.1 checkout.
+This page specifies the `structure-v1` projection and graph-text version 1 retained by the Core/CLI 0.6.2 checkout.
 The notation version stays 1; note records and their prose remain outside this bounded structural view.
 The projection is the bounded preservation contract for the first inspection view; broader source rewriting and theoretical interpretations require their own contracts.
 
