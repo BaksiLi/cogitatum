@@ -117,6 +117,52 @@ try {
     reentrant.render(a, 'Cancelled inside renderer');
     facts.reentrantCancel = !a.childNodes.length && reentrantCleanup === 1;
     reentrant.destroy();
+
+    for (const during of ['cleanup', 'abort']) {
+      const requests = [];
+      const scope = window.createProseScope(request => {
+        requests.push(request);
+        request.container.textContent = request.text;
+        const replace = () => { if (request.text === 'Old') scope.render(a, 'Newest'); };
+        if (during === 'abort') request.signal.addEventListener('abort', replace, { once: true });
+        return during === 'cleanup' ? replace : undefined;
+      });
+      scope.render(a, 'Old'); scope.render(a, 'Superseded');
+      facts[`${during}ReplacementOwnsContainer`] = a.textContent === 'Newest'
+        && requests.map(request => request.text).join() === 'Old,Newest';
+      scope.destroy();
+      facts[`${during}ReplacementReleased`] = requests.every(request => request.signal.aborted);
+    }
+
+    const resetRequests = [];
+    const resetReentry = window.createProseScope(request => {
+      resetRequests.push(request);
+      request.container.textContent = request.text;
+      return () => { if (request.text === 'First') resetReentry.render(b, 'After reset'); };
+    });
+    resetReentry.render(a, 'First'); resetReentry.render(b, 'Second'); resetReentry.reset();
+    facts.resetReentryOwnsContainer = !a.childNodes.length && b.textContent === 'After reset';
+    resetReentry.destroy();
+    facts.resetReentryReleased = resetRequests.every(request => request.signal.aborted);
+
+    const destroyRequests = [];
+    const destroyReentry = window.createProseScope(request => {
+      destroyRequests.push(request); request.container.textContent = request.text;
+      return () => destroyReentry.destroy();
+    });
+    destroyReentry.render(a, 'Old'); destroyReentry.render(a, 'Ignored after destroy');
+    facts.cleanupDestroyIsFinal = !a.childNodes.length && destroyRequests.length === 1;
+
+    const failureReentry = window.createProseScope(({ text, container, signal }) => {
+      if (text === 'Fail') {
+        signal.addEventListener('abort', () => failureReentry.render(a, 'Recovered'), { once: true });
+        throw Error('Host failed');
+      }
+      container.textContent = text;
+    });
+    failureReentry.render(a, 'Fail');
+    facts.failureReentryOwnsContainer = a.textContent === 'Recovered';
+    failureReentry.destroy();
     host.replaceChildren();
     return facts;
   });

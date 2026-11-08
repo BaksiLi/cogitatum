@@ -24,9 +24,11 @@ export function createProseScope(renderer?: ProseRenderer, onLayout?: () => void
     try { cleanup?.(); } catch { /* One host cleanup must not strand other renders. */ }
   };
   const release = (render: Render) => {
-    render.abort.abort();
-    dispose(render.cleanup); render.cleanup = undefined;
     render.stage.remove();
+    const cleanup = render.cleanup;
+    render.cleanup = undefined;
+    render.abort.abort();
+    dispose(cleanup);
   };
   const layout = () => {
     try { onLayout?.(); } catch { /* Layout observers do not own rendered content. */ }
@@ -34,21 +36,19 @@ export function createProseScope(renderer?: ProseRenderer, onLayout?: () => void
   const reset = () => {
     const previous = [...renders];
     renders.clear();
-    for (const [container, render] of previous) {
-      release(render); container.replaceChildren();
-    }
+    for (const [container] of previous) container.replaceChildren();
+    for (const [, render] of previous) release(render);
   };
   return {
     render(container, text) {
       if (destroyed) return;
       const previous = renders.get(container);
-      renders.delete(container);
-      if (previous) release(previous);
-      container.textContent = text;
       const render: Render = { abort: new AbortController(), stage: container.ownerDocument.createElement("div") };
       renders.set(container, render);
-      if (!renderer) return;
+      container.textContent = text;
       const current = () => !destroyed && renders.get(container) === render;
+      if (previous) release(previous);
+      if (!renderer || !current()) return;
       const finish = (cleanup: void | (() => void)) => {
         if (!current()) { dispose(cleanup || undefined); return; }
         render.cleanup = cleanup || undefined;
@@ -58,9 +58,9 @@ export function createProseScope(renderer?: ProseRenderer, onLayout?: () => void
       const fail = () => {
         if (!current()) return;
         // A failed engine can still have pending work; retire its stage too.
-        release(render);
         container.textContent = text;
-        layout();
+        release(render);
+        if (current()) layout();
       };
       try {
         const result = renderer({ text, container: render.stage, signal: render.abort.signal });
