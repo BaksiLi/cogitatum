@@ -9,6 +9,9 @@ Use the complete released schema set and [migrate retained source](docs/syntax.m
 
 - Add `tokenizeSource`, the language's one lexical definition for highlighting: bullets, structural marks, roles, names, operators, relation words, retired spellings, inline code and literal note subtrees.
   It agrees with the outline parser about which lines carry annotations and never interprets them; editors, terminals and language servers share it instead of keeping their own patterns.
+- Add `tokenizeHostSource`, which places those tokens at file positions, including only a Markdown host's fences and an indented fence's own columns.
+  The language server and native hosts share it rather than each restoring removed indentation.
+- Estimate CJK, fullwidth and pictograph wording at a full em when private View has no font metrics, so such labels are no longer under-measured.
 - Add `cog lsp`, a Language Server Protocol endpoint over the existing compiler: diagnostics, outline, semantic tokens, definition, references, hover and rename for `.cog.md` documents and Markdown `cog` fences.
   Name features index the compiler's resolved references and stay unavailable while source errors remain.
   The language, format and other commands are unchanged.

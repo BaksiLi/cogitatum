@@ -1,5 +1,15 @@
 export type LabelRun = { text: string; code?: true };
 export type LabelLine = LabelRun[];
+
+// East Asian wide and fullwidth characters, and pictographs, occupy about one em.
+const WIDE = /[\u1100-\u115f\u2e80-\u303e\u3041-\ua4cf\uac00-\ud7a3\uf900-\ufaff\ufe30-\ufe4f\uff00-\uff60\uffe0-\uffe6\u{1f300}-\u{1faff}\u{20000}-\u{3fffd}]/u;
+
+/** Text width in ems when no font metrics exist: wide characters take one em, others the face's average advance. */
+export function estimateEms(text: string, average: number): number {
+  let ems = 0;
+  for (const character of text) ems += WIDE.test(character) ? 1 : average;
+  return ems;
+}
 type Measure = (text: string, code?: boolean) => number;
 
 /** Only single-backtick spans are styled; longer delimiters and their contents stay literal. */

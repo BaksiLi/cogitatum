@@ -1,7 +1,7 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { parseDocument } from "./outline.js";
-import { tokenizeSource, type SourceLine } from "./source-tokens.js";
+import { tokenizeHostSource, tokenizeSource, type SourceLine } from "./source-tokens.js";
 
 const text = (line: SourceLine) => line.tokens.map(token => token.text).join("");
 const kinds = (line: SourceLine) => line.tokens.filter(token => token.kind).map(token => `${token.kind}:${token.text}`);
@@ -56,5 +56,15 @@ describe("lexical source tokens", () => {
     parseDocument(source).blocks.forEach(visit);
     const tokenized = tokenizeSource(source).flatMap((line, index) => line.tokens.some(token => token.annotation) ? [index + 1] : []);
     expect(tokenized).toEqual([...annotated].sort((a, b) => a - b));
+  });
+
+  it("place host fence lines where the file has them, after only the indentation Core removed", () => {
+    const host = "\uFEFFProse [C] here.\r\n\r\n  ```cog\r\n  - [C @a] One.\r\n     - [G] Deeper.\r\n  ```\r\n\r\n```cogitatum\n- [O] Two.\n```";
+    const lines = host.split(/\r\n|\r|\n/);
+    const placed = tokenizeHostSource(host, "host");
+    expect(placed.map(line => [line.line, line.column])).toEqual([[4, 3], [5, 3], [9, 1]]);
+    // Each placed line's tokens are exactly the file's text from its column.
+    for (const line of placed) expect(lines[line.line - 1].slice(line.column - 1)).toBe(text(line));
+    expect(tokenizeHostSource("- [C] Whole.\n").map(line => [line.line, line.column])).toEqual([[1, 1], [2, 1]]);
   });
 });

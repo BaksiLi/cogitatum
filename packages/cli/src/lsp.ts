@@ -1,5 +1,5 @@
 import type { Readable, Writable } from "node:stream";
-import { analyzeSourceReferences, explainSource, extractCogitatumSourceUnits, tokenizeSource } from "@cogitatum/core";
+import { analyzeSourceReferences, explainSource, tokenizeHostSource, tokenizeSource } from "@cogitatum/core";
 import type { AstBlock, Diagnostic, ExplainedSource, SourceParseMode, SourceReferenceAnalysis, SourceSpan, SourceTokenKind } from "@cogitatum/core";
 
 // A Language Server Protocol endpoint over the existing compiler.
@@ -307,28 +307,21 @@ function nameTokens(lines: string[], span: SourceSpan, name: string): Range[] {
   return ranges;
 }
 
-/**
- * LSP's relative encoding of lexical tokens. A Markdown host contributes only its Cogitatum
- * fences; each fence line is tokenized without the indentation its fence removes.
- */
+/** LSP's relative encoding of Core's placed lexical tokens; a Markdown host contributes only its fences. */
 export function semanticTokens(text: string, mode: SourceParseMode): number[] {
-  const hostLines = text.split(/\r\n|\r|\n/);
-  const units = extractCogitatumSourceUnits(text, mode);
   const data: number[] = [];
   let previousLine = 0, previousCharacter = 0;
-  for (const unit of units) {
-    tokenizeSource(unit.source).forEach((line, index) => {
-      const hostLine = unit.startLine - 1 + index;
-      let character = (hostLines[hostLine]?.length ?? 0) - line.tokens.reduce((length, token) => length + token.text.length, 0);
-      for (const token of line.tokens) {
-        const semantic = token.kind && SEMANTIC[token.kind];
-        if (semantic && token.text.length) {
-          data.push(hostLine - previousLine, hostLine === previousLine ? character - previousCharacter : character, token.text.length, ...semantic);
-          previousLine = hostLine; previousCharacter = character;
-        }
-        character += token.text.length;
+  for (const placed of tokenizeHostSource(text, mode)) {
+    const line = placed.line - 1;
+    let character = placed.column - 1;
+    for (const token of placed.tokens) {
+      const semantic = token.kind && SEMANTIC[token.kind];
+      if (semantic && token.text.length) {
+        data.push(line - previousLine, line === previousLine ? character - previousCharacter : character, token.text.length, ...semantic);
+        previousLine = line; previousCharacter = character;
       }
-    });
+      character += token.text.length;
+    }
   }
   return data;
 }

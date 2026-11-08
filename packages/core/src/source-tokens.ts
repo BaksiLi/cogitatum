@@ -1,4 +1,6 @@
 import { parseAnnotation } from "./annotation.js";
+import { extractCogitatumSourceUnits } from "./source.js";
+import type { SourceParseMode } from "./types.js";
 
 /**
  * Lexical classes shared by every highlighter: editors, terminal output and language servers.
@@ -11,6 +13,8 @@ export type SourceTokenKind = "bullet" | "mark" | "role" | "name" | "operator" |
 export type SourceToken = { text: string; kind?: SourceTokenKind; annotation?: true };
 /** `role` is the header's first mark, as written: a role such as `G/`, `.` or `_`, or `note`. */
 export type SourceLine = { tokens: SourceToken[]; role?: string; note: boolean };
+/** A tokenized line placed in its host file: one-based `line`, and the one-based UTF-16 `column` of its first token. */
+export type PlacedSourceLine = SourceLine & { line: number; column: number };
 
 const BULLET = /^(\s*)([-*+])(\s+)/;
 const RELATIONS = new Set(["supports", "challenges", "concerns", "respondsTo", "clarifies", "answers"]);
@@ -66,6 +70,19 @@ export function tokenizeSource(source: string): SourceLine[] {
     lines.push({ tokens, role: isNote ? "note" : head?.[1], note: isNote });
   }
   return lines;
+}
+
+/**
+ * Tokens for every Cogitatum line of a file, placed at host positions.
+ * A Markdown host contributes only its fences; an indented fence's lines start after the indentation Core removed.
+ */
+export function tokenizeHostSource(source: string, mode: SourceParseMode = "document"): PlacedSourceLine[] {
+  const hostLines = source.split(/\r\n|\r|\n/);
+  return extractCogitatumSourceUnits(source, mode).flatMap(unit => tokenizeSource(unit.source).map((line, index) => {
+    const number = unit.startLine + index;
+    const length = line.tokens.reduce((total, token) => total + token.text.length, 0);
+    return { ...line, line: number, column: (hostLines[number - 1]?.length ?? length) - length + 1 };
+  }));
 }
 
 /** Inline code spans are the only lexical structure inside prose. */

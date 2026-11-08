@@ -153,7 +153,9 @@ for (const line of tokenizeSource(source)) {
 Kinds are `bullet`, `mark` (brackets, `.`, `_`, family words, `use` and `note`), `role`, `name`, `operator`, `relation`, `punct`, `code`, `note` (a literal note line) and `retired` (a spelling the compiler diagnoses).
 `line.role` is the header's first mark as written, such as `G/`, `.`, `_` or `note`, for hosts that tint a whole header.
 Tokens are lexical only: a highlighted name may be unknown, and a role may sit on a failed boundary; diagnostics remain the compiler's.
-For a Markdown host, tokenize each `extractCogitatumSourceUnits(source, 'host')` unit and place its lines at the unit's `startLine`.
+`tokenizeHostSource(source, mode)` places the same lines in a whole file:
+each `PlacedSourceLine` adds its one-based host `line` and the one-based UTF-16 `column` of its first token.
+A Markdown host contributes only its fences, and an indented fence's tokens start after the indentation Core removed.
 
 ## Graph inspection
 

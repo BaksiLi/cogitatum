@@ -2,7 +2,7 @@ import type { BearingTarget, GraphIR } from "@cogitatum/core";
 import { endingPoints, focusNeighborhood, guidanceSubject, projectExploration, projectGraph, referenceKey, type GraphLink, type GraphNode, type GraphProjection } from "./projection.js";
 import { layoutGraph, type LabelExtent, type Point2 } from "./layout.js";
 import { createDragMotion, type DragReach } from "./motion.js";
-import { labelWidth, wrapMapLabel, type LabelLine } from "./map-label.js";
+import { estimateEms, labelWidth, wrapMapLabel, type LabelLine } from "./map-label.js";
 import { bearingMark, drawBearingGlyph, drawPointGlyph, MARK_TYPE, pointMark } from "./marks.js";
 import type { OutlineTie } from "./reading-projection.js";
 export * from "./projection.js";
@@ -126,7 +126,7 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
   function textWidth(s: string, code = false, weight = 400): number {
     measure ??= doc.createElement("canvas").getContext?.("2d") ?? null;
     if (measure) { measure.font = code ? codeFont : `${weight} ${font}`; return measure.measureText(s).width; }
-    return s.length * MARK_TYPE.text * (code ? .6 : .55) * (weight > 400 ? 1.06 : 1);
+    return estimateEms(s, code ? .6 : .55) * MARK_TYPE.text * (weight > 400 ? 1.06 : 1);
   }
   const lineWidth = (line: LabelLine, weight = 400) => labelWidth(line, (text, code) => textWidth(text, code, weight));
   const literalLine = (text: string): LabelLine[] => [[{ text }]];
