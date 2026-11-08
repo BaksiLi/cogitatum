@@ -35,11 +35,10 @@ You can also paste it into the [Playground](https://onesimos.org/playground).
 No installation or account is needed.
 The [quick start](quick-start.md) walks through a first note; [Bearings](bearings.md#argument-structures) shows separate reasons, joint reasons and chains of reasoning.
 
-Experimental Obsidian and Logseq adapters bring Reading and Map to `cog` or `cogitatum` code blocks while you edit in the host.
-The current experimental builds use Core, View and format 0.6.0 and require local installation.
-Check the installed plugin's version before opening a note; older 0.5 notes need [source migration](syntax.md#from-published-05).
-Browser harness checks exercise the adapters with real Core/View, but do not establish native desktop or mobile compatibility.
-Validate the exact installed build in your host; historical checks of an earlier bundle do not validate the current one.
+Obsidian, Logseq and Vim can show Reading and Map beside the source you edit there.
+These hosts are experimental and released separately;
+[Hosts](https://onesimos.org/docs/hosts) lists what each does, how to install it and where its limits are recorded.
+Older 0.5 notes need [source migration](syntax.md#from-published-05) before any current host compiles them.
 
 These pages describe **format 0.6.0**.
 For saved notes or an installed compiler, check the [version and migration reference](syntax.md#compatibility-and-migration).
