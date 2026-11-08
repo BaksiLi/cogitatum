@@ -169,10 +169,25 @@ try {
     await advance(0);
     assert.deepEqual(await routes(), beforeScroll, 'an ordinary wheel does not zoom the Map');
     await page.locator('#map .cog-node .cog-text').first().evaluate(label => { window.heldLabel = label.firstChild; });
+    await page.evaluate(() => {
+      window.trackMeasurements = () => {
+        window.textMeasurements = { bounds: 0, widths: 0 };
+        const bounds = SVGGraphicsElement.prototype.getBBox, width = SVGTextContentElement.prototype.getComputedTextLength;
+        SVGGraphicsElement.prototype.getBBox = function (...args) { window.textMeasurements.bounds++; return bounds.apply(this, args); };
+        SVGTextContentElement.prototype.getComputedTextLength = function (...args) { window.textMeasurements.widths++; return width.apply(this, args); };
+        window.restoreMeasurements = () => {
+          SVGGraphicsElement.prototype.getBBox = bounds;
+          SVGTextContentElement.prototype.getComputedTextLength = width;
+        };
+      };
+      window.trackMeasurements();
+    });
     for (let step = 0; step < 12; step++) {
       await page.evaluate(() => document.querySelector('#map svg').dispatchEvent(new WheelEvent('wheel', { deltaY: 10, ctrlKey: true, clientX: 160, clientY: 160, bubbles: true, cancelable: true })));
       await advance(1000 / 60);
     }
+    assert.deepEqual(await page.evaluate(() => window.textMeasurements), { bounds: 0, widths: 0 }, 'continuous zoom reuses measured wording without synchronous text measurement');
+    await page.evaluate(() => window.restoreMeasurements());
     assert.deepEqual(await wording(), before, 'wording keeps its line breaks while a zoom is in motion');
     assert.equal(await page.locator('#map .cog-node .cog-text').first().evaluate(label => label.firstChild === window.heldLabel), true,
       'zooming retains the text nodes and their measured hit areas');
@@ -216,8 +231,26 @@ try {
       }, source);
       await advance(0);
     };
-    const pointer = (type, pointerId, x, selector = '#map svg') => page.evaluate(([type, pointerId, x, y, selector]) => document.querySelector(selector).dispatchEvent(
-      new PointerEvent(type, { pointerId, pointerType: 'touch', isPrimary: pointerId === 1, clientX: x, clientY: y, button: 0, bubbles: true, cancelable: true })), [type, pointerId, x, cy, selector]);
+    const pointer = (type, pointerId, x, selector = '#map svg', y = cy) => page.evaluate(([type, pointerId, x, y, selector]) => document.querySelector(selector).dispatchEvent(
+      new PointerEvent(type, { pointerId, pointerType: 'touch', isPrimary: pointerId === 1, clientX: x, clientY: y, button: 0, bubbles: true, cancelable: true })), [type, pointerId, x, y, selector]);
+    await mountPointers();
+    const beforePan = await positions(), panWording = await wording();
+    await page.locator('#map .cog-text').first().evaluate(label => { window.heldPanLabel = label.firstChild; });
+    await page.evaluate(() => window.trackMeasurements());
+    await pointer('pointerdown', 1, cx);
+    for (let step = 1; step <= 12; step++) {
+      await pointer('pointermove', 1, cx + step * 4); await advance(1000 / 60);
+    }
+    assert.deepEqual(await page.evaluate(() => window.textMeasurements), { bounds: 0, widths: 0 }, 'panning reuses measured wording without synchronous text measurement');
+    await page.evaluate(() => window.restoreMeasurements());
+    assert.deepEqual(await wording(), panWording, 'panning keeps all wording unchanged');
+    assert.equal(await page.locator('#map .cog-text').first().evaluate(label => label.firstChild === window.heldPanLabel), true, 'panning retains the existing text nodes');
+    const afterPan = await positions();
+    for (const id of Object.keys(beforePan)) {
+      const from = beforePan[id].match(/-?\d+(?:\.\d+)?/g).map(Number), to = afterPan[id].match(/-?\d+(?:\.\d+)?/g).map(Number);
+      assert.ok(Math.abs(to[0] - from[0] - 48) < .2 && Math.abs(to[1] - from[1]) < .2, 'panning translates every mark together');
+    }
+    await pointer('pointerup', 1, cx + 48); await advance(0);
     const beginPinch = async () => {
       await pointer('pointerdown', 1, cx - 40); await pointer('pointerdown', 2, cx + 40);
       for (let spread = 1; spread <= 5; spread++) {
@@ -225,6 +258,29 @@ try {
         await advance(1000 / 60);
       }
     };
+    for (const lifted of [1, 2]) {
+      await mountPointers();
+      const at = await point('_p1').evaluate(node => { const matrix = node.getScreenCTM(); return { x: matrix.e, y: matrix.f }; });
+      await pointer('pointerdown', 1, at.x, '#map [data-node="point:_p1"]', at.y);
+      await pointer('pointermove', 1, at.x + 30, '#map svg', at.y); await advance(0);
+      assert.equal(await page.locator('#map svg').getAttribute('data-dragging'), 'node');
+      assert.ok(await page.locator('#map .cog-guide').count() > 0, 'a node drag shows its alignment guides');
+      await pointer('pointerdown', 2, at.x + 90, '#map svg', at.y); await advance(0);
+      assert.equal(await page.locator('#map .cog-guide').count(), 0, 'entering a pinch retires node-drag guides');
+      assert.equal(await page.locator('#map svg').getAttribute('data-dragging'), 'camera');
+      await pointer('pointerup', lifted, at.x + (lifted === 1 ? 30 : 90), '#map svg', at.y);
+      const remaining = lifted === 1 ? 2 : 1, remainingX = at.x + (remaining === 1 ? 30 : 90);
+      const beforePan = await positions();
+      await pointer('pointermove', remaining, remainingX + 5, '#map svg', at.y); await advance(0);
+      const afterPan = await positions();
+      for (const id of Object.keys(beforePan)) {
+        const x = transform => Number(transform.match(/^translate\(([\d.-]+)/)[1]);
+        assert.ok(Math.abs(x(afterPan[id]) - x(beforePan[id]) - 5) < .2, 'the surviving finger pans every node instead of resuming the original drag');
+      }
+      await pointer('pointerup', remaining, remainingX + 5, '#map svg', at.y);
+      assert.equal(await page.locator('#map [aria-pressed="true"]').count(), 0, 'a promoted drag cannot turn into a selection');
+      assert.equal(await page.evaluate(() => window.captured.size), 0);
+    }
     for (const lifted of [2, 1]) {
       await mountPointers(); await beginPinch();
       const pinched = await routes();
@@ -273,9 +329,13 @@ try {
     await page.evaluate(source => window.update(source), worded); await advance(0);
     assert.deepEqual(await wording(), fresh, 'a new source revision immediately uses its own fitted wording');
 
-    for (const action of ['fit', 'resetLayout']) {
+    for (const action of ['fit', 'resetLayout', 'update', 'zoom']) {
       await mountPointers(); await beginPinch();
-      await page.evaluate(action => window.view[action](), action); await advance(0);
+      await page.evaluate(({ action, source }) => {
+        if (action === 'update') window.update(source);
+        else if (action === 'zoom') window.view.zoom(1.1);
+        else window.view[action]();
+      }, { action, source: worded }); await advance(0);
       const reset = await routes();
       await pointer('pointermove', 1, cx - 70); await pointer('pointermove', 2, cx + 70); await advance(0);
       assert.deepEqual(await routes(), reset, `${action} cannot be overwritten by an old gesture`);
