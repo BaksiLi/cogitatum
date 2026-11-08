@@ -338,6 +338,21 @@ export type OutlineTie = { child: PointRef; parent: PointRef };
  * and its outline parent, that relation is the connection and no tie is added.
  * Keys belong to this unit: host units repeat anonymous keys, so ties are never gathered across them.
  */
+/**
+ * The occurrence an editor cursor on a one-based source line stands in.
+ * An occurrence's span covers its own lines and children follow it in source order,
+ * so the latest occurrence starting at or before the line is the innermost one containing it;
+ * between blocks it is the nearest preceding occurrence.
+ */
+export function occurrenceAtLine(unit: ReadingUnit, line: number): ReadingOccurrence | undefined {
+  let found: ReadingOccurrence | undefined;
+  for (const occurrence of unit.occurrences) {
+    if (occurrence.sourceSpan.startLine > line) break;
+    found = occurrence;
+  }
+  return found;
+}
+
 export function outlineTies(unit: ReadingUnit): OutlineTie[] {
   const quiet = new Set(unit.commitments.filter(commitment =>
     commitment.basis === "none" && commitment.reason === "no-structural-rule").map(commitment => commitment.occurrenceId));

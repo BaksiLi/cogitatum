@@ -1,9 +1,35 @@
 # Changelog
 
-Core and CLI **0.6.0** use **format 0.6.0**.
+Core and CLI **0.6.2** use **format 0.6.0**.
 The historical `alpha` tag remains at **0.3.0-alpha.1**.
-Earlier 0.4 entries below are unpublished source milestones included in this first 0.4 npm release.
+Earlier 0.4 entries below are unpublished source milestones included in this first 0.4 npm release;
+0.6.1 was likewise never published to npm and ships in 0.6.2.
 Use the complete released schema set and [migrate retained source](docs/syntax.md#compatibility-and-migration) rather than relabelling old JSON.
+
+## 0.6.2 — 9 November 2026
+
+- Add `tokenizeSource`, the language's one lexical definition for highlighting: bullets, structural marks, roles, names, operators, relation words, retired spellings, inline code and literal note subtrees.
+  It agrees with the outline parser about which lines carry annotations and never interprets them; editors, terminals and language servers share it instead of keeping their own patterns.
+- Add `tokenizeHostSource`, which places those tokens at file positions, including only a Markdown host's fences and an indented fence's own columns.
+  The language server and native hosts share it rather than each restoring removed indentation.
+- Estimate CJK, fullwidth and pictograph wording at a full em when private View has no font metrics, so such labels are no longer under-measured.
+- Add `cog lsp`, a Language Server Protocol endpoint over the existing compiler: diagnostics, outline, semantic tokens, definition, references, hover and rename for `.cog.md` documents and Markdown `cog` fences.
+  Name features index the compiler's resolved references and stay unavailable while source errors remain.
+  The language, format and other commands are unchanged.
+- Let `analyzeSourceReferences` reuse a caller's existing `explainSource` result for the same source and mode, so editors compile each revision once.
+- Let private View's block previews follow a native editor's cursor with `reveal(line)`, which selects that line's local occurrence without editing or taking focus.
+
+## 0.6.1 — 7 November 2026
+
+- Keep private View's native block Maps consistent with the website: preserve outline context on first display and updates, and let the camera own the dotted paper.
+  Share Map command labels, icons, theme styles and touch targets; hosts supply interface and monospace faces through `--cog-ui` and `--cog-mono`.
+  Point marks stay in ink; relation colours belong to Bearings.
+
+- Export Core's TypeScript sources under the private `@cogitatum/source` condition instead of `development`.
+  Vite and Vitest enable `development` by default, so their consumers silently compiled the shipped sources instead of `dist`.
+  Consumers that set `development` now receive `dist`; packed-package checks cover Node, tsx with `development`, and TypeScript, and a packed Vitest consumer was checked by hand.
+  Format, schemas and compiled output are unchanged.
+- Move the repository-only interpretation probe out of the public source; it was a research experiment, not a shipped command.
 
 ## 0.6.0 — 4 November 2026
 

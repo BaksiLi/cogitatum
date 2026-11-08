@@ -2,7 +2,7 @@
 
 Check Cogitatum inquiry markup and inspect the reasoning connections marked in ordinary prose.
 
-Version **0.6.0**, format **0.6.0**, with equivalent Point/Bearing family spellings and local object notes.
+Version **0.6.2**, format **0.6.0**, with equivalent Point/Bearing family spellings and local object notes.
 `export` retains note prose and literal subtrees through the complete `explainSource` envelope.
 `graph` retains note target/origin records but omits note prose; graph-text `structure-v1` also omits those records.
 Explicit Bearing constructors, Point declarations and Point uses accept all canonical kind names, including `answers`, `respondsTo` and `clarifies`.
@@ -13,8 +13,8 @@ Use the matching Core/CLI and schema versions when upgrading from 0.5.0.
 Run the CLI without a global installation:
 
 ```sh
-npx --package @cogitatum/cli@0.6.0 cog check inquiry.cog.md
-npx --package @cogitatum/cli@0.6.0 cog graph inquiry.cog.md
+npx --package @cogitatum/cli@0.6.2 cog check inquiry.cog.md
+npx --package @cogitatum/cli@0.6.2 cog graph inquiry.cog.md
 ```
 
 Or, from a source checkout:
@@ -158,6 +158,23 @@ Exit 0 means ready; 1 means unavailable or an I/O failure; 2 means invalid optio
 The published `explicit-target` command is retired and exits 2 with `RETIRED_COMMAND`, naming `target-form --to named`.
 The [inspection reference](../../docs/graph-inspection.md#preview-named-and-positional-targets) gives the full preservation scope.
 
+## Editor integration
+
+`cog lsp` serves the same compiler to an editor over the Language Server Protocol on stdin and stdout.
+It is the one command that reads no file: the editor sends each open document, including unsaved changes, and the server never writes.
+Files ending in `.cog.md` or `.cog` compile in document mode; other Markdown files compile their `cog` fences in host mode.
+
+| Feature | Behavior |
+| --- | --- |
+| Diagnostics | Every compiler diagnostic for each revision, with UTF-16 ranges and its code |
+| Outline | Document symbols follow the AST's block nesting, also while the source has errors |
+| Semantic tokens | Core's `tokenizeSource` classes in standard token types; Markdown hosts contribute only their fences |
+| Definition, references, hover | Follow names the compiler resolved; unavailable while any error remains |
+| Rename | Rewrites one entity's `@name` tokens in its source unit; rejects invalid or already declared names |
+
+Name features use the same inventory as `check --references`, so they wait for an error-free source rather than guessing.
+Any client that starts `cog lsp` over stdio can use it; Vim support, with matching syntax highlighting and a browser preview, is a separate host plugin.
+
 ## Using the CLI from an assistant
 
 An LLM can propose a reconstruction, a wording revision or a reading of a passage, then call `check`, `graph` and `explain` to inspect the represented result.
@@ -167,5 +184,4 @@ Graph text omits ordinary body, notes and occurrence-local prose, so it cannot s
 
 Interpretation, supplying an unstated premise or deciding whether to move a reason to another conclusion remains an attributable authoring choice.
 A future model-assisted workflow should expose its source selection, assumptions and proposed change separately from deterministic checks; no such model command is currently shipped.
-The repository-only `npm run probe:interpretation` checks explicit finite interpretations without an LLM and is not an installed `cog` command.
 See [writing with an assistant](../../docs/writing-style.md#work-with-an-assistant) for the authoring boundary.

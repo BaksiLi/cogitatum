@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { explainSource } from "../../core/src/index.js";
 import type { ExplainedSource, SourceParseMode } from "../../core/src/index.js";
-import { outlineTies, projectReading, type ReadingProjection } from "./reading-projection.js";
+import { occurrenceAtLine, outlineTies, projectReading, type ReadingProjection } from "./reading-projection.js";
 
 const project = (source: string, mode: SourceParseMode = "document") => projectReading(source, explainSource(source, mode));
 const occurrence = (reading: ReadingProjection, line: number) =>
@@ -13,6 +13,15 @@ const lineOf = (reading: ReadingProjection, id: string) =>
   reading.units.flatMap(unit => unit.occurrences).find(item => item.id === id)!.line;
 
 describe("source-aware Reading projection", () => {
+  it("finds the innermost occurrence for an editor line, including continuations and blank lines", () => {
+    const reading = project("- Context.\n- [C @claim] A claim\n  continued here.\n  - [G] A ground.\n\n  - [O] An objection.");
+    const unit = reading.units[0];
+    const at = (line: number) => occurrenceAtLine(unit, line)?.line;
+    expect([at(1), at(2), at(3), at(4), at(5), at(6), at(99)]).toEqual([1, 2, 2, 4, 4, 6, 6]);
+    expect(occurrenceAtLine(project("\n\n- [C] Later.").units[0], 1)).toBeUndefined();
+  });
+
+
   it.each(["document", "host"] as const)("projects joint Bearing-targeted commentary with ordered source occurrences in %s", mode => {
     const content = "- [C] Claim.\n  - [_ +> ^; @original]\n    - [.] Original source.\n    - [_ -> ^/; @review]\n      - [.] First objection source.\n      - [.] Second objection source.\n      - [_ note] Review note.";
     const source = mode === "host" ? "```cog\n" + content + "\n```" : content;

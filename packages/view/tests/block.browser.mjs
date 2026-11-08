@@ -38,7 +38,7 @@ const bundle = await build({
     `,
     resolveDir: fileURLToPath(new URL('../src/', import.meta.url)),
   },
-  bundle: true, write: false, format: 'iife', platform: 'browser', conditions: ['development'],
+  bundle: true, write: false, format: 'iife', platform: 'browser', conditions: ['@cogitatum/source'],
 });
 const source = [
   '- [C @shared] Shared statement.',
@@ -51,7 +51,7 @@ const failures = [], errors = [];
 let checks = 0;
 try {
   for (const width of [1280, 390]) {
-    const page = await browser.newPage({ viewport: { width, height: 900 }, reducedMotion: 'reduce' });
+    const page = await browser.newPage({ viewport: { width, height: 900 }, hasTouch: width < 500, reducedMotion: 'reduce' });
     page.setDefaultTimeout(3000);
     page.on('pageerror', error => errors.push(`${width}px: ${error.message}`));
     await page.setContent('<input id="editor" aria-label="Native editor"><div id="host" style="width:min(720px,100%);min-height:23px"></div>');
@@ -59,6 +59,7 @@ try {
     await page.addScriptTag({ content: bundle.outputFiles[0].text });
     const root = page.locator('.cog-block');
     const button = name => root.getByRole('button', { name, exact: true });
+    const tab = name => root.getByRole('tab', { name, exact: true });
     const row = line => root.locator(`[data-occurrence][data-line="${line}"]`);
     const flush = () => page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
     const mount = async (editable = true) => { await page.evaluate(([source, editable]) => window.mount(source, editable), [source, editable]); await flush(); };
@@ -78,14 +79,14 @@ try {
     const check = async (name, run) => {
       try { await run(); checks++; }
       catch (error) { failures.push(new Error(`${width}px: ${name}: ${error.message}`, { cause: error })); }
-      finally { await page.evaluate(() => window.block?.destroy()); }
+      finally { await page.evaluate(() => { window.block?.destroy(); document.documentElement.style.removeProperty('font-size'); }); }
     };
 
     await check('Reading/Map occurrence and edit target preservation', async () => {
       await mount();
       assert.equal(await root.locator('.cog-graph').count(), 0, 'Map is created only when requested');
       await row(3).focus(); await page.keyboard.press('Space');
-      await button('Map').click(); await flush();
+      await tab('Map').click(); await flush();
       const shared = await mark(3, 'point');
       assert.equal(await shared.getAttribute('aria-pressed'), 'true');
       await shared.dispatchEvent('click', { detail: 0 });
@@ -99,7 +100,7 @@ try {
 
       await page.keyboard.press('ArrowRight');
       assert.equal(await row(3).getAttribute('data-selected-reference'), 'bearing');
-      await button('Map').click(); await flush();
+      await tab('Map').click(); await flush();
       const route = await mark(3, 'bearing');
       assert.equal(await route.getAttribute('aria-pressed'), 'true', 'switching mode preserves the chosen Bearing reference');
       await route.focus(); await page.keyboard.press('Enter');
@@ -108,14 +109,14 @@ try {
       await button('Read passage').click();
       assert.equal(await row(3).getAttribute('data-selected-reference'), 'bearing');
 
-      await button('Map').click();
+      await tab('Map').click();
       const target = await mark(2, 'point');
       await target.dispatchEvent('click', { detail: 0 });
       await button('Edit').click(); await assertRequest(2, 2); await settleRequest(2);
       await button('Read passage').click();
       assert.equal(await row(2).getAttribute('data-selected'), 'true', 'a different Map target selects its own passage');
       await row(4).focus(); await page.keyboard.press('Space');
-      await button('Map').click();
+      await tab('Map').click();
       assert.equal(await root.locator('.cog-node[aria-pressed="true"]').count(), 0, 'body prose clears the graph selection');
       await button('Edit').click(); await assertRequest(3, 4);
     });
@@ -124,12 +125,32 @@ try {
       await mount(false);
       assert.equal(await button('Edit').count(), 0);
       await row(3).focus(); await page.keyboard.press('Enter');
-      await button('Map').click(); await flush();
+      await tab('Map').click(); await flush();
       const shared = await mark(3, 'point');
       await shared.focus(); await page.keyboard.press('Enter');
       assert.equal(await shared.getAttribute('aria-pressed'), 'true');
       assert.equal(await page.evaluate(() => window.requests.length), 0);
       assert.doesNotMatch(await root.locator('.cog-block-hint').textContent(), /edit/i);
+    });
+
+    await check('outline context survives lazy Map creation and source updates', async () => {
+      if (width < 500) await page.evaluate(() => { document.documentElement.style.fontSize = '14px'; });
+      const outline = '- [Q @question] Which opening hours?\n  - [C @claim] Stay open later.';
+      await page.evaluate(source => window.mount(source), outline);
+      await tab('Map').click(); await flush();
+      assert.equal(await root.locator('.cog-outline-tie').count(), 1);
+      assert.equal(await root.locator('.cog-node.bearing').count(), 0, 'nesting does not invent a Bearing');
+      assert.equal(await root.locator('.cog-outline-tie[tabindex]').count(), 0, 'outline context is not selectable');
+      assert.equal(await root.locator('.cog-block-map').evaluate(node => getComputedStyle(node).backgroundImage), 'none', 'only the camera paints the paper grid');
+      if (width < 500) {
+        assert.equal(await root.locator('.cog-map-controls button').evaluateAll(nodes =>
+          nodes.every(node => node.getBoundingClientRect().width >= 44 && node.getBoundingClientRect().height >= 44)), true);
+      }
+      await page.evaluate(source => window.block.update(source.replace('[C @claim]', '[G @claim]')), outline); await flush();
+      assert.equal(await root.locator('.cog-outline-tie').count(), 0);
+      assert.equal(await root.locator('.cog-node.bearing').count(), 1);
+      await page.evaluate(source => window.block.update(source), outline); await flush();
+      assert.equal(await root.locator('.cog-outline-tie').count(), 1, 'Map updates use the same context as first creation');
     });
 
     await check('diagnostic Source uses exact current span and retires stale controls', async () => {
@@ -155,6 +176,37 @@ try {
       await page.evaluate(source => window.mount(source, false), invalid);
       assert.equal(await root.getByRole('button', { name: 'Source', exact: true }).count(), 0);
       assert.equal(await root.locator('.cog-block-issues').isVisible(), true);
+    });
+
+    await check('view tabs have one keyboard entry, wrap and skip unavailable views', async () => {
+      await mount();
+      await tab('Read').focus(); await page.keyboard.press('ArrowRight');
+      assert.equal(await tab('Map').getAttribute('aria-selected'), 'true');
+      assert.equal(await root.locator('[role="tab"][tabindex="0"]').count(), 1);
+      const panelId = await tab('Map').getAttribute('aria-controls');
+      assert.equal(await page.locator(`#${panelId}`).isVisible(), true);
+      await page.keyboard.press('End');
+      assert.equal(await tab('Strands').evaluate(node => node === document.activeElement), true);
+      await page.keyboard.press('ArrowRight');
+      assert.equal(await tab('Read').evaluate(node => node === document.activeElement), true);
+      await page.keyboard.press('ArrowRight');
+      await page.evaluate(() => window.block.update('Unmarked prose.'));
+      assert.equal(await tab('Read').evaluate(node => node === document.activeElement), true, 'a newly disabled tab hands focus to the available view');
+      await page.keyboard.press('ArrowLeft');
+      assert.equal(await tab('Read').evaluate(node => node === document.activeElement), true);
+      assert.equal(await tab('Map').isDisabled(), true);
+    });
+
+    await check('advice keeps its quiet tone while real errors are identified', async () => {
+      const advice = '- [C] Claim.\n  - Body.\n    - [G] Reason.';
+      await page.evaluate(source => window.mount(source), advice);
+      const issues = root.locator('.cog-block-issues');
+      assert.equal(await issues.isVisible(), true);
+      assert.equal(await issues.getAttribute('aria-label'), 'Diagnostics (1 issue)');
+      assert.equal(await issues.evaluate(node => node.classList.contains('has-errors')), false);
+      await page.evaluate(() => window.block.update('- [. use @missing] Missing.'));
+      assert.equal(await issues.getAttribute('aria-label'), 'Diagnostics (1 issue, 1 error)');
+      assert.equal(await issues.evaluate(node => node.classList.contains('has-errors')), true);
     });
 
     await check('host logo inherits ink and remains visible in a narrow preview', async () => {
@@ -209,7 +261,7 @@ try {
     await check('Expand then Edit closes synchronously and preserves Map', async () => {
       await mount();
       await row(3).focus(); await page.keyboard.press('Space');
-      await button('Map').click(); await flush();
+      await tab('Map').click(); await flush();
       await button('Zoom in').click(); await flush();
       const before = await page.evaluate(() => {
         window.savedMap = document.querySelector('.cog-graph');
@@ -243,7 +295,7 @@ try {
     await check('layout responds to container width independently of viewport', async () => {
       await mount();
       await page.locator('#host').evaluate(node => { node.style.width = '320px'; });
-      await button('Map').click(); await flush();
+      await tab('Map').click(); await flush();
       assert.equal(await page.evaluate(() => innerWidth), width);
       assert.equal(await root.locator('.cog-block-title').isVisible(), false);
       assert.equal(await root.locator('.cog-block-map').evaluate(node => node.getBoundingClientRect().height), 340);
@@ -258,10 +310,10 @@ try {
         }), true, 'all visible controls fit the actual container');
       };
       await assertContained();
-      await button('Reading').click(); await flush(); await assertContained();
+      await tab('Read').click(); await flush(); await assertContained();
       if (width > 720) {
         await page.locator('#host').evaluate(node => { node.style.width = '720px'; });
-        await button('Map').click(); await flush();
+        await tab('Map').click(); await flush();
         assert.equal(await page.evaluate(() => innerWidth), width);
         assert.equal(await root.locator('.cog-block-title').isVisible(), true);
         assert.equal(await root.locator('.cog-block-map').evaluate(node => node.getBoundingClientRect().height), 390);
@@ -303,7 +355,7 @@ try {
       assert.equal(await row(9).locator('.cog-reading-note-source').count(), 2);
       await row(9).getByRole('button', { name: 'Note · L5', exact: true }).click();
       assert.equal(await row(5).getAttribute('data-selected'), 'true');
-      await button('Map').click(); await flush();
+      await tab('Map').click(); await flush();
       const route = await mark(3, 'bearing');
       assert.match(await route.getAttribute('aria-label'), /2 source notes/);
       assert.equal(await route.locator('.cog-note-count').textContent(), '2');
@@ -316,7 +368,7 @@ try {
       assert.equal(await page.evaluate(() => window.requests[0].source), noteSource);
       await settleRequest(0);
       await row(1).focus(); await page.keyboard.press('Space');
-      await button('Map').click(); await flush();
+      await tab('Map').click(); await flush();
       assert.match(await root.locator('.cog-block-detail-text').textContent(), /^Main content\./);
       assert.equal(await root.locator('.cog-block-note').count(), 1);
       assert.equal(await root.evaluate(node => node.scrollWidth <= node.clientWidth + 1), true);

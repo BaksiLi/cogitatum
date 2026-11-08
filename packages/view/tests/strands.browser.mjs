@@ -19,7 +19,7 @@ const bundle = await build({
     `,
     resolveDir: fileURLToPath(new URL('../src/', import.meta.url)),
   },
-  bundle: true, write: false, format: 'iife', platform: 'browser', conditions: ['development'],
+  bundle: true, write: false, format: 'iife', platform: 'browser', conditions: ['@cogitatum/source'],
 });
 const source = [
   '- [C @water] The pump was the source.',
@@ -48,7 +48,7 @@ try {
     await page.addScriptTag({ content: bundle.outputFiles[0].text });
     const flush = () => page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
     await page.evaluate(source => window.mount(source), source);
-    await page.getByRole('button', { name: 'Strands' }).click(); await flush();
+    await page.getByRole('tab', { name: 'Strands' }).click(); await flush();
     const strands = page.locator('.cog-strands');
     assert.equal(await page.locator('.cog-block').getAttribute('data-mode'), 'strands');
     const endings = await page.locator('.cog-strands-root').evaluateAll(chips => chips.map(chip => chip.lastChild.textContent));
@@ -73,10 +73,10 @@ try {
     assert.equal(await strands.getAttribute('data-contest'), 'false');
 
     await page.locator('.cog-strands-row-point', { hasText: 'Her niece also died.' }).click(); await flush();
-    await page.getByRole('button', { name: 'Reading' }).click(); await flush();
+    await page.getByRole('tab', { name: 'Read' }).click(); await flush();
     assert.match(await page.locator('.cog-reading-row[data-selected="true"]').textContent(), /Her niece also died/, 'Strands selection reaches Reading');
     await page.locator('.cog-reading-row', { hasText: 'Miasma explains' }).locator('.cog-reading-select').click();
-    await page.getByRole('button', { name: 'Strands' }).click(); await flush();
+    await page.getByRole('tab', { name: 'Strands' }).click(); await flush();
     assert.equal(await page.locator('.cog-strands-row[data-selected="true"]').count(), 1, 'Reading selection reaches Strands');
     await page.locator('.cog-strands-row-point', { hasText: 'Deaths clustered' }).dblclick();
     assert.equal((await page.evaluate(() => window.edits))[0].startLine, 2, 'double-click opens the selected passage');
@@ -91,9 +91,9 @@ try {
     assert.equal(await page.locator('.cog-strands-row[data-selected="true"]').count(), 1, 'a nested relation has a selection location');
 
     await knot.locator('.cog-strands-knot-head').first().click();
-    await page.getByRole('button', { name: 'Map', exact: true }).click(); await flush();
+    await page.getByRole('tab', { name: 'Map', exact: true }).click(); await flush();
     await page.locator('.cog-graph').click({ position: { x: 2, y: 2 } });
-    await page.getByRole('button', { name: 'Strands', exact: true }).click(); await flush();
+    await page.getByRole('tab', { name: 'Strands', exact: true }).click(); await flush();
     assert.equal(await page.locator('.cog-strands-row[data-selected="true"]').count(), 0, 'Map clearing reaches Strands');
     assert.equal(await strands.getAttribute('data-contest'), 'false', 'Map clearing also leaves Challenge Focus');
 
@@ -102,20 +102,20 @@ try {
       '- [C @second] Second ending.', '  - [G @b; @two] Second ground.',
     ].join('\n');
     await page.evaluate(source => window.mount(source), separate);
-    await page.getByRole('button', { name: 'Strands', exact: true }).click();
+    await page.getByRole('tab', { name: 'Strands', exact: true }).click();
     assert.match(await page.locator('.cog-strands-root[aria-pressed="true"]').textContent(), /@first/);
-    await page.getByRole('button', { name: 'Reading', exact: true }).click();
+    await page.getByRole('tab', { name: 'Read', exact: true }).click();
     const other = page.locator('.cog-reading-row[data-line="4"]');
     await other.focus(); await page.keyboard.press('Space'); await page.keyboard.press('ArrowRight');
     assert.equal(await other.getAttribute('data-selected-reference'), 'bearing');
-    await page.getByRole('button', { name: 'Strands', exact: true }).click(); await flush();
+    await page.getByRole('tab', { name: 'Strands', exact: true }).click(); await flush();
     assert.match(await page.locator('.cog-strands-root[aria-pressed="true"]').textContent(), /@second/, 'selecting an unseen Bearing follows its target to the other ending');
     assert.equal(await page.locator('.cog-strands-row[data-selected="true"]').count(), 1, 'an undescribed strand step is still selectable');
     await page.locator('.cog-strands-via-step').click();
     assert.equal(await other.getAttribute('data-selected-reference'), 'bearing', 'a strand relation has its own pointer target');
 
     await page.evaluate(source => window.mount(source), '- [C @c] Claim.\n  - [O @o] Objection.');
-    await page.getByRole('button', { name: 'Strands', exact: true }).click();
+    await page.getByRole('tab', { name: 'Strands', exact: true }).click();
     const focusRow = page.locator('.cog-strands-row').first();
     await focusRow.focus(); await page.keyboard.press('Space'); await page.keyboard.press('ArrowRight');
     assert.equal(await page.locator('.cog-strands').getAttribute('data-contest'), 'true', 'keyboard selection can reach a challenge attached to a Point');
@@ -124,7 +124,7 @@ try {
     assert.equal((await page.evaluate(() => window.edits))[0].startLine, 2, 'Enter opens the selected Bearing rather than the row Point');
 
     await page.evaluate(source => window.mount(source), '- [C @a] A.\n  - [G @b] B.\n    - [G use @a]');
-    await page.getByRole('button', { name: 'Strands', exact: true }).click(); await flush();
+    await page.getByRole('tab', { name: 'Strands', exact: true }).click(); await flush();
     assert.equal(await page.locator('.cog-strands-row-point').count(), 2, 'a closed cycle has Points to follow without an explicit focus');
     assert.equal(await page.locator('.cog-strands-label').textContent(), 'Strands focused at');
     assert.match(await page.locator('.cog-strands-cycle').textContent(), /closing a cycle/);
@@ -136,7 +136,7 @@ try {
       '    - [O/ @alternative] A separate objection to exposure.',
     ].join('\n');
     await page.evaluate(source => window.mount(source), sharedRoutes);
-    await page.getByRole('button', { name: 'Strands', exact: true }).click(); await flush();
+    await page.getByRole('tab', { name: 'Strands', exact: true }).click(); await flush();
     const direct = page.locator('.cog-strands-row-knot').filter({ hasText: 'challenges the step @proximity' });
     const alternative = page.locator('.cog-strands-row-knot').filter({ hasText: 'challenges the step @route' });
     await direct.locator('.cog-strands-knot-head').first().click(); await flush();
@@ -160,24 +160,24 @@ try {
     await page.evaluate(source => window.mount(source), reused);
     const use = page.locator('.cog-reading-row[data-line="3"]');
     await use.focus(); await page.keyboard.press('Space');
-    await page.getByRole('button', { name: 'Strands', exact: true }).click();
+    await page.getByRole('tab', { name: 'Strands', exact: true }).click();
     await page.locator('.cog-strands-point-line').filter({ hasText: 'Shared wording.' }).click();
     await page.getByRole('button', { name: 'Edit', exact: true }).click();
     assert.equal((await page.evaluate(() => window.edits))[0].startLine, 3, 'reselecting a shared Point retains the chosen local occurrence');
-    await page.getByRole('button', { name: 'Reading', exact: true }).click();
+    await page.getByRole('tab', { name: 'Read', exact: true }).click();
     assert.equal(await use.getAttribute('data-selected'), 'true');
 
     const unseen = '- [C @first] First.\n  - [G] One.\n- [C @second] Second.\n  - [G; @step] Two.\n    - [O/ @o] An exception.\n      - [R @r] A response.';
     await page.evaluate(source => window.mount(source), unseen);
-    await page.getByRole('button', { name: 'Strands', exact: true }).click();
-    await page.getByRole('button', { name: 'Reading', exact: true }).click();
+    await page.getByRole('tab', { name: 'Strands', exact: true }).click();
+    await page.getByRole('tab', { name: 'Read', exact: true }).click();
     await page.locator('.cog-reading-row[data-line="5"]').locator('.cog-reading-select').click();
-    await page.getByRole('button', { name: 'Strands', exact: true }).click(); await flush();
+    await page.getByRole('tab', { name: 'Strands', exact: true }).click(); await flush();
     assert.match(await page.locator('.cog-strands-root[aria-pressed="true"]').textContent(), /@second/, 'an unseen objection keeps the route it challenges in context');
     assert.match(await page.locator('.cog-strands-row[data-selected="true"]').textContent(), /An exception/);
-    await page.getByRole('button', { name: 'Reading', exact: true }).click();
+    await page.getByRole('tab', { name: 'Read', exact: true }).click();
     await page.locator('.cog-reading-row[data-line="6"]').locator('.cog-reading-select').click();
-    await page.getByRole('button', { name: 'Strands', exact: true }).click();
+    await page.getByRole('tab', { name: 'Strands', exact: true }).click();
     assert.match(await page.locator('.cog-strands-root[aria-pressed="true"]').textContent(), /@second/, 'the same holds for a response inside the knot');
 
     // Host-rendered controls have the same boundary in Reading and Strands.
@@ -190,14 +190,14 @@ try {
 
     const many = ['- [C @claim] Many sources.', '  - [_ +> ^]', ...Array.from({ length: 32 }, (_, i) => `    - [.] Source ${i + 1}.`)].join('\n');
     await page.evaluate(source => window.mount(source), many);
-    await page.getByRole('button', { name: 'Strands', exact: true }).click(); await flush();
+    await page.getByRole('tab', { name: 'Strands', exact: true }).click(); await flush();
     assert.equal(await page.locator('.cog-strands-row-point').count(), 33);
     assert.ok(await page.locator('.cog-strands').evaluate(node => node.scrollWidth <= node.clientWidth + 1), 'dense lanes leave room for prose within the host');
     assert.ok(await page.locator('.cog-strands-point-line').last().evaluate(node => node.clientWidth > 150), 'the narrow reader retains a usable text column');
 
     const anonymous = '- [C] First.\n  - [G] One.\n- [C] Second.\n  - [G] Two.';
     await page.evaluate(source => window.mount(source), anonymous);
-    await page.getByRole('button', { name: 'Strands', exact: true }).click();
+    await page.getByRole('tab', { name: 'Strands', exact: true }).click();
     await page.locator('.cog-strands-root').last().click();
     await page.evaluate(source => window.block.update('- [C] Preface.\n' + source), anonymous); await flush();
     assert.match(await page.locator('.cog-strands-point-line').first().textContent(), /First\./, 'a reused anonymous compilation key cannot retain a different focus after editing');

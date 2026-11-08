@@ -25,9 +25,10 @@ export type SourceReferenceAnalysis = Pick<ExplainedSource, "version" | "mode" |
  * Inventory written references in the complete supplied document or host.
  * Names and keys are local to each selected unit. No edits or unused-name advice.
  * Any source/selection error withholds the inventory, including empty counts.
+ * A caller that already compiled this exact source and mode may pass that result to avoid compiling it again.
  */
-export function analyzeSourceReferences(source: string, mode: SourceParseMode = "document"): SourceReferenceAnalysis {
-  const explained = explainSource(source, mode);
+export function analyzeSourceReferences(source: string, mode: SourceParseMode = "document", explained: ExplainedSource = explainSource(source, mode)): SourceReferenceAnalysis {
+  if (explained.mode !== mode) throw new Error("Reference analysis requires the compilation of the same source and mode.");
   const { version, units, diagnostics } = explained;
   const base = { version, mode: explained.mode, units, diagnostics };
   if (diagnostics.some(diagnostic => diagnostic.severity === "error")) {

@@ -38,6 +38,7 @@ block.destroy();
 Supply one document-mode inquiry fragment, without its host Markdown fence.
 Each changed source is compiled once and clears selection and pending navigation from the old revision.
 The chosen mode (`reading`, `map` or `strands`) and the live Map instance survive updates; an empty fragment returns to Reading.
+Read, Map and Strands form one tablist; Left/Right wrap through available views, and Home/End reach its ends.
 Selection is shared across the three modes; Challenge Focus stays within Strands.
 `initialMode` is resolved again after DOM attachment for hosts that construct previews off-DOM.
 `onMode` reports user choices so the host can remember a view preference across render-child replacement.
@@ -47,11 +48,16 @@ The host supplies installed package versions and source provenance at build time
 Edit and Enter request native source navigation; omitting `onEdit` removes the edit action.
 The callback receives the exact source revision, its optional local occurrence span, and a cancellation signal.
 Check that signal after asynchronous work, then validate the live native buffer before selecting or focusing it.
+In the other direction, `reveal(line)` follows a native editor's cursor: it selects the local occurrence at that one-based line of the current fragment, or the nearest one before it, without editing or taking focus.
+Body lines without a Point or Bearing leave the selection unchanged.
 Repeated requests are ignored while the same block is opening; revisions and destruction abort that request.
 Expansion moves the existing views into a native dialog and returns them before invoking the editor callback.
 The shell never writes source, persists selection or creates an editor buffer.
 Hosts own native editor reuse, file identity, persistence, theme tokens and host-specific event boundaries.
 The shell uses the same `--cog-*` tokens as the views, plus optional `--cog-error`, and adapts to its container width.
+Set `--cog-ui` and `--cog-mono` to the host's interface and code faces; prose inherits its surrounding type.
+`MAP_CONTROLS` exports the Arrange command and zoom group, with their labels, data attributes and SVG paths.
+The shared `.cog-map-controls` styles own their appearance and touch targets; each host places them and connects its own Map instance.
 An optional `logo` image URL adds a decorative mark that inherits the host's ink through an alpha mask.
 Hosts supply and bundle their own approved brand asset.
 With `onEdit`, each diagnostic that has a source span also offers Source navigation through the same cancellable editor callback.

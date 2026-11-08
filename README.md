@@ -22,12 +22,12 @@ The compiler makes these connections inspectable without deciding whether the re
 
 ## Release status
 
-**Core/CLI 0.6.0** implements **format 0.6.0**.
+**Core/CLI 0.6.2** implements **format 0.6.0**.
 It includes multiline content, target terms `^` and `^/` with Bearing constructors such as `[_ +> ^]`, object notes, and revised local relation rules.
 The Docs describe this version.
 See the [migration from 0.5](docs/syntax.md#from-published-05) and [changelog](CHANGELOG.md) before recompiling saved notes.
 
-Install with `npm install @cogitatum/core@0.6.0`, or run `npx --package @cogitatum/cli@0.6.0 cog check inquiry.cog.md`.
+Install with `npm install @cogitatum/core@0.6.2`, or run `npx --package @cogitatum/cli@0.6.2 cog check inquiry.cog.md`.
 Use the matching compiler and schema bundle; retained 0.5 source needs migration and recompilation.
 
 The production [playground](https://onesimos.org/playground) is deployed separately from npm packages.

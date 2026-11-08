@@ -19,7 +19,7 @@ const bundle = await build({
     `,
     resolveDir: fileURLToPath(new URL('../src/', import.meta.url)),
   },
-  bundle: true, write: false, format: 'iife', platform: 'browser', conditions: ['development'],
+  bundle: true, write: false, format: 'iife', platform: 'browser', conditions: ['@cogitatum/source'],
 });
 const browser = await chromium.launch();
 try {
@@ -117,6 +117,52 @@ try {
     reentrant.render(a, 'Cancelled inside renderer');
     facts.reentrantCancel = !a.childNodes.length && reentrantCleanup === 1;
     reentrant.destroy();
+
+    for (const during of ['cleanup', 'abort']) {
+      const requests = [];
+      const scope = window.createProseScope(request => {
+        requests.push(request);
+        request.container.textContent = request.text;
+        const replace = () => { if (request.text === 'Old') scope.render(a, 'Newest'); };
+        if (during === 'abort') request.signal.addEventListener('abort', replace, { once: true });
+        return during === 'cleanup' ? replace : undefined;
+      });
+      scope.render(a, 'Old'); scope.render(a, 'Superseded');
+      facts[`${during}ReplacementOwnsContainer`] = a.textContent === 'Newest'
+        && requests.map(request => request.text).join() === 'Old,Newest';
+      scope.destroy();
+      facts[`${during}ReplacementReleased`] = requests.every(request => request.signal.aborted);
+    }
+
+    const resetRequests = [];
+    const resetReentry = window.createProseScope(request => {
+      resetRequests.push(request);
+      request.container.textContent = request.text;
+      return () => { if (request.text === 'First') resetReentry.render(b, 'After reset'); };
+    });
+    resetReentry.render(a, 'First'); resetReentry.render(b, 'Second'); resetReentry.reset();
+    facts.resetReentryOwnsContainer = !a.childNodes.length && b.textContent === 'After reset';
+    resetReentry.destroy();
+    facts.resetReentryReleased = resetRequests.every(request => request.signal.aborted);
+
+    const destroyRequests = [];
+    const destroyReentry = window.createProseScope(request => {
+      destroyRequests.push(request); request.container.textContent = request.text;
+      return () => destroyReentry.destroy();
+    });
+    destroyReentry.render(a, 'Old'); destroyReentry.render(a, 'Ignored after destroy');
+    facts.cleanupDestroyIsFinal = !a.childNodes.length && destroyRequests.length === 1;
+
+    const failureReentry = window.createProseScope(({ text, container, signal }) => {
+      if (text === 'Fail') {
+        signal.addEventListener('abort', () => failureReentry.render(a, 'Recovered'), { once: true });
+        throw Error('Host failed');
+      }
+      container.textContent = text;
+    });
+    failureReentry.render(a, 'Fail');
+    facts.failureReentryOwnsContainer = a.textContent === 'Recovered';
+    failureReentry.destroy();
     host.replaceChildren();
     return facts;
   });
@@ -131,7 +177,7 @@ try {
     });
     window.block.update(source);
   }, source);
-  await page.getByRole('button', { name: 'Map', exact: true }).click();
+  await page.getByRole('tab', { name: 'Map', exact: true }).click();
   const points = page.locator('.cog-node.point');
   await points.nth(0).dispatchEvent('click', { detail: 0 });
   const firstIndex = await page.evaluate(() => window.renders.length - 1);
@@ -174,7 +220,7 @@ try {
     });
     window.block.update('- [C @first] C\n- [C @second] Target.\n- [G +>] **Invalid** prose.\n- [_ @first +> @second; @route]');
   });
-  await page.getByRole('button', { name: 'Map', exact: true }).click();
+  await page.getByRole('tab', { name: 'Map', exact: true }).click();
   await page.locator('.cog-node.point').nth(0).dispatchEvent('click', { detail: 0 });
   assert.equal(await page.locator('.cog-block-detail-text').textContent(), 'C', 'Prose equal to the compact role label is still authored prose');
   const beforeInvalid = await page.evaluate(() => window.renders.length);
@@ -193,7 +239,7 @@ try {
       });
       window.block.update('- [C @p] Main.\n  - [. note] Note.\n    - [bearing @literal] Quoted.');
     });
-    await page.getByRole('button', { name: 'Map', exact: true }).click();
+    await page.getByRole('tab', { name: 'Map', exact: true }).click();
     const start = await page.evaluate(() => window.renders.length);
     await page.locator('.cog-node.point').dispatchEvent('click', { detail: 0 });
     assert.equal(await page.evaluate(() => window.renders.length), start + 3);

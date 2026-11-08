@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { labelWidth, mapLabel, wrapMapLabel } from "./map-label.js";
+import { estimateEms, labelWidth, mapLabel, wrapMapLabel } from "./map-label.js";
 
 const measure = (text: string, code = false) => Array.from(text).length * (code ? 2 : 1);
 const wording = (lines: ReturnType<typeof wrapMapLabel>) => lines.map(line => line.map(run => run.text).join(""));
@@ -56,5 +56,14 @@ describe("Map inline code", () => {
     expect(wording(lines)).toEqual(["abcde", "fghij", "😀😀kl…"]);
     expect(lines.every(line => labelWidth(line, measure) <= 10)).toBe(true);
     expect(lines.every(line => line[0].code)).toBe(true);
+  });
+});
+
+describe("Map width estimate without font metrics", () => {
+  it("gives CJK, fullwidth punctuation and astral pictographs a full em, once per character", () => {
+    expect(estimateEms("abcd", .5)).toBe(2);
+    expect(estimateEms("九不是素數。", .5)).toBe(6);
+    expect(estimateEms("９，😀𠀀", .5)).toBe(4);
+    expect(estimateEms("9 不", .5)).toBe(2);
   });
 });
