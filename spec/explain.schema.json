@@ -1,12 +1,12 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://cogitatum.baksili.codes/schemas/0.6.0/explain.schema.json",
+  "$id": "https://cogitatum.baksili.codes/schemas/0.7.0/explain.schema.json",
   "title": "Cogitatum Explain Projection",
   "description": "Recognition and compiler effects for one source unit. Emitted summaries obey canonical target restrictions; rejected candidates may retain unresolved or invalid targets. Agreement with a graph is checked separately.",
   "type": "object",
   "required": ["version", "entries", "diagnostics"],
   "properties": {
-    "version": { "const": "0.6.0" },
+    "version": { "const": "0.7.0" },
     "entries": { "type": "array", "items": { "$ref": "#/$defs/entry" } },
     "diagnostics": { "type": "array", "items": { "$ref": "#/$defs/diagnostic" } }
   },
@@ -81,8 +81,9 @@
       "properties": {
         "key": { "$ref": "#/$defs/bearingKey" },
         "handle": { "$ref": "#/$defs/authoredId" },
+        "profile": { "const": "example", "description": "Written by example: the sources are offered as an example. Only on supports; selects no inference scheme or assessment." },
         "kind": {
-          "enum": ["supports", "challenges", "concerns", "respondsTo", "clarifies", "answers"]
+          "enum": ["supports", "challenges", "concerns", "respondsTo", "interprets", "answers"]
         },
         "sources": {
           "type": "array",
@@ -98,6 +99,7 @@
         },
         "derivedBy": { "enum": ["operator", "structural"], "description": "structural: the target was selected by position (^, ^/ or a mark default); operator: the target was named." }
       },
+      "allOf": [{ "if": { "required": ["profile"] }, "then": { "properties": { "kind": { "const": "supports" } } } }],
       "additionalProperties": false
     },
     "emittedBearingSummary": {
@@ -276,6 +278,20 @@
         },
         {
           "type": "object",
+          "required": ["kind", "framing"],
+          "properties": {
+            "kind": { "const": "frameOccurrence" },
+            "framing": { "enum": ["aligned", "compatible", "opposed", "unbound", "none"] },
+            "intention": { "enum": ["supports", "challenges", "respondsTo", "interprets"] },
+            "focus": { "enum": ["question", "point"] }
+          },
+          "if": { "properties": { "framing": { "const": "unbound" } } },
+          "then": { "required": ["intention"] },
+          "else": { "properties": { "intention": false } },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
           "required": ["kind", "ref", "reason"],
           "properties": {
             "kind": { "const": "emitPoint" },
@@ -314,7 +330,7 @@
             "kind": { "const": "rejectBearing" },
             "bearing": { "$ref": "#/$defs/bearingSummary" },
             "reason": {
-              "enum": ["annotation-syntax-error", "explicit-bearing-descendant-requires-target", "bearing-use-requires-explicit-target", "failed-context-requires-explicit-target", "validation-error", "invalid-local-bearing", "no-local-attachment", "no-local-point"]
+              "enum": ["annotation-syntax-error", "explicit-bearing-descendant-requires-target", "bearing-use-requires-explicit-target", "failed-context-requires-explicit-target", "validation-error", "unsupported-profile", "invalid-local-bearing", "no-local-attachment", "no-local-point"]
             }
           },
           "additionalProperties": false

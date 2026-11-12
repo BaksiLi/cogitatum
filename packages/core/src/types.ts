@@ -1,12 +1,18 @@
-export const FORMAT_VERSION = "0.6.0";
+export const FORMAT_VERSION = "0.7.0";
 
 export type Role = "Q" | "C" | "G" | "O" | "R" | "D";
 export type BearingOp = "supports" | "challenges" | "concerns";
-export type BearingKind = BearingOp | "respondsTo" | "clarifies" | "answers";
+export type BearingKind = BearingOp | "respondsTo" | "interprets" | "answers";
 /** How the target was selected: by position ("structural") or by name ("operator"). */
 export type BearingDerivedBy = "operator" | "structural";
 export type Severity = "error" | "warning" | "suggestion";
-export type AnnotationSyntaxError = "operator" | "handle" | "mode" | "selector" | "reference" | "retired" | "note";
+export type AnnotationSyntaxError = "operator" | "handle" | "mode" | "selector" | "reference" | "retired" | "note" | "profile";
+/**
+ * How the sources participate in a supports Bearing: `by example` records
+ * that they are offered as an example. It qualifies one constructed Bearing,
+ * never a Point, and selects no inference scheme or assessment.
+ */
+export type BearingProfile = "example";
 export type LocalBearingChildFunction = "source" | "commentary" | "independent" | "supplementary" | "unclassified";
 /** Roles whose `/` form selects the locally exposed Bearing. */
 export type SelectorRole = "G" | "O" | "Q" | "D";
@@ -61,8 +67,10 @@ export type PointOperatorClause = OperatorClause & { sources: "self" };
 // A Bearing constructor takes its sources from children or from references.
 export type BearingOperatorClause = OperatorClause & { sources: Ref[] | "members" };
 
-type AnnotationBase<ErrorKind extends AnnotationSyntaxError = "operator" | "handle" | "selector" | "retired"> = {
+type AnnotationBase<ErrorKind extends AnnotationSyntaxError = "operator" | "handle" | "selector" | "retired" | "profile"> = {
   syntaxErrors?: ErrorKind[];
+  /** Written `by example`: qualifies the supports Bearing this header constructs. */
+  profile?: BearingProfile;
   handle?: string;
   raw: string;
 };
@@ -87,7 +95,7 @@ export type Annotation =
   | { kind: "note"; targetKind?: "point" | "bearing"; raw: string; syntaxErrors?: "note"[] }
   | { kind: "invalid"; raw: string; selector?: "attachment" }
   | { kind: "bearingUse"; ref?: Ref; raw: string; syntaxErrors?: "reference"[] }
-  | (AnnotationBase<"reference" | "operator" | "selector" | "handle" | "retired"> & {
+  | (AnnotationBase<"reference" | "operator" | "selector" | "handle" | "retired" | "profile"> & {
       kind: "use";
       ref?: Ref;
       operatorClause?: PointOperatorClause;
@@ -100,7 +108,7 @@ export type Annotation =
    * whether direct children are the sources, including on a failed header.
    * "mode" records a header whose first token selects no mode.
    */
-  | (AnnotationBase<"operator" | "handle" | "selector" | "retired" | "mode"> & {
+  | (AnnotationBase<"operator" | "handle" | "selector" | "retired" | "mode" | "profile"> & {
       kind: "bearing";
       members: boolean;
       operatorClause?: BearingOperatorClause;
@@ -183,8 +191,10 @@ type BearingBase = {
 // Dialogical relations address a Point; evaluative and interpretive ones may
 // also address a Bearing.
 type BearingRelation =
-  | { kind: "answers" | "respondsTo"; target: PointRef }
-  | { kind: "supports" | "challenges" | "concerns" | "clarifies"; target: BearingTarget };
+  | { kind: "answers" | "respondsTo"; target: PointRef; profile?: never }
+  | { kind: "challenges" | "concerns" | "interprets"; target: BearingTarget; profile?: never }
+  // Only support carries a profile; forgetting it leaves the plain support.
+  | { kind: "supports"; target: BearingTarget; profile?: BearingProfile };
 
 export type Bearing = BearingBase & BearingRelation;
 
@@ -239,12 +249,27 @@ export type ExplainBearingSummary = {
   key: string;
   handle?: string;
   kind: BearingKind;
+  profile?: BearingProfile;
   sources: (PointRef | Ref)[];
   target: ExplainReference;
   derivedBy: BearingDerivedBy;
 };
 
 export type ExplainEmittedBearingSummary = Omit<BearingBase, "text" | "sourceSpan"> & BearingRelation;
+
+/**
+ * How an occurrence's written mark stands to the relation it constructs.
+ *
+ * - aligned: the relation is the mark's own, by default, selector or clause.
+ * - compatible: a clause states another relation that the mark does not oppose.
+ * - opposed: G with challenges, or O with supports. The clause alone constructs.
+ * - unbound: the mark's home relation is not realized: a relation mark at
+ *   root, or G beneath a Question, which records relevance only.
+ * - none: no relation and no intention awaiting one.
+ */
+export type ExplainFraming =
+  | { framing: "aligned" | "compatible" | "opposed" | "none" }
+  | { framing: "unbound"; intention: BearingKind };
 
 export type ExplainEffect =
   | { kind: "preserveNote"; parentSpan?: SourceSpan }
@@ -266,6 +291,11 @@ export type ExplainEffect =
   | { kind: "selectAttachment"; ownerSpan?: SourceSpan; target?: BearingRef }
   | { kind: "selectBearing"; contextSpan: SourceSpan; target?: BearingRef }
   | { kind: "preserveBody" }
+  /**
+   * Emitted for each Point occurrence whose construction stands. `focus` is
+   * present when the nearest Point focus selected a default relation.
+   */
+  | ({ kind: "frameOccurrence"; focus?: "question" | "point" } & ExplainFraming)
   | {
       kind: "emitPoint";
       ref: PointRef;
@@ -290,6 +320,7 @@ export type ExplainEffect =
         | "no-local-attachment"
         | "no-local-point"
         | "validation-error"
+        | "unsupported-profile"
         | "invalid-local-bearing";
     }
   | {

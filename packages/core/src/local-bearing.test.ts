@@ -97,7 +97,7 @@ describe("local joint support", () => {
         - [R @reply] Reply.
     - [. @b] Other premise.
 - [C @other] Other conclusion.
-- [edge @a +> @other; @shared]
+- [_ @a +> @other; @shared]
 - [O @route-objection -> @route] Route objection.`);
     expect(codes(graph)).toEqual([]);
     expect(routes(graph)).toEqual(expect.arrayContaining([
@@ -307,7 +307,7 @@ describe("local joint support", () => {
   });
 
   it("keeps a direct edge independent but never accepts it as a member", () => {
-    const graph = compile("- [C @c] Conclusion.\n  - [_ +> ^]\n    - [. @a] Premise.\n    - [edge @a +> @c; @explicit]");
+    const graph = compile("- [C @c] Conclusion.\n  - [_ +> ^]\n    - [. @a] Premise.\n    - [_ @a +> @c; @explicit]");
     expect(codes(graph)).toEqual([]);
     expect(graph.bearings.map(b => b.handle)).toEqual([undefined, "explicit"]);
   });
@@ -338,7 +338,7 @@ ${nestedIndent}  - [.] Premise.`);
   it("diagnoses ^ beneath an explicit Bearing once, at the cause", () => {
     const graph = compile(`- [C @c] Conclusion.
 - [G @g] Ground.
-- [edge @g +> @c]
+- [_ @g +> @c]
   - Context.
     - [_ +> ^]
       - [.] Premise.
@@ -364,7 +364,7 @@ ${nestedIndent}  - [.] Premise.`);
     expect(collision.points).toHaveLength(3);
     expect(collision.bearings).toEqual([]);
     expect(codes(collision)).toEqual(["POINT_BEARING_ID_CONFLICT"]);
-    const badRefs = compile("- [C @c] Conclusion.\n  - [_ +> ^; @route]\n    - [. @a] Premise.\n- [edge @route +> @c]\n- [O -> @route] Wrong target.");
+    const badRefs = compile("- [C @c] Conclusion.\n  - [_ +> ^; @route]\n    - [. @a] Premise.\n- [_ @route +> @c]\n- [O -> @route] Wrong target.");
     expect(badRefs.bearings).toHaveLength(2);
     expect(codes(badRefs)).toEqual(["BEARING_IS_NOT_BEARING_SOURCE"]);
     const duplicate = compile("- [C] Conclusion.\n  - [_ +> ^; @route]\n    - [.] First.\n  - [_ +> ^; @route]\n    - [.] Second.");
@@ -374,7 +374,7 @@ ${nestedIndent}  - [.] Premise.`);
   });
 
   it("adds no cycle policy to named routes", () => {
-    const graph = compile("- [C @c] Conclusion.\n  - [_ +> ^; @route]\n    - [. @a] Premise.\n- [edge @a ~> @self; @self]");
+    const graph = compile("- [C @c] Conclusion.\n  - [_ +> ^; @route]\n    - [. @a] Premise.\n- [_ @a ~> @self; @self]");
     expect(codes(graph)).toEqual([]);
     expect(graph.bearings[1].target).toEqual({ key: graph.bearings[1].key, kind: "bearing" });
   });
@@ -393,7 +393,7 @@ ${nestedIndent}  - [.] Premise.`);
 
   it("matches normalized edge topology while retaining Point role, form, status, content, and names", () => {
     const linked = compile("- [C @c] Conclusion.\n  - [_ +> ^; @route] 說明這一步。\n    - [. @a] First.\n      - [O @o] Objection.\n        - [R @r] Reply.\n    - [. @b] Second.\n- [O @u -> @route] Undercut.");
-    const edge = compile("- [C @c] Conclusion.\n- [. @a] First.\n  - [O @o] Objection.\n    - [R @r] Reply.\n- [. @b] Second.\n- [edge @a, @b +> @c; @route] 說明這一步。\n- [O @u -> @route] Undercut.");
+    const edge = compile("- [C @c] Conclusion.\n- [. @a] First.\n  - [O @o] Objection.\n    - [R @r] Reply.\n- [. @b] Second.\n- [_ @a, @b +> @c; @route] 說明這一步。\n- [O @u -> @route] Undercut.");
     expect(codes(linked)).toEqual([]);
     expect(codes(edge)).toEqual([]);
     expect(linked.bearings.find(b => b.handle === "route")?.text).toBe("說明這一步。");

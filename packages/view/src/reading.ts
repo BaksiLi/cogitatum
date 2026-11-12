@@ -1,5 +1,5 @@
 import type { BearingTarget, Diagnostic, SourceSpan } from "@cogitatum/core";
-import { bearingMark, createBearingChip, createMarkChip, drawBearingGlyph } from "./marks.js";
+import { bearingLabel, bearingMark, createBearingChip, createMarkChip, drawBearingGlyph } from "./marks.js";
 import { focusNeighborhood, guidanceSubject, projectExploration, projectGraph, referenceKey, type GraphProjection } from "./projection.js";
 import type { ReadingCommitment, ReadingEndpoint, ReadingOccurrence, ReadingProjection } from "./reading-projection.js";
 import { describeCommitment } from "./commitment.js";
@@ -252,7 +252,7 @@ export function createReadingView(container: HTMLElement, options: ReadingViewOp
       const summary = html("div", "cog-reading-relation", parent);
       summary.dataset.kind = route.bearing.kind;
       html("span", "cog-reading-relation-kind", summary).textContent =
-        `${route.sources.length > 1 ? "jointly " : ""}${bearingMark(route.bearing.kind).name}`;
+        `${route.sources.length > 1 ? "jointly " : ""}${bearingLabel(route.bearing.kind, route.bearing.profile)}`;
       if (route.bearing.handle) {
         reference(summary, source.unitIndex, {
           occurrenceId: source.id, ref: { kind: "bearing", key: route.bearing.key }, basis: "self"

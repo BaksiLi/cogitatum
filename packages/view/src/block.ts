@@ -4,7 +4,7 @@ import { createReadingView } from "./reading.js";
 import { createStrandsView, type StrandsView } from "./strands.js";
 import { occurrenceAtLine, outlineTies, projectReading } from "./reading-projection.js";
 import { MAP_CONTROLS } from "./map-controls.js";
-import { bearingMark, declarationMark } from "./marks.js";
+import { bearingLabel, declarationMark } from "./marks.js";
 import { referenceKey } from "./projection.js";
 import { createProseScope, type ProseRenderer } from "./prose.js";
 
@@ -187,7 +187,7 @@ export function createBlockView(container: HTMLElement, options: BlockViewOption
     const bearing = ref.kind === "bearing" ? graph.bearings.find(bearing => bearing.key === ref.key) : undefined;
     const entity = point ?? bearing;
     if (!entity) return;
-    const mark = point ? declarationMark(point.declaration).name : bearingMark(bearing!.kind).name;
+    const mark = point ? declarationMark(point.declaration).name : bearingLabel(bearing!.kind, bearing!.profile);
     const name = point ? point.id : bearing!.handle;
     detailHeading.textContent = `${mark}${name ? ` @${name}` : ""}`;
     const prose = entity.text;

@@ -1,6 +1,6 @@
 - A runaway trolley will kill five people. Switching it onto a side track will kill one. Assume these outcomes are certain and there is no third option.
 - [Q @decision] Should we switch the trolley?
-  - [C answers @decision] We should switch it.
+  - [C] We should switch it.
     - [_ +> ^; @fewer-deaths]
       - [.] Switching kills fewer people than doing nothing.
       - [.] When all other morally relevant considerations are equal, we should choose the action that kills fewer people.

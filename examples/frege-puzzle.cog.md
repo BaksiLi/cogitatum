@@ -1,6 +1,6 @@
 - Frege’s puzzle: two names can pick out the same thing, yet an identity statement can still teach us something.
   - [Q @puzzle] Why can co-referential names differ in cognitive value?
-    - [C @c1 answers @puzzle] Sense explains the difference in cognitive value.
+    - [C @c1] Sense explains the difference in cognitive value.
       - [G; @sense-case] Co-referential names may differ in sense.
       - [D] Distinguish sense from reference.
       - [. ~> @sense-case] The connection from difference in sense to difference in cognitive value still needs an explanation.

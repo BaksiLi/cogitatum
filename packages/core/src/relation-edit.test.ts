@@ -79,7 +79,7 @@ describe("separating and joining", () => {
 
   it("separates an undecided grouping without changing what it commits to", () => {
     const result = ready("- [C] Claim.\n  - [_]\n    - [.] A.\n    - [.] B.\n", { operation: "separate", line: 2 });
-    expect(result.proposedSource).toBe("- [C] Claim.\n  - [. ~> ^] A.\n  - [. ~> ^] B.\n");
+    expect(result.proposedSource).toBe("- [C] Claim.\n  - [.] A.\n  - [.] B.\n");
     expect(result.comparison.relation).toBe("equivalent");
   });
 

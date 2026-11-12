@@ -83,19 +83,19 @@
     {
       "file": "core/distinction-through-body.cog.md",
       "input": "document",
-      "purpose": "A distinction clarifies its enclosing ground; adjacent body produces no connections.",
+      "purpose": "A distinction interprets its enclosing ground; adjacent body produces no connections.",
       "expected": "core/distinction-through-body.expected.json"
     },
     {
       "file": "core/edge-description-and-body.cog.md",
       "input": "document",
-      "purpose": "An edge creates a connection but no Point; its body creates neither.",
+      "purpose": "A Bearing constructor creates a connection but no Point; its body creates neither.",
       "expected": "core/edge-description-and-body.expected.json"
     },
     {
       "file": "core/explicit-bearing-sources.cog.md",
       "input": "document",
-      "purpose": "A joint edge uses existing material Points and can receive a Bearing-targeted challenge with a reply.",
+      "purpose": "A joint Bearing uses existing material Points and can receive a Bearing-targeted challenge with a reply.",
       "expected": "core/explicit-bearing-sources.expected.json"
     },
     {
@@ -119,13 +119,13 @@
     {
       "file": "core/grouped-route-pressure.cog.md",
       "input": "document",
-      "purpose": "Body grouping does not change an explicit edge or the challenge targeting it.",
+      "purpose": "Body grouping does not change an explicit Bearing or the challenge targeting it.",
       "expected": "core/grouped-route-pressure.expected.json"
     },
     {
       "file": "core/grouping-rules.cog.md",
       "input": "document",
-      "purpose": "A question can remain anonymous while material explicitly refers to its named descendant.",
+      "purpose": "An anonymous Question receives a Claim answer while neutral material explicitly concerns its named descendant.",
       "expected": "core/grouping-rules.expected.json"
     },
     {
@@ -155,13 +155,13 @@
     {
       "file": "core/operator-overrides-indentation.cog.md",
       "input": "document",
-      "purpose": "An explicit challenge replaces a ground role's default support and uses the authored target.",
+      "purpose": "An explicit challenge replaces a Ground's default support, uses the authored target, and suggests opposed framing without a second Bearing.",
       "expected": "core/operator-overrides-indentation.expected.json"
     },
     {
       "file": "core/point-restores-indentation.cog.md",
       "input": "document",
-      "purpose": "After an explicit Point below an edge, its children resume ordinary structural connections.",
+      "purpose": "After an explicit Point below a Bearing constructor, its children resume ordinary structural connections.",
       "expected": "core/point-restores-indentation.expected.json"
     },
     {
@@ -179,7 +179,7 @@
     {
       "file": "diagnostics/bearing-used-as-source.cog.md",
       "input": "document",
-      "purpose": "A Bearing cannot be an edge source; its valid base route survives.",
+      "purpose": "A Bearing cannot be a source of another Bearing; its valid base route survives.",
       "expected": "diagnostics/bearing-used-as-source.expected.json"
     },
     {
@@ -197,7 +197,7 @@
     {
       "file": "diagnostics/duplicate-bearing-source.cog.md",
       "input": "document",
-      "purpose": "A repeated source rejects the whole edge rather than silently deduplicating it.",
+      "purpose": "A repeated source rejects the whole Bearing rather than silently deduplicating it.",
       "expected": "diagnostics/duplicate-bearing-source.expected.json"
     },
     {
@@ -209,7 +209,7 @@
     {
       "file": "diagnostics/edge-descendant-requires-target.cog.md",
       "input": "document",
-      "purpose": "The first Point beneath an edge needs an explicit target even through body; its Point still survives the error.",
+      "purpose": "The first Point beneath a listed-source Bearing needs an explicit target even through body; its Point still survives the error.",
       "expected": "diagnostics/edge-descendant-requires-target.expected.json"
     },
     {
@@ -227,7 +227,7 @@
     {
       "file": "diagnostics/malformed-bearing-source.cog.md",
       "input": "document",
-      "purpose": "One malformed source rejects the entire new edge while an independent concerns connection survives.",
+      "purpose": "One malformed source rejects the entire new Bearing while an independent concerns connection survives.",
       "expected": "diagnostics/malformed-bearing-source.expected.json"
     },
     {
@@ -293,7 +293,7 @@
     {
       "file": "host/fail-closed.md",
       "input": "host",
-      "purpose": "A malformed edge in one fence leaves valid structure in both independent units.",
+      "purpose": "A malformed Bearing constructor in one fence leaves valid structure in both independent units.",
       "expected": "host/fail-closed.expected.json"
     },
     {
@@ -341,7 +341,7 @@
     {
       "file": "syntax/partial-indentation-defaults.cog.md",
       "input": "document",
-      "purpose": "An ineligible Point blocks ancestor lookup; an explicit role alone does not always imply a connection.",
+      "purpose": "Claims answer the nearest Question or concern another Point; Ground and Objection defaults target the nearest Point, crossing transparent body with advice only for stronger relations.",
       "expected": "syntax/partial-indentation-defaults.expected.json"
     },
     {
@@ -359,7 +359,7 @@
     {
       "file": "core/local-bearing.cog.md",
       "input": "document",
-      "purpose": "Local joint support coexists with ordinary unary support, premise objections, route challenges, and a shared premise edge.",
+      "purpose": "Local joint support coexists with ordinary unary support, premise objections, route challenges, and a shared premise Bearing.",
       "expected": "core/local-bearing.expected.json"
     },
     {

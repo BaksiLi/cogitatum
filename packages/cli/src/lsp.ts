@@ -1,5 +1,5 @@
 import type { Readable, Writable } from "node:stream";
-import { analyzeSourceReferences, explainSource, tokenizeHostSource, tokenizeSource } from "@cogitatum/core";
+import { analyzeSourceEdits, analyzeSourceReferences, explainSource, tokenizeHostSource, tokenizeSource } from "@cogitatum/core";
 import type { AstBlock, Diagnostic, ExplainedSource, SourceParseMode, SourceReferenceAnalysis, SourceSpan, SourceTokenKind } from "@cogitatum/core";
 
 // A Language Server Protocol endpoint over the existing compiler.
@@ -84,6 +84,7 @@ export function createLanguageServer(send: (message: Message) => void) {
         referencesProvider: true,
         hoverProvider: true,
         renameProvider: { prepareProvider: true },
+        codeActionProvider: { codeActionKinds: ["quickfix"] },
         semanticTokensProvider: { legend: { tokenTypes: TOKEN_TYPES, tokenModifiers: TOKEN_MODIFIERS }, full: true }
       },
       serverInfo: { name: "cogitatum" }
@@ -116,6 +117,41 @@ export function createLanguageServer(send: (message: Message) => void) {
       const found = entityAt(params);
       if (!found) return null;
       return { range: found.target.range, contents: { kind: "markdown", value: describeEntity(explained(found.document), found.target) } };
+    },
+    // Quick fixes are Core's checked previews: each is offered only when the
+    // recompiled result constructs exactly the same relations.
+    "textDocument/codeAction": ({ textDocument, range }: { textDocument: { uri: string }; range: Range }) => {
+      const document = documents.get(textDocument.uri);
+      if (!document) return null;
+      const compiled = explained(document);
+      const opposed = compiled.explanations.flatMap(explanation => explanation.entries)
+        .filter(entry => entry.diagnosticCodes.includes("OPPOSED_FRAMING")
+          && entry.sourceSpan.startLine - 1 <= range.end.line && entry.sourceSpan.endLine - 1 >= range.start.line);
+      if (!opposed.length) return [];
+      const analysis = analyzeSourceEdits(document.text, document.mode);
+      return opposed.flatMap(entry => {
+        const line = entry.sourceSpan.startLine;
+        const written = "role" in entry.recognition ? entry.recognition.role : undefined;
+        if (written !== "G" && written !== "O") return [];
+        const [aligned, intention] = written === "O" ? ["G" as const, "objection"] : ["O" as const, "ground"];
+        const diagnostic = compiled.diagnostics.find(d => d.code === "OPPOSED_FRAMING" && d.sourceSpan?.startLine === line);
+        const offers = [
+          { title: `Re-mark as ${aligned}, keeping the clause`, edit: { operation: "remark", line, mark: aligned } as const },
+          { title: "Re-mark as neutral (.), keeping the clause", edit: { operation: "remark", line, mark: "." } as const },
+          { title: `Re-mark as ${aligned} and keep the ${intention} as an unbound use at root`, edit: { operation: "split", line } as const }
+        ];
+        return offers.flatMap(({ title, edit }) => {
+          const preview = analysis.preview({ kind: "framing", edit });
+          if (preview.status !== "ready") return [];
+          const start = positionAt(document.text, preview.edit.offset);
+          const end = positionAt(document.text, preview.edit.offset + preview.edit.remove.length);
+          return [{
+            title, kind: "quickfix",
+            ...(diagnostic ? { diagnostics: [toLspDiagnostic(diagnostic)] } : {}),
+            edit: { changes: { [textDocument.uri]: [{ range: { start, end }, newText: preview.edit.insert }] } }
+          }];
+        });
+      });
     },
     "textDocument/prepareRename": params => {
       const found = entityAt(params, true);
@@ -221,6 +257,17 @@ function toRange(span: SourceSpan): Range {
 function contains(range: Range, position: Position): boolean {
   const notBefore = (a: Position, b: Position) => a.line > b.line || (a.line === b.line && a.character >= b.character);
   return notBefore(position, range.start) && notBefore(range.end, position);
+}
+
+/** The LSP position of a UTF-16 offset; \r\n, \r and \n each end a line. */
+function positionAt(text: string, offset: number): Position {
+  let line = 0, lineStart = 0;
+  for (const ending of text.matchAll(/\r\n|\r|\n/g)) {
+    if (ending.index + ending[0].length > offset) break;
+    line += 1;
+    lineStart = ending.index + ending[0].length;
+  }
+  return { line, character: offset - lineStart };
 }
 
 function toLspDiagnostic(diagnostic: Diagnostic) {

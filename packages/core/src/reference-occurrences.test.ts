@@ -28,7 +28,7 @@ describe("reference-only Point occurrences", () => {
   });
 
   it("keeps declaration and multiple local attachment identities distinct", () => {
-    const source = "- [C @original] Original target.\n  - [G @premise; @original-step] Premise.\n- [C @first] First target.\n  - [G use @premise; @first-step]\n    - [O/ @first-objection] First assessment.\n- [C @second] Second target.\n  - [G use @premise; @second-step]\n    - [O/ @second-objection] Second assessment.\n- [edge @premise supports @original; @remote] Remote reuse.";
+    const source = "- [C @original] Original target.\n  - [G @premise; @original-step] Premise.\n- [C @first] First target.\n  - [G use @premise; @first-step]\n    - [O/ @first-objection] First assessment.\n- [C @second] Second target.\n  - [G use @premise; @second-step]\n    - [O/ @second-objection] Second assessment.\n- [_ @premise supports @original; @remote] Remote reuse.";
     const { graph } = compile(source);
     expect(codes(graph)).toEqual([]);
     expect(graph.points.filter(point => point.id === "premise")).toHaveLength(1);
@@ -37,19 +37,26 @@ describe("reference-only Point occurrences", () => {
     expect(new Set(graph.bearings.map(bearing => bearing.key)).size).toBe(6);
   });
 
-  it("bare use focuses without an attachment or inherited role, while child R still replies to it", () => {
+  it("bare use constructs local relevance without inheriting its declaration's role or attachment", () => {
     const { graph } = compile("- [O @objection] Original O.\n  - [G; @original-step] Original ground.\n- [C @claim] Claim.\n  - [. use @objection] Local prose.\n    - [R @bare-reply] No inherited O mark.\n    - [O/] No inherited attachment.\n- [O use @objection]\n  - [R @marked-reply] Local reply.");
-    expect(codes(graph)).toEqual(["NO_LOCAL_BEARING_ATTACHMENT"]);
+    expect(codes(graph)).toEqual([]);
+    expect(relations(graph).map(b => [b.kind, b.target.name])).toEqual([
+      ["supports", "objection"], ["concerns", "claim"], ["respondsTo", "objection"], ["challenges", undefined], ["respondsTo", "objection"]
+    ]);
+    expect(graph.bearings[3].target).toEqual({ kind: "bearing", key: graph.bearings[1].key });
     expect(relations(graph).filter(bearing => bearing.kind === "respondsTo")).toEqual([
       { kind: "respondsTo", handle: undefined, sources: ["bare-reply"], target: { kind: "point", name: "objection" } },
       { kind: "respondsTo", handle: undefined, sources: ["marked-reply"], target: { kind: "point", name: "objection" } }
     ]);
   });
 
-  it("Q uses preserve declarations without turning Claim children into answers", () => {
+  it("Q uses offer answers while neutral uses offer relevance, independently of declaration roles", () => {
     const { graph } = compile("- [Q @question] Original Q.\n- [C @claim] Original open claim.\n- [. use @question]\n  - [C @background] Not an answer.\n- [Q use @claim]\n  - [C @answer] Explicit local Q focus.");
     expect(codes(graph)).toEqual([]);
-    expect(relations(graph)).toEqual([]);
+    expect(relations(graph)).toEqual([
+      { kind: "concerns", handle: undefined, sources: ["background"], target: { kind: "point", name: "question" } },
+      { kind: "answers", handle: undefined, sources: ["answer"], target: { kind: "point", name: "claim" } }
+    ]);
     expect(graph.points.find(point => point.id === "claim")?.declaration.status).toBeUndefined();
   });
 
@@ -59,12 +66,31 @@ describe("reference-only Point occurrences", () => {
     expect(relations(graph).map(bearing => [bearing.kind, bearing.target.name])).toEqual([["concerns", "topic"], ["challenges", "step"]]);
   });
 
-  it.each([". use @missing", ". use @route", "C? use @premise", "G use @", "G use @premise answers", "O/ use @premise -> @route", ". use @premise; @dangling", ". use @premise", "Use @premise"])("retains %s failures without outer fallback or declaration", header => {
-    const source = "- [C @claim] Claim.\n- [. @premise] Original.\n- [edge @premise +> @claim; @route]\n- [C @outer] Outer.\n  - [" + header + "] Local use.\n    - [O/] Must not guess an attachment.\n    - [G @child] Valid child.\n      - [O @grandchild] Valid subtree.";
+  it.each([". use @missing", ". use @route", "C? use @premise", "G use @", "G use @premise answers", "O/ use @premise -> @route", "Use @premise"])("retains %s failures without outer fallback or declaration", header => {
+    const source = "- [C @claim] Claim.\n- [. @premise] Original.\n- [_ @premise +> @claim; @route]\n- [C @outer] Outer.\n  - [" + header + "] Local use.\n    - [O/] Must not guess an attachment.\n    - [G @child] Valid child.\n      - [O @grandchild] Valid subtree.";
     const { graph } = compile(source);
     expect(graph.points.map(point => point.id)).toEqual(["claim", "premise", "outer", undefined, "child", "grandchild"]);
     expect(graph.bearings.some(bearing => bearing.sources.some(ref => graph.points.find(point => point.key === ref.key)?.id === "child") && bearing.target.key === graph.points.find(point => point.id === "outer")?.key)).toBe(false);
-    expect(codes(graph)).toContain("NO_LOCAL_BEARING_ATTACHMENT");
+    if (header === ". use @missing" || header === ". use @route") {
+      expect(codes(graph)).toEqual(header === ". use @missing"
+        ? ["UNKNOWN_POINT_REFERENCE", "UNKNOWN_SOURCE", "UNKNOWN_TARGET", "UNRESOLVED_BEARING_TARGET"]
+        : ["BEARING_IS_NOT_POINT_REFERENCE", "BEARING_IS_NOT_BEARING_SOURCE", "POINT_FOCUS_REQUIRES_POINT", "UNRESOLVED_BEARING_TARGET"]);
+    } else {
+      expect(codes(graph)).toContain("NO_LOCAL_BEARING_ATTACHMENT");
+    }
+  });
+
+  it.each([". use @premise", ". use @premise; @local"])("constructs one selectable local relevance Bearing for %s", header => {
+    const { graph } = compile(`- [. @premise] Original.\n- [C @outer] Outer.\n  - [${header}] Local use.\n    - [O/] Assess the local relevance.\n    - [G @child] Support the premise.\n      - [O] Assess the child.`);
+    expect(codes(graph)).toEqual([]);
+    expect(graph.points.map(p => p.id)).toEqual(["premise", "outer", undefined, "child", undefined]);
+    expect(relations(graph).map(b => [b.kind, b.sources, b.target])).toEqual([
+      ["concerns", ["premise"], { kind: "point", name: "outer" }],
+      ["challenges", [undefined], { kind: "bearing", name: header.includes(";") ? "local" : undefined }],
+      ["supports", ["child"], { kind: "point", name: "premise" }],
+      ["challenges", [undefined], { kind: "point", name: "child" }]
+    ]);
+    expect(graph.bearings[1].target).toEqual({ kind: "bearing", key: graph.bearings[0].key });
   });
 
   it.each(["[. use @premise", "[G use @premise", "[O/ use @premise"])("retains unclosed %s as a use boundary", header => {
@@ -111,7 +137,7 @@ describe("reference-only Point occurrences", () => {
 
   it("preserves reference effects under scoped standalone declaration reordering and remote-edge additions", () => {
     const definitions = ["- [C @premise] Original content.", "- [Q @topic] Topic."];
-    const local = "- [C @claim] Claim.\n  - [G use @premise; @step]\n    - [O/ @objection; @attack] Objection.\n- [edge @premise concerns @topic; @remote] Remote.";
+    const local = "- [C @claim] Claim.\n  - [G use @premise; @step]\n    - [O/ @objection; @attack] Objection.\n- [_ @premise concerns @topic; @remote] Remote.";
     const before = compile(definitions.join("\n") + "\n" + local).graph;
     const after = compile(local + "\n" + definitions.toReversed().join("\n")).graph;
     expect(codes(before)).toEqual([]);
@@ -146,7 +172,7 @@ describe("reference-only Point occurrences", () => {
   });
 
   it("never lets a failed Bearing-as-Point use supply a legal Bearing target to implicit descendants", () => {
-    const { graph } = compile("- [C @claim] Claim.\n- [. @premise] Premise.\n- [edge @premise +> @claim; @route]\n- [. use @route]\n  - [G @child] Must not support route.\n  - [Q @gap] Must not be about route.\n  - [G @independent +> @claim] Independent relation.");
+    const { graph } = compile("- [C @claim] Claim.\n- [. @premise] Premise.\n- [_ @premise +> @claim; @route]\n- [. use @route]\n  - [G @child] Must not support route.\n  - [Q @gap] Must not be about route.\n  - [G @independent +> @claim] Independent relation.");
     // [G] and [Q] each state a relation to ^, so each reports the missing Point focus.
     expect(codes(graph)).toEqual(["BEARING_IS_NOT_POINT_REFERENCE", "POINT_FOCUS_REQUIRES_POINT", "POINT_FOCUS_REQUIRES_POINT"]);
     expect(graph.bearings).toHaveLength(2);
@@ -163,7 +189,7 @@ describe("reference-only Point occurrences", () => {
   it("keeps local and explicit projections equal while preserving separate prose, spans and derivation", () => {
     const declarations = "- [C @premise] Original open premise.\n- [C @claim] Conclusion.\n- [O @objection] Objection.\n- [R @reply] Reply.";
     const local = compile(declarations + "\n- Narrative in reader order.\n- [. use @claim] Later discussion.\n  - [G use @premise; @step] Occurrence prose.\n    - [O/ use @objection; @attack]\n      - [R use @reply; @response]");
-    const explicit = compile(declarations + "\n- [edge @premise supports @claim; @step]\n- [edge @objection -> @step; @attack]\n- [edge @reply respondsTo @objection; @response]");
+    const explicit = compile(declarations + "\n- [_ @premise supports @claim; @step]\n- [_ @objection -> @step; @attack]\n- [_ @reply respondsTo @objection; @response]");
     expect(codes(local.graph)).toEqual([]);
     expect(codes(explicit.graph)).toEqual([]);
     expect(relations(local.graph)).toEqual(relations(explicit.graph));

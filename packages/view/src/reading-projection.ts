@@ -55,7 +55,7 @@ export type ReadingBearing = {
  * `indentation`: the nearest local context chose the target. `explicit`: a named target fixed it.
  * `member`: a source in a local Bearing header, adding no relation of its own.
  * `note`: a note annotating the object its context exposes.
- * `none`: no relation, such as a bare C or neutral Point. `failed`: no surviving Bearing.
+ * `none`: no relation, such as a root Point without a clause. `failed`: no surviving Bearing.
  */
 export type ReadingCommitment = {
   occurrenceId: string;
@@ -65,6 +65,9 @@ export type ReadingCommitment = {
   /** A surviving graph entity only; a failed candidate has none. */
   target?: BearingTarget;
   kind?: BearingKind;
+  profile?: Bearing["profile"];
+  /** Core's framing decision for this occurrence, including the focus that selected a default. */
+  frame?: Extract<ExplainEffect, { kind: "frameOccurrence" }>;
   /** How the emitted relation is stated, independently of how its target is selected. */
   relationBy?: "mark" | "clause" | "default";
   /** Ordinary body rows the selection passed through, outermost first. */
@@ -283,7 +286,9 @@ export function projectReading(source: string, explained: ExplainedSource): Read
       const find = <K extends ExplainEffect["kind"]>(kind: K) =>
         effects.find((effect): effect is Extract<ExplainEffect, { kind: K }> => effect.kind === kind);
       const crossed = (spans: SourceSpan[]) => spans.map(span => occurrenceAt(span) ?? mismatch("crossed body occurrence"));
-      const base = { occurrenceId: occurrence.id, crossedOccurrenceIds: [] as string[], memberOccurrenceIds: [] as string[] };
+      const frame = find("frameOccurrence");
+      const base = { occurrenceId: occurrence.id, crossedOccurrenceIds: [] as string[], memberOccurrenceIds: [] as string[],
+        ...(frame ? { frame } : {}) };
       const membership = find("localBearingMember");
       if (membership && membership.function === "source") {
         return [{ ...base, basis: "member", contextOccurrenceId: occurrenceAt(membership.localBearingSpan), memberFunction: membership.function }];
@@ -302,6 +307,7 @@ export function projectReading(source: string, explained: ExplainedSource): Read
         const written = annotation && "operatorClause" in annotation && annotation.operatorClause;
         return [{
           ...base, basis: context ? "indentation" : "explicit", target: route.bearing.target, kind: route.bearing.kind,
+          ...(route.bearing.profile ? { profile: route.bearing.profile } : {}),
           relationBy: written ? "clause" : entry.recognition.kind === "bearing" ? "default" : "mark",
           ...(context ? { contextOccurrenceId: route.target.occurrenceId, crossedOccurrenceIds: crossed(context.crossedBodySpans) } : {}),
           memberOccurrenceIds: route.sources.filter(source => source.basis === "local-bearing-member").map(source => source.occurrenceId),
@@ -327,17 +333,9 @@ export function projectReading(source: string, explained: ExplainedSource): Read
   return { version: explained.version, mode: explained.mode, source, rows, units, diagnostics: explained.diagnostics };
 }
 
-/** A declared Point nested without a relation at that occurrence: kept together in the drawing only. */
+/** A declared Point with no Bearing joining it to its outline parent: drawing placement only. */
 export type OutlineTie = { child: PointRef; parent: PointRef };
 
-/**
- * Where the outline nests a declared Point under another and that occurrence itself states no relation,
- * as a Claim or a neutral Point beneath a Question does. A Map may keep them together with a faint tie.
- * The tie is the author's arrangement, never a Bearing or an inference about what the Point answers.
- * A use, a failed occurrence, and a member do not provide that evidence. If a Bearing already joins this Point
- * and its outline parent, that relation is the connection and no tie is added.
- * Keys belong to this unit: host units repeat anonymous keys, so ties are never gathered across them.
- */
 /**
  * The occurrence an editor cursor on a one-based source line stands in.
  * An occurrence's span covers its own lines and children follow it in source order,
@@ -353,9 +351,17 @@ export function occurrenceAtLine(unit: ReadingUnit, line: number): ReadingOccurr
   return found;
 }
 
+/**
+ * Keep a nested declaration near its outline parent only when no Bearing joins the pair in either direction,
+ * for example when its explicit clause names another target. Default relations already provide a connection.
+ * A use, a failed occurrence, and a constructor member supply no tie; a Point use may still be the parent.
+ * Ties record arrangement only, never a relation. Keys and ties belong to this source unit alone.
+ */
 export function outlineTies(unit: ReadingUnit): OutlineTie[] {
-  const quiet = new Set(unit.commitments.filter(commitment =>
-    commitment.basis === "none" && commitment.reason === "no-structural-rule").map(commitment => commitment.occurrenceId));
+  const eligible = new Set(unit.commitments.filter(commitment =>
+    (commitment.basis === "none" && commitment.reason !== "local-bearing-membership") ||
+    commitment.basis === "explicit" || commitment.basis === "indentation")
+    .map(commitment => commitment.occurrenceId));
   const joined = new Set(unit.graph.bearings.flatMap(bearing =>
     bearing.target.kind === "point"
       ? bearing.sources.map(source => `${source.key}>${bearing.target.key}`)
@@ -365,7 +371,7 @@ export function outlineTies(unit: ReadingUnit): OutlineTie[] {
     while (stack.length && stack[stack.length - 1].depth >= occurrence.depth) stack.pop();
     const declared = occurrence.references.find(reference => reference.kind === "declares")?.ref;
     const parent = [...stack].reverse().find(entry => entry.point)?.point;
-    if (declared && parent && declared.key !== parent.key && quiet.has(occurrence.id) &&
+    if (declared && parent && declared.key !== parent.key && eligible.has(occurrence.id) &&
       !joined.has(`${declared.key}>${parent.key}`) && !joined.has(`${parent.key}>${declared.key}`)) {
       ties.push({ child: declared, parent });
     }

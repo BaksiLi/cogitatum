@@ -31,8 +31,8 @@ describe("lexical source tokens", () => {
   });
 
   it("show retired spellings that the compiler diagnoses", () => {
-    const lines = tokenizeSource("- [C] A.\n  - [G_] Old selector.\n  - [_ linked] Old.\n  - [O /> ^] Old operator.\n  - [C?] Old claim.");
-    expect(lines.slice(1).map(line => kinds(line).filter(kind => kind.startsWith("retired")))).toEqual([["retired:G_"], ["retired:linked"], ["retired:/>"], ["retired:C?"]]);
+    const lines = tokenizeSource("- [C] A.\n  - [G_] Old selector.\n  - [_ linked] Old.\n  - [O /> ^] Old operator.\n  - [C?] Old claim.\n  - [node @p] Retired Point family.\n  - [edge @p +> ^] Retired Bearing family.");
+    expect(lines.slice(1).map(line => kinds(line).filter(kind => kind.startsWith("retired")))).toEqual([["retired:G_"], ["retired:linked"], ["retired:/>"], ["retired:C?"], ["retired:node"], ["retired:edge"]]);
   });
 
   it("keep a note subtree literal until the outline returns to its level", () => {

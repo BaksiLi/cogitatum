@@ -1,5 +1,5 @@
 import { FORMAT_VERSION } from "./types.js";
-import type { Bearing, BearingKind, BearingTarget, GraphIR, PointRef } from "./types.js";
+import type { Bearing, BearingKind, BearingProfile, BearingTarget, GraphIR, PointRef } from "./types.js";
 
 /**
  * One relation a graph commits its author to: a kind, an unordered set of
@@ -8,6 +8,8 @@ import type { Bearing, BearingKind, BearingTarget, GraphIR, PointRef } from "./t
  */
 export type Commitment = {
   kind: BearingKind;
+  /** Only on supports: how the sources participate. Forgetting it leaves plain support. */
+  profile?: BearingProfile;
   /** Source Point keys, sorted and unique: order is presentation. */
   sources: string[];
   target: BearingTarget;
@@ -66,7 +68,16 @@ export type CommitmentComparison =
        * a removed Bearing stated is either entailed or listed as retracted,
        * and a relation addressing it is retracted with its target.
        */
-      bearings: { removed: string[]; added: string[] };
+      bearings: {
+        removed: string[];
+        added: string[];
+        /**
+         * Continued Bearings whose own profile differs. A parallel Bearing may
+         * state the same commitment, so this can change while the aggregate
+         * commitments stay equivalent; both levels are reported.
+         */
+        changed: { before: string; after: string; profile: true }[];
+      };
     }
   | { status: "indeterminate"; reason: "unsupported-version" | "source-errors" | "invalid-correspondence"; message: string };
 
@@ -74,7 +85,7 @@ export type CommitmentComparison =
 export function graphCommitments(graph: GraphIR): Commitment[] {
   const byKey = new Map<string, Commitment>();
   for (const bearing of graph.bearings) {
-    const commitment = { kind: bearing.kind, sources: sourceSet(bearing.sources), target: bearing.target };
+    const commitment = { kind: bearing.kind, ...(bearing.profile ? { profile: bearing.profile } : {}), sources: sourceSet(bearing.sources), target: bearing.target };
     const key = commitmentKey(commitment);
     const known = byKey.get(key);
     if (known) known.bearings.push(bearing.key);
@@ -85,9 +96,12 @@ export function graphCommitments(graph: GraphIR): Commitment[] {
 
 /**
  * The commitments that entail one commitment, or undefined when none do.
- * Exactly two rules hold:
+ * Exactly three rules hold:
  *
  * - A commitment entails itself.
+ * - Support offered by example is support: a profiled commitment entails the
+ *   same support without its profile, never the converse, and nothing about
+ *   whether the example is apt, representative or sufficient.
  * - Every relation commits each of its sources to bearing on its target, so
  *   a set concerns a target once each member is a source of some relation to
  *   it, of any kind and with any other sources. Relevance has no force that
@@ -103,9 +117,9 @@ export function entailment(
   stated: readonly Omit<Commitment, "bearings">[],
   commitment: Omit<Commitment, "bearings">
 ): Omit<Commitment, "bearings">[] | undefined {
-  const key = commitmentKey(commitment);
+  const keys = entailingKeys(commitment);
   let toTarget: typeof stated | undefined;
-  return entailmentWitnesses(commitment, stated.find(c => commitmentKey(c) === key), source =>
+  return entailmentWitnesses(commitment, firstOf(keys, key => stated.find(c => commitmentKey(c) === key)), source =>
     (toTarget ??= stated.filter(c => c.target.kind === commitment.target.kind && c.target.key === commitment.target.key))
       .find(c => c.sources.includes(source)));
 }
@@ -140,7 +154,7 @@ function indexEntailment(stated: readonly Omit<Commitment, "bearings">[]) {
   }
   return (commitment: Omit<Commitment, "bearings">) => {
     const sources = relevant.get(targetKey(commitment.target));
-    return entailmentWitnesses(commitment, exact.get(commitmentKey(commitment)), source => sources?.get(source));
+    return entailmentWitnesses(commitment, firstOf(entailingKeys(commitment), key => exact.get(key)), source => sources?.get(source));
   };
 }
 
@@ -168,7 +182,7 @@ export function compareCommitments(before: GraphIR, after: GraphIR, corresponden
     const sources = c.sources.map(key => maps.point.get(key));
     const target = maps[c.target.kind].get(c.target.key);
     if (target === undefined || sources.some(key => key === undefined)) return undefined;
-    return { kind: c.kind, sources: sourceSetOf(sources as string[]), target: { kind: c.target.kind, key: target } as BearingTarget };
+    return { kind: c.kind, ...(c.profile ? { profile: c.profile } : {}), sources: sourceSetOf(sources as string[]), target: { kind: c.target.kind, key: target } as BearingTarget };
   });
   const continuing = restated.filter(c => c !== undefined);
   const laterEntails = indexEntailment(later), continuingEntails = indexEntailment(continuing);
@@ -190,8 +204,20 @@ export function compareCommitments(before: GraphIR, after: GraphIR, corresponden
   const relation: CommitmentRelation = lost ? gained ? "revision" : "weakening" : gained ? "refinement" : "equivalent";
   return {
     status: "compared", relation, retracted, added, points,
-    bearings: { removed: removed(before.bearings, maps.bearing), added: introduced(after.bearings, maps.bearing) }
+    bearings: {
+      removed: removed(before.bearings, maps.bearing), added: introduced(after.bearings, maps.bearing),
+      changed: changedProfiles(before, after, maps.bearing)
+    }
   };
+}
+
+function changedProfiles(before: GraphIR, after: GraphIR, bearings: Map<string, string>) {
+  const later = new Map(after.bearings.map(b => [b.key, b]));
+  return before.bearings.flatMap(b => {
+    const continuation = bearings.get(b.key);
+    const next = continuation === undefined ? undefined : later.get(continuation);
+    return next && b.profile !== next.profile ? [{ before: b.key, after: next.key, profile: true as const }] : [];
+  });
 }
 
 function changedPoints(before: GraphIR, after: GraphIR, points: Map<string, string>) {
@@ -312,5 +338,19 @@ function targetKey(target: BearingTarget): string {
 }
 
 function commitmentKey(c: Omit<Commitment, "bearings">): string {
-  return JSON.stringify([c.kind, c.sources, c.target.kind, c.target.key]);
+  return JSON.stringify([c.kind, c.sources, c.target.kind, c.target.key, c.profile ?? null]);
+}
+
+// The statements that entail a commitment outright: itself, then, for plain
+// support, the same support stated with a profile.
+function entailingKeys(c: Omit<Commitment, "bearings">): string[] {
+  return c.kind === "supports" && !c.profile ? [commitmentKey(c), commitmentKey({ ...c, profile: "example" })] : [commitmentKey(c)];
+}
+
+function firstOf<T>(keys: string[], find: (key: string) => T | undefined): T | undefined {
+  for (const key of keys) {
+    const found = find(key);
+    if (found) return found;
+  }
+  return undefined;
 }

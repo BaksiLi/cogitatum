@@ -1,6 +1,6 @@
 import { formatDiagnostic, quote } from "./inspection-text.js";
 import { FORMAT_VERSION } from "./types.js";
-import type { ExplainEffect, ExplainedSource, ExplainReference, SourceSpan } from "./types.js";
+import type { ExplainEffect, ExplainEntry, ExplainedSource, ExplainReference, SourceSpan } from "./types.js";
 
 export const EXPLAIN_TEXT_VERSION = "1";
 
@@ -29,7 +29,7 @@ export function formatExplain(source: ExplainedSource): string {
       const name = "declaration" in entity ? entity.id : entity.handle;
       return `${ref.kind} ${name ? "@" + name : quote(ref.key)}${entity.sourceSpan ? " at " + location(entity.sourceSpan) : ""}`;
     };
-    const effectText = (effect: ExplainEffect): string => {
+    const effectText = (effect: ExplainEffect, entry: ExplainEntry): string => {
       switch (effect.kind) {
         case "preserveBody": return "Preserve ordinary body; it introduces no semantic context.";
         case "preserveNote": return `Preserve a literal note subtree${effect.parentSpan ? " under " + location(effect.parentSpan) : ""}.`;
@@ -52,9 +52,19 @@ export function formatExplain(source: ExplainedSource): string {
         case "emitPoint": return `Declare ${reference(effect.ref)} (${effect.reason}).`;
         case "rejectPoint": return `Reject Point${effect.id ? " @" + effect.id : ""}: ${effect.reason}.`;
         case "implicitAttachment": return `Local context ${location(effect.contextSpan)} selects ${reference(effect.target)}${crossings(effect.crossedBodySpans)}.`;
-        case "emitBearing": return `Construct ${reference(effect.ref)}: ${effect.bearing.kind}([${effect.bearing.sources.map(reference).join(", ")}], ${reference(effect.bearing.target)}); ${effect.bearing.derivedBy}, ${effect.reason}.`;
+        case "emitBearing": return `Construct ${reference(effect.ref)}: ${effect.bearing.kind}${effect.bearing.profile ? " by " + effect.bearing.profile : ""}([${effect.bearing.sources.map(reference).join(", ")}], ${reference(effect.bearing.target)}); ${effect.bearing.derivedBy}, ${effect.reason}.`;
         case "rejectBearing": return `Reject Bearing: ${effect.reason}${effect.bearing ? `; candidate ${effect.bearing.kind}([${effect.bearing.sources.map(reference).join(", ")}], ${reference(effect.bearing.target)})` : ""}.`;
         case "skipBearing": return `No Bearing: ${effect.reason}.`;
+        case "frameOccurrence": {
+          const presented = "Presented as " + MARK_NAMES[("role" in entry.recognition && entry.recognition.role) || "."];
+          switch (effect.framing) {
+            case "aligned": return presented + (effect.focus ? `: the default beneath a ${effect.focus === "question" ? "Question" : "Point"} focus.` : ": the mark's own relation.");
+            case "compatible": return presented + "; the clause states the relation (compatible framing).";
+            case "opposed": return presented + "; the clause alone constructs the relation (opposed framing).";
+            case "unbound": return presented + `; ${effect.intention} target unstated` + (effect.focus ? ". The placement records relevance only." : ".");
+            case "none": return presented + "; no relation and no intention awaiting one.";
+          }
+        }
       }
     };
     lines.push("", `unit ${index + 1}: ${unit.kind} at lines ${unit.startLine}-${unit.endLine} (independent namespace)`);
@@ -63,7 +73,7 @@ export function formatExplain(source: ExplainedSource): string {
       const mark = r.kind === "bearing" ? (r.selector ? "/" : "") + (r.members ? " member sources" : " listed sources")
         : "role" in r && r.role ? " " + r.role + ("selector" in r && r.selector ? "/" : "") : "";
       lines.push(`  ${location(entry.sourceSpan)} ${r.kind}${mark}`);
-      for (const effect of entry.effects) lines.push("    " + effectText(effect));
+      for (const effect of entry.effects) lines.push("    " + effectText(effect, entry));
       if (entry.diagnosticCodes.length) lines.push("    Diagnostics: " + entry.diagnosticCodes.join(", ") + ".");
     }
   });
@@ -71,6 +81,8 @@ export function formatExplain(source: ExplainedSource): string {
   for (const diagnostic of source.diagnostics) lines.push(...formatDiagnostic(diagnostic));
   return lines.join("\n") + "\n";
 }
+
+const MARK_NAMES = { Q: "Question", C: "Claim", G: "Ground", O: "Objection", R: "Response", D: "Distinction", ".": "neutral Point" } as const;
 
 function location(span: SourceSpan): string {
   return `${span.startLine}:${span.startColumn}-${span.endLine}:${span.endColumn}`;

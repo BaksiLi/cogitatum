@@ -29,8 +29,8 @@ function roundTrip(source: string, line: number, named: string, positional: stri
 
 describe("target-form previews", () => {
   it.each([
-    ["G", "+>", "@reason"], ["O", "->", "@reason"], ["R", "respondsTo", "@reason"], ["D", "clarifies", "@reason"], ["Q", "~>", "@reason"],
-    ["G/", "+>", "@step"], ["O/", "->", "@step"], ["Q/", "~>", "@step"], ["D/", "clarifies", "@step"]
+    ["G", "+>", "@reason"], ["O", "->", "@reason"], ["R", "respondsTo", "@reason"], ["D", "interprets", "@reason"], ["Q", "~>", "@reason"],
+    ["G/", "+>", "@step"], ["O/", "->", "@step"], ["Q/", "~>", "@step"], ["D/", "interprets", "@step"]
   ])("names and restores the target of [%s]", (mark, operator, target) => {
     const source = `- [C @claim] Claim.
   - [G @reason; @step] Reason.
@@ -51,18 +51,31 @@ describe("target-form previews", () => {
     roundTrip("- [C @c] Claim.\n  - [Q supports ^] Why would it hold?", 2, "[Q supports @c]", "[Q supports ^]");
     roundTrip("- [C @c] Claim.\n  - [. @r +> ^] Reason.", 2, "[. @r +> @c]", "[. @r +> ^]");
     roundTrip("- [. @shared] Shared.\n- [C @c] Claim.\n  - [O use @shared] Occurrence.", 3, "[O use @shared -> @c]", "[O use @shared]");
-    roundTrip("- [Q @q] Which scale?\n  - [C answers ^] Seconds.", 2, "[C answers @q]", "[C answers ^]");
   });
 
   it("abbreviates a positional result only where the mark states that relation", () => {
     const result = ready(previewTargetForm("- [C @c] Claim.\n  - [G supports @c] Reason.", { line: 2, form: "positional" }));
     expect(result.proposedSource).toContain("[G] Reason.");
     expect(result.consequence).toContain("The mark states the relation again");
+    roundTrip("- [Q @q] Which scale?\n  - [C] Seconds.", 2, "[C answers @q]", "[C]");
+    roundTrip("- [Q @q] Which scale?\n  - [.] Background.", 2, "[. ~> @q]", "[.]");
+    expect(ready(previewTargetForm("- [Q @q] Which scale?\n  - [C answers @q] Seconds.", { line: 2, form: "positional" })).proposedSource)
+      .toBe("- [Q @q] Which scale?\n  - [C] Seconds.");
   });
 
-  it.each(["_", "bearing", "edge"])("retargets a %s constructor without moving its members", family => {
+  it.each(["_", "bearing", "edge"])("retargets active %s constructors and refuses retired ones", family => {
     const members = "\n    - [. @a] First.\n      - [G] Anonymous reason.\n    - [. use @shared] Occurrence.\n    - [_ note] Joint note.\n    - [Q/] What scope?";
     const source = `- [. @shared] Shared.\n- [C @c] Claim.\n  - [${family} +> ^; @joint] Together.\n    A second line.${members}`;
+    if (family === "edge") {
+      const preview = previewTargetForm(source, { line: 3, form: "named" });
+      expect(preview).toMatchObject({ status: "unavailable", reason: "source-errors" });
+      expect("edit" in preview).toBe(false);
+      expect(preview.diagnostics.filter(d => d.code === "RETIRED_FAMILY_ALIAS")).toHaveLength(1);
+      const graph = explainSource(source).graphs[0];
+      expect(graph.bearings.map(b => b.kind)).toEqual(["supports"]);
+      expect(graph.bearings[0].target.key).toBe(graph.points.find(p => p.id === "a")!.key);
+      return;
+    }
     const named = roundTrip(source, 3, `[${family} +> @c; @joint]`, `[${family} +> ^; @joint]`);
     expect(named.proposedSource.endsWith(members)).toBe(true);
     const before = explainSource(source).graphs[0], after = explainSource(named.proposedSource).graphs[0];
@@ -97,8 +110,8 @@ describe("target-form previews", () => {
     ["constructor member", "- [C @c] Claim.\n  - [_ +> ^]\n    - [. @a] Reason.", 3, "named", "no-bearing"],
     ["Point inside a note", "- [C @c] Claim.\n  - [G] Reason.\n    - [note] Literal.\n      - [G +> @c] Inert.", 4, "named", "no-bearing"],
     ["plain body", "- [C @c] Claim.\n  - Plain body.", 2, "named", "no-bearing"],
-    ["Claim under a Question", "- [Q @q] Which scale?\n  - [C] Seconds.", 2, "named", "no-bearing"],
-    ["neutral answer fragment", "- [Q @q] Which scale?\n  - [.] Seconds.", 2, "named", "no-bearing"],
+    ["root Claim beside a Question", "- [Q @q] Which scale?\n- [C] Seconds.", 2, "named", "no-bearing"],
+    ["root neutral fragment", "- [Q @q] Which scale?\n- [.] Seconds.", 2, "named", "no-bearing"],
     ["missing line", "- [C @c] Claim.", 100, "named", "no-bearing"],
     ["unattached root", "- [G] Reason.", 1, "named", "no-bearing"],
     ["literal descendant", "- [C @c] Claim.\n  - [note] Literal.\n    - [G] Inert.", 3, "named", "no-bearing"],
@@ -155,7 +168,7 @@ describe("target-form previews", () => {
       expect(formatGraph(explainSource(preview.proposedSource).graphs[0])).toBe(formatGraph(before.graphs[0]));
     });
 
-    it.each([["G", "+>"], ["O", "->"], ["Q", "~>"], ["D", "clarifies"]])("writes %s out as %s without changing its prose, name, handle or spacing", (mark, symbol) => {
+    it.each([["G", "+>"], ["O", "->"], ["Q", "~>"], ["D", "interprets"]])("writes %s out as %s without changing its prose, name, handle or spacing", (mark, symbol) => {
       const source = `- [C @claim] Claim.\n  - [ ${mark} @point   ; @step ] Reason [G] stays prose.\n    - [O/] Review this particular step.\n    - [note] Qualification.\n      - [G +> @missing] Inert syntax.`;
       const preview = ready(previewTargetForm(source, { line: 2, form: "named" }));
       expect(preview.proposedSource).toBe(source.replace(`${mark} @point   ;`, `${mark} @point ${symbol} @claim   ;`));
@@ -176,7 +189,7 @@ describe("target-form previews", () => {
       expect(graph.bearings[0].target).not.toEqual(graph.bearings[1].target);
     });
 
-    it.each([["Q", "R", "respondsTo"], ["O", "R", "respondsTo"], ["C", "D", "clarifies"]])(
+    it.each([["Q", "R", "respondsTo"], ["O", "R", "respondsTo"], ["C", "D", "interprets"]])(
       "names implicit %s > %s with %s while keeping child and object-note ownership", (parent, child, kind) => {
         for (const occurrence of [`${child} @point`, `${child} use @shared`]) {
           const source = `- [. @shared] Shared content.

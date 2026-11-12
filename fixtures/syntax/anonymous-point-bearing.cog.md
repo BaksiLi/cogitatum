@@ -2,5 +2,5 @@
   - [C @claim] The claim.
   - [O -> @claim] A direct challenge without authored Point identity.
   - [G @ground] The ground.
-  - [edge @ground +> @claim; @route]
+  - [_ @ground +> @claim; @route]
   - [O -> @route] A Bearing-targeted challenge without authored Point identity.

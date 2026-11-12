@@ -36,16 +36,16 @@ function pointRef(graph: GraphIR, id: string) {
 // own target. The member boundary is recorded even when the header fails, and
 // an unclosed member header still reports what its text says, such as a handle.
 const malformedEdges = [
-  ["[edge @g +> @c; @one; @two]", "MALFORMED_ANNOTATION", true, false],
-  ["[edge @g +> @c", "MALFORMED_ANNOTATION_PREFIX", true, false],
-  ["[Edge @g +> @c]", "MALFORMED_EXPLICIT_BEARING", true, false],
-  ["[EDGE @g +> @c]", "MALFORMED_EXPLICIT_BEARING", true, false],
-  ["[edge; @one; @two]", "MALFORMED_ANNOTATION", false, true],
-  ["[edge cases; @route]", "MALFORMED_BEARING_MODE", false, false],
-  ["[edge +> ^;", "MALFORMED_ANNOTATION_PREFIX", false, true, "MALFORMED_BEARING_HANDLE"],
-  ["[edge;", "MALFORMED_ANNOTATION_PREFIX", false, true, "MALFORMED_BEARING_HANDLE"],
-  ["[Edge @g", "MALFORMED_ANNOTATION_PREFIX", true, false],
-  ["[edge @g +> @c;]", "MALFORMED_BEARING_HANDLE", true, false]
+  ["[_ @g +> @c; @one; @two]", "MALFORMED_ANNOTATION", true, false],
+  ["[_ @g +> @c", "MALFORMED_ANNOTATION_PREFIX", true, false],
+  ["[Bearing @g +> @c]", "MALFORMED_EXPLICIT_BEARING", true, false],
+  ["[BEARING @g +> @c]", "MALFORMED_EXPLICIT_BEARING", true, false],
+  ["[_; @one; @two]", "MALFORMED_ANNOTATION", false, true],
+  ["[_ cases; @route]", "MALFORMED_BEARING_MODE", false, false],
+  ["[_ +> ^;", "MALFORMED_ANNOTATION_PREFIX", false, true, "MALFORMED_BEARING_HANDLE"],
+  ["[_;", "MALFORMED_ANNOTATION_PREFIX", false, true, "MALFORMED_BEARING_HANDLE"],
+  ["[Bearing @g", "MALFORMED_ANNOTATION_PREFIX", true, false],
+  ["[_ @g +> @c;]", "MALFORMED_BEARING_HANDLE", true, false]
 ] as [string, string, boolean, boolean, string?][];
 
 describe("parser failure boundaries", () => {
@@ -66,6 +66,7 @@ describe("parser failure boundaries", () => {
     });
     expect(result.graph.points.map(point => point.id)).toEqual(["outer", "sibling", "inner", "detail", "independent", "after"]);
     expect(result.graph.bearings).toEqual([
+      expect.objectContaining({ kind: "concerns", sources: [pointRef(result.graph, "sibling")], target: pointRef(result.graph, "outer") }),
       expect.objectContaining({ sources: [pointRef(result.graph, "detail")], target: pointRef(result.graph, "inner") }),
       expect.objectContaining({ sources: [pointRef(result.graph, "independent")], target: pointRef(result.graph, "outer") }),
       expect.objectContaining({ sources: [pointRef(result.graph, "after")], target: pointRef(result.graph, "outer") })
@@ -96,7 +97,7 @@ describe("parser failure boundaries", () => {
         "does not accept the inherited object property %s as an operator",
         (token) => {
           const result = explainUnit(
-            `- [C @c] Claim.\n- [G ${token} @c] Invalid reason.\n- [edge @c ${token} @c] Invalid edge.`,
+            `- [C @c] Claim.\n- [G ${token} @c] Invalid reason.\n- [_ @c ${token} @c] Invalid edge.`,
             mode
           );
           expect(result.graph.points.map((point) => point.id)).toEqual(["c"]);
@@ -170,7 +171,7 @@ describe("parser failure boundaries", () => {
 
   it("does not derive a direct child's default connection through a failed edge", () => {
     const result = explainUnit(
-      "- [C @c] Outer claim.\n  - [edge; @one; @two]\n    - [O @o] Objection.",
+      "- [C @c] Outer claim.\n  - [_; @one; @two]\n    - [O @o] Objection.",
       "document"
     );
     expect(result.graph.points.map((point) => point.id)).toEqual(["c", "o"]);
@@ -195,7 +196,7 @@ describe("parser failure boundaries", () => {
   );
 
   it("uses the retained annotation, without reparsing a failed edge's raw text during compilation", () => {
-    const ast = parseDocument("- [C @c] Claim.\n  - [Edge @g +> @c]\n    - [O @o] Objection.");
+    const ast = parseDocument("- [C @c] Claim.\n  - [Bearing @g +> @c]\n    - [O @o] Objection.");
     const boundary = ast.blocks[0].children[0];
     const raw = boundary.raw;
     expect(boundary.annotation?.kind).toBe("bearing");

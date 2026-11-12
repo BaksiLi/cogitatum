@@ -35,6 +35,20 @@
       ],
       "bearings": [
         {
+          "line": 3,
+          "kind": "answers",
+          "sources": [3],
+          "target": { "kind": "point", "line": 2 },
+          "derivedBy": "structural"
+        },
+        {
+          "line": 4,
+          "kind": "concerns",
+          "sources": [4],
+          "target": { "kind": "point", "line": 3 },
+          "derivedBy": "structural"
+        },
+        {
           "line": 5,
           "kind": "supports",
           "sources": [

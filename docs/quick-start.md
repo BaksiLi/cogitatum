@@ -26,7 +26,7 @@ Start a new bullet for a separate item.
 
 ## Mark the part you want to examine
 
-```md cog-check require=supports,challenges points=4 bearings=2 diagnostics=0
+```md cog-check require=answers,supports,challenges points=4 bearings=3 diagnostics=0
 - The new deployment has produced intermittent timeouts.
   - [Q] What explains the failures?
     - [C] The connection pool may be exhausted.
@@ -36,13 +36,16 @@ Start a new bullet for a separate item.
 ```
 
 `Q` presents a Question and `C` a Claim or possible answer.
-`G` gives a reason for the nearest enclosing Point; `O` objects to it.
+`G` here gives a reason for the Claim; `O` objects to it.
 The Ground and Objection here connect to the Claim.
 
-The Question organizes the discussion.
-Nesting a Claim beneath it does not automatically record an answer or settle the question.
+The Claim offers a candidate answer to the Question, so the compiler records `answers`.
+It does not judge the answer adequate or settle the Question.
+G directly beneath Q would record relevance and an unbound support intention; state the answer and put its reasons beneath it.
 Use a neutral `[.]` when you want a Point without choosing a role.
-See [Points](points.md) when you need the other marks or an explicit answer relation.
+In ordinary Point context, a marked occurrence without a clause constructs one Bearing toward its focus.
+The mark and the focus choose the kind; a clause replaces that default; at root there is no default attachment.
+See [Points](points.md) for the other marks and [Bearings](bearings.md#connections-from-indentation) for the defaults.
 
 Keep qualifications such as “may” in the Point's wording.
 Its complete block is its content, including continuation lines; the first line is not a separate title.

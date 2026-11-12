@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { analyzeSourceReferences, compileGraph, formatGraph, formatExplain, parseDocument, explainSource, previewRelationEdit, previewTargetForm } from "../../core/src/index.js";
+import { analyzeSourceReferences, compileGraph, formatGraph, formatExplain, parseDocument, explainSource, previewFramingEdit, previewRelationEdit, previewTargetForm } from "../../core/src/index.js";
 import type { SourceParseMode } from "../../core/src/index.js";
 
 const repoRoot = fileURLToPath(new URL("../../../", import.meta.url));
@@ -27,7 +27,8 @@ afterAll(() => {
   rmSync(workingDirectory, { recursive: true, force: true });
 });
 
-describe("cog CLI", () => {
+// Each case spawns tsx processes, which can exceed the default timeout while the full suite runs in parallel.
+describe("cog CLI", { timeout: 30_000 }, () => {
   it.each(["document", "host"] as const)("prints all compiler decisions and structural previews in %s input without writing", mode => {
     const content = "- [C @claim] Claim.\n  - [G @reason; @step] Reason.\n    - [_ -> ^/; @review]\n      - [. @first] First.\n      - [. @second] Second.";
     const source = mode === "host" ? "Host prose.\r\n  ```cog\r\n" + content.split("\n").map(l => "  " + l).join("\r\n") + "\r\n  ```" : content;
@@ -70,6 +71,27 @@ describe("cog CLI", () => {
     expect(runCli("relation-edit", "--line", "1", "--separate", file).status).toBe(1);
   });
 
+  it("prints retarget and framing-edit previews as the core API does, without writing", () => {
+    const unbound = "- [Q @q] 應延期嗎？\n  - [C @a] 應延期。\n  - [G @g] 預算已用盡。\n";
+    const file = join(workingDirectory, "framing.md");
+    writeFileSync(file, unbound);
+    const retargeted = runCli("relation-edit", "--line", "3", "--retarget", "@a", file);
+    expect(retargeted.status).toBe(0);
+    expect(JSON.parse(retargeted.stdout)).toEqual(previewRelationEdit(unbound, { operation: "retarget", line: 3, target: { id: "a" } }));
+    expect(runCli("relation-edit", "--line", "2", "--retarget", "^", file).status).toBe(1);
+
+    const opposed = "- [C @delay] 應延後採用。\n- [O @cost +> @delay] 成本超出預算。\n";
+    writeFileSync(file, opposed);
+    const remarked = runCli("framing-edit", "--line", "2", "--remark", "G", file);
+    expect(remarked.status).toBe(0);
+    expect(JSON.parse(remarked.stdout)).toEqual(previewFramingEdit(opposed, { operation: "remark", line: 2, mark: "G" }));
+    const split = runCli("framing-edit", "--split", "--line", "2", file);
+    expect(split.status).toBe(0);
+    expect(JSON.parse(split.stdout).proposedSource).toBe("- [C @delay] 應延後採用。\n- [G @cost +> @delay] 成本超出預算。\n- [O use @cost]\n");
+    expect(runCli("framing-edit", "--split", "--line", "1", file).status).toBe(1);
+    expect(readFileSync(file, "utf8")).toBe(opposed);
+  });
+
   it("prints source-selection errors in text Explain without a selected unit", () => {
     const file = join(workingDirectory, "unclosed-explain.md");
     writeFileSync(file, "```cog\n- [C] Unclosed.");
@@ -94,6 +116,14 @@ describe("cog CLI", () => {
     ["relation-edit", "--join", "1", "valid.cog.md"],
     ["relation-edit", "--join", "1,2", "--line", "1", "valid.cog.md"],
     ["relation-edit", "--to", "named", "--line", "1", "valid.cog.md"],
+    ["relation-edit", "--retarget", "named", "--line", "1", "valid.cog.md"],
+    ["relation-edit", "--retarget", "@a", "--decide", "supports", "--line", "1", "valid.cog.md"],
+    ["relation-edit", "--retarget", "@a", "valid.cog.md"],
+    ["framing-edit", "--line", "1", "valid.cog.md"],
+    ["framing-edit", "--remark", "X", "--line", "1", "valid.cog.md"],
+    ["framing-edit", "--remark", "G", "--split", "--line", "1", "valid.cog.md"],
+    ["framing-edit", "--split", "valid.cog.md"],
+    ["relation-edit", "--split", "--line", "1", "valid.cog.md"],
     ["graph", "--separate", "valid.cog.md"]
   ])("rejects invalid preview arguments %j", (...args) => {
     expect(runCli(...args).status).toBe(2);
@@ -109,7 +139,7 @@ describe("cog CLI", () => {
       "      Another paragraph.",
       "      - [point @ignored] Literal",
       "        continuation.",
-      "- [edge use @r] This occurrence",
+      "- [_ use @r] This occurrence",
       "  has its own prose."
     ].join("\n");
     const source = (mode === "host" ? "Prose.\n  ```cog\n" + inquiry.split("\n").map(line => "  " + line).join("\n") + "\n  ```" : inquiry).replace(/\n/g, "\r\n");
@@ -270,7 +300,7 @@ describe("cog CLI", () => {
     writeFileSync(join(workingDirectory, "--references"), "- [C @claim] A claim.");
     const result = runCli("check", "--", "--references");
     expect(result.status).toBe(0);
-    expect(JSON.parse(result.stdout)).toEqual({ version: "0.6.0", diagnostics: [] });
+    expect(JSON.parse(result.stdout)).toEqual({ version: "0.7.0", diagnostics: [] });
   });
 
   it("prints valid partial output and exits with failure after a misindented annotation", () => {
@@ -316,10 +346,10 @@ describe("cog CLI", () => {
     const version = runCli("--version");
 
     expect(help.status).toBe(0);
-    expect(help.stdout).toContain(`Cogitatum ${packageVersion} (format 0.6.0)`);
+    expect(help.stdout).toContain(`Cogitatum ${packageVersion} (format 0.7.0)`);
     expect(help.stdout).toContain("cog <command>");
     expect(version.status).toBe(0);
-    expect(version.stdout).toContain(`cog ${packageVersion} (format 0.6.0)`);
+    expect(version.stdout).toContain(`cog ${packageVersion} (format 0.7.0)`);
   });
 
   it.each(["document", "host"])("keeps parsing separate from reference validation in %s mode", mode => {
@@ -349,7 +379,7 @@ describe("cog CLI", () => {
     );
 
     expect(valid.status).toBe(0);
-    expect(JSON.parse(valid.stdout)).toMatchObject({ version: "0.6.0", diagnostics: [] });
+    expect(JSON.parse(valid.stdout)).toMatchObject({ version: "0.7.0", diagnostics: [] });
     expect(invalid.status).toBe(1);
     expect(JSON.parse(invalid.stdout).diagnostics).toEqual(
       expect.arrayContaining([expect.objectContaining({ code: "BEARING_HANDLE_WITHOUT_BEARING" })])

@@ -6,6 +6,40 @@ Earlier 0.4 entries below are unpublished source milestones included in this fir
 0.6.1 was likewise never published to npm and ships in 0.6.2.
 Use the complete released schema set and [migrate retained source](docs/syntax.md#compatibility-and-migration) rather than relabelling old JSON.
 
+## 0.7.0 — unreleased
+
+Format **0.7.0**.
+Source that compiled under 0.6 can construct different relations; follow [Migrating from 0.6](docs/syntax.md#migrating-from-06) rather than relabelling saved JSON.
+
+- Read each marked occurrence by its role in its focus.
+  Every marked Point occurrence beneath a Point now constructs exactly one Bearing; no marked nested occurrence is silently unattached.
+  C beneath Q constructs `answers`, a candidate answer that settles nothing; `.` beneath any Point constructs `concerns`.
+  G directly beneath Q constructs `concerns`, with suggestion `UNBOUND_GROUND_UNDER_QUESTION`, instead of supporting the Question; write `+> ^` when that is meant.
+  The focus is the occurrence's own mark, so `[. use @q]` is no Question focus even when `@q` was declared Q.
+  Detaching is positional: outdent to root rather than re-marking as `.`.
+- Record how a mark and its relation agree as Explain effect `frameOccurrence`, with framing `aligned`, `compatible`, `opposed`, `unbound` or `none`.
+  An opposed framing, such as `[O @x +> @c]`, keeps the written relation and adds suggestion `OPPOSED_FRAMING`; the relation is never changed to fit the mark.
+  A root role with a directed intention (G, O, R, D) is `unbound`: presented as that role, target unstated.
+  Explain text reads these as, for example, “Presented as Objection; …”.
+- Rename the `clarifies` kind to `interprets`.
+  `clarifies` is diagnosed with `RETIRED_BEARING_KIND` and constructs nothing.
+- Add example support: `by example` qualifies a constructed `supports` Bearing, as in `[G by example]` or `[. +> @c by example]`, recorded as `profile: "example"`.
+  It records the authored use only; it chooses no inference scheme and judges no representativeness.
+  A profile without a `supports` Bearing is `PROFILE_REQUIRES_SUPPORTS`, and a misspelt one `MALFORMED_BEARING_PROFILE`; the Point is kept and no fallback Bearing is built.
+  Commitments treat example support as entailing plain support, and comparison reports a profile change per Bearing.
+  Relation edits refuse profiled Bearings; target-form edits preserve the profile.
+- Require whitespace or the end of the line after an annotation's closing `]`, including U+00A0 and U+3000.
+  `[G]ood` is now `MISSING_ANNOTATION_SEPARATOR` instead of silently a Ground with body `ood`.
+- Retire the `node` and `edge` family aliases; use `.`/`point` and `_`/`bearing`.
+  The retired words stay recognised with `RETIRED_FAMILY_ALIAS` and construct no Bearing.
+- Add `previewFramingEdit`, checked previews that re-mark an occurrence only when every relation is unchanged, or split an opposed framing into the aligned mark plus an unbound root use.
+  Add the `retarget` relation edit, which moves one Bearing to a selected target and reports what it retracts and adds.
+  `analyzeSourceEdits` accepts `framing` requests.
+- Add `cog framing-edit --line N --remark <mark>|--split` and `cog relation-edit --retarget <@name|^|^/>`.
+  `cog lsp` offers the checked framing repairs as quick fixes for `OPPOSED_FRAMING`.
+- Align private View with the 0.7 contracts: commitment descriptions follow `frameOccurrence`, example support is labelled, and outline ties appear only where no Bearing already joins a Point to its outline parent.
+- Snapshot the 0.6.0 schemas under `spec/0.6.0/`; the 0.7.0 schemas validate format 0.7 only.
+
 ## 0.6.2 — 9 November 2026
 
 - Add `tokenizeSource`, the language's one lexical definition for highlighting: bullets, structural marks, roles, names, operators, relation words, retired spellings, inline code and literal note subtrees.

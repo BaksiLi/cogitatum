@@ -6,7 +6,7 @@
  * "Material" (Graph IR `declaration.form: "material"`) while displaying as Neutral Point.
  */
 
-import type { PointDeclaration } from "@cogitatum/core";
+import type { BearingProfile, PointDeclaration } from "@cogitatum/core";
 
 export type PointMarkLabel = "Q" | "C" | "G" | "O" | "R" | "D" | "Material";
 export type MarkShape = "filled" | "material";
@@ -33,7 +33,7 @@ export const BEARING_MARKS: Readonly<Record<string, BearingMark>> = {
   concerns: { kind: "concerns", name: "concerns", zh: "關涉", symbol: "∼", tone: "neutral", dashed: true },
   answers: { kind: "answers", name: "answers", zh: "回答", symbol: "↳", tone: "neutral", dashed: false },
   respondsTo: { kind: "respondsTo", name: "responds to", zh: "回應", symbol: "↩", tone: "neutral", dashed: false },
-  clarifies: { kind: "clarifies", name: "clarifies", zh: "釐清", symbol: "=", tone: "neutral", dashed: true }
+  interprets: { kind: "interprets", name: "interprets", zh: "釐清", symbol: "=", tone: "neutral", dashed: true }
 };
 
 /** Type scale shared by the renderer and hosts (CSS pixels, fixed regardless of zoom). */
@@ -51,6 +51,11 @@ export function declarationMark(declaration: PointDeclaration): PointMark {
 
 export function bearingMark(kind: string): BearingMark {
   return BEARING_MARKS[kind] ?? { kind, name: kind, zh: kind, symbol: "·", tone: "neutral", dashed: false };
+}
+
+/** Profiles qualify the relation's words; its glyph and topology stay those of its kind. */
+export function bearingLabel(kind: string, profile?: BearingProfile): string {
+  return `${bearingMark(kind).name}${profile ? ` by ${profile}` : ""}`;
 }
 
 /** A joint Bearing has several sources; independent Bearings each keep one. */

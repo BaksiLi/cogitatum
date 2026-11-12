@@ -1,12 +1,12 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://cogitatum.baksili.codes/schemas/0.6.0/ast.schema.json",
+  "$id": "https://cogitatum.baksili.codes/schemas/0.7.0/ast.schema.json",
   "title": "Cogitatum Document AST",
   "description": "Ordered parser output. An annotation is a block's only semantic representation; raw text preserves the source and is not reinterpreted during compilation. A block owns its header and contiguous indented continuation lines, excluding children; raw and text use LF and sourceSpan may span multiple lines.",
   "type": "object",
   "required": ["version", "blocks", "diagnostics"],
   "properties": {
-    "version": { "const": "0.6.0" },
+    "version": { "const": "0.7.0" },
     "blocks": {
       "type": "array",
       "items": { "$ref": "#/$defs/block" }
@@ -57,7 +57,7 @@
       "type": "object",
       "required": ["op", "sources", "target"],
       "properties": {
-        "op": { "enum": ["supports", "challenges", "concerns", "answers", "respondsTo", "clarifies"] },
+        "op": { "enum": ["supports", "challenges", "concerns", "answers", "respondsTo", "interprets"] },
         "sources": {
           "oneOf": [
             { "const": "self" },
@@ -88,13 +88,13 @@
     },
     "annotationSyntaxErrors": {
       "type": "array",
-      "items": { "enum": ["operator", "handle", "selector", "retired"] },
+      "items": { "enum": ["operator", "handle", "selector", "retired", "profile"] },
       "minItems": 1,
       "uniqueItems": true
     },
     "bearingSyntaxErrors": {
       "type": "array",
-      "items": { "enum": ["operator", "handle", "selector", "retired", "mode"] },
+      "items": { "enum": ["operator", "handle", "selector", "retired", "mode", "profile"] },
       "minItems": 1,
       "uniqueItems": true
     },
@@ -136,7 +136,8 @@
             "selector": { "const": "attachment" },
             "operatorClause": { "$ref": "#/$defs/selfOperatorClause" },
             "handle": { "$ref": "#/$defs/authoredId" },
-            "syntaxErrors": { "type": "array", "items": { "enum": ["reference", "operator", "selector", "handle", "retired"] }, "minItems": 1, "uniqueItems": true }
+            "profile": { "const": "example" },
+            "syntaxErrors": { "type": "array", "items": { "enum": ["reference", "operator", "selector", "handle", "retired", "profile"] }, "minItems": 1, "uniqueItems": true }
           },
           "allOf": [
             { "if": { "not": { "required": ["syntaxErrors"] } }, "then": { "required": ["ref"] } },
@@ -161,6 +162,7 @@
             "operatorClause": { "$ref": "#/$defs/selfOperatorClause" },
             "syntaxErrors": { "$ref": "#/$defs/annotationSyntaxErrors" },
             "handle": { "$ref": "#/$defs/authoredId" },
+            "profile": { "const": "example" },
             "raw": { "type": "string" }
           },
           "allOf": [
@@ -181,6 +183,7 @@
             "selector": { "const": "attachment" },
             "syntaxErrors": { "$ref": "#/$defs/bearingSyntaxErrors" },
             "handle": { "$ref": "#/$defs/authoredId" },
+            "profile": { "const": "example" },
             "raw": { "type": "string" }
           },
           "allOf": [
@@ -200,6 +203,7 @@
             "operatorClause": { "$ref": "#/$defs/selfOperatorClause" },
             "syntaxErrors": { "$ref": "#/$defs/annotationSyntaxErrors" },
             "handle": { "$ref": "#/$defs/authoredId" },
+            "profile": { "const": "example" },
             "raw": { "type": "string" }
           },
           "additionalProperties": false

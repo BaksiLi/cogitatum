@@ -2,22 +2,24 @@
 
 Check Cogitatum inquiry markup and inspect the reasoning connections marked in ordinary prose.
 
-Version **0.6.2**, format **0.6.0**, with equivalent Point/Bearing family spellings and local object notes.
+This checkout is unreleased **0.7.0**, format **0.7.0**; the published baseline is Core/CLI **0.6.2**, format **0.6.0**.
+It includes focus-based defaults, occurrence framing, `interprets`, example support and checked edit previews.
+`point` / `.` and `bearing` / `_` remain; the former `node` and `edge` aliases receive `RETIRED_FAMILY_ALIAS`.
 `export` retains note prose and literal subtrees through the complete `explainSource` envelope.
 `graph` retains note target/origin records but omits note prose; graph-text `structure-v1` also omits those records.
-Explicit Bearing constructors, Point declarations and Point uses accept all canonical kind names, including `answers`, `respondsTo` and `clarifies`.
+Explicit Bearing constructors, Point declarations and Point uses accept all canonical kind names, including `answers`, `respondsTo` and `interprets`.
 The historical npm `alpha` tag provides **0.3.0-alpha.1** without linked.
 Requires Node.js 22.12 or newer.
-Use the matching Core/CLI and schema versions when upgrading from 0.5.0.
+Use matching Core/CLI and schema versions when [migrating older source](../../docs/syntax.md#compatibility-and-migration).
 
-Run the CLI without a global installation:
+Run the published 0.6 baseline without a global installation (it does not implement the 0.7 rules documented here):
 
 ```sh
 npx --package @cogitatum/cli@0.6.2 cog check inquiry.cog.md
 npx --package @cogitatum/cli@0.6.2 cog graph inquiry.cog.md
 ```
 
-Or, from a source checkout:
+For 0.7, run this source checkout:
 
 ```sh
 npm ci
@@ -28,8 +30,8 @@ npm run cog:dist -- graph examples/getting-started.cog.md
 
 ## Choose a command
 
-Every command reads one source file, runs locally without an LLM and leaves that file unchanged.
-An agent can call the same commands as a person; no model account, API key or model inference is involved.
+File commands read one source file, run locally and leave that file unchanged.
+The editor server receives document content over stdio instead.
 
 | Command | Purpose |
 | --- | --- |
@@ -42,7 +44,8 @@ An agent can call the same commands as a person; no model account, API key or mo
 | `explain --format text` | Read every compiler effect, including local choices and host selection errors |
 | `export` | Preserve selected source units, AST, graph, notes and Explain together |
 | `target-form --line N --to named\|positional` | Preview naming one relation's target, or making it positional again |
-| `relation-edit --line N --decide K` / `--separate`, or `--join L1,L2` | Preview a relation edit and classify it as refinement, weakening or revision |
+| `relation-edit --line N --decide K` / `--separate` / `--retarget TARGET`, or `--join L1,L2` | Preview a relation edit and compare its commitments |
+| `framing-edit --line N --remark MARK` / `--split` | Preview changing presentation while preserving every relation |
 
 Choose the command for the result you need: `ast` for parsed source, `graph` for compiled connections, `check` for diagnostics, and `explain` for the compilation trace.
 Use `export` for a source-backed artifact containing all four projections, in both document and host modes.
@@ -84,7 +87,7 @@ This command explains how the markup was compiled, without interpreting the pros
 | `explain` | One Explain trace | `{ version, mode, units, explanations, diagnostics }` |
 | `check --references` | Reference-analysis result | Reference-analysis result, with independent units |
 | `target-form` | Ready/unavailable preview | Ready/unavailable preview, using complete-file line numbers |
-| `relation-edit` | Ready/unavailable preview | Ready/unavailable preview, using complete-file line numbers |
+| `relation-edit`, `framing-edit` | Ready/unavailable preview | Ready/unavailable preview, using complete-file line numbers |
 
 Host `explain` is a command-specific projection without `documents` or `graphs`, so it is not a source-envelope schema instance.
 Validate each `explanations[i]` with the Explain schema, or call Core `explainSource` for the complete envelope.
@@ -129,10 +132,31 @@ It accepts `--input host` and retains all units and aggregate selection diagnost
 ```sh
 cog relation-edit --line 3 --decide supports inquiry.cog.md
 cog relation-edit --input host --join 12,14 notes.md
+cog relation-edit inquiry.cog.md --line 3 --retarget @answer
 ```
 
 It calls Core `previewRelationEdit` and prints ready/unavailable JSON with the commitment comparison; the input file is never overwritten.
+`--retarget <@name|^|^/>` preserves kind, sources and position while changing the target.
+For G unbound beneath Q it binds the support intention: `[G @g]` becomes `[G @g +> @answer]`.
+`--decide concerns` on a default G beneath a non-Q Point writes `[.]`.
+Kind-deciding, joining or separating a profiled relation is unavailable (`profiled-relation`).
 See [relation edits](../../docs/graph-inspection.md#preview-relation-edits) for what each edit may change.
+
+## Framing edit preview
+
+```sh
+cog framing-edit inquiry.cog.md --line 2 --remark G
+cog framing-edit inquiry.cog.md --line 2 --remark .
+cog framing-edit inquiry.cog.md --line 2 --split
+```
+
+`--remark <.|Q|C|G|O|R|D>` re-marks an occurrence only when the same relations remain, such as with a written clause or an unattached root.
+Re-marking that changes a default relation is unavailable with reason `changes-relation`.
+`--split` repairs opposed framing on a named Point: `[O @cost +> @delay]` becomes `[G @cost +> @delay]` plus root `[O use @cost]`.
+The root use keeps the objection intention unbound; nesting it beneath a Point would construct a challenge.
+The command calls Core `previewFramingEdit`, prints ready/unavailable JSON and never writes source.
+Add `--input host` for Markdown; line numbers refer to the complete file.
+See [framing previews](../../docs/graph-inspection.md#preview-framing-edits) for preservation limits.
 
 ## Target form preview
 
@@ -148,8 +172,9 @@ For host input the line refers to the complete file.
 With `--to named`, `[G]` beneath `@claim` becomes `[G +> @claim]`: moving the occurrence keeps that target, and changing the mark keeps the written relation.
 With `--to positional`, the clause shortens back to the mark when the result is its own default, and the target follows the outline again.
 The returned `consequence` states both effects; a constructor changes only its header, leaving its members in place.
-The preview reparses and recompiles the complete proposal, checking identities, content, declaration marks, ordered endpoints, literal subtrees, note ownership and unrelated diagnostics.
-Anonymous targets, occurrences that state no relation, constructor source members and errors anywhere in the input receive an unavailable result with no proposed source.
+The preview reparses and recompiles the complete proposal, checking identities, content, declaration marks, ordered endpoints and profiles, literal subtrees, note ownership and unrelated diagnostics.
+Anonymous targets, occurrences that state no relation (such as root C or `.`), constructor source members and errors anywhere in the input receive an unavailable result with no proposed source.
+G left unbound beneath Q receives `preservation-failed`, because naming its relevance would erase that intention; use a deliberate relation retarget to bind its support.
 
 Ready JSON has original/proposed source, diagnostics and one minimal `edit: { offset, remove, insert }` in original UTF-16 code units.
 Compare `originalSource` with the current complete file before applying it; regenerate the preview if the file changed.
@@ -171,17 +196,18 @@ Files ending in `.cog.md` or `.cog` compile in document mode; other Markdown fil
 | Semantic tokens | Core's `tokenizeSource` classes in standard token types; Markdown hosts contribute only their fences |
 | Definition, references, hover | Follow names the compiler resolved; unavailable while any error remains |
 | Rename | Rewrites one entity's `@name` tokens in its source unit; rejects invalid or already declared names |
+| Quick fixes for `OPPOSED_FRAMING` | Re-mark aligned, re-mark neutral, or split using checked framing previews |
 
 Name features use the same inventory as `check --references`, so they wait for an error-free source rather than guessing.
 Any client that starts `cog lsp` over stdio can use it; Vim support, with matching syntax highlighting and a browser preview, is a separate host plugin.
 
 ## Using the CLI from an assistant
 
-An LLM can propose a reconstruction, a wording revision or a reading of a passage, then call `check`, `graph` and `explain` to inspect the represented result.
+An assistant can propose a reconstruction, a wording revision or a reading of a passage, then call `check`, `graph` and `explain` to inspect the represented result.
 `check --references` helps it locate written dependencies; `target-form` provides one deterministic edit with its own preservation checks.
 Keep original source and complete command results, and distinguish a valid compilation from a faithful reconstruction or sound inference.
-Graph text omits ordinary body, notes and occurrence-local prose, so it cannot substitute for the source when reviewing meaning.
+Graph text preserves support profiles but omits ordinary body, notes, occurrence framing and local prose, so it cannot substitute for the source when reviewing meaning.
 
 Interpretation, supplying an unstated premise or deciding whether to move a reason to another conclusion remains an attributable authoring choice.
-A future model-assisted workflow should expose its source selection, assumptions and proposed change separately from deterministic checks; no such model command is currently shipped.
+Keep source selection, assumptions and proposed changes separately reviewable alongside deterministic checks.
 See [writing with an assistant](../../docs/writing-style.md#work-with-an-assistant) for the authoring boundary.

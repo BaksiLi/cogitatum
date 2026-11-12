@@ -1,4 +1,4 @@
-import { parseAnnotation } from "./annotation.js";
+import { isSeparatedAfterAnnotation, parseAnnotation } from "./annotation.js";
 import { extractCogitatumSourceUnits } from "./source.js";
 import type { SourceParseMode } from "./types.js";
 
@@ -17,9 +17,10 @@ export type SourceLine = { tokens: SourceToken[]; role?: string; note: boolean }
 export type PlacedSourceLine = SourceLine & { line: number; column: number };
 
 const BULLET = /^(\s*)([-*+])(\s+)/;
-const RELATIONS = new Set(["supports", "challenges", "concerns", "respondsTo", "clarifies", "answers"]);
-const KEYWORDS = new Set(["use", "point", "node", "bearing", "edge"]);
-const RETIRED = new Set(["/>", "_>", "about", "repliesTo", "undercuts", "linked", "join"]);
+const RELATIONS = new Set(["supports", "challenges", "concerns", "respondsTo", "interprets", "answers"]);
+const KEYWORDS = new Set(["use", "point", "bearing", "by"]);
+const PROFILES = new Set(["example"]);
+const RETIRED = new Set(["/>", "_>", "about", "repliesTo", "clarifies", "undercuts", "linked", "join", "node", "edge"]);
 const HEAD = /^\s*([QCGORD][?/_]?|[._]\/?)(?=[\s\];@,]|$)/u;
 const INSIDE = /(@[\p{L}\p{N}_-]+)|([+\-~/_]>|\^\/?)|([\p{L}]+)|([;,/])|(\s+)|(.)/gu;
 
@@ -44,6 +45,12 @@ export function tokenizeSource(source: string): SourceLine[] {
     const inner = rest.slice(1, close);
     const head = HEAD.exec(inner);
     const isNote = parseAnnotation(inner).annotation?.kind === "note";
+    // The parser rejects an annotation glued to its prose; show it as prose, keeping a note's subtree literal.
+    if (!isSeparatedAfterAnnotation(rest.slice(close + 1))) {
+      if (isNote) noteIndent = indent;
+      lines.push({ tokens: [...tokens, ...prose(rest)], note: false });
+      continue;
+    }
     tokens.push({ text: "[", kind: "mark" });
     let consumed = 0;
     if (head) {
@@ -58,6 +65,7 @@ export function tokenizeSource(source: string): SourceLine[] {
       else if (operator) tokens.push({ text, kind: RETIRED.has(operator) ? "retired" : "operator" });
       else if (word && RELATIONS.has(word)) tokens.push({ text, kind: "relation" });
       else if (word && KEYWORDS.has(word)) tokens.push({ text, kind: "mark" });
+      else if (word && PROFILES.has(word)) tokens.push({ text, kind: "relation" });
       else if (word && RETIRED.has(word)) tokens.push({ text, kind: "retired" });
       else if (word === "note" && isNote) tokens.push({ text, kind: "mark" });
       else if (punct) tokens.push({ text, kind: "punct" });

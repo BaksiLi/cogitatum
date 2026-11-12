@@ -135,18 +135,18 @@ try {
 
     await check('outline context survives lazy Map creation and source updates', async () => {
       if (width < 500) await page.evaluate(() => { document.documentElement.style.fontSize = '14px'; });
-      const outline = '- [Q @question] Which opening hours?\n  - [C @claim] Stay open later.';
+      const outline = '- [Q @question] Which opening hours?\n  - [C @claim +> @other] Stay open later.\n- [C @other] Another proposal.';
       await page.evaluate(source => window.mount(source), outline);
       await tab('Map').click(); await flush();
       assert.equal(await root.locator('.cog-outline-tie').count(), 1);
-      assert.equal(await root.locator('.cog-node.bearing').count(), 0, 'nesting does not invent a Bearing');
+      assert.equal(await root.locator('.cog-node.bearing').count(), 1, 'the explicit clause supplies the only Bearing');
       assert.equal(await root.locator('.cog-outline-tie[tabindex]').count(), 0, 'outline context is not selectable');
       assert.equal(await root.locator('.cog-block-map').evaluate(node => getComputedStyle(node).backgroundImage), 'none', 'only the camera paints the paper grid');
       if (width < 500) {
         assert.equal(await root.locator('.cog-map-controls button').evaluateAll(nodes =>
           nodes.every(node => node.getBoundingClientRect().width >= 44 && node.getBoundingClientRect().height >= 44)), true);
       }
-      await page.evaluate(source => window.block.update(source.replace('[C @claim]', '[G @claim]')), outline); await flush();
+      await page.evaluate(source => window.block.update(source.replace('[C @claim +> @other]', '[C @claim]')), outline); await flush();
       assert.equal(await root.locator('.cog-outline-tie').count(), 0);
       assert.equal(await root.locator('.cog-node.bearing').count(), 1);
       await page.evaluate(source => window.block.update(source), outline); await flush();
@@ -341,10 +341,10 @@ try {
         '- [point @p] Main content.',
         '- [C @q] Claim.',
         '  - [G use @p; @r] Occurrence wording.',
-        '    - [node note] Point qualification.',
+        '    - [. note] Point qualification.',
         '    - [bearing note] Here yesterday.',
         '      - [point @literal] Quoted syntax.',
-        '- [edge use @r]',
+        '- [_ use @r]',
         '  - [_ note] Here yesterday.',
         '- [bearing use @r]'
       ].join('\n');

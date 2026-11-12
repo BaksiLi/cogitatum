@@ -37,7 +37,7 @@
     },
     {
       "file": "syllogism.cog.md",
-      "purpose": "A minimal local joint-support reconstruction that keeps both premises as Grounds.",
+      "purpose": "A minimal local joint-support reconstruction that keeps both premises as neutral sources of one joint support.",
       "expectedDiagnosticCodes": []
     },
     {

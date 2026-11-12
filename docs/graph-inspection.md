@@ -7,10 +7,11 @@ order: 5
 
 # Graph inspection
 
-Cogitatum 0.5 provides a plain-text inspection view of one compiled graph.
+Cogitatum provides a plain-text inspection view of one compiled graph.
 It exposes individual Points and Bearings without reconstructing the author's document or evaluating its reasoning.
-This page specifies the `structure-v1` projection and graph-text version 1 retained by the Core/CLI 0.6.2 checkout.
-The notation version stays 1; note records and their prose remain outside this bounded structural view.
+This page specifies the `structure-v1` projection and graph-text version 1 retained by the Core/CLI 0.7.0 checkout.
+The notation version stays 1; the 0.7 projection adds the optional support profile.
+Note records, their prose and occurrence framing remain outside this bounded structural view.
 The projection is the bounded preservation contract for the first inspection view; broader source rewriting and theoretical interpretations require their own contracts.
 
 ## Inspect a document
@@ -28,7 +29,7 @@ Its name identifies the result to inspect, just as `cog ast` identifies the pars
 `--format` selects the output representation of that compilation: JSON by default, or the text projection below.
 `cog graph` and `cog graph --format json` return the same JSON output.
 The JSON data's `version` identifies the compiler format contract; the CLI's `--format json|text` option does not select a language version.
-Neither option rewrites source or calls an LLM.
+Neither option rewrites source.
 For an already compiled Graph IR in a program, call Core `formatGraph(graph)`; the CLI's file argument expects source rather than saved Graph IR JSON.
 Graph text inspection accepts `document` input only.
 Host input can contain several independent source units and source-selection errors; use its complete JSON envelope rather than silently formatting one surviving graph.
@@ -43,7 +44,7 @@ For example:
 
 ```text graph-text-reference
 cogitatum-graph-text 1
-format: "0.6.0"
+format: "0.7.0"
 projection: structure-v1
 status: no-errors
 
@@ -65,9 +66,9 @@ A Serial structure retains its intermediate Point and each step; the formatter a
 
 ## Structural contract
 
-For format 0.6.0, a graph has finite, disjoint typed identity sets of Points and Bearings.
+For format 0.7.0, a graph has finite, disjoint typed identity sets of Points and Bearings.
 Each Bearing has a nonempty, duplicate-free, ordered sequence of Point sources and one typed Point or Bearing target.
-`supports`, `challenges`, `concerns` and `clarifies` admit either target type; `answers` and `respondsTo` require a Point.
+`supports`, `challenges`, `concerns` and `interprets` admit either target type; `answers` and `respondsTo` require a Point.
 Point declaration metadata is `role` with its role, or `material` without a role.
 Neither form carries an open or resolved status.
 Authored names are separate from compilation-local keys.
@@ -94,7 +95,7 @@ No graph row asserts truth, logical validity, defeat, acceptability or resolutio
 | Format version | Printed explicitly |
 | Each Point and Bearing identity | Replaced by a distinct output-local `pN` or `bN` label, used consistently in every reference |
 | Point `declaration`, `text`, optional `id` | Preserved; declaration records its form and applicable role |
-| Bearing `kind`, ordered `sources`, typed `target`, optional `handle` and `text` | Preserved, including separate instances with equal endpoints |
+| Bearing `kind`, optional `profile`, ordered `sources`, typed `target`, optional `handle` and `text` | Preserved, including separate instances with equal endpoints |
 | Optional name/text absence versus empty string | Preserved by omitting the field or printing `=""` |
 | Point and Bearing array order | Used to allocate and print labels; no sorting or deduplication |
 | Compilation key spelling | Omitted; labels do not promise persistence between exports or revisions |
@@ -105,13 +106,13 @@ No graph row asserts truth, logical validity, defeat, acceptability or resolutio
 
 Always retain the original input, input mode, compiler/package version and complete source envelope when source fidelity or reproducibility matters.
 A graph-only export cannot recover omitted context or distinguish two source spellings that compile to the same graph.
-For example, `[G]` and `[G +> ^]` compile the same Bearing, but AST records whether the mark supplies the relation or the author wrote it out.
+For example, beneath a non-Question focus, `[G]` and `[G +> ^]` compile the same Bearing, but AST records whether the mark supplies the relation or the author wrote it out.
 Changing the mark later therefore changes the first relation and leaves the second as written.
 
 ## Comparison boundaries
 
 A structural comparison under `structure-v1` applies within one format version to graphs without error diagnostics.
-It permits a separate bijection of Point identities and Bearing identities, preserving every Point's declaration, text and optional name, and every Bearing's kind, ordered sources, typed target, optional handle and text.
+It permits a separate bijection of Point identities and Bearing identities, preserving every Point's declaration, text and optional name, and every Bearing's kind, optional profile, ordered sources, typed target, optional handle and text.
 It may ignore compilation-key spelling, entity array order, entity spans and `derivedBy`.
 Diagnostics must still be reviewed separately; a matching surviving subgraph cannot make a failed compilation equivalent to a deliberate omission.
 
@@ -181,11 +182,12 @@ A structural comparison asks whether two graphs are the same.
 A commitment comparison asks what a revision retracted and what it added.
 It distinguishes a refinement, which only adds, from a revision, which also retracts.
 
-A commitment is a relation kind, an unordered set of sources and a target.
+A commitment is a relation kind, an optional support profile, an unordered set of sources and a target.
 Several Bearings may state one commitment; they stay distinct entities when something addresses them.
-Entailment between commitments has exactly two rules:
+Entailment between commitments has three rules:
 
 - A commitment entails itself.
+- Example support entails the corresponding plain support, not conversely.
 - Every relation commits each of its sources to bearing on its target.
   So a set jointly concerns a target once each member is a source of some relation to it, of any kind.
 
@@ -208,7 +210,8 @@ Selecting a Point is also counted: adding one refines and removing one retracts.
 | `[_]` with member a | `[_ +> ^]` with members a, b | refinement |
 | `[_]` with members a, b | `[_]` with member a | weakening |
 | `[O/]` on a step | `[O]` on its conclusion | revision |
-| `[G]` | `[G +> @claim]` | equivalent |
+| `[G]` beneath non-Q `@claim` | `[G +> @claim]` | equivalent |
+| Plain support | The same support `by example` | refinement |
 
 Comparing two revisions requires knowing which entity continues which.
 Core does not infer this silently.
@@ -221,6 +224,7 @@ Graphs with errors, other format versions and invalid correspondences are `indet
 The order classifies recorded connections and Point selection, never whether a reading is correct.
 `equivalent` is limited to those commitments: a continued Point can change from a question to a claim, or change its wording, without changing this classification.
 The result reports changed Point content and declarations for separate review; it does not judge their meaning.
+`bearings.changed` reports each continued Bearing's profile change, even when another parallel Bearing makes the aggregate commitments equivalent.
 Notes, body prose, names, marks, source order and positions are outside this order, and changes to them may still alter how the argument is read.
 
 ## Preview relation edits
@@ -229,24 +233,54 @@ Notes, body prose, names, marks, source order and positions are outside this ord
 cog relation-edit --line 2 --decide supports inquiry.cog.md
 cog relation-edit --line 2 --separate inquiry.cog.md
 cog relation-edit --join 2,4 inquiry.cog.md
+cog relation-edit inquiry.cog.md --line 3 --retarget @answer
 ```
 
-Three edits change recorded relations without touching Point text:
+Four edits change recorded relations without touching Point text:
 
 - `--decide <kind>` gives the relation on a line another kind, such as `[_]` to `[_ +> ^]` or `[G]` to `[O]`.
-  A pure relation mark exchanges its letter; `Q`, `C` and neutral headers keep their mark and write the clause, as `[Q/]` to `[Q -> ^/]`.
+  A pure relation mark exchanges its letter; deciding a default support G as `concerns` writes `[.]`.
+  Q, C and neutral headers keep their mark and write the clause, as `[Q/]` to `[Q -> ^/]`.
 - `--separate` replaces a group whose sources are its direct members with one relation per member, each keeping the group's kind and target.
 - `--join` is its inverse: adjacent sibling relations of one kind and written target become the members of one new group.
+- `--retarget <@name|^|^/>` gives one relation another target, preserving kind, sources and outline position.
+  For G left unbound beneath Q, it binds the support intention: `[G @g]` becomes `[G @g +> @answer]`, replacing relevance with support and reporting a revision.
 
 Each preview knows which entity continues which, so it supplies its own correspondence to `compareCommitments` and reports the resulting relation.
 The author sees whether the edit is a refinement, which only adds, or a weakening or revision, which retracts something already recorded.
-So deciding `[_]` as joint support, or separating it into supports, is a refinement; joining two supports is a revision.
+Deciding `[_]` as joint support is a refinement.
+Separating its relevance into individual Bearings is equivalent; joining two supports is a revision.
 
 The preview recompiles the complete proposed source.
 It is unavailable when the input or result has errors, when Points would be added, removed or reworded, or when anything beyond the edited relations would change.
 Groups with a handle, a description or children other than members cannot be separated, and relations with a handle cannot be joined, because another relation may address them as entities.
+A profiled relation cannot be kind-decided, separated or joined (`profiled-relation`); target-form previews retain its profile.
 `Q` and `C` occurrences cannot be joined either: a member keeps only its operand, and their marks also declare the Point.
-Core provides `previewRelationEdit(source, { operation, line | lines, kind?, mode? })`; the command prints JSON and never writes to the input file.
+Core provides `previewRelationEdit(source, edit)`.
+A retarget request is `{ operation: "retarget", line, target: { id: "answer" } }`, or uses `{ local: "point" }` / `{ local: "bearing" }` for `^` / `^/`; add `mode: "host"` for host input.
+The command prints JSON and never writes to the input file.
+
+## Preview framing edits
+
+```sh
+cog framing-edit inquiry.cog.md --line 2 --remark G
+cog framing-edit inquiry.cog.md --line 2 --remark .
+cog framing-edit inquiry.cog.md --line 2 --split
+```
+
+Core provides `previewFramingEdit(source, { operation: "remark", line, mark })` with mark `.`/Q/C/G/O/R/D, or `{ operation: "split", line }`.
+Add `mode: "host"` in Core or `--input host` in the CLI; lines refer to the complete file.
+These commands print ready/unavailable previews and never write source.
+A framing edit never changes a relation.
+Re-marking is available only when the same Bearing is constructed afterwards, such as with a written clause, or when a root occurrence stays unattached.
+Changing a default support to `.` is refused with reason `changes-relation`; use a relation edit when weakening it to relevance is intended.
+
+For opposed `[O @cost +> @delay]`, re-marking G aligns the presentation, while `.` keeps it neutral and the support explicit.
+`--split` instead writes `[G @cost +> @delay]` and adds a root `[O use @cost]`, preserving an unbound objection intention.
+Splitting requires a named Point and opposed framing; a nested objection use would construct a challenge.
+The preview records framing before/after and whether the declaration changed; a split also reports its added line.
+The [migration examples](syntax.md#migrating-from-06) show all three repairs and the nested near miss.
+`cog lsp` exposes these three previews as quick fixes for `OPPOSED_FRAMING`.
 
 ## Preview named and positional targets
 
@@ -263,7 +297,7 @@ Core provides `previewTargetForm(source, { line, form: 'named' | 'positional', m
 The command prints JSON and never writes to the input file.
 
 An editor offering several choices can call `analyzeSourceEdits(source, mode?)` once.
-Its `preview(request)` accepts `{ kind: "target-form", line, form }` or `{ kind: "relation", edit }`, using the same checks as the standalone previews.
+Its `preview(request)` accepts `{ kind: "target-form", line, form }` or `{ kind: "relation", edit }` or `{ kind: "framing", edit }`, using the same checks as the standalone previews.
 It reuses the original analysis and recompiles each proposed source independently.
 `diagnostics`, preview results and `siblingsAt(line)`'s `{ lines, index }` are detached values; literal note descendants are not selectable occurrences.
 The editor chooses which requests to offer and in which order, and analyzes a new snapshot after an edit.
@@ -292,7 +326,7 @@ The same three Points and two individual Bearings remain, including the objectio
 It does not decide whether the observations are independent or sufficient.
 
 The edit changes only the target term, and the relation or selector slash it needs.
-A mark's default relation is written out when its target is named, and omitted again when the result is the mark's own default: `[G +> ^]` becomes `[G]`, and `[O -> ^/]` becomes `[O/]`.
+A mark's default relation is written out when its target is named, and omitted again when the result is the mark's own bound default: beneath a non-Q focus `[G +> ^]` becomes `[G]`, and `[O -> ^/]` becomes `[O/]`.
 For a constructor, only the header's target changes; its members stay where they are, still its sources.
 Spacing, names, handles, prose, note boundaries and line endings are retained.
 
@@ -303,8 +337,10 @@ The `consequence` text states both effects for the chosen edit.
 Choose this operation when that is the intended commitment; it is not an automatic formatting fix.
 
 The preview declines errors anywhere in the input, including an invalid or unclosed separate host fence,
-anonymous targets, occurrences that state no relation (`.` and `C`), a source member of a constructor (select the constructor instead),
+anonymous targets, occurrences that state no relation (such as root `.` and C), a source member of a constructor (select the constructor instead),
 and a target that is already in the requested form.
+An unbound G beneath Q also receives `preservation-failed`: naming its `concerns` attachment would erase the support intention.
+Use `relation-edit --retarget` to bind that intention to a chosen target deliberately.
 A positional target must resolve to the same entity at the occurrence's position.
 No missing premise, new authored name or role interpretation is supplied automatically.
 
@@ -316,7 +352,7 @@ Exit status is 0 for a ready preview, 1 for an unavailable preview or I/O failur
 
 The Core implementation reparses and recompiles the proposed complete input in the same mode.
 It checks the ordered AST including occurrence text and note subtrees, allowing only the selected clause to change.
-It checks every graph's identities, entity order, contents, declarations, ordered sources, typed targets and names, allowing only the selected Bearing's structural/operator provenance to change.
+It checks every graph's identities, entity order, contents, declarations, ordered sources, typed targets, names and profiles, allowing only the selected Bearing's structural/operator provenance to change.
 Diagnostics retain their ordered severity, code and owning occurrence, except that implicit-through-body advice may appear or disappear.
 These checks establish the stated structural and source preservation conditions; they do not certify an interpretation of the prose.
 
@@ -331,7 +367,7 @@ cog explain --input host --format text notes.md
 
 Explain text shows every active occurrence and every compiler effect:
 its selected context, ordered sources, typed target, reuse, note ownership,
-joint membership or commentary, and why a Bearing was emitted, skipped or rejected.
+joint membership or commentary, occurrence framing, profiles, and why a Bearing was emitted, skipped or rejected.
 It distinguishes a failed candidate from a surviving graph entity.
 Ordinary body crossings and failed nearest contexts stay visible; nothing silently searches outward.
 Literal note descendants remain owned by their note header and have no active decisions.
@@ -350,8 +386,11 @@ selecting a row draws a rail from the context row that indentation selected, mar
 and states the decision in one line, such as `From indentation: challenges @g (L2), the nearest enclosing Point.`
 It also distinguishes how the relation is stated: `[G]` supplies it through the mark, `[G +> ^]` through a written clause, and `[_]` through the constructor's `concerns` default.
 Moving a positional occurrence can change its target; changing a mark does not override a written clause.
-Rows that create no relation say so, including bare `C` and neutral Points.
-A nested `Q` instead records `concerns` toward its nearest Point.
+Root C and neutral Points create no default relation.
+In ordinary Point context they construct relevance, except C beneath Q constructs a candidate `answers` Bearing.
+A nested Q records `concerns` toward its nearest Point.
+Explain `frameOccurrence` retains `framing`, an `intention` for unbound cases, and `focus` when a Point focus selected a default.
+Graph IR cannot certify retention of this framing or Note prose.
 
 ## Core API and compatibility
 
@@ -369,8 +408,9 @@ The CLI deliberately rejects host graph text until a batch representation is spe
 
 `GRAPH_TEXT_VERSION` is `"1"`; it identifies the notation independently of `FORMAT_VERSION`.
 The header records both versions.
-Changing the spelling/layout of records or the projection requires a new notation version; supporting a future Graph IR format requires an explicit preservation review.
-The formatter adds no further JSON schema change beyond the breaking [0.5 format migration](syntax.md#compatibility-and-migration); default graph output remains JSON.
+Use both identifiers when interpreting the projection: format 0.7 support rows can include a profile, while format 0.6 rows could not.
+The 0.7 Graph IR contract adds `profile: "example"` only on support; text prints it as `profile="example"` and preserves its presence in structural comparisons.
+Default graph output remains JSON; use the matching [0.7 compiler and schemas](syntax.md#compatibility-and-migration).
 The experimental View package's source-aware Reading consumes original input and a matching `explainSource` result; graph-text output is not its input or an intermediate source representation.
 Its Map geometry and selection do not change Graph IR or source.
 LaTeX, decoders and theoretical adapters remain separately scoped.

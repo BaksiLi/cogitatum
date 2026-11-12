@@ -24,7 +24,7 @@ describe("Local target terms", () => {
     ["[G]", "[G +> ^]"],
     ["[O]", "[O -> ^]"],
     ["[R]", "[R respondsTo ^]"],
-    ["[D]", "[D clarifies ^]"],
+    ["[D]", "[D interprets ^]"],
     ["[Q]", "[Q ~> ^]"]
   ])("compiles %s and %s under a Point to the same graph", (short, long) => {
     const doc = (header: string) => `- [C @c] Claim.\n  - ${header} Child.`;
@@ -36,7 +36,7 @@ describe("Local target terms", () => {
     ["[O/]", "[O -> ^/]"],
     ["[G/]", "[G +> ^/]"],
     ["[Q/]", "[Q ~> ^/]"],
-    ["[D/]", "[D clarifies ^/]"]
+    ["[D/]", "[D interprets ^/]"]
   ])("compiles the Bearing selector %s and %s to the same graph", (short, long) => {
     const doc = (header: string) => `- [C @c] Claim.\n  - [G @g] Reason.\n    - ${header} Pressure.`;
     expect(shape(doc(long))).toEqual(shape(doc(short)));
@@ -58,7 +58,11 @@ describe("Local target terms", () => {
   - [. @b] B.
   - [_ @a, @b +> ^] Joint support.`);
     expect(graph.diagnostics).toEqual([]);
-    expect(graph.bearings).toEqual([expect.objectContaining({ kind: "supports", derivedBy: "structural" })]);
+    expect(graph.bearings).toEqual([
+      expect.objectContaining({ kind: "concerns", sources: [{ kind: "point", key: graph.points[1].key }], target: { kind: "point", key: graph.points[0].key }, derivedBy: "structural" }),
+      expect.objectContaining({ kind: "concerns", sources: [{ kind: "point", key: graph.points[2].key }], target: { kind: "point", key: graph.points[0].key }, derivedBy: "structural" }),
+      expect.objectContaining({ kind: "supports", sources: graph.points.slice(1).map(p => ({ kind: "point", key: p.key })), target: { kind: "point", key: graph.points[0].key }, derivedBy: "structural" })
+    ]);
   });
 
   it.each([

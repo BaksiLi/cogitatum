@@ -1,4 +1,4 @@
-import { isAnnotationStart, isRetiredClaimStart, parseAnnotation, recognizeAnnotationHead } from "./annotation.js";
+import { isAnnotationStart, isRetiredClaimStart, isSeparatedAfterAnnotation, parseAnnotation, recognizeAnnotationHead } from "./annotation.js";
 import { FORMAT_VERSION } from "./types.js";
 import type { Annotation, AstBlock, SelectorRole, Diagnostic, DocumentAst, ParsedLine, ParseOptions, SourceSpan } from "./types.js";
 
@@ -9,6 +9,8 @@ type RawNode = {
   continuationPrefix: string;
   text: string;
   annotationRaw?: string;
+  /** The bracketed text of a recognized annotation whose ] is not followed by whitespace. */
+  unseparatedRaw?: string;
   indentationValid: boolean;
   literal: boolean;
   noteBoundary: boolean;
@@ -158,11 +160,24 @@ function parseRawOutline(
     const noteBoundary = !literal && content.startsWith("[") &&
       recognizeAnnotationHead(content.slice(1).split("]")[0]).operation === "note";
     const retiredClaim = !literal && content.startsWith("[") && isRetiredClaimStart(content.slice(1).split("]")[0]);
-    const bracketMatch = !literal && (indentationValid || noteBoundary || retiredClaim) ? /^\[([^\]]+)\]\s*(.*)$/s.exec(content) : undefined;
+    const bracketMatch = !literal && (indentationValid || noteBoundary || retiredClaim) ? /^\[([^\]]+)\](.*)$/s.exec(content) : undefined;
     // Closing a prose bracket must not turn ordinary text into an annotation.
     // Recognize misspelled case and retired spellings for diagnostics;
     // parseAnnotation still enforces the actual, case-sensitive grammar.
-    const annotationMatch = bracketMatch && (noteBoundary || isAnnotationStart(bracketMatch[1])) ? bracketMatch : undefined;
+    const recognized = bracketMatch && (noteBoundary || isAnnotationStart(bracketMatch[1])) ? bracketMatch : undefined;
+    // A recognized annotation glued to its prose, as in [G]ood, is malformed.
+    // It is treated like an unclosed header: the boundary and any literal
+    // note subtree stay, and no character is dropped to make it valid.
+    const unseparated = recognized && !isSeparatedAfterAnnotation(recognized[2]) ? recognized[1] : undefined;
+    const annotationMatch = recognized && unseparated === undefined ? recognized : undefined;
+    if (unseparated !== undefined) {
+      diagnostics.push({
+        severity: "error",
+        code: "MISSING_ANNOTATION_SEPARATOR",
+        message: "The closing ] of an annotation must be followed by whitespace or the end of the line. Insert a space after ] to keep the annotation; to keep bracketed prose at the start of a block, remove the brackets or place other text before them.",
+        sourceSpan: spanForLine(index + 1 + lineOffset, contentColumn, rawLine.length + 1 + columnOffset)
+      });
+    }
     const malformedPrefix = !literal && !noteBoundary && !annotationMatch && classifyMalformedAnnotationPrefix(content);
     if (indentationValid && malformedPrefix) {
       diagnostics.push({
@@ -186,7 +201,8 @@ function parseRawOutline(
       rawLines: [rawLine],
       continuationPrefix: indentText + " ".repeat(1 + match[2].length),
       annotationRaw: annotationMatch?.[1],
-      text: annotationMatch ? annotationMatch[2] : content,
+      ...(unseparated !== undefined ? { unseparatedRaw: unseparated } : {}),
+      text: annotationMatch ? annotationMatch[2].replace(/^\s+/, "") : content,
       indentationValid,
       literal,
       noteBoundary,
@@ -241,13 +257,17 @@ function toAstBlock(node: RawNode, diagnostics: Diagnostic[]): AstBlock {
   // Recognition is confined to the bullet header. Brackets on continuation
   // lines are prose and cannot complete or repair a malformed annotation.
   const header = node.header;
+  // A header glued to its prose fails like an unclosed one, read up to its bracket.
+  const inner = node.unseparatedRaw ?? header.slice(1);
+  const open = "[" + inner;
+  const unterminated = node.unseparatedRaw !== undefined || !header.includes("]");
   if (node.literal || node.noteBoundary) {
-    const parsed = node.noteBoundary ? parseAnnotation(node.annotationRaw ?? header.slice(1), node.sourceSpan) : undefined;
+    const parsed = node.noteBoundary ? parseAnnotation(node.annotationRaw ?? inner, node.sourceSpan) : undefined;
     const annotation = parsed?.annotation;
     if (parsed) diagnostics.push(...parsed.diagnostics);
     if (annotation?.kind === "note" && (!node.annotationRaw || !node.indentationValid)) {
       annotation.syntaxErrors = ["note"];
-      if (!parsed?.diagnostics.length) diagnostics.push({ severity: "error", code: "MALFORMED_NOTE", message: "A note requires a closed header and valid outline indentation.", sourceSpan: node.sourceSpan });
+      if (!parsed?.diagnostics.length && node.unseparatedRaw === undefined) diagnostics.push({ severity: "error", code: "MALFORMED_NOTE", message: "A note requires a closed header and valid outline indentation.", sourceSpan: node.sourceSpan });
     }
     return {
       kind: "block",
@@ -259,55 +279,58 @@ function toAstBlock(node: RawNode, diagnostics: Diagnostic[]): AstBlock {
     };
   }
   // Failed constructors retain their context boundary even without a closing bracket.
-  const head = recognizeAnnotationHead(header.slice(1));
-  const unclosedConstructor = node.indentationValid && !node.annotationRaw && header.startsWith("[") && !header.includes("]")
-    ? head.family === "bearing" ? "_" : /^\[\s*(?:[QCGORD][/_]?\s+)?(linked|join)(?=$|[\s;])/i.exec(header)?.[1].toLowerCase()
+  const head = recognizeAnnotationHead(inner);
+  const unclosedConstructor = node.indentationValid && !node.annotationRaw && header.startsWith("[") && unterminated
+    ? head.family === "bearing" ? "_" : /^\[\s*(?:[QCGORD][/_]?\s+)?(linked|join)(?=$|[\s;])/i.exec(open)?.[1].toLowerCase()
     : undefined;
-  const retiredClaimRaw = !node.annotationRaw && header.startsWith("[") && isRetiredClaimStart(header.slice(1)) ? header.slice(1) : undefined;
-  const annotationRaw = node.annotationRaw ?? retiredClaimRaw ?? (unclosedConstructor === "join" || unclosedConstructor === "linked" ? header.slice(1) : undefined);
-  const unclosedSelector = node.indentationValid && !node.annotationRaw && !header.includes("]") && /^\[\s*(?:[GO][_/]|[QD]\/)(?=$|[\s;@])/i.test(header);
-  const unclosedUse = node.indentationValid && !node.annotationRaw && header.startsWith("[") && !header.includes("]") && head.operation === "use";
+  const retiredClaimRaw = !node.annotationRaw && header.startsWith("[") && isRetiredClaimStart(inner) ? inner : undefined;
+  const annotationRaw = node.annotationRaw ?? retiredClaimRaw ?? (unclosedConstructor === "join" || unclosedConstructor === "linked" ? inner : undefined);
+  const unclosedSelector = node.indentationValid && !node.annotationRaw && unterminated && /^\[\s*(?:[GO][_/]|[QD]\/)(?=$|[\s;@])/i.test(open);
+  const unclosedUse = node.indentationValid && !node.annotationRaw && header.startsWith("[") && unterminated && head.operation === "use";
   const unclosedBearingUse = unclosedConstructor === "_" && head.operation === "use";
   const unclosedMembersBearing = unclosedConstructor === "_" && head.sources === "members";
   const parsed = annotationRaw ? parseAnnotation(annotationRaw, node.sourceSpan) : undefined;
   if (parsed) {
     diagnostics.push(...parsed.diagnostics);
   }
-  if (!parsed && !node.annotationRaw && node.indentationValid && header.startsWith("[") && !header.includes("]") && isAnnotationStart(header.slice(1))) {
-    diagnostics.push(...parseAnnotation(header.slice(1), node.sourceSpan).diagnostics.filter(diagnostic => ["RETIRED_AUTHORING_SYNTAX", "RETIRED_CLAIM_OPENNESS", "RETIRED_GAP_ANNOTATION", "RETIRED_LINKED_ANNOTATION"].includes(diagnostic.code)));
+  if (!parsed && !node.annotationRaw && node.indentationValid && header.startsWith("[") && unterminated && isAnnotationStart(inner)) {
+    diagnostics.push(...parseAnnotation(inner, node.sourceSpan).diagnostics.filter(diagnostic => ["RETIRED_AUTHORING_SYNTAX", "RETIRED_CLAIM_OPENNESS", "RETIRED_GAP_ANNOTATION", "RETIRED_LINKED_ANNOTATION", "RETIRED_FAMILY_ALIAS"].includes(diagnostic.code)));
   }
   // A layout error rejects the annotation, not its boundary. Treating it as
   // body would let descendants invent attachments to a more distant Point.
   const misindentedRaw = !node.indentationValid && header.startsWith("[") ? header.slice(1).split("]")[0] : undefined;
   const misindentedAnnotation = misindentedRaw !== undefined && isAnnotationStart(misindentedRaw)
     ? { kind: "invalid" as const, raw: misindentedRaw } : undefined;
+  // An unterminated header spelled with a retired alias stays marked as such.
+  const retired = head.retiredAlias ? ["retired" as const] : [];
   let annotation: Annotation | undefined;
   if (parsed?.annotation?.kind === "invalid") {
     annotation = parsed.annotation;
   } else if (misindentedAnnotation) {
     annotation = misindentedAnnotation;
   } else if (unclosedBearingUse) {
-    annotation = { kind: "bearingUse", raw: header.slice(1), syntaxErrors: ["reference"] };
+    annotation = { kind: "bearingUse", raw: inner, syntaxErrors: ["reference"] };
   } else if (unclosedMembersBearing) {
     // Member sources keep their boundary; specific header errors still surface.
-    const members = parseAnnotation(header.slice(1), node.sourceSpan);
-    diagnostics.push(...members.diagnostics);
+    const members = parseAnnotation(inner, node.sourceSpan);
+    // A retired alias was reported above; do not repeat it.
+    diagnostics.push(...members.diagnostics.filter(diagnostic => diagnostic.code !== "RETIRED_FAMILY_ALIAS"));
     const syntaxErrors = members.annotation?.kind === "bearing" ? members.annotation.syntaxErrors ?? [] : [];
-    annotation = { kind: "bearing", members: true, raw: header.slice(1), syntaxErrors: [...new Set(["operator" as const, ...syntaxErrors])] };
+    annotation = { kind: "bearing", members: true, raw: inner, syntaxErrors: [...new Set(["operator" as const, ...syntaxErrors, ...retired])] };
   } else if (unclosedUse) {
     // Retain clear selector intent so an unfinished use cannot become a joint source.
-    const role = /^\[\s*([GOQD])\/\s+use(?=$|[\s;])/i.exec(header)?.[1].toUpperCase() as SelectorRole | undefined;
+    const role = /^\[\s*([GOQD])\/\s+use(?=$|[\s;])/i.exec(open)?.[1].toUpperCase() as SelectorRole | undefined;
     annotation = role
-      ? { kind: "use", role, selector: "attachment", raw: header.slice(1), syntaxErrors: ["reference"] }
-      : { kind: "use", raw: header.slice(1), syntaxErrors: ["reference"] };
+      ? { kind: "use", role, selector: "attachment", raw: inner, syntaxErrors: ["reference"] }
+      : { kind: "use", raw: inner, syntaxErrors: ["reference"] };
   } else if (unclosedSelector) {
-    annotation = { kind: "invalid", raw: header.slice(1), selector: "attachment" };
+    annotation = { kind: "invalid", raw: inner, selector: "attachment" };
   } else if (parsed?.annotation) {
     annotation = parsed.annotation;
   } else if (unclosedConstructor === "_") {
-    annotation = { kind: "bearing", members: false, raw: header.slice(1), syntaxErrors: [head.sources === "unselected" ? "mode" : "operator"] };
-  } else if (parsed?.diagnostics.length || (node.indentationValid && !node.annotationRaw && classifyMalformedAnnotationPrefix(header))) {
-    annotation = { kind: "invalid", raw: node.annotationRaw ?? header.slice(1) };
+    annotation = { kind: "bearing", members: false, raw: inner, syntaxErrors: [head.sources === "unselected" ? "mode" : "operator", ...retired] };
+  } else if (parsed?.diagnostics.length || node.unseparatedRaw !== undefined || (node.indentationValid && !node.annotationRaw && classifyMalformedAnnotationPrefix(header))) {
+    annotation = { kind: "invalid", raw: node.annotationRaw ?? inner };
   }
   return {
     kind: "block",

@@ -25,7 +25,7 @@ describe("source-backed object notes", () => {
   });
 
   it("reuses fixed Bearing identity and endpoints without copying records or promoting use prose", () => {
-    const source = declarations + "\n  - [_ note] Here yesterday.\n- [_ use @r] Occurrence prose.\n  - [note] Local only.\n  - [_ note] Here yesterday.\n- [edge use @r]\n- [bearing use @r]";
+    const source = declarations + "\n  - [_ note] Here yesterday.\n- [_ use @r] Occurrence prose.\n  - [note] Local only.\n  - [_ note] Here yesterday.\n- [_ use @r]\n- [bearing use @r]";
     const g = graph(source);
     expect(errors(source)).toEqual([]);
     expect(g.bearings).toHaveLength(1);
@@ -66,10 +66,18 @@ describe("source-backed object notes", () => {
     expect(graph(illegal).bearings).toEqual([]);
   });
 
+  it("selects a neutral Point's relevance attachment for its Bearing note", () => {
+    const source = "- [C] Outer.\n  - [G] Ground.\n    - [.] Nearer Point.\n      - [_ note] Its relevance to the Ground.";
+    const g = graph(source);
+    expect(errors(source)).toEqual([]);
+    expect(g.bearings.map(b => b.kind)).toEqual(["supports", "concerns"]);
+    expect(g.notes).toEqual([expect.objectContaining({ origin: "note", target: { kind: "bearing", key: g.bearings[1].key } })]);
+  });
+
   it.each([
     "- [. note] No context.",
     "- [_ note] No context.",
-    "- [C] Outer.\n  - [.] Nearer Point.\n    - [_ note] No attachment.",
+    "- [C] Outer.\n- [.] Root Point.\n  - [_ note] No attachment.",
     declarations + "\n  - [. note] A Bearing context has no Point slot.",
     declarations + "\n- [_ use @r]\n  - [. note] Must not borrow an endpoint.",
     declarations + "\n- [point use @p]\n  - [_ note] Must not borrow a remote outgoing route.",
@@ -97,7 +105,7 @@ describe("source-backed object notes", () => {
       for (const suffix of [" @target]", "; @anchor]", " bad]", "", " +> @q]", "+>@q]"]) {
         const source = `- [C @q] Outer.\n  - [${head}${suffix}\n    - [C? @q] Literal retired annotation.\n    - [G +> @missing] Literal relation.\n      - [edge use @bad] Literal use.`;
         const result = compile(source), block = result.documents[0].blocks[0].children[0];
-        expect(errors(source)).toEqual(["MALFORMED_NOTE"]);
+        expect(errors(source)).toEqual([/^(node|edge)\b/.test(head) ? "RETIRED_FAMILY_ALIAS" : "MALFORMED_NOTE"]);
         expect(block.annotation).toMatchObject({ kind: "note", syntaxErrors: ["note"] });
         expect(block.children.every(child => !child.annotation)).toBe(true);
         expect(result.graphs[0].points).toHaveLength(1);
@@ -115,7 +123,7 @@ describe("source-backed object notes", () => {
   });
 
   it("keeps different Bearings with the same endpoints and their notes distinct", () => {
-    const g = graph(declarations + "\n  - [_ note] First.\n- [edge @p supports @q; @s] Other.\n  - [_ note] Second.");
+    const g = graph(declarations + "\n  - [_ note] First.\n- [_ @p supports @q; @s] Other.\n  - [_ note] Second.");
     expect(g.bearings).toHaveLength(2);
     expect(g.bearings[0].key).not.toBe(g.bearings[1].key);
     expect(g.notes.filter(n => n.origin === "note").map(n => n.target.key)).toEqual(g.bearings.map(b => b.key));
@@ -132,14 +140,14 @@ describe("source-backed object notes", () => {
 
   it.each([". note", "_ note", "point note", "edge note"])("retains literal descendants after invalid outline layout at %s", header => {
     const result = compile(`- [C] Outer.\n \t- [${header}] Bad indentation.\n    - [G +> @missing] Literal.`);
-    expect(result.diagnostics.map(d => d.code)).toEqual(["MIXED_INDENTATION", "MALFORMED_NOTE"]);
+    expect(result.diagnostics.map(d => d.code)).toEqual(["MIXED_INDENTATION", header === "edge note" ? "RETIRED_FAMILY_ALIAS" : "MALFORMED_NOTE"]);
     expect(result.graphs[0].points).toHaveLength(1);
     expect(result.graphs[0].bearings).toEqual([]);
     expect(result.documents[0].blocks[0].children[0].children[0].annotation).toBeUndefined();
   });
 
   it("preserves source, targets and literal descendants through both complete exports and checked edits", () => {
-    const source = "- [point @p] Original.\n- [C @q] Claim.\n  - [G use @p; @r] Local.\n    - [node note] Point text.\n    - [edge note] Here yesterday.\n      - [point @literal] Quotation.";
+    const source = "- [point @p] Original.\n- [C @q] Claim.\n  - [G use @p; @r] Local.\n    - [. note] Point text.\n    - [_ note] Here yesterday.\n      - [point @literal] Quotation.";
     const preview = previewTargetForm(source, { line: 3, form: "named" });
     expect(preview.status).toBe("ready");
     if (preview.status !== "ready") return;

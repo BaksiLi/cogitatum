@@ -10,8 +10,8 @@ const candidates = [
       "- [G @first] The process changes over time.",
       "- [G @second] Its stages constrain one another.",
       "- [. @term] A temporal model.",
-      "  - [D @clarification; @clarifies] A model of the ordered stages.",
-      "- [edge @first, @second +> @claim; @route] Joint support."
+      "  - [D @clarification; @interprets] A model of the ordered stages.",
+      "- [_ @first, @second +> @claim; @route] Joint support."
     ].join("\n"),
     unmatchedLine: 2,
     clarificationLine: 5,
@@ -25,7 +25,7 @@ const candidates = [
       "    - [. @first] The process changes over time.",
       "    - [. @second] Its stages constrain one another.",
       "- [. @term] A temporal model.",
-      "  - [D @clarification; @clarifies] A model of the ordered stages."
+      "  - [D @clarification; @interprets] A model of the ordered stages."
     ].join("\n"),
     unmatchedLine: 5,
     clarificationLine: 6,
@@ -54,7 +54,7 @@ describe("layout diagnostic guidance without semantic recovery", () => {
         target: pointRef(valid.graph, "claim")
       }),
       expect.objectContaining({
-        handle: "clarifies", kind: "clarifies",
+        handle: "interprets", kind: "interprets",
         sources: [pointRef(valid.graph, "clarification")], target: pointRef(valid.graph, "term")
       })
     ]));
@@ -113,7 +113,7 @@ describe("layout diagnostic guidance without semantic recovery", () => {
       "      - [G @blocked] Must not attach to outer.",
       "        - [O @local] Can still challenge blocked.",
       "      - [G @explicit +> @outer; @independent] Deliberate independent attachment.",
-      "- [edge @explicit +> @missing] Independent unresolved target."
+      "- [_ @explicit +> @missing] Independent unresolved target."
     ].join("\n");
     const before = compile(independent);
     const { graph, explain } = compile(fragment + "\n" + independent);

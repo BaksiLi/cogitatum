@@ -24,7 +24,7 @@ const validateSource = ajv.compile(sourceSchema);
 const json = (value: unknown) => JSON.parse(JSON.stringify(value));
 
 describe("public compiler contract boundaries", () => {
-  it.each(["+> ^/", "-> ^/", "~> ^/", "clarifies ^/", "/"])("correlates the member-sourced [_ %s] through every public projection", clause => {
+  it.each(["+> ^/", "-> ^/", "~> ^/", "interprets ^/", "/"])("correlates the member-sourced [_ %s] through every public projection", clause => {
     const header = clause === "/" ? "_/" : `_ ${clause}`;
     const result = json(explainSource(`- [C] Claim.\n  - [G; @step] Reason.\n    - [${header}]\n      - [.] First.\n      - [.] Second.`));
     expect(validateSource(result), JSON.stringify(validateSource.errors)).toBe(true);
@@ -58,7 +58,7 @@ describe("public compiler contract boundaries", () => {
     expect(validateExplain(result.explanations[0])).toBe(false);
   });
 
-  it.each([["+> ^", "supports"], ["-> ^", "challenges"], ["respondsTo ^", "respondsTo"], ["clarifies ^", "clarifies"], ["~> ^", "concerns"]])("retains the member-sourced [_ %s] relation through every JSON projection", (clause, kind) => {
+  it.each([["+> ^", "supports"], ["-> ^", "challenges"], ["respondsTo ^", "respondsTo"], ["interprets ^", "interprets"], ["~> ^", "concerns"]])("retains the member-sourced [_ %s] relation through every JSON projection", (clause, kind) => {
     const source = `- [O @target] Target.\n  - [_ ${clause}; @route]\n    - [. @a] First.\n    - [. @b] Second.`;
     const result = json(explainSource(source));
     expect(validateSource(result), JSON.stringify(validateSource.errors)).toBe(true);
@@ -277,9 +277,9 @@ describe("public compiler contract boundaries", () => {
   });
 
   it("validates all named kinds on explicit Bearings, Point declarations and Point uses", () => {
-    for (const kind of ["supports", "challenges", "concerns", "answers", "respondsTo", "clarifies"]) {
+    for (const kind of ["supports", "challenges", "concerns", "answers", "respondsTo", "interprets"]) {
       const target = "claim";
-      const source = "- [C @claim] Claim.\n- [. @material] Material.\n- [edge @material supports @claim; @route]\n- [edge @claim " + kind + " @" + target + "]\n- [Q @question " + kind + " @claim] Which scale?\n- [. use @material " + kind + " @claim]";
+      const source = "- [C @claim] Claim.\n- [. @material] Material.\n- [_ @material supports @claim; @route]\n- [_ @claim " + kind + " @" + target + "]\n- [Q @question " + kind + " @claim] Which scale?\n- [. use @material " + kind + " @claim]";
       const ast = parseDocument(source);
       const { graph, explain } = compileGraphWithExplain(ast);
       expect(graph.diagnostics, kind).toEqual([]);
@@ -343,7 +343,7 @@ describe("public compiler contract boundaries", () => {
     const raw = ast.blocks[0].children[0].raw;
     delete ast.blocks[0].children[0].annotation;
     const graph = compileGraph(ast);
-    expect(graph.bearings).toHaveLength(0);
+    expect(graph.bearings).toEqual([expect.objectContaining({ kind: "concerns", sources: [{ kind: "point", key: graph.points[1].key }], target: { kind: "point", key: graph.points[0].key } })]);
     expect(graph.points).toHaveLength(2);
     expect(ast.blocks[0].children[0].raw).toBe(raw);
     ast.version = "0.3.0";
@@ -388,12 +388,12 @@ describe("public compiler contract boundaries", () => {
       ast.blocks[1].annotation.operatorClause.sources = [{ id: "claim" }];
       expect(validateAst(ast), mark).toBe(false);
     }
-    const edge = json(parseDocument("- [edge @reason +> @claim] A route.\n"));
+    const edge = json(parseDocument("- [_ @reason +> @claim] A route.\n"));
     expect(validateAst(edge)).toBe(true);
     edge.blocks[0].annotation.operatorClause.sources = "self";
     expect(validateAst(edge)).toBe(false);
     // A malformed edge remains inspectable without a successfully parsed operator.
-    expect(validateAst(json(parseDocument("- [edge] Unfinished route.\n")))).toBe(true);
+    expect(validateAst(json(parseDocument("- [_] Unfinished route.\n")))).toBe(true);
   });
 
   it("rejects other AST format versions instead of silently reinterpreting them", () => {
@@ -447,7 +447,7 @@ describe("public compiler contract boundaries", () => {
     }));
     const emitted = json(compileGraphWithExplain(parseDocument("- [C @claim] Claim.\n  - [G; @step] Reason.\n    - [D/] Meaning of the step.\n")).explain);
     const summary = emitted.entries[2].effects.find((effect: { kind: string }) => effect.kind === "emitBearing").bearing;
-    expect(summary).toMatchObject({ kind: "clarifies", target: { kind: "bearing" } });
+    expect(summary).toMatchObject({ kind: "interprets", target: { kind: "bearing" } });
     expect(validateExplain(emitted), JSON.stringify(validateExplain.errors)).toBe(true);
     for (const kind of ["respondsTo", "answers", "undercuts"]) {
       summary.kind = kind;
@@ -535,7 +535,7 @@ describe("Point declaration metadata", () => {
       "- [C @a] The configuration is faulty.\n  - [G use @p; @to-a] Occurrence note.\n    - [O/ @transient; @attack] Only this route.\n  - [G use @open; @from-open]\n  - [G use @gap; @from-gap]",
       "- [C @b] The service needs monitoring.\n  - [G use @p; @to-b]\n    - [O @miscount] Only one retry timed out.",
       "- [. use @wet] Reminder.\n  - [C @aside] Not an answer.",
-      "- [Q use @wet] The local mark leaves the shared wording unchanged.\n  - [.] A separate observation."
+      "- [Q use @wet] The local mark leaves the shared wording unchanged.\n  - [. @observation] A separate observation."
     ].join("\n");
     const alone = compileGraph(parseDocument(declarations));
     const reused = compileGraph(parseDocument(declarations + "\n" + uses));
@@ -548,7 +548,9 @@ describe("Point declaration metadata", () => {
       ["@open", "supports", "point", "@a"],
       ["@gap", "supports", "point", "@a"],
       ["@p", "supports", "point", "@b"],
-      ["@miscount", "challenges", "point", "@p"]
+      ["@miscount", "challenges", "point", "@p"],
+      ["@aside", "concerns", "point", "@wet"],
+      ["@observation", "concerns", "point", "@wet"]
     ]);
     expect(reused.bearings.filter(bearing => bearing.target.kind === "bearing").map(bearing => name.get(bearing.target.key))).toEqual([";to-a"]);
   });

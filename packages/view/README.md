@@ -3,8 +3,8 @@
 Experimental, framework-neutral Map, Reading and Strands views of compiler-produced Cogitatum structure.
 Core owns parsing and relation semantics; View owns presentation and temporary selection.
 Currently available from this checkout, not the published Core/CLI release.
-The 0.6 checkout requires matching Core/format 0.6 projections.
-Core selects Bearing construction, reuse or note mode from the first token after `bearing` / `edge` / `_`.
+The 0.7 checkout requires matching Core/format 0.7 projections.
+Core selects Bearing construction, reuse or note mode from the first token after `bearing` / `_`.
 A constructor such as `[_ +> ^]` produces a Bearing from its direct neutral members, or from listed sources in `[_ @a, @b +> ^]`; a singleton is complete and header prose supplies `Bearing.text`.
 View consumes AST `kind: "bearing"` with its `members` flag, and Explain `localBearingMember` / `local-bearing-containment` membership classifications.
 Convergent, Linked and Serial describe graph structures; source arrays and junctions convey participation, not strength or success.
@@ -247,21 +247,30 @@ These display locations do not create extra graph entities, independent evidence
 Repeated names and keys in different source units remain separate.
 
 `outlineTies(unit)` returns outline placement for that one unit.
-A declared Point whose occurrence states no relation is tied to its outline parent unless a Bearing already joins that pair.
+A nested declared Point is tied to its outline parent only when no Bearing joins that pair in either direction,
+for example when its explicit clause names another target.
+Default relations already connect nested Points to their Point focus; failed occurrences and constructor sources supply no tie.
 Host units repeat anonymous keys, so each unit is passed separately with its own graph.
 
 `ReadingUnit.commitments` records active occurrences' relation and note decisions from Explain, with the matching AST for written syntax:
 `indentation` (the nearest context selected the target, with that context row and any crossed body rows),
 `explicit` (a named target fixed it), `member` (a constructor's member source, adding no relation of its own), `note`,
-`none` (for example C or a neutral Point, which state no relation) or `failed` (no surviving Bearing, with Core's reason).
+`none` (for example a root Point without a clause) or `failed` (no surviving Bearing, with Core's reason).
 For an emitted relation, `relationBy` distinguishes the occurrence's `mark`, a written `clause`, and a constructor's `default`, independently of how its target was selected.
 The inspection line can therefore explain that `[G +> ^]` follows its local target while keeping the written relation when its mark changes.
+`frame` carries Core's `frameOccurrence` effect, including the occurrence's framing and the Point or Question focus that selected a default.
+Thus C beneath a Question offers a candidate answer, neutral placement records relevance,
+and a Ground beneath a Question records relevance with its support target unstated.
+Explicit clauses alone construct their relation, including an opposed framing such as `[G -> ^]`.
+Example support keeps `profile: "example"` in the projections and reads “supports by example” in labels and tooltips;
+it uses the ordinary support glyph and layout.
 A member constructor's header also lists its ordered source rows. A failed candidate never supplies a target.
 An eligible member of a rejected constructor is identified as such; it is not presented as an established joint relation.
 The view draws a **commitment rail** for the hovered or selected row: a guide in the indentation from the selected context row,
 marking each crossed body row and bracketing a constructor's member sources; a failed selection is dashed.
 The selected row also shows an **inspection line**, `describeCommitment(unit, commitment)`, linked by `aria-describedby`.
-It restates Core's decision, including a failed row's own error message, and does not assess the prose or propose another target.
+It restates Core's decision in one sentence and does not assess the prose or propose another target.
+The row's diagnostics retain the full error and remedy.
 The line leads with the relation's glyph. A row's diagnostic badge reads as words, and the exact code stays in its tooltip and the diagnostics list.
 
 Rendering uses safe plain text by default.

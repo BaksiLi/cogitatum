@@ -68,10 +68,17 @@ describe("local Bearing attachment selectors", () => {
     expect(graph.bearings[0].sources).toHaveLength(2);
   });
 
-  it.each(["- [C] Root.\n  - [O/] No attachment.", "- [C] Root.\n  - [G] Ground.\n    - [C] Intervening Point.\n      - [G/] No attachment."])("never crosses an unattached Point boundary", source => {
+  it.each(["- [C] Root.\n  - [O/] No attachment.", "- [C] Root.\n  - [G] Ground.\n- [C] Unattached root Point.\n  - [G/] No attachment."])("never crosses an unattached Point boundary", source => {
     const { graph } = compile(source);
     expect(codes(graph)).toEqual(["NO_LOCAL_BEARING_ATTACHMENT"]);
     expect(graph.bearings.filter(bearing => bearing.target.kind === "bearing")).toEqual([]);
+  });
+
+  it("selects an intervening Claim's own relevance attachment", () => {
+    const { graph } = compile("- [C] Root.\n  - [G] Ground.\n    - [C] Intervening Point.\n      - [G/] Supports its relevance.");
+    expect(codes(graph)).toEqual([]);
+    expect(graph.bearings.map(b => b.kind)).toEqual(["supports", "concerns", "supports"]);
+    expect(graph.bearings[2].target).toEqual({ kind: "bearing", key: graph.bearings[1].key });
   });
 
   it("propagates failed owned attachments instead of selecting an outer surviving relation", () => {
@@ -81,13 +88,13 @@ describe("local Bearing attachment selectors", () => {
   });
 
   it("rejects comments-only and failed constructors without outward fallback", () => {
-    const { graph } = compile("- [C @claim] Claim.\n  - [_ +> ^]\n    - [G/] No sources.\n  - [edge cases]\n    - [O/] Failed edge.\n  - [G @independent +> @claim] Independent support.");
+    const { graph } = compile("- [C @claim] Claim.\n  - [_ +> ^]\n    - [G/] No sources.\n  - [_ cases]\n    - [O/] Failed edge.\n  - [G @independent +> @claim] Independent support.");
     expect(codes(graph)).toEqual(["MALFORMED_BEARING_MODE", "EMPTY_LOCAL_BEARING", "NO_LOCAL_BEARING_ATTACHMENT", "NO_LOCAL_BEARING_ATTACHMENT"]);
     expect(graph.bearings).toHaveLength(1);
   });
 
   it("supports edge/body selection and recursive commentary but keeps unsuffixed edge defaults explicit", () => {
-    const { graph } = compile("- [C @claim] Claim.\n- [G @reason] Reason.\n- [edge @reason +> @claim; @step]\n  - Body.\n    - [O/ @objection; @attack] Assessment.\n      - [G/] Ground for the attack.\n      - [R] Reply.\n  - [O] Still requires a target.");
+    const { graph } = compile("- [C @claim] Claim.\n- [G @reason] Reason.\n- [_ @reason +> @claim; @step]\n  - Body.\n    - [O/ @objection; @attack] Assessment.\n      - [G/] Ground for the attack.\n      - [R] Reply.\n  - [O] Still requires a target.");
     expect(codes(graph)).toEqual(["EXPLICIT_BEARING_DESCENDANT_REQUIRES_TARGET", "IMPLICIT_ATTACHMENT_THROUGH_BODY"]);
     expect(graph.bearings.map(bearing => bearing.kind)).toEqual(["supports", "challenges", "supports", "respondsTo"]);
     expect(graph.bearings[2].target.key).toBe(graph.bearings[1].key);
@@ -95,7 +102,7 @@ describe("local Bearing attachment selectors", () => {
 
   it("ignores remote edges and standalone declaration reordering for local ownership", () => {
     const local = "- [C @claim] Claim.\n  - [G @reason; @step] Reason.\n    - [O/ @objection; @attack] Assessment.";
-    const remote = "- [C @other] Other.\n- [edge @reason +> @other; @remote] Remote reuse.";
+    const remote = "- [C @other] Other.\n- [_ @reason +> @other; @remote] Remote reuse.";
     const before = compile(local + "\n" + remote).graph;
     const after = compile(remote + "\n" + local).graph;
     for (const graph of [before, after]) {

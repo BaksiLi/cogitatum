@@ -22,13 +22,14 @@ The compiler makes these connections inspectable without deciding whether the re
 
 ## Release status
 
-**Core/CLI 0.6.2** implements **format 0.6.0**.
-It includes multiline content, target terms `^` and `^/` with Bearing constructors such as `[_ +> ^]`, object notes, and revised local relation rules.
-The Docs describe this version.
-See the [migration from 0.5](docs/syntax.md#from-published-05) and [changelog](CHANGELOG.md) before recompiling saved notes.
+This checkout is **Core/CLI 0.7.0**, implementing **format 0.7.0**, and is not yet published.
+The published baseline is **Core/CLI 0.6.2 / format 0.6.0**.
+These docs describe the checkout: focus-based defaults, occurrence framing, `interprets`, example support, stricter annotation boundaries and checked edit previews.
+See [migration from 0.6](docs/syntax.md#migrating-from-06), [older migrations](docs/syntax.md#compatibility-and-migration) and the [changelog](CHANGELOG.md) before recompiling saved notes.
+Use the matching compiler and schema bundle; migrate retained source and regenerate its projections rather than relabelling JSON.
 
-Install with `npm install @cogitatum/core@0.6.2`, or run `npx --package @cogitatum/cli@0.6.2 cog check inquiry.cog.md`.
-Use the matching compiler and schema bundle; retained 0.5 source needs migration and recompilation.
+For the published baseline, install `npm install @cogitatum/core@0.6.2`, or run `npx --package @cogitatum/cli@0.6.2 cog check inquiry.cog.md`.
+Use the source checkout commands below to try 0.7; a 0.6 compiler does not implement this reference.
 
 The production [playground](https://onesimos.org/playground) is deployed separately from npm packages.
 The experimental View remains private; publishing Core/CLI does not deploy the website or release host adapters.
@@ -73,7 +74,7 @@ cd cogitatum-public
 git switch -c fix/describe-the-change
 ```
 
-After `npm ci`, run `npm run build:public` to build Core, CLI, and the experimental View. Compiler development needs no website build, API keys, or external model services.
+After `npm ci`, run `npm run build:public` to build Core, CLI, and the experimental View. Compiler development needs no website build or external service credentials.
 
 | Location | Responsibility |
 | --- | --- |
@@ -119,7 +120,7 @@ Website deployments and the private experimental View have separate readiness ch
 | Layer | Owns | Does not establish |
 | --- | --- | --- |
 | Language and Core | Authored constructors, target requirements, name resolution, diagnostics, versioned AST/Graph IR/Explain/source envelopes | Truth, defeat, acceptability or resolution of the inquiry |
-| Graph IR and graph-text inspection | Individual typed entities, ordered sources and resolved targets; the text view follows its bounded `structure-v1` projection | Original prose, literal notes, local use marks or whether a mark or a written clause supplied the relation |
+| Graph IR and graph-text inspection | Individual typed entities, ordered sources and resolved targets; the text view follows its bounded `structure-v1` projection | Original prose, literal notes, occurrence framing, local use marks or whether a mark or a written clause supplied the relation |
 | Experimental Reading, Map and Strands | Source occurrences projected from the exact input plus one `explainSource` result; visual topology, selection and local geometry | A new language or persisted inquiry model; moving a mark never edits source or a Bearing |
 | Host application | Input revision and mode, source navigation, native editing, storage, evidence and build provenance | Consumer compatibility merely because the public compiler's CI passed |
 | Future Cogitatio | Ongoing inquiry, revision, review and continuity require separate contracts | A runtime, resolution protocol or theory API delivered by this Core/CLI release |
@@ -150,7 +151,7 @@ Verify the GitHub Actions trusted publisher in the npm settings for both [`@cogi
 No npm token or GitHub secret is needed.
 A new trusted publisher must complete its first successful publish within two days of creation.
 
-For the 0.6 release, review migration against published 0.5.0 / format 0.5.0, including target terms, Bearing constructors, Q/C relation defaults, the retired `/>`, retired Gap syntax and regenerated source projections.
+For the 0.7 release, review migration against published Core/CLI 0.6.2 / format 0.6.0, including focus-based defaults, framing, `interprets`, `by example`, annotation separators, retired family aliases and regenerated source projections.
 Run `npm run check` and `npm run check:publication` on the final integrated commit, with matching Core/CLI versions and the CLI's exact Core dependency.
 Passing stacked-PR checks applies to those checked commits and bases; it does not verify a later combined or retargeted head.
 Record downstream adoption against the exact public source pin and schema bundle, and rerun affected consumer checks when that pin changes.
@@ -162,8 +163,8 @@ Run `Publish npm` manually in the repository's Actions tab to verify and preview
 After the version and dependency changes pass CI and merge into `main`, create and push the matching tag:
 
 ```sh
-git tag v0.6.0 <verified-main-commit>
-git push origin v0.6.0
+git tag v0.7.0 <verified-main-commit>
+git push origin v0.7.0
 ```
 
 Use the actual package version for each subsequent release.
@@ -173,13 +174,13 @@ To recover a partially completed release, rerun the failed publishing job.
 
 Project Cogitatum explores inquiry artefacts: writing that keeps questions, reasons, and unresolved work available for further thought. Inquiry markup is its first public part. Its marks are semi-formal: structure has precise rules while prose remains open to interpretation.
 
-Project Cogitatum investigates how people and AI agents can learn this form of expression and work on the same inspectable, revisable artefacts. The language supplies explicit structure and reusable identities; whether it improves reasoning remains a research question.
+Project Cogitatum investigates how people and authoring tools can work on the same inspectable, revisable artefacts. The language supplies explicit structure and reusable identities; whether it improves reasoning remains a research question.
 
 Further work under the name **Cogitatio** concerns ongoing inquiry, revision, review, and continuity. Cogitatio and its runtime are not part of this release.
 
 The current development checkout also contains an experimental integration package, marked private and not published with Core/CLI: [`@cogitatum/view`](packages/view/README.md) provides an embeddable, source-linked graph renderer.
 It leaves evidence, persistence, review, and application UI with the host.
-The checkout compiler uses format 0.6.0; publishing, site deployment and host adoption remain separate.
+The checkout compiler uses format 0.7.0; publishing, site deployment and host adoption remain separate.
 
 The public source covers the language, compiler, CLI, schemas, conformance fixtures, selected examples, and these usage documents. Website source and brand assets are maintained and deployed separately; the website renders the public documents and uses the compiler. Research essays, benchmarks, prompts, and runtime experiments are outside this source distribution.
 

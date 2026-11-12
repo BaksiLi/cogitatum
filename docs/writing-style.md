@@ -49,6 +49,9 @@ Nest a reason beneath another reason when the intermediate Point matters.
 [Bearings](bearings.md#argument-structures) shows these Convergent, Linked and Serial arrangements.
 
 Changing between them changes the recorded argument.
+A refinement narrows choices under a fixed interpretation without retracting commitments; a revision changes or retracts an earlier reading.
+Adoption explicitly chooses rules, assumptions or an interpretation profile; it is not endorsement of a conclusion.
+Weak relevance can be a complete, final description.
 Similarly, `O` beneath a Ground challenges its content, while `O/` challenges its supporting step.
 Keep the original route when recording a challenge; an Objection does not automatically remove it.
 
@@ -73,7 +76,8 @@ For notes addressed to an object, see [local object notes](syntax.md#local-objec
 Names help references, citations and later revisions identify the same item.
 An unreferenced name may still have a purpose outside the current note.
 
-Moving a Ground can change which Point its indentation selects.
+Moving a marked occurrence can change which Point its indentation selects and, for C or G, which default kind applies.
+Re-marking a nested Point as `.` keeps weak relevance; positional detachment requires leaving every Point focus and Bearing context.
 Choose an explicit target when the connection should survive that move.
 Check the resulting source, then reread it: successful compilation does not establish an adequate interpretation.
 The CLI can [inspect names](graph-inspection.md#review-names-before-a-deliberate-edit) or [preview a named target](graph-inspection.md#preview-named-and-positional-targets) before a deliberate edit.
@@ -92,7 +96,7 @@ Keep three questions separate:
 | Does the markup express the intended structure? | The source, compiler diagnostics and recorded connections |
 | Is the reasoning sound under a particular reading? | Stated assumptions and an appropriate assessment |
 
-The compiler and CLI work without an LLM.
+The compiler and CLI run deterministically on the supplied source.
 Compile a proposal, inspect the result and reread the full prose before accepting an edit.
 A smaller graph or a passing check does not by itself make a better reconstruction.
 

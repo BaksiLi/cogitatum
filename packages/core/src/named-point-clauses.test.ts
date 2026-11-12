@@ -4,7 +4,7 @@ import type { BearingKind, GraphIR } from "./types.js";
 
 const compile = (source: string) => compileGraphWithExplain(parseDocument(source));
 const codes = (graph: GraphIR) => graph.diagnostics.map(diagnostic => diagnostic.code);
-const kinds: BearingKind[] = ["supports", "challenges", "concerns", "answers", "respondsTo", "clarifies"];
+const kinds: BearingKind[] = ["supports", "challenges", "concerns", "answers", "respondsTo", "interprets"];
 const pointKinds = ["answers", "respondsTo"];
 
 describe("named Point clauses", () => {
@@ -35,9 +35,16 @@ describe("named Point clauses", () => {
     expect(explain.entries[2].effects.some(effect => effect.kind === "implicitAttachment")).toBe(false);
   });
 
-  it.each(kinds)("accepts %s uniformly on neutral Point-family declarations and uses", kind => {
+  it.each(kinds)("checks %s on active and retired neutral Point-family declarations and uses", kind => {
     for (const family of [".", "point", "node"]) {
       const { graph } = compile(`- [C @target] Target.\n- [${family} @source ${kind} @target; @first] Shared content.\n- [${family} use @source ${kind} @target; @second] Local prose.`);
+      if (family === "node") {
+        expect(codes(graph)).toEqual(["RETIRED_FAMILY_ALIAS", "RETIRED_FAMILY_ALIAS"]);
+        expect(graph.points).toHaveLength(2);
+        expect(graph.points[1]).toMatchObject({ id: "source", text: "Shared content.", declaration: { form: "material" } });
+        expect(graph.bearings).toEqual([]);
+        continue;
+      }
       expect(codes(graph), family).toEqual([]);
       expect(graph.points, family).toHaveLength(2);
       expect(graph.points[1], family).toMatchObject({ id: "source", text: "Shared content.", declaration: { form: "material" } });
@@ -78,7 +85,7 @@ describe("named Point clauses", () => {
   });
 
   it.each([
-    "answers", "Answers @target", "answers @target, @outer", "answers @target clarifies @outer"
+    "answers", "Answers @target", "answers @target, @outer", "answers @target interprets @outer"
   ])("rejects the malformed clause %s without a default, while retaining valid Point focus", clause => {
     for (const mark of ["Q @question", "Q use @shared"]) {
       const { graph } = compile(`- [. @shared] Shared.\n- [O @target] Target.\n- [C @outer] Outer.\n  - [${mark} ${clause}; @failed] Local question.\n    - [R @child] Child reply.\n    - [O/] No attachment to select.`);
@@ -118,7 +125,7 @@ describe("named Point clauses", () => {
   });
 
   it("inventories written use operands and named targets without treating self as a written source", () => {
-    const result = analyzeSourceReferences("- [O @target] Objection.\n- [Q @question respondsTo @target; @reply] Which scale?\n- [. use @question clarifies @target]");
+    const result = analyzeSourceReferences("- [O @target] Objection.\n- [Q @question respondsTo @target; @reply] Which scale?\n- [. use @question interprets @target]");
     expect(result.diagnostics).toEqual([]);
     const names = result.references.units[0];
     expect(names.find(name => name.name === "question")?.references.map(ref => ref.kind)).toEqual(["point-use"]);

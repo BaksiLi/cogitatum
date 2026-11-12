@@ -1,5 +1,5 @@
 import type { BearingTarget, GraphIR, Point, PointRef } from "@cogitatum/core";
-import { bearingMark, createBearingChip, createMarkChip, drawBearingGlyph, drawPointGlyph } from "./marks.js";
+import { bearingLabel, bearingMark, createBearingChip, createMarkChip, drawBearingGlyph, drawPointGlyph } from "./marks.js";
 import { createProseScope, isProseInteraction, type ProseRenderer } from "./prose.js";
 import { projectContest, projectStrands, strandRootOf, type StrandKnot, type StrandRow, type StrandsProjection } from "./strands-projection.js";
 
@@ -82,7 +82,7 @@ export function createStrandsView(container: HTMLElement, options: StrandsViewOp
     const on = value.on.kind === "bearing" ? graph!.bearings.find(b => b.key === value.on.key) : undefined;
     const subject = !on ? "" : on.handle ? `@${on.handle}`
       : `${on.sources.map(source => pointLabel(pointOf(source.key))).join(" + ")} → ${pointLabel(pointOf(on.target.key))}`;
-    html("span", "cog-strands-kind", head).textContent = `${value.bearing.sources.length > 1 ? "jointly " : ""}${bearingMark(value.bearing.kind).name} ${on ? "the step" : "this Point"}`;
+    html("span", "cog-strands-kind", head).textContent = `${value.bearing.sources.length > 1 ? "jointly " : ""}${bearingLabel(value.bearing.kind, value.bearing.profile)} ${on ? "the step" : "this Point"}`;
     // Authored names keep their case; only the relation words are set in small capitals.
     if (subject) { head.append(doc.createTextNode(" ")); html("span", "cog-strands-subject", head).textContent = subject; }
     for (const source of value.bearing.sources) passage(box, pointOf(source.key), "cog-strands-knot-source");
@@ -94,7 +94,7 @@ export function createStrandsView(container: HTMLElement, options: StrandsViewOp
       head.append(createBearingChip(doc, relation.kind, 12));
       const target = targetLabel(relation.target), step = target.startsWith("the step ");
       html("span", "cog-strands-kind", head).textContent =
-        `${relation.sources.length > 1 ? "jointly " : ""}${bearingMark(relation.kind).name}${step ? " the step" : ""}`;
+        `${relation.sources.length > 1 ? "jointly " : ""}${bearingLabel(relation.kind, relation.profile)}${step ? " the step" : ""}`;
       head.append(doc.createTextNode(" "));
       html("span", "cog-strands-subject", head).textContent = step ? target.slice("the step ".length) : target;
       for (const source of relation.sources) passage(item, pointOf(source.key), "cog-strands-relation-source");
@@ -145,7 +145,7 @@ export function createStrandsView(container: HTMLElement, options: StrandsViewOp
             if (index) via.append(doc.createTextNode(" · "));
             const step = html("span", "cog-strands-via-step", via);
             step.dataset.bearing = bearing.key;
-            step.textContent = `${bearing.sources.length > 1 ? "jointly " : ""}${bearingMark(bearing.kind).name}${bearing.handle ? " @" + bearing.handle : ""} ${pointLabel(pointOf(bearing.target.key))}`;
+            step.textContent = `${bearing.sources.length > 1 ? "jointly " : ""}${bearingLabel(bearing.kind, bearing.profile)}${bearing.handle ? " @" + bearing.handle : ""} ${pointLabel(pointOf(bearing.target.key))}`;
           }
         }
         for (const step of row.steps) if (step.bearing.text) {
@@ -153,7 +153,7 @@ export function createStrandsView(container: HTMLElement, options: StrandsViewOp
           description.dataset.bearing = step.bearing.key;
           description.append(createBearingChip(doc, step.bearing.kind, 13, step.bearing.sources.length > 1));
           html("span", "", description).textContent = step.bearing.text;
-          description.title = `${step.bearing.sources.map(source => pointLabel(pointOf(source.key))).join(" + ")} ${bearingMark(step.bearing.kind).name} ${pointLabel(row.point)}`;
+          description.title = `${step.bearing.sources.map(source => pointLabel(pointOf(source.key))).join(" + ")} ${bearingLabel(step.bearing.kind, step.bearing.profile)} ${pointLabel(row.point)}`;
         }
         if (row.cycles.length) html("div", "cog-strands-cycle", element).textContent =
           `Also connects to ${row.cycles.map(pointLabel).join(", ")} above, closing a cycle.`;

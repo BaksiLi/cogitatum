@@ -135,7 +135,7 @@ describe("Cogitatum language contracts", () => {
     );
   });
 
-  it("retains Q/C without attachments while relation marks target the nearest Point", () => {
+  it("constructs answer and relevance defaults while relation marks target the nearest Point", () => {
     const graph = compileGraph(parseDocument(fixture("syntax/partial-indentation-defaults.cog.md")));
     const ground = graph.points.find((point) => point.declaration.form === "role" && point.declaration.role === "G");
     const objection = graph.points.find((point) => point.declaration.form === "role" && point.declaration.role === "O");
@@ -143,6 +143,8 @@ describe("Cogitatum language contracts", () => {
     expect(ground).toBeDefined();
     expect(objection).toBeDefined();
     expect(graph.bearings).toEqual([
+      expect.objectContaining({ kind: "answers", sources: [pointRef(graph, "answer")], target: pointRef(graph, "question") }),
+      expect.objectContaining({ kind: "concerns", sources: [pointRef(graph, "elaboration")], target: pointRef(graph, "answer") }),
       expect.objectContaining({
         kind: "supports",
         sources: [{ key: ground?.key, kind: "point" }],
@@ -154,9 +156,6 @@ describe("Cogitatum language contracts", () => {
         target: pointRef(graph, "answer")
       })
     ]);
-    expect(graph.bearings.some((bearing) => bearing.sources.some((source) => source.key === pointRef(graph, "elaboration").key))).toBe(
-      false
-    );
     expect(graph.diagnostics).toEqual([expect.objectContaining({ code: "IMPLICIT_ATTACHMENT_THROUGH_BODY", severity: "suggestion", sourceSpan: expect.objectContaining({ startLine: 7 }) })]);
   });
 
@@ -175,7 +174,7 @@ describe("Cogitatum language contracts", () => {
         target: pointRef(graph, "middle")
       }),
       expect.objectContaining({
-        kind: "clarifies",
+        kind: "interprets",
         sources: [pointRef(graph, "distinction")],
         target: pointRef(graph, "conclusion")
       }),
@@ -196,7 +195,7 @@ describe("Cogitatum language contracts", () => {
       )
     ).toBe(false);
     expect(graph.bearings.filter((bearing) => bearing.sources.some((source) => source.key === pointRef(graph, "distinction").key))).toEqual([
-      expect.objectContaining({ kind: "clarifies" })
+      expect.objectContaining({ kind: "interprets" })
     ]);
     expect(graph.bearings.filter((bearing) => bearing.sources.some((source) => source.key === pointRef(graph, "reply").key))).toEqual([
       expect.objectContaining({ kind: "respondsTo" })
@@ -303,7 +302,8 @@ describe("Cogitatum language contracts", () => {
       recognition: { kind: "role", role: "C" },
       effects: [
         { kind: "emitPoint", ref: pointRef(compilation.graph, "claim"), reason: "role-annotation" },
-        { kind: "skipBearing", reason: "no-eligible-ancestor" }
+        { kind: "skipBearing", reason: "no-eligible-ancestor" },
+        { kind: "frameOccurrence", framing: "none" }
       ]
     });
     expect(firstBody).toMatchObject({
@@ -329,7 +329,8 @@ describe("Cogitatum language contracts", () => {
             derivedBy: "structural"
           },
           reason: "annotated-containment"
-        }
+        },
+        { kind: "frameOccurrence", framing: "aligned", focus: "point" }
       ]
     });
     expect(compilation.explain.diagnostics).toEqual([expect.objectContaining({ code: "IMPLICIT_ATTACHMENT_THROUGH_BODY", severity: "suggestion" })]);
@@ -535,7 +536,7 @@ describe("Cogitatum language contracts", () => {
     );
 
     expect(graph.points.map((point) => point.id)).toEqual(["q1", "c1"]);
-    expect(graph.bearings).toEqual([]);
+    expect(graph.bearings).toEqual([expect.objectContaining({ kind: "answers", sources: [pointRef(graph, "c1")], target: pointRef(graph, "q1") })]);
   });
 
   it("reads the pre-0.3 scope prefix as ordinary body, as its graph effect already was", () => {
@@ -591,7 +592,7 @@ describe("Cogitatum language contracts", () => {
   });
 
   it("still diagnoses reserved prefixes with invalid case or missing delimiters", () => {
-    for (const prefix of ["[c]", "[Edge]", "[ ]", "[Q?]", "[c @claim", "[Edge @ground"]) {
+    for (const prefix of ["[c]", "[Bearing]", "[ ]", "[Q?]", "[c @claim", "[Bearing @ground"]) {
       const graph = compileGraph(parseDocument(`- ${prefix} Text.\n`));
       expect(graph.points, prefix).toEqual([]);
       expect(graph.bearings, prefix).toEqual([]);
@@ -621,9 +622,9 @@ describe("Cogitatum language contracts", () => {
     expect(graph.diagnostics).toEqual([]);
   });
 
-  it("uses edge for Bearing supplements without creating a Point", () => {
+  it("uses _ for Bearing supplements without creating a Point", () => {
     const ast = parseDocument(
-      "- Serial argument\n  - [C @c1] Intermediate conclusion.\n  - [C @c2] Final conclusion.\n  - [edge @c1 +> @c2; @serial-step] Continue the argument.\n"
+      "- Serial argument\n  - [C @c1] Intermediate conclusion.\n  - [C @c2] Final conclusion.\n  - [_ @c1 +> @c2; @serial-step] Continue the argument.\n"
     );
     const graph = compileGraph(ast);
 
@@ -661,7 +662,7 @@ describe("Cogitatum language contracts", () => {
 
   it("rejects a bare Bearing handle separator on an edge declaration", () => {
     const ast = parseDocument(
-      "- [C @claim] Claim.\n- [G @ground] Ground.\n- [edge @ground +> @claim;] Route.\n"
+      "- [C @claim] Claim.\n- [G @ground] Ground.\n- [_ @ground +> @claim;] Route.\n"
     );
     const graph = compileGraph(ast);
 
@@ -729,10 +730,10 @@ describe("Cogitatum language contracts", () => {
     );
   });
 
-  it("keeps the edge keyword lowercase and rejects the role-like Edge spelling", () => {
+  it("keeps bearing lowercase and rejects the role-like Bearing spelling", () => {
     const graph = compileGraph(
       parseDocument(
-        "- [C @claim] Claim.\n- [G @ground] Ground.\n- [Edge @ground +> @claim; @route] Invalid casing.\n"
+        "- [C @claim] Claim.\n- [G @ground] Ground.\n- [Bearing @ground +> @claim; @route] Invalid casing.\n"
       )
     );
 
@@ -814,7 +815,7 @@ describe("Cogitatum language contracts", () => {
     expect(graph.diagnostics).toEqual([]);
   });
 
-  it("requires the edge keyword for Bearing-only annotations", () => {
+  it("requires a Bearing family token for Bearing-only annotations", () => {
     const graph = compileGraph(
       parseDocument(
         "- Keyword boundary\n  - [C @c1] Claim.\n  - [. @p1] Premise one.\n  - [. @p2] Premise two.\n  - [. @p1, @p2 +> @c1] Legacy ambiguous edge.\n"
@@ -830,7 +831,7 @@ describe("Cogitatum language contracts", () => {
   it("keeps roleless materials as Points when they have annotated children", () => {
     const graph = compileGraph(
       parseDocument(
-        "- Material pressure\n  - [C @c1] Claim.\n    - [. @p1] Linked premise.\n      - [O @o1] Objection to the premise.\n    - [edge @p1 +> @c1; @route] Premise supports claim.\n"
+        "- Material pressure\n  - [C @c1] Claim.\n    - [. @p1] Linked premise.\n      - [O @o1] Objection to the premise.\n    - [_ @p1 +> @c1; @route] Premise supports claim.\n"
       )
     );
 
@@ -1272,7 +1273,7 @@ describe("Cogitatum language contracts", () => {
     const graph = compileGraph(ast);
     const invalidEdge = ast.blocks[0].children[2];
 
-    expect(invalidEdge.raw).toContain("[edge @g1, not-a-ref +> @c1]");
+    expect(invalidEdge.raw).toContain("[_ @g1, not-a-ref +> @c1]");
     expect(invalidEdge.annotation).toMatchObject({
       kind: "bearing",
       syntaxErrors: ["operator"]
@@ -1291,7 +1292,7 @@ describe("Cogitatum language contracts", () => {
   it("rejects Bearings that target another Bearing which failed compilation", () => {
     const graph = compileGraph(
       parseDocument(
-        "- Dependent invalid Bearing\n  - [C @c1] Claim.\n  - [edge @missing +> @c1; @bad] Invalid base Bearing.\n  - [O @o1 -> @bad] Dependent undercut.\n"
+        "- Dependent invalid Bearing\n  - [C @c1] Claim.\n  - [_ @missing +> @c1; @bad] Invalid base Bearing.\n  - [O @o1 -> @bad] Dependent undercut.\n"
       )
     );
 
@@ -1391,7 +1392,7 @@ describe("Cogitatum language contracts", () => {
 
   it("does not confuse a rejected candidate key with an emitted graph index", () => {
     const { graph, explain } = compileGraphWithExplain(parseDocument(
-      "- [C @claim] Claim.\n- [G @reason] Reason.\n- [edge @missing +> @claim; @bad]\n- [edge @reason +> @claim; @good]\n- [O -> @good] Objection.\n"
+      "- [C @claim] Claim.\n- [G @reason] Reason.\n- [_ @missing +> @claim; @bad]\n- [_ @reason +> @claim; @good]\n- [O -> @good] Objection.\n"
     ));
     expect(graph.bearings.map((bearing) => bearing.key)).toEqual(["_b2", "_b3"]);
     const effects = explain.entries.flatMap((entry) => entry.effects);
@@ -1696,7 +1697,7 @@ describe("Cogitatum language contracts", () => {
     (undercut.target as { kind: string }).kind = "point";
 
     expect(validateGraph(undercutGraph)).toBe(true);
-    // clarifies may address a Bearing, as when a route equivocates.
+    // interprets may address a Bearing, as when a route equivocates.
     for (const kind of ["answers", "respondsTo"] as const) {
       const invalid = jsonValue(pointTargetGraph);
       const bearing = invalid.bearings.find((candidate) => candidate.kind === kind);

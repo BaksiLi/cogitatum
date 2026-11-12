@@ -1,0 +1,248 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cogitatum.baksili.codes/schemas/0.6.0/ast.schema.json",
+  "title": "Cogitatum Document AST",
+  "description": "Ordered parser output. An annotation is a block's only semantic representation; raw text preserves the source and is not reinterpreted during compilation. A block owns its header and contiguous indented continuation lines, excluding children; raw and text use LF and sourceSpan may span multiple lines.",
+  "type": "object",
+  "required": ["version", "blocks", "diagnostics"],
+  "properties": {
+    "version": { "const": "0.6.0" },
+    "blocks": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/block" }
+    },
+    "diagnostics": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/diagnostic" }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "sourceSpan": {
+      "type": "object",
+      "required": ["startLine", "startColumn", "endLine", "endColumn"],
+      "properties": {
+        "startLine": { "type": "integer", "minimum": 1 },
+        "startColumn": { "type": "integer", "minimum": 1 },
+        "endLine": { "type": "integer", "minimum": 1 },
+        "endColumn": { "type": "integer", "minimum": 1 }
+      },
+      "additionalProperties": false
+    },
+    "authoredId": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_-]*$"
+    },
+    "ref": {
+      "type": "object",
+      "required": ["id"],
+      "properties": {
+        "id": { "$ref": "#/$defs/authoredId" }
+      },
+      "additionalProperties": false
+    },
+    "targetTerm": {
+      "description": "A named reference, or a positional slot: the nearest semantic context's Point (^) or exposed Bearing (^/).",
+      "oneOf": [
+        { "$ref": "#/$defs/ref" },
+        {
+          "type": "object",
+          "required": ["local"],
+          "properties": { "local": { "enum": ["point", "bearing"] } },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "operatorClause": {
+      "type": "object",
+      "required": ["op", "sources", "target"],
+      "properties": {
+        "op": { "enum": ["supports", "challenges", "concerns", "answers", "respondsTo", "clarifies"] },
+        "sources": {
+          "oneOf": [
+            { "const": "self" },
+            { "const": "members" },
+            {
+              "type": "array",
+              "items": { "$ref": "#/$defs/ref" },
+              "minItems": 1,
+              "uniqueItems": true
+            }
+          ]
+        },
+        "target": { "$ref": "#/$defs/targetTerm" }
+      },
+      "additionalProperties": false
+    },
+    "selfOperatorClause": {
+      "allOf": [
+        { "$ref": "#/$defs/operatorClause" },
+        { "type": "object", "properties": { "sources": { "const": "self" } } }
+      ]
+    },
+    "bearingOperatorClause": {
+      "allOf": [
+        { "$ref": "#/$defs/operatorClause" },
+        { "type": "object", "properties": { "sources": { "not": { "const": "self" } } } }
+      ]
+    },
+    "annotationSyntaxErrors": {
+      "type": "array",
+      "items": { "enum": ["operator", "handle", "selector", "retired"] },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "bearingSyntaxErrors": {
+      "type": "array",
+      "items": { "enum": ["operator", "handle", "selector", "retired", "mode"] },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "annotation": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["kind", "raw"],
+          "properties": {
+            "kind": { "const": "note" },
+            "targetKind": { "enum": ["point", "bearing"] },
+            "raw": { "type": "string" },
+            "syntaxErrors": { "type": "array", "items": { "const": "note" }, "minItems": 1, "uniqueItems": true }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["kind", "raw"],
+          "properties": {
+            "kind": { "const": "bearingUse" },
+            "raw": { "type": "string" },
+            "ref": { "$ref": "#/$defs/ref" },
+            "syntaxErrors": { "type": "array", "items": { "const": "reference" }, "minItems": 1, "uniqueItems": true }
+          },
+          "allOf": [
+            { "if": { "not": { "required": ["syntaxErrors"] } }, "then": { "required": ["ref"] } }
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["kind", "raw"],
+          "properties": {
+            "kind": { "const": "use" },
+            "raw": { "type": "string" },
+            "ref": { "$ref": "#/$defs/ref" },
+            "role": { "enum": ["Q", "C", "G", "O", "R", "D"] },
+            "selector": { "const": "attachment" },
+            "operatorClause": { "$ref": "#/$defs/selfOperatorClause" },
+            "handle": { "$ref": "#/$defs/authoredId" },
+            "syntaxErrors": { "type": "array", "items": { "enum": ["reference", "operator", "selector", "handle", "retired"] }, "minItems": 1, "uniqueItems": true }
+          },
+          "allOf": [
+            { "if": { "not": { "required": ["syntaxErrors"] } }, "then": { "required": ["ref"] } },
+            { "if": { "required": ["selector"] }, "then": { "required": ["role"], "properties": { "role": { "enum": ["G", "O", "Q", "D"] } }, "not": { "required": ["operatorClause"] } } }
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["kind", "raw"],
+          "properties": { "kind": { "const": "invalid" }, "raw": { "type": "string" }, "selector": { "const": "attachment" } },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["kind", "role", "raw"],
+          "properties": {
+            "kind": { "const": "role" },
+            "role": { "enum": ["Q", "C", "G", "O", "R", "D"] },
+            "selector": { "const": "attachment" },
+            "anchor": { "$ref": "#/$defs/authoredId" },
+            "operatorClause": { "$ref": "#/$defs/selfOperatorClause" },
+            "syntaxErrors": { "$ref": "#/$defs/annotationSyntaxErrors" },
+            "handle": { "$ref": "#/$defs/authoredId" },
+            "raw": { "type": "string" }
+          },
+          "allOf": [
+            {
+              "if": { "required": ["selector"] },
+              "then": { "properties": { "role": { "enum": ["G", "O", "Q", "D"] } }, "not": { "required": ["operatorClause"] } }
+            }
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["kind", "members", "raw"],
+          "properties": {
+            "kind": { "const": "bearing" },
+            "members": { "type": "boolean", "description": "Whether the direct neutral children are the sources, recorded even on a failed header." },
+            "operatorClause": { "$ref": "#/$defs/bearingOperatorClause" },
+            "selector": { "const": "attachment" },
+            "syntaxErrors": { "$ref": "#/$defs/bearingSyntaxErrors" },
+            "handle": { "$ref": "#/$defs/authoredId" },
+            "raw": { "type": "string" }
+          },
+          "allOf": [
+            { "if": { "required": ["selector"] }, "then": { "not": { "required": ["operatorClause"] }, "properties": { "members": { "const": true } } } },
+            { "if": { "required": ["operatorClause"], "properties": { "operatorClause": { "type": "object", "properties": { "sources": { "const": "members" } } } } }, "then": { "properties": { "members": { "const": true } } } },
+            { "if": { "required": ["operatorClause"], "properties": { "operatorClause": { "type": "object", "properties": { "sources": { "type": "array" } } } } }, "then": { "properties": { "members": { "const": false } } } },
+            { "if": { "not": { "anyOf": [{ "required": ["syntaxErrors"] }, { "required": ["operatorClause"] }] } }, "then": { "properties": { "members": { "const": true } } } }
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["kind", "raw"],
+          "properties": {
+            "kind": { "const": "material" },
+            "anchor": { "$ref": "#/$defs/authoredId" },
+            "operatorClause": { "$ref": "#/$defs/selfOperatorClause" },
+            "syntaxErrors": { "$ref": "#/$defs/annotationSyntaxErrors" },
+            "handle": { "$ref": "#/$defs/authoredId" },
+            "raw": { "type": "string" }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "block": {
+      "type": "object",
+      "required": ["kind", "text", "raw", "children", "sourceSpan"],
+      "properties": {
+        "kind": { "const": "block" },
+        "text": { "type": "string" },
+        "raw": { "type": "string" },
+        "children": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/block" }
+        },
+        "sourceSpan": { "$ref": "#/$defs/sourceSpan" },
+        "annotation": { "$ref": "#/$defs/annotation" }
+      },
+      "allOf": [{
+        "if": { "required": ["annotation"], "properties": { "annotation": { "type": "object", "properties": { "kind": { "const": "note" } }, "required": ["kind"] } } },
+        "then": { "properties": { "children": { "type": "array", "items": { "$ref": "#/$defs/literalBlock" } } } }
+      }],
+      "additionalProperties": false
+    },
+    "literalBlock": {
+      "allOf": [
+        { "$ref": "#/$defs/block" },
+        { "type": "object", "not": { "required": ["annotation"] }, "properties": { "children": { "type": "array", "items": { "$ref": "#/$defs/literalBlock" } } } }
+      ]
+    },
+    "diagnostic": {
+      "type": "object",
+      "required": ["severity", "code", "message"],
+      "properties": {
+        "severity": { "enum": ["error", "warning", "suggestion"] },
+        "code": { "type": "string" },
+        "message": { "type": "string" },
+        "explanation": { "type": "string" },
+        "sourceSpan": { "$ref": "#/$defs/sourceSpan" }
+      },
+      "additionalProperties": false
+    }
+  }
+}

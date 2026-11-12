@@ -1,8 +1,9 @@
 import { expandedClause, isRelationSpelling, respellTarget, targetSpelling } from "./annotation.js";
-import { annotationOffset, findBlock, locateSourceBlock, minimalEdit, same } from "./source-edit.js";
+import { annotationOffset, findBlock, focusAt, locateSourceBlock, minimalEdit, same } from "./source-edit.js";
 import type { SourceEdit } from "./source-edit.js";
 import { explainSource } from "./source.js";
 import { FORMAT_VERSION, isNamedTarget } from "./types.js";
+import type { Focus } from "./annotation.js";
 import type { Annotation, AstBlock, Diagnostic, ExplainedSource, OperatorClause, SourceParseMode, TargetTerm } from "./types.js";
 
 /** Whether a relation's target is written by name or selected by position. */
@@ -53,7 +54,8 @@ export function previewTargetFormFrom(source: string, before: ExplainedSource, o
   const annotation = located?.block.annotation;
   const entry = located?.entry;
   const emission = entry?.effects.find(e => e.kind === "emitBearing");
-  const clause = expandedClause(annotation);
+  const focus = located && focusAt(before.documents[located.unitIndex].blocks, located.block);
+  const clause = expandedClause(annotation, focus);
   if (!located || !annotation || !emission || !clause) {
     return unavailable("no-bearing", entry?.effects.some(e => e.kind === "localBearingMember" && e.eligible && e.function === "source")
       ? "This Point is a source of the enclosing constructor and has no target of its own; select the constructor, whose target can change without moving its members."
@@ -82,7 +84,7 @@ export function previewTargetFormFrom(source: string, before: ExplainedSource, o
   if (offset === undefined) {
     return unavailable("preservation-failed", "The original annotation cannot be located exactly; no edit is offered.");
   }
-  const respelled = respellTarget(annotation, target);
+  const respelled = respellTarget(annotation, target, focus);
   const edit = minimalEdit(annotation.raw, respelled, offset);
   const proposedSource = source.slice(0, edit.offset) + edit.insert + source.slice(edit.offset + edit.remove.length);
   const after = explainSource(proposedSource, before.mode);
@@ -116,7 +118,8 @@ function hasWrittenClause(annotation: Annotation): boolean {
 function preserves(before: ExplainedSource, after: ExplainedSource, unitIndex: number, selected: AstBlock, bearingKey: string, form: TargetForm): boolean {
   if (after.diagnostics.some(d => d.severity === "error") || before.documents.length !== after.documents.length) return false;
   const afterBlock = findBlock(after.documents[unitIndex].blocks, selected.sourceSpan.startLine);
-  if (!afterBlock || !same(stable(selected.annotation), stable(afterBlock.annotation))) return false;
+  const focus = (source: ExplainedSource, block: AstBlock) => focusAt(source.documents[unitIndex].blocks, block);
+  if (!afterBlock || !same(stable(selected.annotation, focus(before, selected)), stable(afterBlock.annotation, focus(after, afterBlock)))) return false;
   const unchanged = (documents: ExplainedSource["documents"], block: AstBlock) =>
     documents.map(d => JSON.stringify(d.blocks, (key, value) => value === block ? { ...block, annotation: undefined } : key === "raw" || key === "sourceSpan" ? undefined : value));
   if (!same(unchanged(before.documents, selected), unchanged(after.documents, afterBlock))) return false;
@@ -134,8 +137,8 @@ function preserves(before: ExplainedSource, after: ExplainedSource, unitIndex: n
 }
 
 // What a target respelling must not change about the header itself.
-function stable(annotation: Annotation | undefined) {
-  const clause = expandedClause(annotation);
+function stable(annotation: Annotation | undefined, focus: Focus | undefined) {
+  const clause = expandedClause(annotation, focus);
   if (!annotation || !clause) return undefined;
   return {
     kind: annotation.kind,
@@ -144,6 +147,7 @@ function stable(annotation: Annotation | undefined) {
     ref: "ref" in annotation ? annotation.ref : undefined,
     members: "members" in annotation ? annotation.members : undefined,
     handle: "handle" in annotation ? annotation.handle : undefined,
+    profile: "profile" in annotation ? annotation.profile : undefined,
     op: clause.op,
     sources: clause.sources
   };

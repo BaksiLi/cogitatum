@@ -24,20 +24,28 @@ It does not certify that the reason is sufficient or the objection succeeds.
 ```
 
 The Ground supports the Claim, the Objection challenges it, and the Response responds to the Objection.
-The child's mark selects the relation; indentation supplies the nearest enclosing Point:
+In ordinary Point context, a marked occurrence without a clause constructs one Bearing toward its focus, the nearest presented Point occurrence.
+The mark and the focus choose the kind; a clause replaces that default; at root there is no default attachment.
 
-| Child mark | Connection to the enclosing Point |
-| --- | --- |
-| `G` | `supports` |
-| `O` | `challenges` |
-| `R` | `respondsTo` |
-| `D` | `clarifies` |
-| `Q` | `concerns` |
-| `.`, `C` | No connection |
+| Occurrence mark | Focus marked Q | Other Point focus |
+| --- | --- | --- |
+| `.` | `concerns` | `concerns` |
+| `C` | `answers` | `concerns` |
+| `G` | `concerns`, with unbound support intention | `supports` |
+| `O` | `challenges` | `challenges` |
+| `Q` | `concerns` | `concerns` |
+| `R` | `respondsTo` | `respondsTo` |
+| `D` | `interprets` | `interprets` |
 
-The enclosing Point's mark does not change these rules.
+C beneath Q is a candidate answer, possibly indirect; it does not settle the Question.
+G directly beneath Q adds suggestion `UNBOUND_GROUND_UNDER_QUESTION`.
+State the answer and place G beneath it, or write `[G +> ^]` to support the Question itself.
+The focus occurrence's own mark matters, including at uses; its declaration mark is not inherited.
 For example, `R` beneath a Question responds to that Question.
 Ordinary body can supply context between them; an intervening Point becomes the nearer target.
+Notes keep their whole subtree literal.
+Direct neutral constructor members supply only the joint Bearing, without relevance edges.
+Weak relevance can be a complete, final description.
 
 ## Argument structures
 
@@ -130,9 +138,26 @@ This is the same Linked arrangement as the local joint example.
 The explicit version names its sources and target, so their positions do not supply the connection.
 Use the form that makes your note easier to read and revise.
 
+`interprets` offers a reading of its target; a distinction is one way to interpret.
+It does not assert that the target was made clear or that the reading is correct.
+`respondsTo` records uptake without implying an answer, rebuttal, parties or turns.
+A written clause alone constructs: `[O +> @inspection]` states support with opposed framing and suggestion `OPPOSED_FRAMING`, without an additional challenge.
+See [framing](syntax.md#framing-an-occurrence) for compatible pairings and repairs.
+
+`by example` qualifies a supports Bearing, for instance:
+
+```md cog-check require=supports points=2 bearings=1 diagnostics=0
+- [C] The service can operate later on some evenings.
+  - [G by example] Last month's event stayed open until eight.
+```
+
+It records how the source is offered, without asserting truth, representativeness or sufficiency.
+It belongs to the Bearing, so reusing the Point does not transfer it.
+Several joint sources form one example together; see [example support](syntax.md#example-support).
+
 ## Assess a local attachment
 
-A Ground presents two things: its content and the step by which that content supports something else.
+A Ground beneath a non-Question Point presents its content and a step supporting that focus.
 Use `O` to object to its content, or `O/` to object to its local supporting step:
 
 ```md cog-check require=supports,challenges points=4 bearings=3 diagnostics=0

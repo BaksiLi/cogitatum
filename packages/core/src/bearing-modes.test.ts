@@ -3,9 +3,26 @@ import { compileGraphWithExplain, parseAnnotation, parseDocument } from "./index
 
 const compile = (source: string) => compileGraphWithExplain(parseDocument(source));
 
+function expectRetiredConstructor(header: string, closer = "]") {
+  const parsed = parseAnnotation(header);
+  expect(parsed.diagnostics.map(d => d.code), header).toEqual(["RETIRED_FAMILY_ALIAS"]);
+  expect(parsed.annotation, header).toMatchObject({ kind: "bearing", syntaxErrors: expect.arrayContaining(["retired"]) });
+  const { graph } = compile(`- [C @outer] Outer.\n  - [${header}${closer}\n    - [. @a] Active material.\n      - [G @detail] Its reason.`);
+  expect(graph.diagnostics.filter(d => d.code === "RETIRED_FAMILY_ALIAS"), header).toHaveLength(1);
+  expect(graph.points.map(p => p.id), header).toEqual(["outer", "a", "detail"]);
+  expect(graph.bearings, header).toEqual([expect.objectContaining({
+    kind: "supports", sources: [{ kind: "point", key: graph.points[2].key }],
+    target: { kind: "point", key: graph.points[1].key }
+  })]);
+}
+
 describe("Bearing mode selection", () => {
-  it.each(["_", "bearing", "edge"])("constructs member-sourced Bearings through the %s family spelling", family => {
-    for (const [clause, kind] of [["+> ^", "supports"], ["-> ^", "challenges"], ["respondsTo ^", "respondsTo"], ["clarifies ^", "clarifies"], ["~> ^", "concerns"], ["", "concerns"]]) {
+  it.each(["_", "bearing", "edge"])("checks member construction or retirement through the %s family spelling", family => {
+    for (const [clause, kind] of [["+> ^", "supports"], ["-> ^", "challenges"], ["respondsTo ^", "respondsTo"], ["interprets ^", "interprets"], ["~> ^", "concerns"], ["", "concerns"]]) {
+      if (family === "edge") {
+        expectRetiredConstructor(`${(family + " " + clause).trim()}; @route`);
+        continue;
+      }
       const { graph, explain } = compile(`- [O @target] Target.
   - [${(family + " " + clause).trim()}; @route] Step description.
     - [. @a] First source.
@@ -23,8 +40,12 @@ describe("Bearing mode selection", () => {
 
   it.each(["_", "bearing", "edge"])("rejects role-headed %s headers without reinterpreting them as listed sources, use or note", family => {
     for (const [suffix, clause] of [["G @a +> @b", "+> ^"], ["G +>", "+> ^"], ["G use @a", "+> ^"], ["G note", "+> ^"], ["G supports @b", "+> ^"], ["G @a", "+> ^"],
-      ["O; @route", "-> ^"], ["g", "+> ^"], ["Q", "~> ^"], ["R", "respondsTo ^"], ["D/", "clarifies ^/"], ["G/ @a +> @b", "+> ^/"], ["C", undefined], ["R/", "respondsTo ^"]] as const) {
+      ["O; @route", "-> ^"], ["g", "+> ^"], ["Q", "~> ^"], ["R", "respondsTo ^"], ["D/", "interprets ^/"], ["G/ @a +> @b", "+> ^/"], ["C", undefined], ["R/", "respondsTo ^"]] as const) {
       const header = `${family} ${suffix}`;
+      if (family === "edge") {
+        expectRetiredConstructor(header);
+        continue;
+      }
       const parsed = parseAnnotation(header);
       expect(parsed.annotation, header).toMatchObject({ kind: "bearing", members: true, syntaxErrors: ["mode"] });
       expect(parsed.diagnostics.map(diagnostic => diagnostic.code), header).toEqual(["MALFORMED_BEARING_MODE"]);
@@ -42,7 +63,11 @@ describe("Bearing mode selection", () => {
     }
   });
 
-  it.each([["_G", "+> ^"], ["bearingG", "+> ^"], ["edgeG", "+> ^"], ["_O; @route", "-> ^"], ["_D", "clarifies ^"]])("keeps the glued role header [%s] a rejected member boundary instead of body", (header, clause) => {
+  it.each([["_G", "+> ^"], ["bearingG", "+> ^"], ["edgeG", "+> ^"], ["_O; @route", "-> ^"], ["_D", "interprets ^"]])("keeps the glued role header [%s] a rejected member boundary instead of body", (header, clause) => {
+    if (header === "edgeG") {
+      expectRetiredConstructor(header);
+      return;
+    }
     const parsed = parseAnnotation(header);
     expect(parsed.annotation).toMatchObject({ kind: "bearing", members: true, syntaxErrors: ["mode"] });
     // The hint names the relation directly; separating the role would only produce another rejected header.
@@ -63,6 +88,10 @@ describe("Bearing mode selection", () => {
     for (const suffix of ["G->@outer", "O+>@outer", "Q/~>@step", "G?/>@outer", "D_~>@outer"]) {
       for (const closer of ["]", ""]) {
         const header = `${family}${suffix}`;
+        if (family === "edge") {
+          expectRetiredConstructor(header, closer);
+          continue;
+        }
         const { graph, explain } = compile(`- [C @outer] Outer.
   - [G; @step] Original reason.
     - [${header}${closer} Malformed step.
@@ -81,7 +110,7 @@ describe("Bearing mode selection", () => {
     }
   });
 
-  it.each(["supports", "+>", "challenges", "->", "~>", "respondsTo", "clarifies", "answers", "concerns"])("asks [_ %s] for its target instead of supplying one", token => {
+  it.each(["supports", "+>", "challenges", "->", "~>", "respondsTo", "interprets", "answers", "concerns"])("asks [_ %s] for its target instead of supplying one", token => {
     const { graph } = compile(`- [O @outer] Outer.
   - [_ ${token}]
     - [.] Source.`);
@@ -97,7 +126,19 @@ describe("Bearing mode selection", () => {
     expect(parsed.diagnostics[0].message).toContain(`[_ +> ${target}]`);
   });
 
-  it.each(["_", "bearing", "edge"])("keeps incomplete explicit %s headers explicit", family => {
+  it.each(["_", "bearing", "edge"])("keeps incomplete %s headers failed with their operation boundary", family => {
+    if (family === "edge") {
+      for (const suffix of ["@a +>", "@a +> G", "@a G", "@a +> @b G", "cases", "Because", ""]) {
+        expectRetiredConstructor(`${family} ${suffix}`.trim());
+      }
+      for (const [suffix, kind, syntaxErrors] of [["use @route G", "bearingUse", ["reference"]], ["note G", "note", ["note"]]] as const) {
+        const { graph } = compile(`- [C @outer] Outer.\n  - [${family} ${suffix}]\n    - [G @child] Descendant.`);
+        expect(parseAnnotation(`${family} ${suffix}`).annotation).toMatchObject({ kind, syntaxErrors });
+        expect(graph.diagnostics.filter(d => d.code === "RETIRED_FAMILY_ALIAS")).toHaveLength(1);
+        expect(graph.bearings).toEqual([]);
+      }
+      return;
+    }
     for (const suffix of ["@a +>", "@a +> G", "@a G", "@a +> @b G"]) {
       const parsed = parseAnnotation(`${family} ${suffix}`);
       expect(parsed.annotation).toMatchObject({ kind: "bearing", syntaxErrors: expect.arrayContaining(["operator"]) });
@@ -119,7 +160,7 @@ describe("Bearing mode selection", () => {
     });
   });
 
-  it.each(["[_ G", "[bearing O", "[edge respondsTo ^; @route", "[_ +> ^ use @a"])("retains the local boundary of unclosed %s", header => {
+  it.each(["[_ G", "[bearing O", "[_ respondsTo ^; @route", "[_ +> ^ use @a"])("retains the local boundary of unclosed %s", header => {
     const { graph, explain } = compile(`- [O @outer] Outer.
   - ${header}
     - [. @a] Source.

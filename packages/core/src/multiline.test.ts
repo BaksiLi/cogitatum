@@ -79,7 +79,7 @@ describe("contiguous multiline block content", () => {
       "    are offered together.",
       "    - [. @a] A.",
       "    - [. @b] B.",
-      "- [edge @a, @b +> @q; @explicit] The same sources",
+      "- [_ @a, @b +> @q; @explicit] The same sources",
       "  in another authored route.",
       "  - [_ note] Explanation",
       "    of that route."

@@ -225,6 +225,6 @@ describe("correspondence", () => {
     const result = compared(compareCommitments(base, after, { points: identity, bearings: { [objection.key]: objection.key } }));
     expect(result.relation).toBe("revision");
     expect(result.retracted.map(c => c.kind).sort()).toEqual(["challenges"]);
-    expect(result.bearings).toEqual({ removed: [support.key], added: [replacement.key] });
+    expect(result.bearings).toEqual({ removed: [support.key], added: [replacement.key], changed: [] });
   });
 });

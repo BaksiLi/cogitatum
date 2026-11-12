@@ -12,16 +12,19 @@ describe("consolidated symbolic authoring", () => {
     expect(graph.points).toHaveLength(5);
     expect(graph.points[1]).toMatchObject({ declaration: { form: "material" }, text: "Neutral background." });
     expect(graph.points[1].id).toBeUndefined();
-    expect(graph.bearings).toHaveLength(1);
-    expect(graph.bearings[0].target).toEqual({ kind: "point", key: graph.points[1].key });
+    expect(graph.bearings.map(b => [b.kind, b.target])).toEqual([
+      ["concerns", { kind: "point", key: graph.points[0].key }],
+      ["supports", { kind: "point", key: graph.points[1].key }],
+      ["concerns", { kind: "point", key: graph.points[3].key }]
+    ]);
     expect(compile("- [C @claim] Claim.\n  - Body.\n    - [G] Reason.").graph.bearings[0].target.key).toBe("_p1");
   });
 
-  it.each(["supports", "challenges", "concerns", "answers", "respondsTo", "clarifies"] satisfies BearingKind[])("uses one normalized explicit constructor for %s", kind => {
-    const prefix = "- [. @source] Source.\n- [C @target] Target.\n- [edge @source +> @target; @route]\n";
+  it.each(["supports", "challenges", "concerns", "answers", "respondsTo", "interprets"] satisfies BearingKind[])("uses one normalized explicit constructor for %s", kind => {
+    const prefix = "- [. @source] Source.\n- [C @target] Target.\n- [_ @source +> @target; @route]\n";
     const target = "target";
     const compact = compile(prefix + "- [_ @source " + kind + " @" + target + "; @current] Route description.");
-    const readable = compile(prefix + "- [edge @source " + kind + " @" + target + "; @current] Route description.");
+    const readable = compile(prefix + "- [bearing @source " + kind + " @" + target + "; @current] Route description.");
     expect(compact.graph.diagnostics).toEqual([]);
     expect(readable.graph.diagnostics).toEqual([]);
     expect(compact.graph.bearings.map(({ sourceSpan: _span, ...bearing }) => bearing)).toEqual(readable.graph.bearings.map(({ sourceSpan: _span, ...bearing }) => bearing));
@@ -38,7 +41,7 @@ describe("consolidated symbolic authoring", () => {
   });
 
   it.each(["[@legacy]", "[use @source]", "[G_]", "[O_]", "[G _> @route]", "[_ @source _> @route]"])("rejects retired %s with migration guidance rather than a compiling alias", header => {
-    const { graph } = compile("- [. @source] Source.\n- [C @claim] Claim.\n- [edge @source +> @claim; @route]\n- [C @outer] Outer.\n  - " + header + "\n    - [G/ @assessment] No attachment fallback.");
+    const { graph } = compile("- [. @source] Source.\n- [C @claim] Claim.\n- [_ @source +> @claim; @route]\n- [C @outer] Outer.\n  - " + header + "\n    - [G/ @assessment] No attachment fallback.");
     expect(graph.diagnostics.map(diagnostic => diagnostic.code)).toContain("RETIRED_AUTHORING_SYNTAX");
     expect(graph.diagnostics.find(diagnostic => diagnostic.code === "RETIRED_AUTHORING_SYNTAX")?.message).toContain("migrate");
     expect(graph.bearings).toHaveLength(1);
@@ -52,12 +55,16 @@ describe("consolidated symbolic authoring", () => {
     expect(explain.entries[3].effects).toContainEqual({ kind: "localBearingMember", localBearingSpan: explain.entries[1].sourceSpan, eligible: false, function: "commentary" });
   });
 
-  it("distinguishes local inquiry presentation from conversion, mutation or inherited answer context", () => {
+  it("uses the occurrence's Q mark for answers without mutating or inheriting declaration roles", () => {
     const source = "- [Q @question] When should sampling begin?\n- [C @assertion] The road is wet.\n- [. use @question]\n  - [C @background] Background.\n- [Q use @question]\n  - [C @answer] Candidate answer.\n- [Q use @assertion]\n  - [C @discussion] A locally authored response.\n- [C? use @assertion] Unsupported occurrence openness.";
     const { graph } = compile(source);
     expect(graph.points).toHaveLength(5);
     expect(graph.points[1]).toMatchObject({ text: "The road is wet.", declaration: { form: "role", role: "C" } });
-    expect(graph.bearings).toEqual([]);
+    expect(graph.bearings.map(b => [b.kind, b.sources, b.target])).toEqual([
+      ["concerns", [{ kind: "point", key: graph.points[2].key }], { kind: "point", key: graph.points[0].key }],
+      ["answers", [{ kind: "point", key: graph.points[3].key }], { kind: "point", key: graph.points[0].key }],
+      ["answers", [{ kind: "point", key: graph.points[4].key }], { kind: "point", key: graph.points[1].key }]
+    ]);
     expect(graph.diagnostics.map(diagnostic => diagnostic.code)).toEqual(["RETIRED_CLAIM_OPENNESS"]);
   });
 
@@ -87,7 +94,7 @@ describe("consolidated symbolic authoring", () => {
   it("does not let a Bearing-as-Point use supply a linked target or redirect its sources outward", () => {
     const { graph } = compile("- [. @premise] Premise.\n- [C @claim] Claim.\n- [_ @premise +> @claim; @route]\n- [C @outer] Outer.\n  - [. use @route]\n    - [_ +> ^; @joint]\n      - [. @first] First.\n      - [. @second] Second.");
     expect(graph.bearings.map(bearing => bearing.handle)).toEqual(["route"]);
-    expect(graph.diagnostics.map(diagnostic => diagnostic.code)).toEqual(["BEARING_IS_NOT_POINT_REFERENCE", "POINT_FOCUS_REQUIRES_POINT"]);
+    expect(graph.diagnostics.map(diagnostic => diagnostic.code)).toEqual(["BEARING_IS_NOT_POINT_REFERENCE", "BEARING_IS_NOT_BEARING_SOURCE", "POINT_FOCUS_REQUIRES_POINT"]);
     expect(graph.points).toHaveLength(5);
   });
 

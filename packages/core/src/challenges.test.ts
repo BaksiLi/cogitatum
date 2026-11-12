@@ -6,7 +6,7 @@ import { compileGraph, compileGraphWithExplain, explainSource, parseDocument } f
 const declarations = `- [C @claim] Conclusion.
 - [G @a] First reason.
 - [G @b] Second reason.
-- [edge @a, @b +> @claim; @route] Joint step.`;
+- [_ @a, @b +> @claim; @route] Joint step.`;
 const compile = (source: string) => compileGraphWithExplain(parseDocument(source));
 const errors = (source: string) => compile(source).graph.diagnostics.filter(d => d.severity === "error").map(d => d.code);
 const ajv = new Ajv2020({ allErrors: true });
@@ -18,7 +18,7 @@ const schemas = Object.fromEntries(["ast", "graph-ir", "explain", "source"].map(
 
 describe("format 0.6 unified challenges", () => {
   it.each([["claim", "point"], ["route", "bearing"]] as const)("selects a %s target's kind by its name alone, through AST JSON", (target, kind) => {
-    const source = declarations + `\n- [edge @b -> @${target}; @attack]`;
+    const source = declarations + `\n- [_ @b -> @${target}; @attack]`;
     const ast = JSON.parse(JSON.stringify(parseDocument(source)));
     const annotation = ast.blocks[4].annotation;
     expect(annotation.operatorClause).toEqual({ op: "challenges", sources: [{ id: "b" }], target: { id: target } });
@@ -34,7 +34,7 @@ describe("format 0.6 unified challenges", () => {
     expect(compileGraph(ast).bearings.map(b => b.handle)).toEqual(["route"]);
   });
 
-  it.each(["edge", "_"])("rejects retired undercuts in %s without emitting a relation or crossing its boundary", constructor => {
+  it.each(["edge", "_", "bearing"])("rejects undercuts or the retired %s family without emitting a relation or crossing its boundary", constructor => {
     const source = declarations + `
 - [C @outer] Outer.
   - [G @parent; @outer-route] Outer reason.
@@ -45,13 +45,14 @@ describe("format 0.6 unified challenges", () => {
 - [O -> @failed] Must not resolve a rejected handle.`;
     const ast = parseDocument(source);
     const { graph, explain } = compileGraphWithExplain(ast);
-    const retirement = graph.diagnostics.find(d => d.code === "RETIRED_BEARING_KIND");
+    const code = constructor === "edge" ? "RETIRED_FAMILY_ALIAS" : "RETIRED_BEARING_KIND";
+    const retirement = graph.diagnostics.find(d => d.code === code);
     expect(retirement).toMatchObject({ severity: "error", sourceSpan: { startLine: 7 } });
-    expect(retirement?.message).toContain("replace undercuts with ->");
+    expect(retirement?.message).toContain(constructor === "edge" ? "write _ or bearing" : "replace undercuts with ->");
     expect(graph.bearings.map(b => b.handle)).toEqual(["route", "outer-route", "kept"]);
     expect(graph.bearings[2].target).toEqual({ kind: "bearing", key: graph.bearings[0].key });
     expect(graph.points.some(p => p.id === "child")).toBe(true);
-    expect(graph.diagnostics.map(d => d.code)).toEqual(["RETIRED_BEARING_KIND", "NO_LOCAL_BEARING_ATTACHMENT", "EXPLICIT_BEARING_DESCENDANT_REQUIRES_TARGET", "UNKNOWN_TARGET"]);
+    expect(graph.diagnostics.map(d => d.code)).toEqual([code, "NO_LOCAL_BEARING_ATTACHMENT", "EXPLICIT_BEARING_DESCENDANT_REQUIRES_TARGET", "UNKNOWN_TARGET"]);
     const entry = explain.entries.find(e => e.sourceSpan.startLine === 7)!;
     expect(entry.recognition).toEqual({ kind: "bearing", members: false });
     expect(entry.effects.some(e => e.kind === "emitBearing")).toBe(false);
@@ -61,10 +62,10 @@ describe("format 0.6 unified challenges", () => {
   });
 
   it.each(["claim", "route", "missing"])("rejects retired undercuts before resolving target %s", target => {
-    const source = declarations + `\n- [edge @a undercuts @${target}; @failed]`;
+    const source = declarations + `\n- [_ @a undercuts @${target}; @failed]`;
     expect(errors(source)).toEqual(["RETIRED_BEARING_KIND"]);
     expect(compile(source).graph.bearings.map(b => b.handle)).toEqual(["route"]);
-    const migrated = declarations + `\n- [edge @a -> @${target}; @new]`;
+    const migrated = declarations + `\n- [_ @a -> @${target}; @new]`;
     expect(errors(migrated)).toEqual(target === "missing" ? ["UNKNOWN_TARGET"] : []);
   });
 
@@ -76,7 +77,7 @@ describe("format 0.6 unified challenges", () => {
   });
 
   it.each(["claim", "route"])("allows named challenges against %s with ordered sources and distinct instances", target => {
-    const { graph, explain } = compile(declarations + `\n- [edge @b, @a challenges @${target}; @one]\n- [_ @b, @a challenges @${target}; @two]`);
+    const { graph, explain } = compile(declarations + `\n- [_ @b, @a challenges @${target}; @one]\n- [_ @b, @a challenges @${target}; @two]`);
     expect(graph.diagnostics).toEqual([]);
     expect(graph.bearings.slice(1).map(b => [b.kind, b.target.kind, b.handle])).toEqual([
       ["challenges", target === "claim" ? "point" : "bearing", "one"],
@@ -112,7 +113,7 @@ describe("format 0.6 unified challenges", () => {
     expect(errors(linked.replace("[O/]", "[O]"))).toContain("INVALID_LOCAL_BEARING_MEMBER");
     expect(errors(declarations + "\n  - [O] Bare objection.")).toContain("EXPLICIT_BEARING_DESCENDANT_REQUIRES_TARGET");
     expect(errors(declarations + "\n- [_ use @route]\n  - [O] Bare objection.")).toContain("BEARING_USE_REQUIRES_EXPLICIT_TARGET");
-    const failed = compile(declarations + "\n- [edge @a respondsTo @route; @failed]\n  - [O/] No outward fallback.\n- [O -> @failed] Dependent.\n- [O -> @claim] Independent.").graph;
+    const failed = compile(declarations + "\n- [_ @a respondsTo @route; @failed]\n  - [O/] No outward fallback.\n- [O -> @failed] Dependent.\n- [O -> @claim] Independent.").graph;
     expect(failed.bearings.map(b => b.handle)).toEqual(["route", undefined]);
     expect(failed.bearings[1].target.kind).toBe("point");
     expect(failed.diagnostics.filter(d => d.code === "UNRESOLVED_BEARING_TARGET")).toHaveLength(2);

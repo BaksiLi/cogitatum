@@ -1,12 +1,12 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://cogitatum.baksili.codes/schemas/0.6.0/graph-ir.schema.json",
+  "$id": "https://cogitatum.baksili.codes/schemas/0.7.0/graph-ir.schema.json",
   "title": "Cogitatum Point-Bearing Graph IR",
   "description": "Bounded graph projection. Notes link targets to source AST blocks; note prose and literal subtrees require the complete source envelope. Cross-entity uniqueness, reference integrity, and agreement with source require compiler-level checks.",
   "type": "object",
   "required": ["version", "points", "bearings", "notes", "diagnostics"],
   "properties": {
-    "version": { "const": "0.6.0" },
+    "version": { "const": "0.7.0" },
     "points": {
       "type": "array",
       "items": { "$ref": "#/$defs/point" }
@@ -125,9 +125,10 @@
       "properties": {
         "key": { "$ref": "#/$defs/bearingKey" },
         "handle": { "$ref": "#/$defs/authoredId" },
+        "profile": { "const": "example", "description": "Written by example: the sources are offered as an example. Only on supports; selects no inference scheme or assessment." },
         "kind": {
           "description": "supports records positive bearing, including deductive, inductive, abductive, and explanatory or interpretive grounds. It does not certify truth, strength, or validity.",
-          "enum": ["supports", "challenges", "concerns", "respondsTo", "clarifies", "answers"]
+          "enum": ["supports", "challenges", "concerns", "respondsTo", "interprets", "answers"]
         },
         "sources": {
           "type": "array",
@@ -154,7 +155,8 @@
             "required": ["kind"]
           },
           "then": { "properties": { "target": { "$ref": "#/$defs/pointRef" } } }
-        }
+        },
+        { "if": { "required": ["profile"] }, "then": { "properties": { "kind": { "const": "supports" } } } }
       ],
       "additionalProperties": false
     },

@@ -131,6 +131,32 @@ describe("cog lsp", () => {
     expect(decode(host, semanticTokens(host, "host"))).toEqual([[3, 4, "[", 0, 0], [3, 5, "O", 1, 0], [3, 7, "@doubt", 2, 0], [3, 13, "]", 0, 0]]);
   });
 
+  it("offers Core's checked framing repairs as quick fixes for an opposed framing only", () => {
+    const { open, request, diagnostics } = session();
+    const opposed = "- [C @delay] 應延後採用。\n- [O @cost +> @delay] 成本超出預算。";
+    open(opposed);
+    expect(diagnostics()).toEqual([expect.objectContaining({ code: "OPPOSED_FRAMING" })]);
+    const apply = (text: string, { range, newText }: { range: { start: Position; end: Position }; newText: string }) => {
+      const offset = ({ line, character }: Position) => text.split("\n").slice(0, line).reduce((sum, l) => sum + l.length + 1, 0) + character;
+      return text.slice(0, offset(range.start)) + newText + text.slice(offset(range.end));
+    };
+    const actions = request("textDocument/codeAction", { textDocument: { uri: DOCUMENT }, range: { start: { line: 1, character: 0 }, end: { line: 1, character: 0 } }, context: { diagnostics: [] } }).result;
+    expect(actions.map((action: { title: string }) => action.title)).toEqual([
+      "Re-mark as G, keeping the clause",
+      "Re-mark as neutral (.), keeping the clause",
+      "Re-mark as G and keep the objection as an unbound use at root"
+    ]);
+    expect(actions[0].diagnostics).toEqual([expect.objectContaining({ code: "OPPOSED_FRAMING" })]);
+    const results = actions.map((action: { edit: { changes: Record<string, { range: { start: Position; end: Position }; newText: string }[]> } }) =>
+      action.edit.changes[DOCUMENT].reduce((text, edit) => apply(text, edit), opposed));
+    expect(results).toEqual([
+      opposed.replace("[O", "[G"),
+      opposed.replace("[O", "[."),
+      opposed.replace("[O", "[G") + "\n- [O use @cost]"
+    ]);
+    expect(request("textDocument/codeAction", { textDocument: { uri: DOCUMENT }, range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } }, context: { diagnostics: [] } }).result).toEqual([]);
+  });
+
   it("speaks framed JSON-RPC over stdio and exits cleanly after shutdown", async () => {
     const repoRoot = fileURLToPath(new URL("../../../", import.meta.url));
     const tsx = createRequire(import.meta.url).resolve("tsx");

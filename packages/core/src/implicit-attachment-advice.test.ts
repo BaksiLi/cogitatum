@@ -7,7 +7,7 @@ const advice = (result: GraphCompilation) => result.graph.diagnostics.filter(dia
 const throughBodySelections = (result: GraphCompilation) => result.explain.entries.flatMap(entry => entry.effects.filter(effect => effect.kind === "implicitAttachment" && effect.crossedBodySpans.length > 0).map(effect => ({ line: entry.sourceSpan.startLine, ...effect })));
 
 describe("advice from actual implicit selection", () => {
-  it.each([["C", "G", "supports"], ["C", "O", "challenges"], ["C", "D", "clarifies"], ["Q", "R", "respondsTo"]])("reports %s > body > %s as %s", (parent, child, kind) => {
+  it.each([["C", "G", "supports"], ["C", "O", "challenges"], ["C", "D", "interprets"], ["Q", "R", "respondsTo"], ["Q", "C", "answers"]])("reports %s > body > %s as %s", (parent, child, kind) => {
     const ast = parseDocument("- [" + parent + " @target] Target.\n  - First body\n    - Second body\n      - [" + child + "] Source.");
     const result = compileGraphWithExplain(ast);
     expect(result.graph.bearings[0].kind).toBe(kind);
@@ -29,13 +29,41 @@ describe("advice from actual implicit selection", () => {
     expect(result.graph.bearings.map(bearing => bearing.kind)).toEqual(["respondsTo", "supports"]);
   });
 
-  it("changing a root heading to Q does not turn grouped Claims into answers", () => {
+  it("changing a root heading to Q makes grouped Claims answers through transparent body", () => {
     const children = "\n  - Reconstruction\n    - [C @reconstruction] Reconstructed answer.\n      - [G] Reason.\n  - Independent assessment\n    - [C @assessment] Our assessment.\n      - [O] Concern.";
     expect(advice(compile("- Reading" + children))).toEqual([]);
     const result = compile("- [Q @inquiry] Reading" + children);
-    expect(throughBodySelections(result)).toEqual([]);
+    expect(throughBodySelections(result).map(effect => [effect.line, effect.target.key])).toEqual([[3, result.graph.points[0].key], [6, result.graph.points[0].key]]);
+    expect(advice(result).map(d => [d.sourceSpan?.startLine, d.severity])).toEqual([[3, "suggestion"], [6, "suggestion"]]);
+    expect(result.graph.bearings.map(bearing => bearing.kind)).toEqual(["answers", "supports", "answers", "challenges"]);
+  });
+
+  it.each([["C", "C"], ["Q", "."], ["Q", "G"]])("traces the weak %s > body > %s default without attachment advice", (parent, child) => {
+    const result = compile(`- [${parent} @target] Target.\n  - Body\n    - [${child}] Related material.`);
+    expect(result.graph.bearings.map(b => [b.kind, b.target])).toEqual([["concerns", { kind: "point", key: result.graph.points[0].key }]]);
+    expect(throughBodySelections(result).map(effect => effect.line)).toEqual([3]);
     expect(advice(result)).toEqual([]);
-    expect(result.graph.bearings.map(bearing => bearing.kind)).toEqual(["supports", "challenges"]);
+    expect(result.graph.diagnostics.map(d => d.code)).toEqual(child === "G" ? ["UNBOUND_GROUND_UNDER_QUESTION"] : []);
+  });
+
+  it("keeps an inner Claim's own support below its weak relevance attachment", () => {
+    const result = compile("- [C @c] Claim.\n  - Body\n    - [C] Inner.\n      - [G] Reason.");
+    expect(result.graph.bearings.map(b => [b.kind, b.target])).toEqual([
+      ["concerns", { kind: "point", key: result.graph.points[0].key }],
+      ["supports", { kind: "point", key: result.graph.points[1].key }]
+    ]);
+    expect(throughBodySelections(result).map(effect => effect.line)).toEqual([3]);
+    expect(result.graph.diagnostics).toEqual([]);
+  });
+
+  it("advises only the answer when C and neutral material share a Question focus through body", () => {
+    const result = compile("- [Q @q] Question.\n  - Body\n    - [C] Seconds.\n    - [.] Background.");
+    expect(result.graph.bearings.map(b => [b.kind, b.target])).toEqual([
+      ["answers", { kind: "point", key: result.graph.points[0].key }],
+      ["concerns", { kind: "point", key: result.graph.points[0].key }]
+    ]);
+    expect(throughBodySelections(result).map(effect => effect.line)).toEqual([3, 4]);
+    expect(result.graph.diagnostics.map(d => [d.code, d.sourceSpan?.startLine])).toEqual([["IMPLICIT_ATTACHMENT_THROUGH_BODY", 3]]);
   });
 
   it("advises on linked target lookup and slash attachment through body", () => {
@@ -81,8 +109,6 @@ describe("advice from actual implicit selection", () => {
 
   it.each([
     "- Organisation\n  - [C] Claim.\n    - [G] Reason.\n  - Leaf prose",
-    "- [C @c] Claim.\n  - Body\n    - [C] Inner.\n      - [G] Reason.",
-    "- [Q @q] Question.\n  - Body\n    - [C] Seconds.\n    - [.] Background.",
     "- [C @c] Claim.\n  - Body\n    - [G +> @c] Explicit.\n    - [_ @c +> @c] Explicit edge.",
     "- [C] Claim.\n  - [note]\n    - Body\n      - [G] Literal.",
     "- [C] Claim.\n  - Body\n    - [O/] No exposed attachment.",
@@ -106,7 +132,7 @@ describe("advice from actual implicit selection", () => {
     ["- [C @c] Claim.\n  - Body\n    - [G @g; @step] Reason.", "[G @g +> @c; @step]", "- [C @c] Claim.\n  - Body\n    - [G @g +> @c; @step] Reason."],
     ["- [C @c] Claim.\n  - [G @g; @step] Reason.\n    - Body\n      - [O/ @o] Concern.", "[O @o -> @step]", "- [C @c] Claim.\n  - [G @g; @step] Reason.\n    - Body\n      - [O @o -> @step] Concern."],
     ["- [O @o] Objection.\n  - Body\n    - [R @r] Reply.", "[R @r respondsTo @o]", "- [O @o] Objection.\n  - Body\n    - [R @r respondsTo @o] Reply."],
-    ["- [C @c] Claim.\n  - Body\n    - [D use @d] Local distinction.\n- [. @d] Shared distinction.", "[D use @d clarifies @c]", "- [C @c] Claim.\n  - Body\n    - [D use @d clarifies @c] Local distinction.\n- [. @d] Shared distinction."],
+    ["- [C @c] Claim.\n  - Body\n    - [D use @d] Local distinction.\n- [. @d] Shared distinction.", "[D use @d interprets @c]", "- [C @c] Claim.\n  - Body\n    - [D use @d interprets @c] Local distinction.\n- [. @d] Shared distinction."],
     ["- [C @c] Claim.\n  - Body\n    - [_ +> ^; @route]\n      - [. @a] A.\n      - [. @b] B.", "write [_ +> @c; @route]; its sources stay where they are", "- [C @c] Claim.\n  - Body\n    - [_ +> @c; @route]\n      - [. @a] A.\n      - [. @b] B."],
     ["- [C @c] Claim.\n  - Body\n    - [Q] Which scale?", "write [Q ~> @c]", "- [C @c] Claim.\n  - Body\n    - [Q ~> @c] Which scale?"],
     ["- [C @c] Claim.\n  - Body\n    - [G supports ^] Reason.", "write [G supports @c]", "- [C @c] Claim.\n  - Body\n    - [G supports @c] Reason."],
@@ -121,7 +147,7 @@ describe("advice from actual implicit selection", () => {
     expect(topology(explicit)).toEqual(topology(result));
   });
 
-  it.each([["+> ^", "C", "+>"], ["-> ^", "C", "->"], ["respondsTo ^", "O", "respondsTo"], ["clarifies ^", "C", "clarifies"], ["~> ^", "C", "~>"]])(
+  it.each([["+> ^", "C", "+>"], ["-> ^", "C", "->"], ["respondsTo ^", "O", "respondsTo"], ["interprets ^", "C", "interprets"], ["~> ^", "C", "~>"]])(
     "keeps the [_ %s] relation, its members and their descendants when following its advice",
     (clause, parent, operator) => {
       const members = `

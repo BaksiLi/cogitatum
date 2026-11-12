@@ -4,6 +4,20 @@ import { compileSource } from "@cogitatum/core";
 import { focusNeighborhood, guidanceSubject, projectExploration, projectGraph, referenceKey } from "./projection.js";
 
 describe("faithful graph projection", () => {
+  it("retains the example profile on both junctions and collapsed lines without changing topology", () => {
+    for (const header of ["G", "_ +> ^"]) {
+      const source = `- [C] Claim.\n  - [${header} by example] Example.\n` + (header.startsWith("_") ? "    - [.] Source." : "");
+      const compiled = compileSource(source), plain = compileSource(source.replace(" by example", ""));
+      expect(compiled.diagnostics).toEqual([]);
+      const graph = compiled.graphs[0], before = structuredClone(graph);
+      const projected = projectGraph(graph), display = projectExploration(projected);
+      expect(projected.links).toEqual(projectGraph(plain.graphs[0]).links);
+      expect(projected.nodes.find(node => node.ref.kind === "bearing")).toMatchObject({ label: "supports", profile: "example" });
+      expect(display.inlineBearings[0]).toMatchObject({ label: "supports", profile: "example" });
+      expect(graph).toEqual(before);
+    }
+  });
+
   it("makes object notes discoverable without changing graph topology or main content", () => {
     const graph = compileSource("- [C @c] Claim.\n  - [. note] First.\n  - [. note] Same.\n  - [G; @r] Reason.\n    - [_ note] Route.\n- [_ use @r]").graphs[0];
     const projected = projectGraph(graph);
@@ -28,7 +42,7 @@ describe("faithful graph projection", () => {
     expect(display.nodes.some(node => node.ref.kind === 'bearing' && node.ref.key === graph.bearings[0].key)).toBe(true);
   });
   it("retains joint support and pressure on that same bearing", () => {
-    const graph = compileSource('- [C @c] Claim.\n- [G @a] First.\n- [G @b] Second.\n- [edge @a, @b +> @c; @route]\n- [O -> @route] Route objection.','document').graphs[0];
+    const graph = compileSource('- [C @c] Claim.\n- [G @a] First.\n- [G @b] Second.\n- [_ @a, @b +> @c; @route]\n- [O -> @route] Route objection.','document').graphs[0];
     const p = projectGraph(graph);
     expect(p.nodes).toHaveLength(6); expect(p.links).toHaveLength(5);
     const route = graph.bearings.find(b=>b.handle==='route')!;
@@ -71,7 +85,7 @@ describe("exploration presentation", () => {
   });
   it("keeps joint support and an addressed connection as explicit junctions", () => {
     for (const source of [
-      '- [C @c] Claim.\n- [G @a] First.\n- [G @b] Second.\n- [edge @a, @b +> @c; @route]',
+      '- [C @c] Claim.\n- [G @a] First.\n- [G @b] Second.\n- [_ @a, @b +> @c; @route]',
       '- [C @c] Claim.\n- [G @a] First.\n- [G @b] Second.\n- [G @d] Third.\n- [_ @a, @b, @d +> @c; @route]',
       '- [C @c] Claim.\n- [G @a +> @c; @route] First.\n- [O @o -> @route; @pressure] Weak route.'
     ]) {
@@ -87,7 +101,7 @@ describe("exploration presentation", () => {
   });
   it("does not hide distinct parallel, opposite or self-directed relationships", () => {
     for (const source of [
-      '- [C @c] Claim.\n- [G @a] Reason.\n- [edge @a +> @c]\n- [edge @a -> @c]',
+      '- [C @c] Claim.\n- [G @a] Reason.\n- [_ @a +> @c]\n- [_ @a -> @c]',
       '- [C @a +> @b] A.\n- [C @b +> @a] B.',
       '- [C @a +> @a] A.'
     ]) {
@@ -105,10 +119,10 @@ describe("focus neighborhood", () => {
   const alternativeRoutes = [
     "- [C @water] Broad Street 水泵可能是這次霍亂暴發的來源。",
     "- [G @cluster] 多數死亡病例集中在水泵周邊。",
-    "- [edge @cluster +> @water; @proximity] 地理上的接近，可能反映飲用該水泵水的機會。",
+    "- [_ @cluster +> @water; @proximity] 地理上的接近，可能反映飲用該水泵水的機會。",
     "- [O @exceptions -> @proximity] 附近濟貧院與啤酒廠幾乎沒有病例。",
     "- [G @exposure] 這兩處不用該水泵；一些遠處患者卻曾飲用泵水。",
-    "- [edge @cluster, @exposure +> @water; @water-route] 真正重要的是飲水暴露，而不只是地理位置。"
+    "- [_ @cluster, @exposure +> @water; @water-route] 真正重要的是飲水暴露，而不只是地理位置。"
   ].join("\n");
 
   it("separates alternative routes that share a source and a target", () => {
@@ -134,7 +148,7 @@ describe("focus neighborhood", () => {
   });
 
   it("keeps parallel Bearings of one kind between the same endpoints as distinct routes", () => {
-    const graph = compileSource("- [C @c] Claim.\n- [G @a] Reason.\n- [edge @a +> @c; @first] One reading.\n- [edge @a +> @c; @second] Another reading.\n- [O -> @second] Doubt.", "document").graphs[0];
+    const graph = compileSource("- [C @c] Claim.\n- [G @a] Reason.\n- [_ @a +> @c; @first] One reading.\n- [_ @a +> @c; @second] Another reading.\n- [O -> @second] Doubt.", "document").graphs[0];
     const projection = projectGraph(graph);
     const [first, second, doubt] = graph.bearings;
     expect(focusNeighborhood(projection, { kind: "bearing", key: first.key }).bearingKeys).toEqual([first.key]);
@@ -152,7 +166,7 @@ describe("focus neighborhood", () => {
   });
 
   it("includes a whole joint Bearing without following further implications", () => {
-    const graph = compileSource('- [C @c] Claim.\n- [G @a] First.\n- [G @b] Second.\n- [C @d] Next.\n- [edge @a, @b +> @c; @route]\n- [edge @c +> @d; @next]', 'document').graphs[0];
+    const graph = compileSource('- [C @c] Claim.\n- [G @a] First.\n- [G @b] Second.\n- [C @d] Next.\n- [_ @a, @b +> @c; @route]\n- [_ @c +> @d; @next]', 'document').graphs[0];
     const route = graph.bearings.find(b => b.handle === 'route')!;
     const point = graph.points.find(p => p.id === 'a')!;
     const focus = focusNeighborhood(projectGraph(graph), {kind: 'point', key: point.key});
@@ -161,7 +175,7 @@ describe("focus neighborhood", () => {
     expect(focus.nodeIds).not.toContain(referenceKey({kind: 'point', key: graph.points.find(p => p.id === 'd')!.key}));
   });
   it("includes pressure on a selected connection and all of its joint sources", () => {
-    const graph = compileSource('- [C @c] Claim.\n- [G @a] First.\n- [G @b] Second.\n- [edge @a, @b +> @c; @route]\n- [O @o -> @route; @pressure] Weak route.', 'document').graphs[0];
+    const graph = compileSource('- [C @c] Claim.\n- [G @a] First.\n- [G @b] Second.\n- [_ @a, @b +> @c; @route]\n- [O @o -> @route; @pressure] Weak route.', 'document').graphs[0];
     const route = graph.bearings.find(b => b.handle === 'route')!;
     const projection = projectGraph(graph);
     const focus = focusNeighborhood(projection, {kind: 'bearing', key: route.key});

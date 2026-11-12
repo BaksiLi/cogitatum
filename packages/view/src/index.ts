@@ -3,7 +3,7 @@ import { endingPoints, focusNeighborhood, guidanceSubject, projectExploration, p
 import { layoutGraph, type LabelExtent, type Point2 } from "./layout.js";
 import { createDragMotion, type DragReach } from "./motion.js";
 import { estimateEms, labelWidth, wrapMapLabel, type LabelLine } from "./map-label.js";
-import { bearingMark, drawBearingGlyph, drawPointGlyph, MARK_TYPE, pointMark } from "./marks.js";
+import { bearingLabel, bearingMark, drawBearingGlyph, drawPointGlyph, MARK_TYPE, pointMark } from "./marks.js";
 import type { OutlineTie } from "./reading-projection.js";
 export * from "./projection.js";
 export * from "./layout.js";
@@ -201,7 +201,7 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
     for (const id of endings) shapes.get(id)?.g.classList.add("cog-ending");
   }
   function describe(g: SVGGElement, node: GraphNode): void {
-    const name = node.ref.kind === "point" ? pointMark(node.label).name : bearingMark(node.label).name;
+    const name = node.ref.kind === "point" ? pointMark(node.label).name : bearingLabel(node.label, node.profile);
     const sources = node.ref.kind === "bearing" ? full.links.filter(link => link.target === node.id && link.segment === "input").length : 0;
     const shape = node.ref.kind === "bearing" ? (sources > 1 ? `joint, ${sources} sources` : "one source") : "";
     const text = node.text === node.label ? "" : `: ${node.text}`;

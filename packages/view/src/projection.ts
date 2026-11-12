@@ -1,4 +1,4 @@
-import type { BearingKind, BearingTarget, GraphIR, Point, SourceSpan } from "@cogitatum/core";
+import type { BearingKind, BearingProfile, BearingTarget, GraphIR, Point, SourceSpan } from "@cogitatum/core";
 import { FORMAT_VERSION } from "@cogitatum/core";
 import { declarationMark } from "./marks.js";
 
@@ -7,6 +7,8 @@ export type GraphNode = {
   ref: BearingTarget;
   name?: string;
   label: string;
+  /** A Bearing's qualification; `label` remains its kind for glyphs and layout. */
+  profile?: BearingProfile;
   text: string;
   sourceSpan?: SourceSpan;
   noteCount?: number;
@@ -38,7 +40,7 @@ export function projectGraph(graph: GraphIR): GraphProjection {
       name: p.id, label: declarationMark(p.declaration).label,
       text: p.text, sourceSpan: p.sourceSpan })),
     ...graph.bearings.map(b => ({ id: referenceKey({ kind: "bearing", key: b.key }), ref: { kind: "bearing" as const, key: b.key },
-      name: b.handle, label: b.kind, text: b.text ?? b.kind, sourceSpan: b.sourceSpan }))
+      name: b.handle, label: b.kind, ...(b.profile ? { profile: b.profile } : {}), text: b.text ?? b.kind, sourceSpan: b.sourceSpan }))
   ];
   const ids = new Set(nodes.map(n => n.id));
   if (ids.size !== nodes.length) throw new Error("Graph has duplicate compilation keys.");

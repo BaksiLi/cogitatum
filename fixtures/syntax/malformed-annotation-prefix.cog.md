@@ -2,5 +2,5 @@
   - [C @claim Missing closing bracket.
     - [G @survivor] A valid descendant remains represented.
   - [] Empty annotation prefix.
-  - [edge @survivor +> @claim Missing closing bracket.
+  - [_ @survivor +> @claim Missing closing bracket.
   - [Context for ordinary prose remains body.

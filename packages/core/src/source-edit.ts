@@ -1,3 +1,5 @@
+import { focusOf } from "./annotation.js";
+import type { Focus } from "./annotation.js";
 import type { AstBlock, ExplainedSource, SourceParseMode } from "./types.js";
 
 /** offset counts UTF-16 code units in originalSource. */
@@ -44,6 +46,18 @@ export function parentBlock(blocks: AstBlock[], block: AstBlock): AstBlock | und
     if (found) return found;
   }
   return undefined;
+}
+
+/**
+ * The Point focus a block is written beneath, as the compiler selects it:
+ * ordinary body is transparent, the nearest annotated ancestor decides, and
+ * only a Point occurrence offers a focus. Use on sources without errors.
+ */
+export function focusAt(blocks: AstBlock[], block: AstBlock): Focus | undefined {
+  let parent = parentBlock(blocks, block);
+  while (parent && !parent.annotation) parent = parentBlock(blocks, parent);
+  const annotation = parent?.annotation;
+  return annotation && (annotation.kind === "role" || annotation.kind === "material" || annotation.kind === "use") ? focusOf(annotation) : undefined;
 }
 
 /** The last line of block and all of its descendants, including literal subtrees. */

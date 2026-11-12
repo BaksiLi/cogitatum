@@ -7,4 +7,4 @@
     - [. @second] Second joint premise.
 - [O @undercut -> @joint-route] Objection to the route.
 - [C @other] Another conclusion.
-- [edge @first +> @other; @shared-route]
+- [_ @first +> @other; @shared-route]

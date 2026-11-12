@@ -41,7 +41,7 @@ export function formatGraph(graph: GraphIR): string {
       throw new Error(`Cannot format Bearing ${quote(bearing.key)} with invalid sources.`);
     }
     const sources = bearing.sources.map(reference).join(", ");
-    lines.push(`${bearings.get(bearing.key)}: ${bearing.kind}([${sources}], ${reference(bearing.target)})${field("handle", bearing.handle)}${field("text", bearing.text)}`);
+    lines.push(`${bearings.get(bearing.key)}: ${bearing.kind}([${sources}], ${reference(bearing.target)})${field("profile", bearing.profile)}${field("handle", bearing.handle)}${field("text", bearing.text)}`);
   }
   lines.push("", `diagnostics (${graph.diagnostics.length}):`);
   for (const diagnostic of graph.diagnostics) lines.push(...formatDiagnostic(diagnostic));

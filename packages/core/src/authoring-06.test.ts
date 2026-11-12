@@ -4,11 +4,11 @@ import { compileGraphWithExplain, parseDocument, previewTargetForm } from "./ind
 const compile = (text: string) => compileGraphWithExplain(parseDocument(text));
 const errors = (text: string) => compile(text).graph.diagnostics.filter(d => d.severity === "error").map(d => d.code);
 
-describe("0.6 authoring boundaries", () => {
+describe("authoring boundaries under the 0.7 construction table", () => {
   it.each([
-    ["G", "supports"], ["O", "challenges"], ["R", "respondsTo"], ["D", "clarifies"]
+    ["G", "supports"], ["O", "challenges"], ["R", "respondsTo"], ["D", "interprets"]
   ].flatMap(([role, kind]) => [".", "Q", "C", "G", "O", "R", "D"].map(parent => [role, kind, parent])))(
-    "keeps the %s / %s route to a %s parent through ordinary use, singleton construction and explicit endpoints",
+    "distinguishes the %s default from an explicit %s route to a %s parent",
     (role, kind, parent) => {
     const declarations = `- [. @source] Source.\n- [${parent} @target] Target.`;
     const forms = [
@@ -16,14 +16,15 @@ describe("0.6 authoring boundaries", () => {
       `- [${parent} use @target]\n  - [_ ${kind} ^; @route]\n    - [. use @source]`,
       `- [_ @source ${kind} @target; @route]`
     ];
-    for (const form of forms) {
+    for (const [index, form] of forms.entries()) {
       const { graph } = compile(`${declarations}\n${form}`);
-      expect(graph.diagnostics).toEqual([]);
+      const unbound = role === "G" && parent === "Q" && index === 0;
+      expect(graph.diagnostics.map(d => [d.severity, d.code])).toEqual(unbound ? [["suggestion", "UNBOUND_GROUND_UNDER_QUESTION"]] : []);
       expect(graph.points.map(point => point.declaration)).toEqual([
         { form: "material" }, parent === "." ? { form: "material" } : { form: "role", role: parent }
       ]);
       expect(graph.bearings).toEqual([expect.objectContaining({
-        kind,
+        kind: unbound ? "concerns" : kind,
         handle: "route",
         sources: [{ kind: "point", key: graph.points[0].key }],
         target: { kind: "point", key: graph.points[1].key }
@@ -54,7 +55,7 @@ describe("0.6 authoring boundaries", () => {
     });
   });
 
-  it.each(["+>", "->", "respondsTo", "clarifies"])("[_ %s ^] with one source carries no unfinishedness advice", op => {
+  it.each(["+>", "->", "respondsTo", "interprets"])("[_ %s ^] with one source carries no unfinishedness advice", op => {
     const source = `- [O @target] Target.\n  - [_ ${op} ^; @route]\n    - [. @source] Source.`;
     for (const suffix of ["", "\n    - [_ note] Detail about this step.\n    - [O/] This step assumes a stable context."]) {
       const { graph } = compile(source + suffix);
@@ -69,14 +70,14 @@ describe("0.6 authoring boundaries", () => {
     }
   });
 
-  it.each([["G", "C", "supports"], ["O", "C", "challenges"], ["R", "O", "respondsTo"], ["D", ".", "clarifies"]])(
+  it.each([["G", "C", "supports"], ["O", "C", "challenges"], ["R", "O", "respondsTo"], ["D", ".", "interprets"]])(
     "a %s-default joint beneath %s constructs one %s Bearing from neutral members",
     (role, parent, kind) => {
       const source = `- [${parent} @target] Target.
   - [_ ${kind} ^; @joint] Route description.
     - [point @a] First.
       - [O] Doubt about the first source.
-    - [node @b] Second.
+    - [. @b] Second.
     - [_ note] Route note.
     - [O/] Doubt about the joint.`;
       const {graph, explain} = compile(source);
@@ -104,8 +105,8 @@ describe("0.6 authoring boundaries", () => {
     ]) {
       const { graph } = compile(source);
       expect(graph.diagnostics).toEqual([]);
-      expect(graph.bearings).toHaveLength(1);
-      expect(graph.bearings[0]).toMatchObject({
+      expect(graph.bearings.map(b => b.kind)).toEqual(source.startsWith("- [O] Outer.") ? ["concerns", "respondsTo"] : ["respondsTo"]);
+      expect(graph.bearings.at(-1)).toMatchObject({
         kind: "respondsTo",
         target: { kind: "point", key: graph.points.find(point => point.id === "p")!.key }
       });
@@ -128,15 +129,21 @@ describe("0.6 authoring boundaries", () => {
     expect(graph.diagnostics.some(d => d.severity === "error")).toBe(true);
   });
 
-  it.each(["Q", "C", "G", "O", "R", "D", "."])("Q concerns its %s parent while C and neutral children only organize", mark => {
+  it.each(["Q", "C", "G", "O", "R", "D", "."])("Q concerns its %s parent while its C child answers and its neutral child concerns Q", mark => {
     const {graph, explain} = compile(`- [${mark} @parent] Parent.\n  - [Q @q] Question?\n    - [C @answer] Seconds.\n    - [. @context] Background.`);
     expect(graph.diagnostics).toEqual([]);
     expect(graph.points).toHaveLength(4);
     expect(graph.bearings).toEqual([expect.objectContaining({
       kind: "concerns", derivedBy: "structural",
       sources: [{kind:"point", key: graph.points[1].key}], target: {kind:"point", key: graph.points[0].key}
+    }), expect.objectContaining({
+      kind: "answers", derivedBy: "structural",
+      sources: [{kind:"point", key: graph.points[2].key}], target: {kind:"point", key: graph.points[1].key}
+    }), expect.objectContaining({
+      kind: "concerns", derivedBy: "structural",
+      sources: [{kind:"point", key: graph.points[3].key}], target: {kind:"point", key: graph.points[1].key}
     })]);
-    expect(explain.entries.flatMap(entry => entry.effects.filter(effect => effect.kind === "implicitAttachment"))).toHaveLength(1);
+    expect(explain.entries.flatMap(entry => entry.effects.filter(effect => effect.kind === "implicitAttachment"))).toHaveLength(3);
   });
 
   it("keeps Q uses local and explicit overrides singular, with a source-preserving preview", () => {
@@ -178,10 +185,10 @@ describe("0.6 authoring boundaries", () => {
     expect(graph.diagnostics.map(d=>d.code)).toEqual(["RETIRED_GAP_ANNOTATION","FAILED_CONTEXT_REQUIRES_EXPLICIT_TARGET"]);
   });
 
-  it.each(["_", "edge", "bearing"])("retires named about for %s while preserving the failed boundary", family => {
+  it.each(["_", "edge", "bearing"])("rejects named about or the retired %s family while preserving the failed boundary", family => {
     const {graph} = compile(`- [. @a] Source.\n- [C @c] Claim.\n  - [${family} @a about @c; @r]\n    - [G] Child.\n- [O -> @r] Dependent.`);
     expect(graph.bearings).toEqual([]);
-    expect(graph.diagnostics.map(d=>d.code)).toEqual(expect.arrayContaining(["RETIRED_BEARING_KIND","EXPLICIT_BEARING_DESCENDANT_REQUIRES_TARGET","UNKNOWN_TARGET"]));
+    expect(graph.diagnostics.map(d=>d.code)).toEqual([family === "edge" ? "RETIRED_FAMILY_ALIAS" : "RETIRED_BEARING_KIND","EXPLICIT_BEARING_DESCENDANT_REQUIRES_TARGET","UNKNOWN_TARGET"]);
   });
 
   it("keeps a question reply and a joint answer explicit without relabelling their Points", () => {

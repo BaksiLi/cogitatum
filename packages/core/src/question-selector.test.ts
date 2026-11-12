@@ -18,9 +18,10 @@ describe("questions concerning a local Bearing", () => {
     const { graph, explain } = compileGraphWithExplain(ast);
     expect(graph.diagnostics).toEqual([]);
     expect(graph.points.map(point => point.id)).toEqual(["claim", "silent", "conditions", "reply", undefined, undefined]);
-    // [Q] states concerns ^ like any other mark states its relation; [C] states none.
-    expect(graph.bearings.map(bearing => bearing.kind)).toEqual(["supports", "concerns", "respondsTo", "concerns"]);
-    expect(graph.bearings[3]).toMatchObject({ sources: [{ kind: "point", key: graph.points[5].key }], target: { kind: "point", key: graph.points[2].key } });
+    // The written Q/ occurrence offers a question focus to both C and Q children.
+    expect(graph.bearings.map(bearing => bearing.kind)).toEqual(["supports", "concerns", "respondsTo", "answers", "concerns"]);
+    expect(graph.bearings[3]).toMatchObject({ sources: [{ kind: "point", key: graph.points[4].key }], target: { kind: "point", key: graph.points[2].key } });
+    expect(graph.bearings[4]).toMatchObject({ sources: [{ kind: "point", key: graph.points[5].key }], target: { kind: "point", key: graph.points[2].key } });
     expect(graph.bearings[0].sources).toEqual([{ kind: "point", key: graph.points[1].key }]);
     expect(graph.bearings[1]).toMatchObject({
       sources: [{ kind: "point", key: graph.points[2].key }],
@@ -38,7 +39,7 @@ describe("questions concerning a local Bearing", () => {
     expect(graph.notes).toEqual([]);
   });
 
-  it.each(["supports", "challenges", "concerns", "answers", "respondsTo", "clarifies"])(
+  it.each(["supports", "challenges", "concerns", "answers", "respondsTo", "interprets"])(
     "can ask about an unnamed %s attachment without changing its kind", kind => {
       const { graph } = compile(`- [. @target] Target.
   - [. ${kind} @target] Source.
@@ -93,13 +94,21 @@ describe("questions concerning a local Bearing", () => {
     expect(graph.points[2].declaration).toEqual({ form: "role", role: "Q" });
   });
 
-  it.each(["_", "edge", "bearing"])("selects explicit %s constructions and forward Bearing uses", family => {
+  it.each(["_", "edge", "bearing"])("checks selection of active or retired %s constructions and forward Bearing uses", family => {
     const { graph, explain } = compile(`- [${family} use @step]
   - [Q/ @first] Is this step appropriate here?
 - [. @source] Source.
 - [. @target] Target.
 - [${family} @source +> @target; @step]
   - [Q/ @second] Which conditions apply?`);
+    if (family === "edge") {
+      expect(graph.diagnostics.filter(d => d.code === "RETIRED_FAMILY_ALIAS").map(d => d.sourceSpan?.startLine)).toEqual([1, 5]);
+      expect(graph.bearings).toEqual([]);
+      expect(graph.points).toHaveLength(4);
+      expect(explain.entries[0].recognition.kind).toBe("bearingUse");
+      expect(explain.entries[4].recognition.kind).toBe("bearing");
+      return;
+    }
     expect(graph.diagnostics).toEqual([]);
     expect(graph.points).toHaveLength(4);
     const step = graph.bearings.find(bearing => bearing.handle === "step")!;
@@ -161,12 +170,19 @@ ${premise}
   it.each([
     "- [Q/] No local step.",
     "- [C] Claim.\n  - [Q/] No local step.",
-    premise + "\n    - [. @nearer] A nearer Point without a relation.\n      - [Q/] No local step.",
+    premise + "\n- [. @nearer] A root Point without a relation.\n  - [Q/] No local step.",
     "- [C] Claim.\n  - [_ +> ^]\n    - [.] Source.\n      - [Q/] A member owns no attachment."
   ])("does not cross a nearer context without an attachment: %s", source => {
     const { graph } = compile(source);
     expect(graph.diagnostics.map(diagnostic => diagnostic.code)).toEqual(["NO_LOCAL_BEARING_ATTACHMENT"]);
     expect(graph.bearings.some(bearing => bearing.kind === "concerns")).toBe(false);
+  });
+
+  it("asks about a nearer neutral Point's relevance instead of the outer support", () => {
+    const { graph } = compile(premise + "\n    - [. @nearer] A nearer Point.\n      - [Q/] Why is it relevant?");
+    expect(graph.diagnostics).toEqual([]);
+    expect(graph.bearings.map(b => b.kind)).toEqual(["supports", "concerns", "concerns"]);
+    expect(graph.bearings[2].target).toEqual({ kind: "bearing", key: graph.bearings[1].key });
   });
 
   it("retains failed attachment dependencies without selecting a surviving outer step", () => {
@@ -192,7 +208,12 @@ ${premise}
     expect(graph.bearings[0]).toMatchObject({
       handle: "step", sources: [{ kind: "point", key: graph.points.find(point => point.id === "source")!.key }]
     });
-    expect(graph.bearings.some(bearing => bearing.kind === "concerns")).toBe(false);
+    const retainedPoint = header !== "[Q/";
+    expect(graph.bearings.map(b => b.kind)).toEqual(retainedPoint ? ["supports", "concerns"] : ["supports"]);
+    if (retainedPoint) {
+      expect(graph.bearings[1].target).toEqual({ kind: "point", key: header.includes("use") ? graph.points[0].key : graph.points[3].key });
+      expect(graph.diagnostics.map(d => d.code)).toContain("UNBOUND_GROUND_UNDER_QUESTION");
+    }
   });
 
   it("offers the same named spelling in through-body advice and the target-form preview", () => {

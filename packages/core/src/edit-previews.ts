@@ -1,3 +1,5 @@
+import { previewFramingEditFrom } from "./framing-edit.js";
+import type { FramingEdit, FramingEditPreview } from "./framing-edit.js";
 import { previewRelationEditFrom } from "./relation-edit.js";
 import type { RelationEdit, RelationEditPreview } from "./relation-edit.js";
 import { locateSourceBlock, parentBlock } from "./source-edit.js";
@@ -8,8 +10,9 @@ import type { Diagnostic, SourceParseMode } from "./types.js";
 
 export type SourceEditRequest =
   | { kind: "target-form"; line: number; form: TargetForm }
-  | { kind: "relation"; edit: RelationEdit };
-export type SourceEditPreview = TargetFormPreview | RelationEditPreview;
+  | { kind: "relation"; edit: RelationEdit }
+  | { kind: "framing"; edit: FramingEdit };
+export type SourceEditPreview = TargetFormPreview | RelationEditPreview | FramingEditPreview;
 export type SourceEditAnalysis = {
   diagnostics: Diagnostic[];
   siblingsAt(line: number): { lines: number[]; index: number };
@@ -36,6 +39,7 @@ export function analyzeSourceEdits(source: string, mode: SourceParseMode = "docu
     preview(request) {
       const result = request.kind === "target-form"
         ? previewTargetFormFrom(source, before, request)
+        : request.kind === "framing" ? previewFramingEditFrom(source, before, request.edit)
         : previewRelationEditFrom(source, before, request.edit);
       // Diagnostics and retracted commitment targets can refer into before.
       // Detach each result before it can affect this analysis or another result.

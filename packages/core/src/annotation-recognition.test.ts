@@ -18,8 +18,35 @@ function nested(prefix: string) {
 }
 
 describe("annotation recognition boundaries", () => {
+  it.each([
+    ["[G]", "invalid"], ["[. @failed]", "invalid"], ["[point @failed]", "invalid"],
+    ["[G use @outer]", "use"], ["[. use @outer]", "use"],
+    ["[_ use @route]", "bearingUse"], ["[bearing use @route]", "bearingUse"],
+    ["[_ +> ^]", "bearing"], ["[bearing +> ^]", "bearing"], ["[_ @outer +> @outer]", "bearing"],
+    ["[note]", "note"], ["[. note]", "note"], ["[_ note]", "note"]
+  ])("keeps glued %s text, failure shape and source coordinates", (prefix, kind) => {
+    const { ast, graph } = nested(prefix + "Text.");
+    const block = ast.blocks[0].children[0];
+    expect(block.text).toBe(prefix + "Text. text.");
+    expect(block.annotation).toMatchObject({ kind });
+    expect(graph.diagnostics.filter(d => d.sourceSpan?.startLine === 2)).toEqual([
+      expect.objectContaining({ code: "MISSING_ANNOTATION_SEPARATOR", severity: "error", sourceSpan: {
+        startLine: 2, startColumn: 5, endLine: 2, endColumn: 5 + block.text.length
+      } })
+    ]);
+    expect(graph.points.some(p => p.id === "failed")).toBe(false);
+    expect(graph.bearings).toEqual([]);
+    expect(validateAst(json(ast)), JSON.stringify(validateAst.errors)).toBe(true);
+    if (kind === "note") {
+      expect(block.annotation).toMatchObject({ syntaxErrors: ["note"] });
+      expect(block.children[0].annotation).toBeUndefined();
+      expect(graph.points.map(p => p.id)).toEqual(["outer"]);
+      expect(graph.notes).toEqual([]);
+    }
+  });
+
   // Hyphens, plus signs and slashes inside a word do not end a mark.
-  it.each(["[O-ring]", "[C-section]", "[D-Day]", "[R-squared]", "[C++]", "[G/O ratio]", "[o-ring]", "[O-ring", "[G/O ratio", "[C++"])(
+  it.each(["[O-ring]", "[C-section]", "[D-Day]", "[R-squared]", "[C++]", "[G/O ratio]", "[o-ring]", "[O-ring", "[G/O ratio", "[C++", "[Context]word", "[O-ring]erosion", "[I]n 1990"])(
     "keeps ordinary %s prose as transparent body",
     prefix => {
       const { ast, graph, explain } = nested(prefix);
@@ -73,7 +100,12 @@ describe("annotation recognition boundaries", () => {
     expect(codes(graph)[0]).toBe("MALFORMED_EXPLICIT_BEARING");
     expect(message(graph, "MALFORMED_EXPLICIT_BEARING")).toBe(`Separate an operator from its neighbours with spaces, as in ${spaced}.`);
     // The occurrence keeps its Point or focus; its child attaches to it, never past it.
-    expect(graph.bearings.map(bearing => bearing.kind)).toEqual(["supports"]);
+    expect(graph.bearings.map(bearing => bearing.kind)).toEqual([prefix.startsWith("[Q") ? "concerns" : "supports"]);
+    expect(codes(graph)).toEqual([
+      "MALFORMED_EXPLICIT_BEARING",
+      ...(prefix.includes("/>") ? ["RETIRED_AUTHORING_SYNTAX"] : []),
+      ...(prefix.startsWith("[Q") ? ["UNBOUND_GROUND_UNDER_QUESTION"] : [])
+    ]);
     expect(graph.bearings.every(bearing => bearing.kind !== "challenges")).toBe(true);
   });
 
@@ -102,6 +134,10 @@ describe("annotation recognition boundaries", () => {
         const { graph, explain } = compileGraphWithExplain(ast);
         expect(explain.entries[2].recognition.kind, family + suffix).not.toBe("body");
         expect(graph.diagnostics.some(d => d.severity === "error"), family + suffix).toBe(true);
+        if (family === "node" || family === "edge") {
+          expect(graph.diagnostics.filter(d => d.code === "RETIRED_FAMILY_ALIAS"), family + suffix + closer).toHaveLength(1);
+          expect(graph.bearings.some(b => b.sourceSpan?.startLine === 3), family + suffix + closer).toBe(false);
+        }
         expect(graph.bearings.some(b => b.target.key === graph.points.find(p => p.id === "outer")!.key), family + suffix).toBe(false);
         expect(graph.bearings.at(-1)).toMatchObject({ kind: "challenges", target: { key: graph.points.find(p => p.id === "child")!.key } });
         expect(validateAst(json(ast)), JSON.stringify(validateAst.errors)).toBe(true);
@@ -123,7 +159,7 @@ describe("clean edge annotations require an operator clause", () => {
     const clauseless = structuredClone(ast);
     delete clauseless.blocks[1].children[0].annotation.operatorClause;
     expect(validateAst(clauseless)).toBe(false);
-    for (const [malformed, error] of [["- [edge cases] Missing operator.", "mode"], ["- [_ @a +>] Missing target.", "operator"], ["- [edge @a +> @c", "operator"], ["- [_ @a,@b+>@c]", "operator"]]) {
+    for (const [malformed, error] of [["- [_ cases] Missing operator.", "mode"], ["- [_ @a +>] Missing target.", "operator"], ["- [_ @a +> @c", "operator"], ["- [_ @a,@b+>@c]", "operator"]]) {
       const parsed = json(parseDocument(malformed));
       expect(parsed.blocks[0].annotation, malformed).toMatchObject({ kind: "bearing", syntaxErrors: expect.arrayContaining([error]) });
       expect(parsed.blocks[0].annotation.operatorClause, malformed).toBeUndefined();
@@ -166,13 +202,13 @@ describe("actionable parser messages", () => {
     ["- [O Challenges @x]", "MALFORMED_EXPLICIT_BEARING", "write challenges, not Challenges"],
     ["- [R respondsto @o]", "MALFORMED_EXPLICIT_BEARING", "write respondsTo, not respondsto"],
     ["- [O use @p respondsto @o]", "MALFORMED_EXPLICIT_BEARING", "write respondsTo, not respondsto"],
-    ["- [G @a, @b +> @c]", "MALFORMED_ROLE_BEARING", "write joint sources in an edge: [_ @a, @b +> @c]."],
+    ["- [G @a, @b +> @c]", "MALFORMED_ROLE_BEARING", "write joint sources in a Bearing constructor: [_ @a, @b +> @c]."],
     ["- [. @a, @b ~> @c]", "MALFORMED_EXPLICIT_BEARING", "[_ @a, @b ~> @c]"],
     ["- [_ @a respondsto @b]", "MALFORMED_EXPLICIT_BEARING", "Kind names are case-sensitive: write respondsTo, not respondsto."],
     ["- [_ @a refutes @b]", "MALFORMED_EXPLICIT_BEARING", "refutes is not a canonical kind"],
     ["- [g/]", "MALFORMED_LOCAL_BEARING_SELECTOR", "write G/, not g/"],
     ["- [g +> @c]", "MALFORMED_EXPLICIT_BEARING", "write G, not g"],
-    ["- [edge cases]", "MALFORMED_BEARING_MODE", "remove the brackets"],
+    ["- [_ cases]", "MALFORMED_BEARING_MODE", "remove the brackets"],
     ["- [linked list]", "RETIRED_LINKED_ANNOTATION", "neutral"],
     ["- [note to self]", "MALFORMED_NOTE", "remove the brackets"]
   ])("explains %s without changing its code", (source, code, text) => {

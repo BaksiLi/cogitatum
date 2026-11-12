@@ -3,9 +3,9 @@
 - [C @claim] An open claim.
 - The narrative stays in reader order; references reuse identity without replaying a subtree.
 - [_ @material answers @question; @answer]
-- [edge @question respondsTo @claim; @reply]
-- [_ @material clarifies @claim; @clarification]
-- [edge @claim supports @material; @support]
+- [_ @question respondsTo @claim; @reply]
+- [_ @material interprets @claim; @clarification]
+- [_ @claim supports @material; @support]
 - [_ @material challenges @claim; @challenge]
-- [edge @question -> @support; @pressure]
-- [edge @question concerns @pressure; @relevance]
+- [_ @question -> @support; @pressure]
+- [_ @question concerns @pressure; @relevance]

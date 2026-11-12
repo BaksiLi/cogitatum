@@ -12,8 +12,8 @@ const names = (source: string) => {
 };
 
 describe("local Bearing selector constructors", () => {
-  it.each(["_", "bearing", "edge"])("shares scalar selection and joint construction through %s", family => {
-    for (const [header, op, kind] of [["+> ^/", "+>", "supports"], ["-> ^/", "->", "challenges"], ["clarifies ^/", "clarifies", "clarifies"], ["~> ^/", "~>", "concerns"], ["/", "~>", "concerns"]]) {
+  it.each(["_", "bearing", "edge"])("checks scalar selection and joint construction or retirement through %s", family => {
+    for (const [header, op, kind] of [["+> ^/", "+>", "supports"], ["-> ^/", "->", "challenges"], ["interprets ^/", "interprets", "interprets"], ["~> ^/", "~>", "concerns"], ["/", "~>", "concerns"]]) {
       const prefix = "- [C @claim] Claim.\n  - [G @reason; @step] Reason.\n";
       const local = prefix + `    - [${header === "/" ? family + "/" : family + " " + header}; @review] Review the step.
       - [. @a] First source.
@@ -21,13 +21,21 @@ describe("local Bearing selector constructors", () => {
       - [. @b] Second source.
       - [_ note] Literal note.
       - [O/ @objection] Challenge the review.`;
-      const explicit = prefix + `    - [. @a] First source.
-      - [G @detail] Reason for this source.
-    - [. @b] Second source.
-    - [_ @a, @b ${op} @step; @review] Review the step.
-      - [_ note] Literal note.
-      - [O/ @objection] Challenge the review.`;
+      const explicit = prefix + `- [. @a] First source.
+  - [G @detail] Reason for this source.
+- [. @b] Second source.
+- [_ @a, @b ${op} @step; @review] Review the step.
+  - [_ note] Literal note.
+  - [O/ @objection] Challenge the review.`;
       const result = compile(local);
+      if (family === "edge") {
+        expect(result.graph.diagnostics.filter(d => d.code === "RETIRED_FAMILY_ALIAS"), local).toHaveLength(1);
+        expect(result.graph.bearings.map(b => b.kind), local).toEqual(["supports", "supports"]);
+        expect(result.graph.bearings.some(b => b.sourceSpan?.startLine === 3), local).toBe(false);
+        expect(result.graph.bearings[1].target.key).toBe(result.graph.points.find(p => p.id === "a")!.key);
+        expect(result.graph.notes).toEqual([]);
+        continue;
+      }
       expect(result.graph.diagnostics, local).toEqual([]);
       expect(names(local)).toEqual(names(explicit));
       expect(result.graph.bearings[1]).toMatchObject({ kind, sources: result.graph.points.slice(2).filter(p => p.id === "a" || p.id === "b").map(p => ({ kind: "point", key: p.key })) });
@@ -94,12 +102,19 @@ describe("local Bearing selector constructors", () => {
 
   it.each([
     "- [C] Unattached.\n  - [_ -> ^/]\n    - [.] Source.",
-    "- [C] Outer.\n  - [G] Ground.\n    - [C] Nearer unattached Point.\n      - [_ +> ^/]\n        - [.] Source.",
+    "- [C] Outer.\n  - [G] Ground.\n- [C] Unattached root Point.\n  - [_ +> ^/]\n    - [.] Source.",
     "- [C] Claim.\n  - [_ +> ^]\n    - [.] Member.\n      - [_ ~> ^/]\n        - [.] Question."
   ])("never looks past the nearest context", source => {
     const { graph } = compile(source);
     expect(graph.diagnostics.map(d => d.code)).toEqual(["NO_LOCAL_BEARING_ATTACHMENT"]);
     expect(graph.bearings.filter(b => b.target.kind === "bearing")).toEqual([]);
+  });
+
+  it("selects the nearer Claim's relevance attachment instead of the outer support", () => {
+    const { graph } = compile("- [C] Outer.\n  - [G] Ground.\n    - [C] Nearer Point.\n      - [_ +> ^/]\n        - [.] Source.");
+    expect(graph.diagnostics).toEqual([]);
+    expect(graph.bearings.map(b => b.kind)).toEqual(["supports", "concerns", "supports"]);
+    expect(graph.bearings[2].target).toEqual({ kind: "bearing", key: graph.bearings[1].key });
   });
 
   it("propagates failed reused and constructed targets without partial joints", () => {
@@ -117,7 +132,7 @@ describe("local Bearing selector constructors", () => {
     ]);
   });
 
-  it.each([["_ Q", "[_ ~> ^]"], ["_ D/", "[_ clarifies ^/]"], ["_ C/", "Write an operator and target"]])("names the relation instead of accepting the role header %s", (header, hint) => {
+  it.each([["_ Q", "[_ ~> ^]"], ["_ D/", "[_ interprets ^/]"], ["_ C/", "Write an operator and target"]])("names the relation instead of accepting the role header %s", (header, hint) => {
     const { diagnostics } = parseAnnotation(header);
     expect(diagnostics.map(d => d.code)).toEqual(["MALFORMED_BEARING_MODE"]);
     expect(diagnostics[0].message).toContain(hint);
@@ -132,12 +147,12 @@ describe("local Bearing selector constructors", () => {
     }
   });
 
-  it("lets [D/] clarify the exposed step, like its constructor form [_ clarifies ^/]", () => {
+  it("lets [D/] clarify the exposed step, like its constructor form [_ interprets ^/]", () => {
     const step = "- [C @claim] Claim.\n  - [G; @step] Reason.\n";
     expect(names(step + "    - [D/ @meaning] What the step means.")).toContainEqual(
-      { kind: "clarifies", handle: undefined, text: undefined, sources: ["meaning"], target: ["bearing", "step"] });
-    expect(names(step + "    - [_ clarifies ^/]\n      - [. @meaning] What the step means.")).toContainEqual(
-      { kind: "clarifies", handle: undefined, text: undefined, sources: ["meaning"], target: ["bearing", "step"] });
+      { kind: "interprets", handle: undefined, text: undefined, sources: ["meaning"], target: ["bearing", "step"] });
+    expect(names(step + "    - [_ interprets ^/]\n      - [. @meaning] What the step means.")).toContainEqual(
+      { kind: "interprets", handle: undefined, text: undefined, sources: ["meaning"], target: ["bearing", "step"] });
   });
 
   it("migrates a bare retired /> to -> and asks for its target", () => {

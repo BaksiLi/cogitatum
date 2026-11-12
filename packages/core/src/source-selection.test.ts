@@ -150,7 +150,7 @@ describe("explicit Markdown source selection", () => {
   });
 
   it("retains constructor failure boundaries inside a selected unit", () => {
-    const source = [fence + "cog", "- [C @claim] Conclusion.", "  - [join]", "    - [.] Premise.", "  - [edge cases]", "    - [G] No explicit target.", fence].join("\n");
+    const source = [fence + "cog", "- [C @claim] Conclusion.", "  - [join]", "    - [.] Premise.", "  - [_ cases]", "    - [G] No explicit target.", fence].join("\n");
     const explained = explainSource(source, "host");
     expect(explained.graphs[0].points).toHaveLength(3);
     expect(explained.graphs[0].bearings).toEqual([]);

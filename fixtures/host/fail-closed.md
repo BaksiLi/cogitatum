@@ -6,7 +6,7 @@ The first source unit contains one malformed operator clause.
 - Service failure
   - [C @cause] The cache is returning stale data.
     - [G @logs] Logs contain outdated version markers.
-    - [edge @logs, not-a-ref +> @cause; @bad-route] This route is malformed.
+    - [_ @logs, not-a-ref +> @cause; @bad-route] This route is malformed.
 ```
 
 Host prose remains available to the host application.

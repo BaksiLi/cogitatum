@@ -137,7 +137,7 @@ assert.equal(jointNamed.status, 'ready');
 assert.equal(jointNamed.proposedSource, jointSelectorSource.replace('[_ -> ^/; @review]', '[_ -> @step; @review]'));
 assert.equal(previewTargetForm(jointNamed.proposedSource, {line: 3, form: 'positional'}).proposedSource, jointSelectorSource);
 assert.ok(compileSource('- [C @c] Claim.\\n  - [R repliesTo @c] Old.').diagnostics.some(d => d.code === 'RETIRED_BEARING_KIND'));
-for (const kind of ['supports', 'challenges', 'concerns', 'answers', 'respondsTo', 'clarifies']) {
+for (const kind of ['supports', 'challenges', 'concerns', 'answers', 'respondsTo', 'interprets']) {
   const attached = explainSource('- [O @target] Objection.\\n- [C @outer] Context.\\n  - [Q @question ' + kind + ' @target; @step] Which scale?\\n- [point use @question ' + kind + ' @target; @again] Local prose.');
   assert.deepEqual(attached.diagnostics, []);
   assert.equal(attached.graphs[0].points.length, 3);
@@ -154,10 +154,11 @@ assert.equal(formatGraph(compileGraph(parseDocument(replySource))), formatGraph(
 const neutralInquiry = compileSource('- [Q @q] Which scale?\\n  - [. @a] Seconds.\\n  - [C] The record lacks a measurement method.');
 assert.deepEqual(neutralInquiry.diagnostics, []);
 assert.equal(neutralInquiry.graphs[0].points.length, 3);
-assert.deepEqual(neutralInquiry.graphs[0].bearings, []);
+assert.deepEqual(neutralInquiry.graphs[0].bearings.map(bearing => bearing.kind), ['concerns', 'answers']);
 const explicitAnswer = compileSource('- [Q @q] Which scale?\\n  - [. answers @q] Seconds.');
 assert.deepEqual(explicitAnswer.graphs[0].bearings.map(bearing => bearing.kind), ['answers']);
-assert.equal(previewTargetForm('- [Q @q] Which scale?\\n  - [C] Seconds.', {line: 2, form: 'named'}).reason, 'no-bearing');
+assert.equal(previewTargetForm('- [Q @q] Which scale?\\n  - [C] Seconds.', {line: 2, form: 'named'}).proposedSource, '- [Q @q] Which scale?\\n  - [C answers @q] Seconds.');
+assert.equal(previewTargetForm('- [C @c] Claim.\\n- [C] Root.', {line: 2, form: 'named'}).reason, 'no-bearing');
 const query = explainSource('- [. @question] Which conditions apply?\\n- [C @claim] Claim.\\n  - [G; @step] Reason.\\n    - [Q/ use @question; @inquiry] Local question wording.\\n      - [R] Check the recording.\\n      - [_ note] Why this question concerns this step.');
 assert.deepEqual(query.diagnostics, []);
 assert.equal(query.graphs[0].points.length, 4);
@@ -167,7 +168,7 @@ assert.deepEqual(query.graphs[0].bearings[1].sources, [{kind: 'point', key: quer
 assert.deepEqual(query.graphs[0].points[0].declaration, {form: 'material'});
 assert.deepEqual(query.graphs[0].notes[0].target, {kind: 'bearing', key: query.graphs[0].bearings[1].key});
 assert.deepEqual(compileGraphWithExplain(JSON.parse(JSON.stringify(query.documents[0]))).graph, query.graphs[0]);
-const retiredKind = compileGraphWithExplain(parseDocument('- [C @claim] Claim.\\n- [G @reason] Reason.\\n- [edge @reason +> @claim; @route]\\n- [edge @reason undercuts @route; @failed]\\n  - [O/] No fallback.'));
+const retiredKind = compileGraphWithExplain(parseDocument('- [C @claim] Claim.\\n- [G @reason] Reason.\\n- [_ @reason +> @claim; @route]\\n- [_ @reason undercuts @route; @failed]\\n  - [O/] No fallback.'));
 assert.deepEqual(retiredKind.graph.bearings.map(bearing => bearing.handle), ['route']);
 assert.ok(retiredKind.graph.diagnostics.some(diagnostic => diagnostic.code === 'RETIRED_BEARING_KIND'));
 assert.ok(retiredKind.graph.diagnostics.some(diagnostic => diagnostic.code === 'NO_LOCAL_BEARING_ATTACHMENT'));
@@ -219,7 +220,7 @@ const reading = projectReading(readingSource, explainSource(readingSource));
 assert.equal(reading.rows.length, 3);
 assert.equal(reading.units[0].bearings[0].target.occurrenceId, reading.units[0].occurrences[1].id);
 assert.equal(reading.units[0].bearings[0].target.basis, 'context');
-const noteSource = '- [point @p] Main.\\n- [C @q] Claim.\\n  - [G use @p; @r]\\n    - [node note] Point note.\\n    - [bearing note] Here yesterday.\\n      - [point @literal] Quoted.\\n- [edge use @r]\\n- [bearing use @r]';
+const noteSource = '- [point @p] Main.\\n- [C @q] Claim.\\n  - [G use @p; @r]\\n    - [point note] Point note.\\n    - [bearing note] Here yesterday.\\n      - [point @literal] Quoted.\\n- [_ use @r]\\n- [bearing use @r]';
 const noteEnvelope = JSON.parse(JSON.stringify(explainSource(noteSource)));
 const noteReading = projectReading(noteSource, noteEnvelope);
 assert.equal(noteEnvelope.graphs[0].notes.length, 2);
@@ -458,7 +459,7 @@ const questionSelectorRecognition: ExplainRecognition = {kind: 'use', role: 'Q',
 const claimSelectorRecognition: ExplainRecognition = {kind: 'use', role: 'C', ref: {id: 'p'}, selector: 'attachment'};
 // @ts-expect-error A Response occurrence cannot select a local Bearing.
 const replySelectorRecognition: ExplainRecognition = {kind: 'use', role: 'R', ref: {id: 'p'}, selector: 'attachment'};
-// clarifies admits a Bearing target, so D/ selects one.
+// interprets admits a Bearing target, so D/ selects one.
 const distinctionSelectorRecognition: ExplainRecognition = {kind: 'use', role: 'D', ref: {id: 'p'}, selector: 'attachment'};
 // @ts-expect-error A use operand is not a declaration anchor.
 const aliasedUse: Annotation = {kind: 'use', ref: {id: 'p'}, anchor: 'alias', raw: ''};
@@ -476,7 +477,7 @@ const invalidSelector: Annotation = {kind: 'role', role: 'C', selector: 'attachm
 const excludedQuestionSelector: Annotation = {kind: 'role', role: 'Q', selector: 'attachment', operatorClause: {op: 'concerns', sources: 'self', target: {id: 'b'}}, raw: ''};
 const namedSelf: Annotation = {kind: 'role', role: 'Q', raw: '', operatorClause: {op: 'respondsTo', sources: 'self', target: {id: 'b'}}};
 const namedMaterial: Annotation = {kind: 'material', raw: '', operatorClause: {op: 'answers', sources: 'self', target: {id: 'b'}}};
-const namedUse: Annotation = {kind: 'use', ref: {id: 'a'}, role: 'Q', raw: '', operatorClause: {op: 'clarifies', sources: 'self', target: {id: 'b'}}};
+const namedUse: Annotation = {kind: 'use', ref: {id: 'a'}, role: 'Q', raw: '', operatorClause: {op: 'interprets', sources: 'self', target: {id: 'b'}}};
 // @ts-expect-error Operator clauses have exactly one target.
 const multipleTargets: OperatorClause = {op: 'supports', sources: 'self', target: [{id: 'a'}, {id: 'b'}]};
 // @ts-expect-error Point annotations use themselves as the source.

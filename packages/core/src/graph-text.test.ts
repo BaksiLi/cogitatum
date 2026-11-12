@@ -18,8 +18,8 @@ describe("graph text structure-v1", () => {
 - [G @i +> @c; @second] Intermediate.
 - [C @c] Conclusion.
 - [G @q] Same text.
-- [edge @q, @p supports @c; @joint] Joint route.
-- [edge @q, @p supports @c; @parallel] Joint route.
+- [_ @q, @p supports @c; @joint] Joint route.
+- [_ @q, @p supports @c; @parallel] Joint route.
 - [O -> @joint] Challenge just one instance.
 - [.] Missing evidence.
 - [.] Unclassified material.
@@ -42,8 +42,8 @@ describe("graph text structure-v1", () => {
     expect(result).toContain('p10: role(R) text="A reply."');
   });
 
-  it.each(["supports", "challenges", "concerns", "answers", "respondsTo", "clarifies"] satisfies BearingKind[])("renders %s without reinterpreting it", kind => {
-    const graph = compile(`- [. @a] Material.\n- [. @b] Other.\n- [edge @a ${kind} @b; @step] Description.`);
+  it.each(["supports", "challenges", "concerns", "answers", "respondsTo", "interprets"] satisfies BearingKind[])("renders %s without reinterpreting it", kind => {
+    const graph = compile(`- [. @a] Material.\n- [. @b] Other.\n- [_ @a ${kind} @b; @step] Description.`);
     expect(graph.diagnostics).toEqual([]);
     expect(formatGraph(graph)).toContain(`b1: ${kind}([p1], p2) handle="step" text="Description."`);
   });
@@ -51,9 +51,9 @@ describe("graph text structure-v1", () => {
   it("uses finite typed references for cycles and self-directed Bearings", () => {
     const graph = compile(`- [. @a +> @b] First.
 - [. @b +> @a] Second.
-- [edge @a supports @right; @left]
-- [edge @b concerns @left; @right]
-- [edge @a challenges @self; @self]`);
+- [_ @a supports @right; @left]
+- [_ @b concerns @left; @right]
+- [_ @a challenges @self; @self]`);
     expect(graph.diagnostics).toEqual([]);
     expect(formatGraph(graph)).toContain(`b1: supports([p1], p2)
 b2: supports([p2], p1)
@@ -64,7 +64,7 @@ b5: challenges([p1], b5) handle="self"`);
 
   it("labels by typed identity, never by authored name, prose or key spelling", () => {
     const graph: GraphIR = {
-      version: "0.6.0", diagnostics: [], notes: [],
+      version: "0.7.0", diagnostics: [], notes: [],
       points: [{ key: "shared-key", id: "b1", text: "Same", declaration: { form: "material" } }],
       bearings: [{ key: "shared-key", handle: "p1", kind: "supports", sources: [{ kind: "point", key: "shared-key" }], target: { kind: "point", key: "shared-key" }, derivedBy: "operator" }]
     };
@@ -132,7 +132,7 @@ b5: challenges([p1], b5) handle="self"`);
 
   it("preserves an explicitly scoped local/edge projection but not changed names, roles or source order", () => {
     const local = compile("- [C @c] Claim.\n  - [_ +> ^; @joint]\n    - [. @p] First.\n    - [. @q] Second.");
-    const explicit = compile('- [C @c] Claim.\n- [. @p] First.\n- [. @q] Second.\n- [edge @p, @q supports @c; @joint]');
+    const explicit = compile('- [C @c] Claim.\n- [. @p] First.\n- [. @q] Second.\n- [_ @p, @q supports @c; @joint]');
     expect(local.diagnostics).toEqual([]);
     expect(explicit.diagnostics).toEqual([]);
     expect(formatGraph(local)).toBe(formatGraph(explicit));
@@ -156,7 +156,7 @@ b5: challenges([p1], b5) handle="self"`);
   });
 
   it("reports an empty graph without implying completeness", () => {
-    expect(formatGraph(compile(""))).toBe(`cogitatum-graph-text ${GRAPH_TEXT_VERSION}\nformat: "0.6.0"\nprojection: structure-v1\nstatus: no-errors\n\npoints (0):\n\nbearings (0):\n\ndiagnostics (0):\n`);
+    expect(formatGraph(compile(""))).toBe(`cogitatum-graph-text ${GRAPH_TEXT_VERSION}\nformat: "0.7.0"\nprojection: structure-v1\nstatus: no-errors\n\npoints (0):\n\nbearings (0):\n\ndiagnostics (0):\n`);
   });
 
   it("rejects unsupported versions and corrupt identities/references rather than guessing", () => {

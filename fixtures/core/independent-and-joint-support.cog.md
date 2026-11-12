@@ -4,4 +4,4 @@
     - [G] The current contract rewards regional continuity.
   - [G @capacity] The current region has spare capacity.
   - [G @forecast] Demand is forecast to remain below that capacity.
-  - [edge @capacity, @forecast +> @claim; @capacity-route] Capacity and forecast support the claim jointly.
+  - [_ @capacity, @forecast +> @claim; @capacity-route] Capacity and forecast support the claim jointly.

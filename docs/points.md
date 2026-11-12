@@ -18,12 +18,12 @@ Use a mark to say how you are presenting it here:
 | `[G]` | Ground | A reason for another Point |
 | `[O]` | Objection | An objection or opposing explanation |
 | `[R]` | Response | A response to another Point |
-| `[D]` | Distinction | A distinction that helps clarify another Point |
+| `[D]` | Distinction | An offered reading of another Point, often through a distinction |
 | `[.]` | Neutral Point | Content without a specified role |
 
 A role describes this presentation, rather than a permanent type or a judgment of truth.
 The same content can be a Claim in one discussion and a Ground in another.
-A response may also answer or clarify something; its mark need not catalogue everything the passage does.
+A response may also answer or interpret something; its mark need not catalogue everything the passage does.
 
 ## Keep the complete content
 
@@ -40,16 +40,19 @@ A Point need not be a complete declarative sentence, and a new line does not tur
 Ordinary context can stay unmarked.
 It remains in Reading without becoming another Point.
 
-## Questions do not prescribe their children
+## Questions and candidate answers
 
-```md cog-check points=3 bearings=0 diagnostics=0
+```md cog-check require=concerns,answers points=3 bearings=2 diagnostics=0
 - [Q @scale] How fast is "fast" here?
   - [.] Seconds, rather than minutes.
   - [C] The record does not describe the measurement method.
 ```
 
 All three are complete Points.
-The nesting organizes the discussion without automatically recording an answer or relevance relation.
+The neutral Point concerns the Question; the Claim offers a candidate answer, possibly indirect.
+The compiler neither judges adequacy nor inserts an unstated conclusion.
+G directly beneath Q instead records `concerns` and suggestion `UNBOUND_GROUND_UNDER_QUESTION`.
+State the answer and put its Grounds beneath it, or write `[G +> ^]` if support of the Question itself is intended.
 A neutral Point leaves its role unspecified; it need not be impartial or unfinished.
 
 When you want to record an answer explicitly:
@@ -88,7 +91,9 @@ Keep a name when later references should continue to identify the same content.
 Its content and original declaration remain shared; this appearance adds its own supporting connection.
 The words after the use are commentary at this appearance, rather than a replacement for “Two retries timed out.”
 
-Use `[. use @observation]` to present the same Point without a default connection.
+Use `[. use @observation]` to present the same Point neutrally.
+Beneath a Point it records `concerns`; at root it has no default connection.
+The focus occurrence's written mark matters: children beneath `[Q use @p]` use the Question defaults, while children beneath `[. use @p]` use the other Point defaults, regardless of p's declaration.
 It does not copy the Point's children or notes.
 If you change what the claim says, declare a new Point instead.
 
@@ -105,5 +110,8 @@ A note and its whole indented subtree remain supplementary prose.
 They add no Points or connections, even if a quoted line looks like an annotation.
 Keep a qualification that changes the Claim in its content; give a separate reason its own Point.
 
-For alias spellings, object notes and precise reference boundaries, consult the [syntax reference](syntax.md).
+To keep an addressable Point unattached, place it outside every Point focus and Bearing context.
+One outdent may merely rebind it to an outer focus; layout prose beneath a Point belongs in body or a Note.
+
+For family spellings, object notes and precise reference boundaries, consult the [syntax reference](syntax.md).
 The [English / 繁體中文 glossary](glossary.md) gives suggested Chinese readings.

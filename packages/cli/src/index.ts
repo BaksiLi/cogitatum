@@ -11,15 +11,18 @@ import {
   formatGraph,
   parseDocument,
   parseSource,
+  previewFramingEdit,
   previewRelationEdit,
   previewTargetForm
 } from "@cogitatum/core";
-import type { BearingKind, Diagnostic, RelationEdit, SourceParseMode, TargetForm } from "@cogitatum/core";
+import type { BearingKind, Diagnostic, FramingEdit, RelationEdit, Role, SourceParseMode, TargetForm, TargetTerm } from "@cogitatum/core";
 import { serveStdio } from "./lsp.js";
 
-type Command = "ast" | "graph" | "explain" | "export" | "check" | "target-form" | "relation-edit";
-const COMMANDS: readonly string[] = ["ast", "graph", "explain", "export", "check", "target-form", "relation-edit"];
-const BEARING_KINDS: readonly string[] = ["supports", "challenges", "concerns", "answers", "respondsTo", "clarifies"];
+type Command = "ast" | "graph" | "explain" | "export" | "check" | "target-form" | "relation-edit" | "framing-edit";
+const COMMANDS: readonly string[] = ["ast", "graph", "explain", "export", "check", "target-form", "relation-edit", "framing-edit"];
+const MARKS: readonly string[] = [".", "Q", "C", "G", "O", "R", "D"];
+const EDIT_COMMANDS: readonly string[] = ["target-form", "relation-edit", "framing-edit"];
+const BEARING_KINDS: readonly string[] = ["supports", "challenges", "concerns", "answers", "respondsTo", "interprets"];
 // Published commands keep a diagnosed boundary instead of a silent alias.
 const RETIRED_COMMANDS = new Map([
   ["explicit-target", "explicit-target was retired in 0.6. Use target-form --line <n> --to named, which also restores a positional target with --to positional."]
@@ -34,8 +37,10 @@ type CliArgs = {
   references: boolean;
   line?: number;
   to?: TargetForm;
-  /** The relation edit, completed with --line for decide and separate. */
-  edit?: { operation: "decide"; kind: BearingKind } | { operation: "separate" } | { operation: "join"; lines: number[] };
+  /** The relation edit, completed with --line for all but join. */
+  edit?: { operation: "decide"; kind: BearingKind } | { operation: "retarget"; target: TargetTerm } | { operation: "separate" } | { operation: "join"; lines: number[] };
+  /** The framing edit, completed with --line. */
+  framing?: { operation: "remark"; mark: Role | "." } | { operation: "split" };
   format: "json" | "text";
   diagnostics: Diagnostic[];
 };
@@ -106,6 +111,14 @@ async function main(): Promise<void> {
     const edit = args.edit!;
     const request: RelationEdit = edit.operation === "join" ? edit : { ...edit, line: args.line! };
     const preview = previewRelationEdit(source, { ...request, mode: args.inputMode });
+    printJson(preview);
+    process.exitCode = preview.status === "ready" ? 0 : 1;
+    return;
+  }
+
+  if (args.command === "framing-edit") {
+    const request: FramingEdit = { ...args.framing!, line: args.line! };
+    const preview = previewFramingEdit(source, { ...request, mode: args.inputMode });
     printJson(preview);
     process.exitCode = preview.status === "ready" ? 0 : 1;
     return;
@@ -203,8 +216,8 @@ function parseArgs(argv: string[]): CliArgs {
     }
     if (!optionsEnded && arg === "--line") {
       const value = argv[index + 1];
-      if ((args.command !== "target-form" && args.command !== "relation-edit") || args.line !== undefined || !isLineNumber(value)) {
-        diagnostics.push({ severity: "error", code: "INVALID_LINE_OPTION", message: "--line requires one positive integer and is available only with target-form or relation-edit." });
+      if (!EDIT_COMMANDS.includes(args.command ?? "") || args.line !== undefined || !isLineNumber(value)) {
+        diagnostics.push({ severity: "error", code: "INVALID_LINE_OPTION", message: "--line requires one positive integer and is available only with target-form, relation-edit or framing-edit." });
         break;
       }
       args.line = Number(value);
@@ -221,26 +234,40 @@ function parseArgs(argv: string[]): CliArgs {
       index += 1;
       continue;
     }
-    if (!optionsEnded && (arg === "--decide" || arg === "--separate" || arg === "--join")) {
+    if (!optionsEnded && (arg === "--decide" || arg === "--retarget" || arg === "--separate" || arg === "--join")) {
       const value = argv[index + 1];
       const lines = arg === "--join" ? value?.split(",") : undefined;
+      const target = arg === "--retarget" ? targetTerm(value) : undefined;
       const valid = args.command === "relation-edit" && args.edit === undefined && (
         arg === "--separate" ||
         (arg === "--decide" && value !== undefined && BEARING_KINDS.includes(value)) ||
+        target !== undefined ||
         (lines !== undefined && lines.length >= 2 && lines.every(isLineNumber))
       );
       if (!valid) {
         diagnostics.push({
           severity: "error",
           code: "INVALID_EDIT_OPTION",
-          message: `relation-edit takes one edit: --decide <${BEARING_KINDS.join("|")}>, --separate, or --join <line,line,...>.`
+          message: `relation-edit takes one edit: --decide <${BEARING_KINDS.join("|")}>, --retarget <@name|^|^/>, --separate, or --join <line,line,...>.`
         });
         break;
       }
       args.edit = arg === "--separate" ? { operation: "separate" }
         : arg === "--decide" ? { operation: "decide", kind: value as BearingKind }
+        : target ? { operation: "retarget", target }
         : { operation: "join", lines: lines!.map(Number) };
       if (arg !== "--separate") index += 1;
+      continue;
+    }
+    if (!optionsEnded && (arg === "--remark" || arg === "--split")) {
+      const value = argv[index + 1];
+      const valid = args.command === "framing-edit" && args.framing === undefined && (arg === "--split" || (value !== undefined && MARKS.includes(value)));
+      if (!valid) {
+        diagnostics.push({ severity: "error", code: "INVALID_EDIT_OPTION", message: `framing-edit takes one edit: --remark <${MARKS.join("|")}> or --split.` });
+        break;
+      }
+      args.framing = arg === "--split" ? { operation: "split" } : { operation: "remark", mark: value as Role | "." };
+      if (arg === "--remark") index += 1;
       continue;
     }
     if (!optionsEnded && arg === "--input") {
@@ -293,13 +320,20 @@ function parseArgs(argv: string[]): CliArgs {
   }
   if (args.command === "relation-edit" && !diagnostics.length) {
     if (args.edit === undefined) {
-      diagnostics.push({ severity: "error", code: "INVALID_EDIT_OPTION", message: "relation-edit requires --decide <kind>, --separate, or --join <line,line,...>." });
+      diagnostics.push({ severity: "error", code: "INVALID_EDIT_OPTION", message: "relation-edit requires --decide <kind>, --retarget <target>, --separate, or --join <line,line,...>." });
     } else if ((args.edit.operation === "join") !== (args.line === undefined)) {
       diagnostics.push({
         severity: "error",
         code: "INVALID_LINE_OPTION",
-        message: "--decide and --separate require --line; --join names its lines itself and takes no --line."
+        message: "--decide, --retarget and --separate require --line; --join names its lines itself and takes no --line."
       });
+    }
+  }
+  if (args.command === "framing-edit" && !diagnostics.length) {
+    if (args.framing === undefined) {
+      diagnostics.push({ severity: "error", code: "INVALID_EDIT_OPTION", message: `framing-edit requires --remark <${MARKS.join("|")}> or --split.` });
+    } else if (args.line === undefined) {
+      diagnostics.push({ severity: "error", code: "INVALID_LINE_OPTION", message: "framing-edit requires --line with a one-based line in the complete input file." });
     }
   }
   if (args.command === "graph" && args.format === "text" && args.inputMode === "host") {
@@ -310,6 +344,14 @@ function parseArgs(argv: string[]): CliArgs {
 
 function isLineNumber(value: string | undefined): boolean {
   return value !== undefined && /^[1-9][0-9]*$/.test(value) && Number.isSafeInteger(Number(value));
+}
+
+/** A target as written on the command line: @name, ^ or ^/. */
+function targetTerm(value: string | undefined): TargetTerm | undefined {
+  if (value === "^") return { local: "point" };
+  if (value === "^/") return { local: "bearing" };
+  const name = value === undefined ? undefined : /^@([a-z][a-z0-9_-]*)$/.exec(value)?.[1];
+  return name === undefined ? undefined : { id: name };
 }
 
 function isInputMode(value: string | undefined): value is SourceParseMode {
@@ -339,19 +381,30 @@ Commands:
   export           Preserve selected source, AST, graph and Explain together as JSON
   target-form      Preview naming a relation's target, or making it positional
                    again, as one JSON source edit; never write it
-  relation-edit    Preview deciding a relation's kind, separating a group
-                   into its members' relations, or joining sibling relations;
-                   classify the result as refinement, weakening or revision
+  relation-edit    Preview deciding a relation's kind, giving it another
+                   target, separating a group into its members' relations,
+                   or joining sibling relations; classify the result as
+                   refinement, weakening or revision
+  framing-edit     Preview re-marking an occurrence, or splitting an opposed
+                   framing into an aligned relation and an unbound use;
+                   offered only when every constructed relation is unchanged
 
 Options:
   --input <mode>   document (default) or host (Markdown Cogitatum fences)
   --format <kind>  json or text (graph or explain; graph text is document-only)
-  --line <number>  Required for target-form, relation-edit --decide and
-                   --separate; one-based line in the full file
+  --line <number>  Required for target-form, framing-edit and relation-edit
+                   --decide, --retarget and --separate; one-based line in
+                   the full file
   --to <form>      Required for target-form: named or positional
   --decide <kind>  relation-edit: give the relation on --line this kind
+  --retarget <t>   relation-edit: give the relation on --line the target
+                   @name, ^ or ^/; an unbound Ground beneath a Question is
+                   bound to it as support
   --separate       relation-edit: one relation per member of the group
   --join <lines>   relation-edit: comma-separated sibling relation lines
+  --remark <mark>  framing-edit: write ., Q, C, G, O, R or D on --line
+  --split          framing-edit: keep an opposed mark's intention as an
+                   unbound use at root
   --references     Include written-name references (check only)
   --               End options before an option-like filename
   -h, --help       Show this help

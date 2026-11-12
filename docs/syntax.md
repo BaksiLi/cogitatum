@@ -1,15 +1,16 @@
 ---
 title: Complete syntax
-summary: Format 0.6.0 grammar, indentation, references, input modes, and machine contract.
+summary: Format 0.7.0 grammar, indentation, references, input modes, and machine contract.
 section: reference
 order: 4
 ---
 
 # Complete syntax
 
-Reference for **format 0.6.0**, implemented by Core/CLI **0.6.2**.
-Published **0.5.0** is a separate contract; see [migration](#compatibility-and-migration).
-Use the complete released compiler and schema set; earlier unpublished 0.4 candidates may report the same format identifier with different contracts.
+Reference for **format 0.7.0**, implemented by Core/CLI **0.7.0**.
+Published **0.6.2** / format **0.6.0** is the baseline; this reference describes the unreleased 0.7.0 checkout.
+See [migration](#compatibility-and-migration) before recompiling older notes.
+Use the complete matching compiler and schema set; earlier unpublished 0.4 candidates may report the same format identifier with different contracts.
 Examples, schemas, and conformance fixtures are checked against the implementation.
 
 ## Outline and body
@@ -33,7 +34,7 @@ This continuation prefix is removed from the content; additional whitespace rema
 Continuation padding never chooses or changes the unit's bullet indentation character.
 Source columns count UTF-16 code units, including one per tab, regardless of an editor's visual tab width.
 Blank lines between continuation lines separate paragraphs in the same block.
-A newline does not create a note, Point, or Bearing.
+A newline does not create a Note, Point, or Bearing.
 
 ```md cog-check require=supports points=2 bearings=1 diagnostics=0
 - [C @claim] The method may work
@@ -78,27 +79,28 @@ Outlines copied from tools that indent with tabs, such as Logseq or Obsidian, co
 
 ```text
 annotation := "[" (point | selector | bearing | use | note) "]"
-point      := (ROLE | POINT) [REF] [clause] [";" REF]
-selector   := SELECTOR [REF] [";" REF]
-bearing    := BEARING [SOURCES] clause [";" REF]
-            | BEARING ["/"] [";" REF]
+point      := (ROLE | POINT) [REF] [clause] [profile] [";" REF]
+selector   := SELECTOR [REF] [profile] [";" REF]
+bearing    := BEARING [SOURCES] clause [profile] [";" REF]
+            | BEARING ["/"] [profile] [";" REF]
             | BEARING "use" REF
             | BEARING "note"
-use        := (ROLE | POINT) "use" REF [clause] [";" REF]
-            | SELECTOR "use" REF [";" REF]
+use        := (ROLE | POINT) "use" REF [clause] [profile] [";" REF]
+            | SELECTOR "use" REF [profile] [";" REF]
 note       := [POINT] "note"
 clause     := (OP | KIND) TARGET
+profile    := "by" "example"
 TARGET     := REF | "^" | "^/"
 SOURCES    := REF ("," REF)*
 ROLE       := "Q" | "C" | "G" | "O" | "R" | "D"
 SELECTOR   := "G/" | "O/" | "Q/" | "D/"
-POINT      := "." | "point" | "node"
-BEARING    := "_" | "bearing" | "edge"
+POINT      := "." | "point"
+BEARING    := "_" | "bearing"
 REF        := "@" ID
 ID         := [a-z][a-z0-9_-]*
 OP         := "+>" | "->" | "~>"
 KIND       := "supports" | "challenges" | "concerns"
-            | "answers" | "respondsTo" | "clarifies"
+            | "answers" | "respondsTo" | "interprets"
 ```
 
 Token order and case matter; role marks are uppercase and keywords are lowercase.
@@ -114,36 +116,30 @@ a Point occurrence is the sole source of its own clause,
 a constructor with listed sources uses those named Points,
 and a constructor without listed sources uses its direct neutral children.
 
-Within a context supplying its target, a mark abbreviates a clause toward a position, and the long spelling compiles to the same graph:
+In ordinary Point context, a marked occurrence without a clause or `/` selector constructs one Bearing toward its focus, the nearest presented Point occurrence.
+The mark and the focus choose the kind; a clause replaces that default; at root there is no default attachment.
+The [defaults table](#roles-and-connections) includes the Question-specific cases.
+For a non-Question focus, `[G]` abbreviates `[G +> ^]`; `[O]`, `[Q]`, `[R]` and `[D]` abbreviate `challenges ^`, `concerns ^`, `respondsTo ^` and `interprets ^` respectively.
+`G/`, `O/`, `Q/` and `D/` instead select `^/`, the exposed Bearing, with kinds `supports`, `challenges`, `concerns` and `interprets`.
+`[_]` abbreviates `[_ ~> ^]`, and `[_/]` abbreviates `[_ ~> ^/]`, with their direct neutral children as joint sources.
 
-| Written | Means | Relation |
-| --- | --- | --- |
-| `[G]` | `[G +> ^]` | `supports` the nearest Point |
-| `[O]` | `[O -> ^]` | `challenges` the nearest Point |
-| `[Q]` | `[Q ~> ^]` | `concerns` the nearest Point |
-| `[R]` | `[R respondsTo ^]` | `respondsTo` the nearest Point |
-| `[D]` | `[D clarifies ^]` | `clarifies` the nearest Point |
-| `[G/]`, `[O/]`, `[Q/]`, `[D/]` | the same relation toward `^/` | the exposed Bearing |
-| `[_]` | `[_ ~> ^]` | joint `concerns` from the children to the nearest Point |
-| `[_/]` | `[_ ~> ^/]` | joint `concerns` from the children to the exposed Bearing |
+At root, `[G]` is legal and keeps an unbound support intention without a Bearing or diagnostic.
+A root `[G +> ^]` explicitly requests a missing target and receives `NO_LOCAL_POINT_TARGET`.
+Root G/O/R/D retain unbound intentions; root `.`, C and Q have no relation intention.
+Explicit named clauses still work at root.
 
-At document root, a bare role mark labels a Point without recording its default relation.
-Writing a positional clause still requires its target to exist: a root `[G]` is legal, while a root `[G +> ^]` receives `NO_LOCAL_POINT_TARGET`.
-This lets an isolated Ground remain a Point while diagnosing an explicitly requested target that is missing.
-
-`C` and `.` abbreviate no relation; write a clause, such as `[C answers @question]`, when one is intended.
 There is no `R/`: `respondsTo` and `answers` require a Point target.
 A selector abbreviates its clause, so it cannot also write one.
-Optional prose follows the closing bracket and may continue on indented lines.
+`by example` is permitted only when the occurrence constructs `supports`; see [example support](#example-support).
+Prose follows the closing bracket after whitespace, or the header ends the line.
 The `point` form declares a Neutral Point; the AST records it as annotation kind `material` and Graph IR as `declaration.form: "material"`.
-The Point family (`point`, `node`, `.`) and Bearing family (`bearing`, `edge`, `_`) share all construction, use and note grammar.
-Aliases change only written spelling and source coordinates, including failed and unclosed headers.
-`node` is a Cogitatum spelling for Point, not a mapping to another system's node categories.
+The Point family (`point`, `.`) and Bearing family (`bearing`, `_`) share construction, use and note grammar.
+The former `node` and `edge` aliases receive `RETIRED_FAMILY_ALIAS`, retain their boundary and construct no Bearing.
 Examples primarily use `.` and `_`.
 
 After a Bearing family spelling, the first token selects what the header does:
 
-| First token after `bearing`, `edge` or `_` | Header | Example |
+| First token after `bearing` or `_` | Header | Example |
 | --- | --- | --- |
 | none, or `/` written against the family | Joint `concerns` from the direct neutral children | `[_; @scope]`, `[_/]` |
 | An operator or kind | One relation from the direct neutral children | `[_ +> ^; @route]`, `[_ -> ^/]`, `[_ +> @claim]` |
@@ -151,8 +147,8 @@ After a Bearing family spelling, the first token selects what the header does:
 | `use` | Reuse an existing Bearing with its endpoints unchanged | `[_ use @route]` |
 | `note` | Annotate the locally exposed Bearing with a literal subtree | `[_ note]` |
 
-`[bearing +> ^]`, `[edge +> ^]` and `[_ +> ^]` are the same construction.
-Any other first token selects no mode: `[_ G]`, `[_ ^]`, `[_ /]` and `[edge cases]` receive `MALFORMED_BEARING_MODE`.
+`[bearing +> ^]` and `[_ +> ^]` are the same construction.
+Any other first token selects no mode: `[_ G]`, `[_ ^]`, `[_ /]` and `[bearing cases]` receive `MALFORMED_BEARING_MODE`.
 Its message names the header that states the intended relation, such as `[_ +> ^]` for `[_ G]`.
 A header with a mode but an incomplete clause, such as `[_ +>]` or `[_ +> ^ @a +> @b]`, receives `MALFORMED_EXPLICIT_BEARING` or `MALFORMED_BEARING_TARGETS`.
 Either way the header remains a failed constructor boundary: its descendants cannot attach outward, and no named-target requirement is reported for them.
@@ -178,9 +174,9 @@ The occurrence keeps its mark, name and handle, so its Point or Point use surviv
 | `[O -> @claim]` | Anonymous Point and explicit challenge |
 | `[Q @question respondsTo @objection]` | Question Point and one explicit response, replacing any default attachment |
 | `[G @reason; @route]` | Named Point and named structural Bearing, if the parent permits it |
-| `[_ @a, @b +> @claim; @route]` or `[edge @a, @b +> @claim; @route]` | One joint Bearing between existing Points; no new Point |
+| `[_ @a, @b +> @claim; @route]` or `[bearing @a, @b +> @claim; @route]` | One joint Bearing between existing Points; no new Point |
 | `[_ +> ^; @route]` with direct neutral sources | One structural support to the nearest enclosing Point; sources participate jointly when there are several; no new Point |
-| `[. use @p]` | Present an existing Point without creating one or adding a default attachment |
+| `[. use @p]` | Present an existing Point; in ordinary Point context its neutral mark constructs `concerns` toward the focus |
 | `[G use @p; @route]` | Reuse an existing Point as a local Ground, with an attachment if the context permits |
 | `[_ use @route]` | Present an existing validated Bearing without constructing a relation or changing its endpoints |
 | `[note]` and its subtree | Literal supplementary prose, owned by its direct source parent |
@@ -197,9 +193,15 @@ Point/Bearing family spellings use the same boundaries, so `[point@p]` and `[_@a
 Required spaces are still required; recognizing a failed header never makes its spelling valid.
 Incorrect case and retired spellings such as `join`, `C?`, `G_`, `O_`, `[@p]` and `[use @p]` are also recognized, so that they are diagnosed; recognition does not make invalid forms legal.
 Words such as `Context`, `joined` and `linked-data` do not select annotation parsing, and neither do words that merely begin with a mark letter, such as `[O-ring]`, `[C-section]`, `[C++]` or `[G/O ratio]`.
-Reserving complete marks and keywords is a deliberate trade-off: `[C major]`, `[edge cases]` and `[note to self]` are malformed annotations rather than prose, and their failure boundaries apply.
+Reserving complete marks and keywords is a deliberate trade-off: `[C major]`, `[bearing cases]` and `[note to self]` are malformed annotations rather than prose, and their failure boundaries apply.
+`[edge cases]` instead receives `RETIRED_FAMILY_ALIAS`; `[edgeless]` and `[nodes]` remain ordinary body.
 `[linked list]` and `[join the debate]` receive retirement diagnostics.
 To keep such text as ordinary prose, omit the brackets or place prose before them.
+
+The closing `]` of a recognized annotation must be followed by whitespace or end of line.
+Whitespace includes U+00A0 (nonbreaking space) and U+3000 (ideographic space).
+Otherwise `MISSING_ANNOTATION_SEPARATOR` rejects the header as an unclosed annotation would: its boundary remains, its whole text is kept without dropping a character, and a note subtree stays literal.
+`[G]ood` and `[G]去年…` are errors; `[Context]word`, `[O-ring]erosion`, `[I]n 1990` and full-width `［G］` remain ordinary body.
 
 ## Literal notes
 
@@ -292,14 +294,14 @@ The marks are authoring choices at an occurrence, not mutually exclusive semanti
 The operator names the relation; the target term alone decides whether its object is a Point or a Bearing.
 `[O -> @claim]` challenges a Point and `[O -> @route]` challenges a Bearing, according to what each name declares.
 In `G/`, `O/`, `Q/` and `D/`, `/` writes the position `^/`: the locally exposed Bearing.
-They construct `supports`, `challenges`, `concerns` and `clarifies` respectively.
+They construct `supports`, `challenges`, `concerns` and `interprets` respectively.
 The retired `/>` and `_>` operators are diagnosed with `RETIRED_AUTHORING_SYNTAX` and migrate to `->`.
 These are target-selection rules, not degrees of support or opposition.
 
 Point declarations and uses accept all six case-sensitive canonical names:
-`supports`, `challenges`, `concerns`, `answers`, `respondsTo` and `clarifies`.
+`supports`, `challenges`, `concerns`, `answers`, `respondsTo` and `interprets`.
 The first three have the symbolic spellings above.
-`answers` and `respondsTo` require Point targets; `clarifies`, like the first three, accepts a Point or a Bearing.
+`answers` and `respondsTo` require Point targets; `interprets`, like the first three, accepts a Point or a Bearing.
 For example, `[Q @question respondsTo @objection]` declares a Question and states one response.
 `[Q use @question respondsTo @objection]` states the same kind of attachment using an existing Point.
 Neither form changes its written role, shared content or child context.
@@ -312,44 +314,78 @@ The target may be a Point or a named Bearing.
 Invalid sources or targets reject the entire relation, preserving diagnostics rather than silently dropping a source.
 See [joint relevance](#joint-relevance) for executable examples and the contrast with two independent `concerns` Bearings.
 
-Outside a constructor's direct membership, without a written clause, the child mark supplies the relation and `^` the target:
+In ordinary Point context, a marked occurrence without a clause or `/` selector constructs exactly one Bearing toward its focus.
+Ordinary unannotated body bullets are transparent; Notes are opaque and literal.
+The occurrence's mark and the focus occurrence's own written mark choose the kind:
 
-| Child | Parent | Derived kind |
+| Occurrence mark | Focus marked Q | Other Point focus |
 | --- | --- | --- |
-| `.`, `C` | Any Point | none |
-| `G` | Any Point | `supports` |
-| `O` | Any Point | `challenges` |
-| `Q` | Any Point | `concerns` |
-| `R` | Any Point | `respondsTo` |
-| `D` | Any Point | `clarifies` |
+| `.` | `concerns` | `concerns` |
+| `C` | `answers` | `concerns` |
+| `G` | `concerns`, with unbound support intention | `supports` |
+| `O` | `challenges` | `challenges` |
+| `Q` | `concerns` | `concerns` |
+| `R` | `respondsTo` | `respondsTo` |
+| `D` | `interprets` | `interprets` |
 
-A Question beneath a Point is about that Point: `[Q]` is `[Q ~> ^]`.
-`concerns` records relevance only; it neither supports nor challenges, and it is not an answer.
-`C` and `.` state no relation, so a Claim beneath a Question creates no Bearing; to record an answer, state `answers` explicitly.
-A root Question has no nearest Point and stays an unattached Point, as before.
-A local relation mark states its kind; indentation selects its target.
-All six explicit kinds remain available and check references, source uniqueness, shape and target type rather than declaration roles.
-Body is transparent, but a Point declaration or Point use establishes a local Point context.
-A use presents the existing Point; it does not create a new Point.
-Every Point occurrence, including a declaration, has a locally written mark; `.` is the neutral mark and selects no role.
-The child occurrence's own mark selects the default kind; the parent's mark never enables or disables it.
-A referenced Point's declaration never supplies an occurrence's mark.
-An explicit Bearing or Bearing use supplies a Bearing context: its first unsuffixed Point, possibly through body, needs an explicit operator and target.
-This includes neutral declarations and neutral uses.
-They do not add a source to that Bearing or become unconnected as they can in a Point context; put an unconnected Point outside the Bearing context.
-`G/`, `O/`, `Q/` and `D/` may instead select the constructed or referenced Bearing.
-Once a Point occurrence establishes its context, its children use the ordinary indentation rules again.
-An explicit clause, symbolic or named, overrides the structural default; it does not create a second connection.
-`R` is Response and its relation is `respondsTo`: a passage addresses another Point in the artefact,
-without requiring a chronological conversation or asserting that an answer succeeds.
-Use explicit `answers` when the answer relation itself is intended.
+`C` beneath Q offers a candidate answer, possibly indirect.
+The compiler neither judges its adequacy nor inserts a conclusion.
+`G` directly beneath Q records relevance and `UNBOUND_GROUND_UNDER_QUESTION` at suggestion severity; no answer or support is invented.
+To support the Question itself, write `[G +> ^]`.
+To support an answer, state it and put G beneath it, or give G an explicit target.
+Re-mark C for a candidate answer, or `.` for relevance without an unbound ground intention.
+`O` beneath Q challenges the Question, for example its presupposition.
+`concerns` is complete as relevance; it need not be a draft awaiting a stronger relation.
 
-Successful implicit selection across ordinary body adds `IMPLICIT_ATTACHMENT_THROUGH_BODY` at `suggestion` severity.
+A focus `[Q use @q]` counts as a Question, while `[. use @q]` does not, even if `@q` was declared Q.
+A nearer Point always blocks lookup of an outer Q.
+A use presents the existing Point without creating one or importing its declaration mark.
+At root there is no default attachment; root G/O/R/D retain unbound intentions without an error, while root `.`, C and Q have none.
+To leave an addressable Point unattached, place it outside any Point focus and Bearing context.
+One outdent may merely rebind it to an outer focus.
+Prose retained beneath a Point purely for layout belongs in body or a Note.
+
+A valid clause replaces the default and constructs the only Bearing.
+A failed clause constructs nothing and never falls back.
+All six explicit kinds check references, source uniqueness, shape and target type rather than declaration roles.
+A listed-source constructor or Bearing use supplies a Bearing context: its first ordinary Point, possibly through body, still needs an explicit target.
+This includes neutral declarations and uses; they do not add sources or silently become unconnected.
+`G/`, `O/`, `Q/` and `D/` can instead select the exposed Bearing.
+Direct neutral members of a member-sourced constructor supply its one joint Bearing and get no relevance edge.
+Once a Point establishes a new context, its children use the table again.
+
+`respondsTo` records uptake of a contribution, without implying an answer, rebuttal, parties or turns.
+`interprets` records an offered reading of its target, not that it was made clear or that the reading is correct.
+A distinction is one way to interpret; D and D/ construct `interprets`.
+The old clause kind `clarifies` receives `RETIRED_BEARING_KIND`, with no alias or fallback.
+
+### Framing an occurrence
+
+G, O, Q, R and D have home kinds `supports`, `challenges`, `concerns`, `respondsTo` and `interprets`.
+C and `.` have none outside the defaults table.
+A written clause alone constructs the relation; the role also records how the Point is presented here:
+
+| Framing | When |
+| --- | --- |
+| `aligned` | The clause matches the home kind, or an ordinary default applies |
+| `compatible` | Any other pairing except the two opposed cases, such as `[Q respondsTo @x]`, `[R -> @x]`, `[D -> @route]` or `[C +> @x]` |
+| `opposed` | G with `challenges`, or O with `supports` |
+| `unbound` | Root G/O/R/D, or G beneath Q |
+| `none` | No relation or unbound intention, such as root C or a neutral source member |
+
+Opposed framing adds suggestion `OPPOSED_FRAMING`, never a hidden second relation.
+There is no source-level suppression; consumers may filter suggestions by code.
+Explain exposes `frameOccurrence`; Graph IR contains no framing.
+A graph-only comparison therefore cannot certify that framing or Notes were retained.
+See [framing previews](graph-inspection.md#preview-framing-edits) for checked re-marking and splitting.
+
+Successful positional selection across ordinary body adds `IMPLICIT_ATTACHMENT_THROUGH_BODY` at `suggestion` severity for stronger defaults, written positional clauses, selectors and constructors.
 It names the actual selected target (or its source span if anonymous), the responsible occurrence and the crossed body regions, grouped once per selection.
-This includes ordinary `G`, `O`, `Q`, `R` and `D` attachments, constructor target lookup and `G/`, `O/`, `Q/` and `D/` selectors.
-`C` and neutral children receive no implicit-attachment effect or advice.
+This includes C→`answers`, G→`supports`, O/Q/R/D, constructor target lookup and G/O/Q/D selectors.
+Weak relevance defaults (`.`/C→`concerns`, and G beneath Q) still have `implicitAttachment` effects, but no through-body advice.
 It changes diagnostics only: Points, Bearings, identities, validation and fallback stay unchanged.
-Failed selections, complete explicit endpoints, root groups, leaf prose, nearer active contexts and literal notes receive no such success advice.
+Failed selections, complete named endpoints, root groups, leaf prose, nearer active contexts and literal notes receive no such success advice.
+A written positional clause such as `[G +> ^]` still selects its context and can receive through-body advice.
 Its explanation offers existing spellings: keep the grouping deliberately, move the active content beside its target, or name the target.
 The advice writes the same header with the target named, as `target-form --to named` would: `[G]` becomes `[G +> @claim]` and `[O/]` becomes `[O -> @route]`.
 The named target replaces the positional one rather than adding a second Bearing, and a constructor's sources stay where they are.
@@ -359,7 +395,7 @@ There is no automatic note-wrapping fix: that would remove the active subtree fr
 Recognized malformed Bearing constructor headers retain this boundary in the AST, including incorrect case, an unclosed bracket, and invalid `;` separators.
 Their descendants cannot acquire a default connection to an outer Point because the constructor failed.
 Valid descendant Points, their ordinary subtrees, and relations with independent explicit targets remain available in the partial result.
-Each exact keyword is reserved: the `edge` alias is recognized, while `[edgeless]` remains ordinary body.
+Each exact keyword is reserved: the retired `edge` alias is diagnosed, while `[edgeless]` remains ordinary body.
 
 A top-level Objection is legal even without a target:
 
@@ -368,7 +404,7 @@ A top-level Objection is legal even without a target:
 ```
 
 It creates one Point and no Bearing or diagnostic.
-Similarly, a Claim beneath a Question or Neutral Point creates no default connection.
+A Claim beneath a Question instead creates `answers`; beneath a Neutral Point it creates `concerns`.
 An intervening Point remains the nearest target for its own relation-marked children; they do not attach to an outer Question through it.
 See [connections from indentation](bearings.md#connections-from-indentation) for a worked example and relation table.
 
@@ -377,9 +413,9 @@ See [connections from indentation](bearings.md#connections-from-indentation) for
 ## Bearing constructors
 
 A constructor writes one relation whose sources are other Points.
-`[_ +> ^]`, `[_ -> ^]`, `[_ ~> ^]`, `[_ respondsTo ^]`, `[_ clarifies ^]` and `[_ answers ^]` each construct one Bearing of that kind from the direct neutral children to the nearest enclosing Point.
+`[_ +> ^]`, `[_ -> ^]`, `[_ ~> ^]`, `[_ respondsTo ^]`, `[_ interprets ^]` and `[_ answers ^]` each construct one Bearing of that kind from the direct neutral children to the nearest enclosing Point.
 `[_]` abbreviates `[_ ~> ^]`, and `[_/]` abbreviates `[_ ~> ^/]`: a complete joint relation of relevance, without specifying support or opposition.
-The `bearing` and `edge` spellings work identically.
+The `bearing` spelling works identically to `_`.
 An optional `; @route` names it: `[_ +> ^; @route]`.
 The target term works as it does on a Point occurrence:
 `^` is the nearest enclosing Point, possibly through ordinary body but never past another Point,
@@ -402,7 +438,7 @@ Without listed sources, each direct child has one function, decided by what its 
 | Any relation toward `^`, written by mark or clause: `[G]`, `[G +> ^]`, `[. +> ^]` | Invalid: there is no Point for `^` here |
 | A member-sourced constructor, `[_ +> ^]` or `[_ +> @x]` | Invalid nesting |
 
-`[G]` and `[G +> ^]` are therefore the same member, as they are everywhere else.
+`[G]` and `[G +> ^]` are therefore both invalid direct members here; beneath a Q focus they have different meanings.
 All Point-family aliases apply, and a source may be a use of an existing Point.
 Their roles, content, optional anchors, and individual spans remain intact.
 The constructor has no Point of its own, and its Bearing uses `derivedBy: "structural"` when its target is positional, or `"operator"` when it is named.
@@ -502,7 +538,7 @@ Use an Objection or a `challenges` clause when the content makes a challenge rat
 `[Q/ use @question]` uses an existing Point with a local Q mark and adds the `concerns` Bearing without changing shared content or declaration metadata.
 Like `G/`, `O/` and `D/`, it works under constructors and Bearing uses, and never skips a nearer Point without an attachment.
 Under a `Q/` occurrence, another selector addresses the Question's own `concerns` Bearing; `[_ note]` annotates that same local connection.
-There is no `C/` or `R/`: C states no relation, and `respondsTo` requires a Point target.
+There is no `C/` or `R/`: the Question-specific C default is `answers`, and both `answers` and `respondsTo` require a Point target.
 
 ### Several sources about one step
 
@@ -521,12 +557,12 @@ The constructor creates no Point and adds none of its sources to the selected Be
 ```md cog-check compare=joint-step-review caption="Explicit joint challenge" require=supports,challenges points=4 bearings=2 diagnostics=0
 - [C @familiar] The visitor may be someone the dog knows.
   - [G @silent; @step] The dog did not bark.
-    - [. @sedated] The dog had been sedated.
-    - [. @effect] Sedation can suppress barking at strangers.
-    - [_ @sedated, @effect -> @step; @review] These circumstances challenge the step together.
+- [. @sedated] The dog had been sedated.
+- [. @effect] Sedation can suppress barking at strangers.
+- [_ @sedated, @effect -> @step; @review] These circumstances challenge the step together.
 ```
 
-`[_ +> ^/]` similarly creates joint support, `[_ clarifies ^/]` a joint clarification, and `[_/]` joint `concerns`.
+`[_ +> ^/]` similarly creates joint support, `[_ interprets ^/]` a joint interpretation, and `[_/]` joint `concerns`.
 Each permits one or more direct neutral sources, including uses, followed by notes or further commentary toward `^/`.
 They work under a Point with an attachment, a constructor, and a Bearing use.
 A nearer Point without an attachment blocks selection; a failed context cannot be bypassed.
@@ -572,6 +608,47 @@ The new Point supplies a separate `supports` Bearing targeting `recognition`, wi
 It need not independently or sufficiently establish the original connection.
 The last two versions deliberately use the same observation: its wording alone does not decide whether it is a joint premise or a reason for the step.
 These edits record different commitments; they are not automatic formatting alternatives.
+
+## Example support
+
+`by example` modifies one constructed `supports` Bearing, never a Point, and introduces no new mark.
+Write it after a supports clause or a G/G/ head, before any `; @handle`:
+
+| Form | Example |
+| --- | --- |
+| Point clause | `[. +> @claim by example]`, `[. supports ^ by example; @route]` |
+| Point use clause | `[. use @p +> @claim by example]` |
+| Member-sourced constructor | `[_ +> ^ by example; @route]` |
+| Listed-source constructor | `[_ @a, @b +> @claim by example]` |
+| Support of a Bearing | `[. +> ^/ by example]` |
+| Default Ground | `[G by example]`, `[G @p by example; @route]` |
+| Ground selector or use | `[G/ by example]`, `[G/ use @p by example; @route]` |
+
+The sources are offered as an example; this selects no inference scheme and asserts nothing about truth, representativeness or sufficiency.
+On a joint Bearing, the sources form one example together.
+Graph IR stores `profile: "example"` on that Bearing; graph text prints `profile="example"`.
+Point reuse does not transfer it; `[_ use @route]` presents the same profiled Bearing.
+
+```md cog-check require=supports,challenges points=5 bearings=3 diagnostics=0
+- [C @claim] The service can operate later on some evenings.
+  - [_ +> ^ by example; @trial]
+    - [. @opening] Last month's event stayed open until eight.
+    - [. @staffing] The event used the usual staffing budget.
+- [C @other] The existing budget may allow an evening trial.
+  - [G use @staffing]
+- [_ use @trial]
+  - [O/] Special-event staffing may not represent an ordinary evening.
+```
+
+Only `trial` has the profile; the reused staffing Point's new support is plain.
+`PROFILE_REQUIRES_SUPPORTS` rejects a profile on root `[G by example]`, G beneath Q, a non-support default or clause, a non-support selector, `[_ by example]`, or a Bearing use.
+`MALFORMED_BEARING_PROFILE` rejects an unknown profile such as `by analogy`, or a missing name.
+The Point is kept when otherwise valid, but neither a plain support nor a default Bearing replaces the rejected request.
+
+Example support entails plain support, not conversely; adding the profile is a refinement and removing it a weakening.
+`compareCommitments(...).bearings.changed` reports each continued Bearing's profile change, even when aggregate commitments remain equivalent because another Bearing already states that commitment.
+Checked edits refuse to join, separate or kind-decide a profiled relation with reason `profiled-relation`.
+`target-form` preserves the profile.
 
 ## Joint relevance
 
@@ -699,12 +776,13 @@ Child body and notes are separate source blocks, not part of that shared text.
 Prose following the use header, including its continuations, stays on the occurrence's AST block, never on the original Point or the constructed Bearing.
 Uses do not copy subtrees, inherit remote roles, create aliases, or enter a declaration's surrounding context.
 
-`[. use @p]` owns no default attachment, even when p has relations elsewhere.
+`[. use @p]` constructs `concerns` in ordinary Point context, and no default attachment at root.
+It never imports p's other connections.
 Its children focus p; their own marks select any local relation, without importing p's declaration mark.
 An `R` child responds to `p` beneath a neutral, `Q`, `O` or other Point use alike.
 `[Q use @p]` presents the same content as a local inquiry.
 Beneath a Point, it records `concerns` toward that nearest Point, just as `[Q]` does; at the root it remains unattached.
-Its neutral and `C` children remain unattached unless they state an explicit clause.
+Its neutral children construct `concerns`; its C children construct `answers`.
 It does not generate whether/why question text, transform the Point or assign a resolution state.
 The author chooses the content/mark fit; declare a separate Question when different question content is intended.
 
@@ -716,7 +794,7 @@ The author chooses the content/mark fit; declare a separate Question when differ
 
 The use concerns `@review`; it does not change `@scale` into a Question declaration or copy its subtree.
 
-```md cog-check require=answers points=3 bearings=1 diagnostics=0
+```md cog-check require=answers,concerns points=3 bearings=2 diagnostics=0
 - [. @scale] How fast is "fast"?
 - [. use @scale] A neutral reminder.
   - [C @aside] The instrument may resolve milliseconds.
@@ -724,9 +802,10 @@ The use concerns `@review`; it does not change `@scale` into a Question declarat
   - [. @answer answers @scale] Seconds.
 ```
 
-Only `answer` explicitly answers `scale`; the shared Neutral Point keeps `declaration.form: "material"` and its text.
+`aside` concerns `scale`, while `answer` explicitly answers it; the shared Neutral Point keeps `declaration.form: "material"` and its text.
 A complete explicit override, such as `[. use @p +> @claim; @step]` or `[Q use @p respondsTo @objection; @step]`, constructs exactly one local attachment.
-`G/`, `O/`, `Q/` and `D/` beneath that occurrence select `step`; beneath `[. use @p]` without a clause or a local source member they fail.
+`G/`, `O/`, `Q/` and `D/` beneath that occurrence select `step`; beneath a root `[. use @p]` without a clause or a local source member they fail.
+A nested neutral use with a default `concerns` attachment exposes that Bearing instead.
 A handle without a locally constructed attachment is diagnosed.
 
 ```md cog-check require=supports,challenges,respondsTo points=4 bearings=3 diagnostics=0
@@ -764,12 +843,12 @@ The nearest constructor exposes one Bearing for `G/`, `O/` or `Q/`:
 | Bearing use | The existing validated Bearing explicitly referenced there |
 
 A referenced Bearing is a focus, not a newly owned attachment.
-Point contexts shadow outer Bearing contexts; neutral Point uses and local source members expose no unary attachment.
+Point contexts shadow outer Bearing contexts; root neutral Point uses and local source members expose no unary attachment.
 An ordinary O defaults to a Point; beneath a Bearing use it needs O/ or an explicit clause, whose target may be a Point or Bearing.
 An O beneath O/ challenges that new O Point, while a sibling O/ selects its local attack Bearing.
 `R` beneath `O/` responds to that Objection Point.
 Likewise, `R` beneath `Q/` responds to that Question Point, while a further `Q/` concerns its locally constructed `concerns` Bearing.
-G, O, Q and D have selectors; C states no relation, and `respondsTo` requires a Point target.
+G, O, Q and D have selectors; the C→`answers` default and `respondsTo` require Point targets.
 Existing explicit graph cycles remain possible; references never recursively expand source.
 
 ```md cog-check require=supports,challenges points=5 bearings=4 diagnostics=0
@@ -804,7 +883,7 @@ All input modes permit indentation-based authoring, explicit-relation authoring,
 These writing techniques are not additional compiler input modes.
 `derivedBy` records how an individual Bearing was produced, not the input mode or an authoring style for the document.
 The three symbolic operators retain their meanings.
-Constructors, Point declarations and Point uses may use any case-sensitive canonical kind name, including `answers`, `respondsTo` and `clarifies`, toward a named or positional target.
+Constructors, Point declarations and Point uses may use any case-sensitive canonical kind name, including `answers`, `respondsTo` and `interprets`, toward a named or positional target.
 A constructor writes a relation, never a role letter: `[_ +> ^]` or `[_ supports ^]`, not `[_ G]`.
 
 Host integrations can use the source envelope to keep each independent fence paired with its AST, graph, and source locations:
@@ -901,6 +980,10 @@ Bearing uses emit neither entity.
 A constructor toward a position emits with `local-bearing-containment`, toward a name with `operator-clause`; a membership failure rejects it with `invalid-local-bearing`, and later name/reference rejection uses `validation-error`.
 A source member skips its own attachment with `local-bearing-membership`, and the first Point beneath a listed-source constructor without its own target rejects with `explicit-bearing-descendant-requires-target`.
 Membership eligibility does not certify that the whole constructed Bearing survived validation.
+`frameOccurrence { framing, intention?, focus? }` records each successful Point occurrence's presentation.
+`framing` is `aligned`, `compatible`, `opposed`, `unbound` or `none`; only `unbound` carries `intention`, a Bearing kind.
+`focus`, when a Point focus selects a default, is `"question"` or `"point"`.
+For example, Explain text prints “Presented as Objection; the clause alone constructs the relation (opposed framing).”
 It explains compilation decisions, not the truth of the prose, the strength of a reason, or a history of the author's thinking.
 The trace is an experimental interface with a versioned schema; ordinary integrations can use AST and Graph IR alone.
 `cog explain --format text` renders all decisions, including non-emissions and failed candidates.
@@ -922,7 +1005,11 @@ Ordinary body has no annotation.
 An `operatorClause` contains `op`, `sources`, and one `target` term: `{ id }` for a name, or `{ local: "point" | "bearing" }` for `^` or `^/`.
 Point annotations use `sources: "self"`; a constructor uses `sources: "members"` or a nonempty array of authored source references.
 Which targets a relation admits follows from `op` alone; there is no separate target requirement.
-A mark's default relation is not written into the AST: `[G]` has no `operatorClause`, and consumers expand it from the mark.
+A mark's default relation is not written into the AST: `[G]` has no `operatorClause`.
+Resolve defaults from both the occurrence mark and its focus, preferably through Explain; the annotation alone does not distinguish G→`supports` from G-under-Q→`concerns`.
+`annotation.profile: "example"` records a written `by example` modifier on Point declarations, uses, selectors and constructors, independently of `operatorClause`.
+`syntaxErrors` admits `"profile"` for a malformed profile.
+Explain recognition and Bearing summaries retain the profile; `rejectBearing` reason `"unsupported-profile"` records a profile that cannot qualify the constructed kind.
 Block `text` joins header prose and continuation content with LF, preserving intervening blank paragraphs.
 Block `raw` joins those physical source lines with LF, retaining the bullet and indentation but excluding child blocks.
 For exact original line endings and surrounding content, retain the original input.
@@ -957,23 +1044,25 @@ Host envelopes preserve selected Cogitatum units; keep the original file for sur
 Never treat graph-only JSON or `structure-v1` graph text as a complete source export.
 
 Every successfully emitted structural Bearing has an `implicitAttachment` Explain effect recording the typed `target`, its canonical `targetSpan` when available, the selected occurrence's `contextSpan` and ordered `crossedBodySpans`.
-`crossedBodySpans` is empty for direct attachment; only a nonempty list produces the advisory diagnostic.
+`crossedBodySpans` is empty for direct attachment; a nonempty list produces the advisory diagnostic except for weak relevance defaults.
 This covers ordinary containment, local Bearing construction and local selectors, including selection through a Point or Bearing use.
-Explicit clauses and rejected Bearings do not receive this effect.
+Named target clauses and rejected Bearings do not receive this effect; written positional clauses do.
 The entry span identifies the responsible source occurrence.
 For a reused target, its remote declaration span and local context span may differ; neither substitutes for the other.
 Unavailable target spans are omitted, never manufactured.
 Rejected Bearings receive no successful-attachment effect or suggestion.
 
 `compileGraph` and `compileGraphWithExplain` consume parser-produced ASTs of the current format and reject other format versions. They interpret `annotation`, not `raw`; changing an annotation does not rewrite the retained source text. To edit a note, change the source and parse it again. Importing arbitrary AST JSON requires validation first; compilation is not a general JSON validator.
-An `operatorClause` may be absent from an `edge` only when `syntaxErrors` records the failure; the AST schema rejects a clean edge without one, and compilation throws rather than deriving a relation from it.
+A listed-source `bearing` requires an `operatorClause` unless `syntaxErrors` records its failure.
+A clean member-sourced `[_]` or `[_/]` can omit the clause and construct joint `concerns`.
+Compilation rejects a clean listed-source constructor without a clause rather than deriving a relation from it.
 
 | Entity | Compilation identity | Authored identity |
 | --- | --- | --- |
 | Point | Required `key` | Optional `id` |
 | Bearing | Required `key` | Optional `handle` |
 
-Graph references use `{ key, kind }`; AST references remain `{ id }`. Keys are opaque, nonempty strings, deterministic for one compilation and local to one graph, with no cross-revision promise. The current compiler emits keys such as `_p1` and `_b1`; consumers must not parse their prefixes or numbers, infer array indexes from them, or use them as authored references. Use `kind` to distinguish Point and Bearing references. A Bearing has `kind`, Point `sources`, one `target`, and `derivedBy: "operator" | "structural"`; optional text describes a route.
+Graph references use `{ key, kind }`; AST references remain `{ id }`. Keys are opaque, nonempty strings, deterministic for one compilation and local to one graph, with no cross-revision promise. The current compiler emits keys such as `_p1` and `_b1`; consumers must not parse their prefixes or numbers, infer array indexes from them, or use them as authored references. Use `kind` to distinguish Point and Bearing references. A Bearing has `kind`, Point `sources`, one `target`, and `derivedBy: "operator" | "structural"`; optional `text` describes a route, and only `supports` may carry `profile: "example"`.
 
 Explain emission references use graph keys; Bearing emissions also have a graph index and optional handle. The index addresses this compilation's Bearing array only. Emitted summaries obey the same kind/target restrictions as canonical Bearings. Rejected candidates can retain unresolved authored `{ id }` references or a resolved target of the wrong kind: that mismatch can explain the rejection. They can also retain repeated sources when explaining a rejected joint; emitted summaries and Graph IR still require unique sources.
 They are not graph entities. An entry's `diagnosticCodes` lists, once each, the codes of diagnostics whose span shares a line with the entry's span.
@@ -984,16 +1073,218 @@ Diagnostics without a span, or on a line that forms no block, appear only in the
 
 ## Compatibility and migration
 
-This edition documents package 0.6.2 / format 0.6.0.
+This edition documents the unreleased package 0.7.0 / format 0.7.0 checkout, against published Core/CLI 0.6.2 / format 0.6.0.
+The published 0.6 schema bundle is preserved in `spec/0.6.0/`.
 Published 0.5.0 / format 0.5.0 schemas remain byte-for-byte in `spec/0.5.0/`.
 Published 0.4.12 / format 0.4.0 remains a separate contract.
 
-Indented nonbullet continuation lines, previously rejected, now belong to the preceding block.
+Since 0.6, indented nonbullet continuation lines belong to the preceding block.
 Review retained drafts with `UNSUPPORTED_LINE` errors before recompiling: their complete Point text or Bearing description may now include that prose.
 Consumers must handle multiline block spans and raw text, while annotation recognition still uses the first line only.
 
+### Migrating from 0.6
+
+Migrate retained source from published Core/CLI 0.6.2 / format 0.6.0, then recompile with the complete 0.7.0 compiler and schema bundle.
+Do not relabel saved AST, Graph IR, Explain or source JSON.
+Review active annotations rather than replacing words in ordinary body or literal Notes.
+
+**Review the focus and defaults.**
+In 0.6, C and `.` beneath a Point constructed nothing.
+In 0.7, C beneath Q constructs `answers`, and `.` beneath any Point constructs `concerns`:
+
+```md cog-check require=answers,supports,concerns points=4 bearings=3 diagnostics=0
+- [Q @delay] Should adoption be delayed?
+  - [C @answer] Adoption should wait until next quarter.
+    - [G] The remaining budget is insufficient.
+  - [.] Last year's decision is relevant background.
+```
+
+This records a candidate answer without settling the Question.
+An indirect C such as “The budget is exhausted” also records `answers`; no missing conclusion is inserted.
+The focus occurrence's own mark controls this: `[Q use @q]` is a Question focus, `[. use @q]` is not, even if `@q` was declared Q.
+A nearer Point blocks an outer Q.
+
+G directly beneath Q formerly supported the Question.
+It now constructs `concerns` with suggestion `UNBOUND_GROUND_UNDER_QUESTION`:
+
+```md cog-check require=concerns points=2 bearings=1 diagnostics=1
+- [Q @delay] Should adoption be delayed?
+  - [G @cost] The budget is exhausted.
+```
+
+If support of the Question itself is intended, write it explicitly:
+
+```md cog-check require=supports points=2 bearings=1 diagnostics=0
+- [Q @delay] Should adoption be delayed?
+  - [G @cost +> ^] The decision affects next year's entire budget.
+```
+
+Alternatively, state the answer and place G beneath it, or re-mark C for an offered answer or `.` for relevance.
+O beneath Q still challenges the Question, for example its presupposition.
+
+**Detach by position.**
+Changing a nested Point to `.` no longer leaves it unattached.
+Here `material` concerns `inner`, while `inner` concerns `outer`:
+
+```md cog-check require=concerns points=3 bearings=2 diagnostics=0
+- [C @outer] The overall proposal.
+  - [C @inner] The budget proposal.
+    - [. @material] Last year's allocation.
+```
+
+One outdent merely rebinds `material` to `outer`:
+
+```md cog-check require=concerns points=3 bearings=2 diagnostics=0
+- [C @outer] The overall proposal.
+  - [C @inner] The budget proposal.
+  - [. @material] Last year's allocation.
+```
+
+Move it outside every Point focus and Bearing context to leave it unattached:
+
+```md cog-check require=concerns points=3 bearings=1 diagnostics=0
+- [C @outer] The overall proposal.
+  - [C @inner] The budget proposal.
+- [. @material] Last year's allocation.
+```
+
+Use body or a Note for layout prose kept beneath a Point.
+Direct neutral constructor members still supply only the joint Bearing; selectors and Bearing-context target requirements are unchanged.
+Through-body suggestions now include C→`answers`, but exclude weak default relevance (`.`/C→`concerns` and G beneath Q).
+
+**Review opposed framing.**
+The clause alone constructs this support; O adds opposed presentation and suggestion `OPPOSED_FRAMING`, without a challenge:
+
+```md cog-check require=supports points=2 bearings=1 diagnostics=1
+- [C @delay] Adoption should be delayed.
+- [O @cost +> @delay] The cost exceeds the budget.
+```
+
+Three repairs retain that support.
+Re-mark G to align the presentation:
+
+```md cog-check require=supports points=2 bearings=1 diagnostics=0
+- [C @delay] Adoption should be delayed.
+- [G @cost +> @delay] The cost exceeds the budget.
+```
+
+Re-mark neutral to keep only the explicit support commitment:
+
+```md cog-check require=supports points=2 bearings=1 diagnostics=0
+- [C @delay] Adoption should be delayed.
+- [. @cost +> @delay] The cost exceeds the budget.
+```
+
+Or split the presentations, keeping the objection intention unbound at root:
+
+```md cog-check require=supports points=2 bearings=1 diagnostics=0
+- [C @delay] Adoption should be delayed.
+- [G @cost +> @delay] The cost exceeds the budget.
+- [O use @cost]
+```
+
+Near miss: nesting that use beneath a Point would construct a challenge:
+
+```md cog-check require=supports,challenges points=2 bearings=2 diagnostics=0
+- [C @delay] Adoption should be delayed.
+  - [O use @cost]
+- [G @cost +> @delay] The cost exceeds the budget.
+```
+
+These alternatives preserve the support, but differ in framing and possibly declaration metadata.
+A graph-only check cannot establish preservation of framing or Notes.
+Use `cog framing-edit inquiry.cog.md --line 2 --remark G`, `--remark .` or `--split` for checked previews.
+`cog lsp` offers the same three quick fixes for `OPPOSED_FRAMING`.
+There is no source-level suppression; consumers may filter the suggestion by code.
+
+**Replace the retired kind.**
+Change active `clarifies` clauses to `interprets`, retaining sources, target, handle and prose.
+D and D/ now construct `interprets`, an offered reading rather than a claim of successful clarification:
+
+```md cog-check require=interprets points=2 bearings=1 diagnostics=0
+- [C @scope] The rule covers public access.
+  - [D] Read access here as inspection rather than ownership.
+```
+
+The old clause is an expected-error example, not a compiling alias:
+
+```md
+- [C @scope] The rule covers public access.
+  - [D clarifies ^] Read access as inspection.
+```
+
+Expected: `RETIRED_BEARING_KIND`; the two Points survive and no Bearing replaces the clause.
+
+**Add example support only to support.**
+The new modifier precedes the handle:
+
+```md cog-check require=supports points=2 bearings=1 diagnostics=0
+- [C @claim] The service can operate later on some evenings.
+  - [G by example; @trial] Last month's event stayed open until eight.
+```
+
+Expected-error example:
+
+```md
+- [Q] Should the service operate later?
+  - [G by example] Last month's event stayed open until eight.
+```
+
+Expected: `PROFILE_REQUIRES_SUPPORTS`; both Points survive, with no fallback `concerns` Bearing.
+Use an explicit supports clause only if the example is offered in support of the Question itself.
+The [example support reference](#example-support) covers constructors, uses, comparison and checked-edit limits.
+
+**Separate annotation and prose.**
+Previously accepted `- [G]ood` and `- [G]去年…` now fail with `MISSING_ANNOTATION_SEPARATOR`.
+Expected-error example:
+
+```md
+- [G]去年展會免費接駁。
+```
+
+Expected: `MISSING_ANNOTATION_SEPARATOR`; no Point or Bearing is constructed, and the complete header text remains.
+Insert whitespace without dropping any prose:
+
+```md cog-check points=1 bearings=0 diagnostics=0
+- [G] 去年展會免費接駁。
+```
+
+U+00A0 and U+3000 also separate the header; `[Context]word`, `[O-ring]erosion`, `[I]n 1990` and `［G］` remain body.
+Failed notes retain their literal subtrees, and other failed headers retain their boundaries.
+
+**Replace retired family aliases.**
+`node` and `edge` receive `RETIRED_FAMILY_ALIAS`, even for use and note operations; they never compile as aliases.
+Expected-error example:
+
+```md
+- [node @claim] A claim.
+- [edge @reason +> @claim]
+```
+
+Expected: two `RETIRED_FAMILY_ALIAS` diagnostics and no Bearings.
+The otherwise valid neutral Point `claim` survives in the partial graph; the retired constructor constructs nothing.
+Use the retained families instead:
+
+```md cog-check require=supports points=2 bearings=1 diagnostics=0
+- [point @claim] A claim.
+- [. @reason] A reason.
+- [bearing @reason +> @claim]
+```
+
+`[edgeless]` and `[nodes]` remain body.
+A retired constructor keeps its boundary; descendants cannot acquire an outward default connection.
+
+**Regenerate consumer projections.**
+Load all four 0.7 schemas and rebuild AST, Graph IR, Explain and source envelopes from the same retained source revision and explicit input mode.
+Handle `frameOccurrence`, Bearing `profile`, annotation `syntaxErrors: ["profile"]`, and `rejectBearing` reason `unsupported-profile`.
+Review the new error codes `MISSING_ANNOTATION_SEPARATOR`, `RETIRED_FAMILY_ALIAS`, `PROFILE_REQUIRES_SUPPORTS` and `MALFORMED_BEARING_PROFILE`, and suggestions `UNBOUND_GROUND_UNDER_QUESTION` and `OPPOSED_FRAMING`.
+Discard saved edit previews and compilation-local identities, then test each actual consumer against the matching compiler and schemas.
+Core/CLI checks do not establish host or website compatibility.
+
 ### From published 0.5
 
+These notes describe the historical 0.5→0.6 migration.
+Then apply [the 0.6→0.7 migration](#migrating-from-06); the examples below use current 0.7 spellings.
 Review these language changes before recompiling:
 
 - Replace named `about` with `concerns`; `~>` keeps its spelling and neutral relevance meaning.
@@ -1060,7 +1351,7 @@ Review these language changes before recompiling:
 New reserved words can activate former prose and change descendants' implicit connections.
 For example, in 0.5 the G below targets `outer`; in 0.6, `[point @p]` declares a Point and the G targets `p`:
 
-```md cog-check require=supports points=3 bearings=1 diagnostics=0
+```md cog-check require=supports,concerns points=3 bearings=2 diagnostics=0
 - [C @outer] Outer claim.
   - [point @p] Previously ordinary body.
     - [G @g] Reason.
@@ -1110,13 +1401,13 @@ The word undercut has no active core kind or spelling; a future theory-specific 
 
 For example, the 0.4 clause `[_ @objection undercuts @route; @challenge]` became `[_ @objection /> @route; @challenge]` in 0.5 and is `[_ @objection -> @route; @challenge]` in 0.6.
 Keep the sources, their order, target name, handle and occurrence prose; change the retired operator only.
-The complete migrated document, in its 0.6 spelling:
+The complete migrated document, with its family spelling updated for 0.7:
 
 ```md cog-check require=supports,challenges points=4 bearings=2 diagnostics=0
 - [C @claim] The bridge is safe.
 - [G @inspection] Yesterday's inspection found no defects.
 - [G @record] The maintenance record reports no damage.
-- [edge @inspection, @record +> @claim; @route] Joint grounds for the claim.
+- [_ @inspection, @record +> @claim; @route] Joint grounds for the claim.
 - [O @objection] Neither check covered the underside.
 - [_ @objection -> @route; @challenge] Challenge this joint step.
 ```
@@ -1152,7 +1443,7 @@ The [graph preservation limits](graph-inspection.md#what-structure-v1-preserves)
 
 ### Tab indentation in 0.6
 
-The 0.6 candidate accepts hard tabs for bullet indentation alongside multiline content.
+The 0.6 release added hard tabs for bullet indentation alongside multiline content.
 A source unit whose bullet indentation uses only tabs, previously rejected line by line with `TAB_INDENTATION_UNSUPPORTED`, now compiles.
 Space-only bullet indentation retains its rules.
 `TAB_INDENTATION_UNSUPPORTED` is retired and no longer emitted.
@@ -1165,7 +1456,7 @@ These diagnostic and source-interpretation changes are included in package and f
 ### Earlier migrations
 
 The following notes describe migration into the published 0.4.12 baseline before recompilation with 0.5 and then 0.6.
-Their Gap and bare-linked contracts are historical; use the 0.6 migration above for the current language.
+Their Gap and bare-linked contracts are historical; apply the 0.6 and 0.7 migrations above for the current language.
 Match the exact producing commit with its compiler, schemas and consumers; the retained format identifier alone does not distinguish earlier unpublished candidates.
 Reparse the retained original document with explicit document or host context.
 Relabelling older AST/Explain/source JSON cannot establish corrected selection, use mappings or new constructor shapes.
@@ -1203,7 +1494,7 @@ The AST schema now requires `operatorClause` on an `edge` without `syntaxErrors`
 
 Perform source spelling changes on annotations, not arbitrary prose, and compile before comparing the intended graph.
 For that historical migration, replacing a candidate `[join]` with `[linked]` preserved one joint support; removing the wrapper instead created independent supports.
-For current 0.6 source, use `[_ +> ^]` with neutral members instead; neither historical header compiles.
+For 0.6 and current source, use `[_ +> ^]` with neutral members instead; neither historical header compiles.
 Published format 0.3.0 treated [join; @b] as ordinary body, so migration from published 0.3 requires reviewing intended grouping rather than blindly renaming a word.
 Old anchor AST kind becomes material with optional anchor; use retains a distinct ref operand.
 Explain uses linked recognition, linkedMember with source/commentary/independent/supplementary/unclassified function, attachment selection and focusPoint/rejectFocus.
@@ -1248,7 +1539,7 @@ Format 0.3.0 replaced generated Point IDs, optional Bearing IDs, ID-based graph 
 ### Schemas for integrations
 
 The source distribution's `spec/` directory contains JSON Schemas using draft 2020-12.
-Core 0.6.0 builds AST, Graph IR, Explain, and source-envelope contracts through `@cogitatum/core/schemas/{ast,graph-ir,explain,source}`.
+Core 0.7.0 builds AST, Graph IR, Explain, and source-envelope contracts through `@cogitatum/core/schemas/{ast,graph-ir,explain,source}`.
 The source-envelope schema refers to the other three by `$id`; load those sibling schemas too when validating it.
 The published npm `0.3.0-alpha.1` tarball includes only the first three exports.
 For example, in Node.js:
@@ -1257,11 +1548,11 @@ For example, in Node.js:
 import graphSchema from '@cogitatum/core/schemas/graph-ir' with { type: 'json' };
 ```
 
-Schema `$id` values use `/schemas/0.6.0/`.
-The published 0.5.0 bundle fixes format 0.5.0; this incompatible revision uses a new identifier and schema URLs.
-Use the schema files from this checkout to validate format 0.6; the 0.5 bundle cannot validate it.
+Schema `$id` values use `/schemas/0.7.0/`.
+The published 0.6.2 bundle fixes format 0.6.0; this incompatible revision uses a new identifier and schema URLs.
+Use the schema files from this checkout to validate format 0.7; the 0.6 bundle cannot validate it.
 For reproducible or offline validation, use all four schema copies from the exact package or source commit; neither the format identifier nor an unchanged source-envelope schema identifies the complete contract.
-The 0.6 package build includes all four schemas.
+The 0.7 package build includes all four schemas.
 Deployment of the official schema URLs and production playground is separate; use the exact package copies for validation until the matching website release is deployed.
 
 The AST, Graph IR, and Explain schemas validate individual projections.
@@ -1272,7 +1563,7 @@ It does not establish equal lengths or correct index pairing of the envelope arr
 The compiler pairs source units with their projections and resolves names and references; conformance tests check its output invariants.
 Passing a schema also makes no claim about the quality of the reasoning.
 
-Canonical objects reject unknown fields. Integration metadata, confidence scores, inference-method profiles, and workflow history should be stored alongside the compiler output, with their own contracts, rather than injected into it. This keeps the meaning of existing Bearings explicit while leaving integrations free to add their own interpretations.
+Canonical objects reject unknown fields. Integration metadata, confidence scores, additional interpretation profiles, and workflow history should be stored alongside the compiler output, with their own contracts, rather than injected into it. This keeps the meaning of existing Bearings explicit while leaving integrations free to add their own interpretations.
 
 ```sh
 cog check inquiry.cog.md

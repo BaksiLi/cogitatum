@@ -22,6 +22,7 @@ Keep the context in ordinary prose, then mark the parts you want to examine:
 `C` marks a Claim, `G` a Ground, `O` an Objection, and `R` a Response.
 The indentation connects the reason and objection to the Claim, and the Response to the Objection.
 The opening context remains ordinary prose.
+A role describes how a Point participates at this occurrence, rather than a permanent type.
 
 A marked piece of content is a **Point**.
 A connection between Points is a **Bearing**.
@@ -38,7 +39,7 @@ The [quick start](quick-start.md) walks through a first note; [Bearings](bearing
 Obsidian, Logseq and Vim can show Reading and Map beside the source you edit there.
 These hosts are experimental and released separately;
 [Hosts](https://onesimos.org/docs/hosts) lists what each does, how to install it and where its limits are recorded.
-Older 0.5 notes need [source migration](syntax.md#from-published-05) before any current host compiles them.
+Older notes need [source migration](syntax.md#compatibility-and-migration) before recompilation with a matching host.
 
-These pages describe **format 0.6.0**.
+These pages describe the **format 0.7.0** checkout; website and host deployments are separate.
 For saved notes or an installed compiler, check the [version and migration reference](syntax.md#compatibility-and-migration).

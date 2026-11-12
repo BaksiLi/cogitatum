@@ -43,10 +43,10 @@ let runs = 0;
 const alternativeRoutes = [
   '- [C @water] Broad Street 水泵可能是這次霍亂暴發的來源。',
   '- [G @cluster] 多數死亡病例集中在水泵周邊。',
-  '- [edge @cluster +> @water; @proximity] 地理上的接近，可能反映飲用該水泵水的機會。',
+  '- [_ @cluster +> @water; @proximity] 地理上的接近，可能反映飲用該水泵水的機會。',
   '- [O @exceptions -> @proximity] 附近濟貧院與啤酒廠幾乎沒有病例。',
   '- [G @exposure] 這兩處不用該水泵；一些遠處患者卻曾飲用泵水。',
-  '- [edge @cluster, @exposure +> @water; @water-route] 真正重要的是飲水暴露，而不只是地理位置。',
+  '- [_ @cluster, @exposure +> @water; @water-route] 真正重要的是飲水暴露，而不只是地理位置。',
 ].join('\n');
 try {
   for (const width of [1280, 390]) {
@@ -234,9 +234,9 @@ try {
     await mount([
       '- [G @p1] First reason.', '- [G @p2] Second reason.',
       '- [G @s] Third reason.', '- [C @g] The conclusion.',
-      '- [edge @p1, @p2, @s +> @g; @route] **Authored description**.',
+      '- [_ @p1, @p2, @s +> @g; @route] **Authored description**.',
       '- [O @reservation -> @route] A reservation about this step.',
-      '- [edge @p1 clarifies @g; @exposition]',
+      '- [_ @p1 interprets @g; @exposition]',
     ].join('\n'));
     const summary = row(5).locator('.cog-reading-relation');
     assert.equal(await summary.locator('.cog-reading-relation-kind').textContent(), 'jointly supports');
@@ -244,7 +244,7 @@ try {
     assert.equal(await summary.locator('[data-ref-kind="bearing"]').textContent(), '@route');
     assert.equal(await row(5).locator('.cog-reading-text').textContent(), '**Authored description**.', 'without a renderer prose remains safe plain text');
     assert.doesNotMatch(await row(5).textContent(), /;@route|\bBEARING\b/);
-    assert.match(await row(7).locator('.cog-reading-relation').textContent(), /clarifies.*@exposition.*@p1.*@g/);
+    assert.match(await row(7).locator('.cog-reading-relation').textContent(), /interprets.*@exposition.*@p1.*@g/);
     assert.equal(await row(7).locator('.cog-reading-text').textContent(), '');
     assert.equal(await page.evaluate(() => window.views.projection.units[0].graph.bearings[0].sources.length), 3, 'one joint Bearing retains all three sources');
     assert.equal(await row(5).getAttribute('role'), 'group', 'prose and its controls are outside button semantics');
@@ -311,7 +311,7 @@ try {
     assert.equal(await page.locator('#map [data-node^="bearing:"]').count(), 1);
     assert.equal(await page.locator('#map .cog-link').count(), 3, 'only the complete surviving joint is drawn');
 
-    for (const [clause, parent, kind] of [['+> ^', 'C', 'supports'], ['-> ^', 'C', 'challenges'], ['respondsTo ^', 'O', 'respondsTo'], ['clarifies ^', 'C', 'clarifies']]) {
+    for (const [clause, parent, kind] of [['+> ^', 'C', 'supports'], ['-> ^', 'C', 'challenges'], ['respondsTo ^', 'O', 'respondsTo'], ['interprets ^', 'C', 'interprets']]) {
       await mount(`- [${parent} @target] Target.
   - [_ ${clause}; @joint] Route description.
     - [. @a] First source.
@@ -330,7 +330,7 @@ try {
       assert.equal(await row(5).getAttribute('data-related'), 'true', 'the route note follows its owner');
     }
 
-    for (const [clause, kind] of [['+> ^/', 'supports'], ['-> ^/', 'challenges'], ['~> ^/', 'concerns'], ['clarifies ^/', 'clarifies']]) {
+    for (const [clause, kind] of [['+> ^/', 'supports'], ['-> ^/', 'challenges'], ['~> ^/', 'concerns'], ['interprets ^/', 'interprets']]) {
       await mount(`- [C @claim] Claim.
   - [_ +> ^; @step]
     - [. @source] Original source.
@@ -389,7 +389,7 @@ try {
       'L2 · Anonymous reason.', 'L1 · Anonymous conclusion.'
     ]);
 
-    await mount('- [C @p] Evidence.\n- [C @q] Conclusion.\n- [edge @p +> @q; @route]\n- [_ use @route] Local note about the same step.');
+    await mount('- [C @p] Evidence.\n- [C @q] Conclusion.\n- [_ @p +> @q; @route]\n- [_ use @route] Local note about the same step.');
     assert.match(await row(4).locator('.cog-reading-use').textContent(), /supports.*@route.*@p.*@q/);
     assert.equal(await row(4).locator('.cog-reading-text').textContent(), 'Local note about the same step.');
     await row(4).locator('[data-ref-kind="bearing"]').click();
@@ -445,7 +445,7 @@ try {
     assert.equal(await page.locator('#map svg').getAttribute('data-guided'), 'false', 'clearing restores the unguided Map');
 
     // Route identity is the Bearing, not its kind and endpoints.
-    await mount('- [C @c] Claim.\n- [G @a] Reason.\n- [edge @a +> @c; @first] One reading.\n- [edge @a +> @c; @second] Another reading.\n- [O -> @second] Doubt.');
+    await mount('- [C @c] Claim.\n- [G @a] Reason.\n- [_ @a +> @c; @first] One reading.\n- [_ @a +> @c; @second] Another reading.\n- [O -> @second] Doubt.');
     await node('bearing:_b2').click(); await page.mouse.move(0, 0); await flush();
     assert.deepEqual(await page.locator('#map path.cog-link[data-active="true"]').evaluateAll(paths => [...new Set(paths.map(p => p.dataset.bearing))].sort()), ['_b2', '_b3']);
     assert.equal(await node('bearing:_b1').getAttribute('data-related'), 'false', 'a parallel Bearing of the same kind stays a separate route');
@@ -580,10 +580,10 @@ try {
       '- [C @c] Claim.', '  - [G @g] Marked reason.', '  - [G +> ^] Written reason.',
       '  - [_]', '    - [.] Relevant material.', '  - [Q use @g] Examine the reason here.',
     ].join('\n'));
-    for (const [line, message] of [[2, 'The mark states the relation.'], [3, 'The written clause states the relation.'], [4, 'The constructor defaults to concerns.']]) {
+    for (const [line, message] of [[2, 'the mark and Point focus select the relation.'], [3, 'the written clause states the relation.'], [4, 'the constructor defaults to concerns.']]) {
       await row(line).locator('.cog-reading-select').click(); await flush();
       const inspection = row(line).locator('.cog-reading-inspection');
-      assert.ok((await inspection.textContent()).endsWith(`Moving it can change the target. ${message}`));
+      assert.ok((await inspection.textContent()).endsWith(`moving it can change the target; ${message}`));
       assert.equal(await row(line).getAttribute('aria-describedby'), await inspection.getAttribute('id'));
     }
     assert.equal(await row(6).locator('.cog-reading-relation').getAttribute('data-kind'), 'concerns', 'Q use has the same local default as Q');
@@ -594,7 +594,7 @@ try {
     await row(4).locator('.cog-reading-select').click(); await flush();
     const inspection = row(4).locator('.cog-reading-inspection');
     assert.equal(await inspection.locator('.cog-chip').count(), 1, 'the relation glyph leads the inspection');
-    assert.match(await inspection.locator('span').last().textContent(), /^From indentation: challenges @g \(L2\), the nearest enclosing Point\. It passes through ordinary body at L3\./);
+    assert.match(await inspection.locator('span').last().textContent(), /^From indentation: challenges @g \(L2\), the nearest enclosing Point, passing through ordinary body at L3;/);
     assert.equal(await row(4).getAttribute('aria-describedby'), await inspection.getAttribute('id'), 'the inspection line describes its row');
     const rail = page.locator('#reading .cog-reading-commitment');
     assert.equal(await rail.getAttribute('data-basis'), 'indentation');
@@ -609,7 +609,8 @@ try {
     assert.equal(await rail.locator('.cog-reading-commitment-member').count(), 1, 'a member shows its header bracket with itself marked');
     await row(9).locator('.cog-reading-select').click(); await flush();
     assert.equal(await rail.getAttribute('data-basis'), 'failed');
-    assert.match(await row(9).locator('.cog-reading-inspection').textContent(), /\[_ \+> \^\]/, 'a failed row repeats its remedy');
+    assert.match(await row(9).locator('.cog-reading-inspection').textContent(), /the constructor or its members are invalid/, 'a failed row explains the rejection');
+    assert.match(await row(9).locator('.cog-reading-diagnostic').getAttribute('title'), /\[_ \+> \^\]/, 'the diagnostic retains the remedy');
     await page.keyboard.press('Escape'); await flush();
     assert.equal(await page.locator('#reading .cog-reading-inspection').count(), 0);
     await page.evaluate(() => { window.views.reading.destroy(); window.views.map.destroy(); });

@@ -1,7 +1,8 @@
-import { expandedClause, MARK_RELATIONS, operatorSymbol, respellClause, targetSpelling } from "./annotation.js";
+import { defaultRelation, expandedClause, leavesIntentionUnbound, MARK_RELATIONS, operatorSymbol, respellClause, targetSpelling } from "./annotation.js";
+import type { Focus } from "./annotation.js";
 import { compareCommitments } from "./commitments.js";
 import type { CommitmentComparison, Correspondence } from "./commitments.js";
-import { annotationOffset, locateSourceBlock, minimalEdit, parentBlock, same, splitLines, subtreeEndLine } from "./source-edit.js";
+import { annotationOffset, focusAt, locateSourceBlock, minimalEdit, parentBlock, same, splitLines, subtreeEndLine } from "./source-edit.js";
 import type { SourceEdit, SourceLine } from "./source-edit.js";
 import { explainSource } from "./source.js";
 import { FORMAT_VERSION, isNamedTarget } from "./types.js";
@@ -11,6 +12,9 @@ import type { Annotation, AstBlock, BearingKind, Diagnostic, ExplainedSource, Gr
  * A structural edit to recorded relations:
  *
  * - decide: give one relation another kind, such as [_] to [_ +> ^];
+ * - retarget: give one relation another target, named or positional, keeping
+ *   its kind, sources and place in the outline. A Ground left unbound beneath
+ *   a Question is bound instead: it supports the selected target;
  * - separate: replace a member-sourced constructor with one relation per
  *   member, such as [_ +> ^] over a and b to [G] a and [G] b;
  * - join: replace adjacent sibling relations of one kind and target with one
@@ -20,13 +24,14 @@ import type { Annotation, AstBlock, BearingKind, Diagnostic, ExplainedSource, Gr
  */
 export type RelationEdit =
   | { operation: "decide"; line: number; kind: BearingKind }
+  | { operation: "retarget"; line: number; target: TargetTerm }
   | { operation: "separate"; line: number }
   | { operation: "join"; lines: number[] };
 export type RelationEditOptions = RelationEdit & { mode?: SourceParseMode };
 
 export type RelationEditUnavailableReason =
   | "invalid-line" | "invalid-operation" | "source-errors" | "no-relation" | "unchanged"
-  | "not-separable" | "not-joinable" | "invalid-result" | "preservation-failed";
+  | "not-separable" | "not-joinable" | "profiled-relation" | "invalid-result" | "preservation-failed";
 
 export type RelationEditPreview = {
   version: string;
@@ -85,14 +90,21 @@ export function previewRelationEditFrom(source: string, before: ExplainedSource,
   const unavailable = (reason: RelationEditUnavailableReason, message: string): RelationEditPreview => ({ ...base, status: "unavailable", reason, message });
   const lines = options.operation === "join" ? options.lines : [options.line];
   if (!Array.isArray(lines) || !lines.length || lines.some(line => !Number.isSafeInteger(line) || line < 1)) return unavailable("invalid-line", "Select positive, one-based source lines.");
-  if (!["decide", "separate", "join"].includes(options.operation)) return unavailable("invalid-operation", "Choose decide, separate or join.");
+  if (!["decide", "retarget", "separate", "join"].includes(options.operation)) return unavailable("invalid-operation", "Choose decide, retarget, separate or join.");
   if (before.diagnostics.some(d => d.severity === "error")) return unavailable("source-errors", "Fix errors in the complete input before preparing an edit.");
 
-  const planned = options.operation === "decide" ? planDecide(source, before, options.line, options.kind)
+  const planned = options.operation === "decide" ? planRespell(source, before, options.line, { op: options.kind })
+    : options.operation === "retarget" ? planRespell(source, before, options.line, { target: options.target })
     : options.operation === "separate" ? planSeparate(source, before, options.line)
     : planJoin(source, before, options.lines);
   if ("reason" in planned) return unavailable(planned.reason, planned.message);
   const { plan, proposedSource } = planned;
+  // Whether several examples form one joint example, or an example remains
+  // one under another kind, is not decided by matching profiles.
+  const edited = [...plan.replaced, ...plan.continued];
+  if (plan.unit.graph.bearings.some(b => b.profile && edited.includes(b.key))) {
+    return unavailable("profiled-relation", "This relation is offered by example. Joining, separating or changing its kind would have to drop or reinterpret that profile, which this edit does not promise; edit the source deliberately instead.");
+  }
 
   const after = explainSource(proposedSource, before.mode);
   const errors = after.diagnostics.filter(d => d.severity === "error");
@@ -124,14 +136,29 @@ export function previewRelationEditFrom(source: string, before: ExplainedSource,
 
 type Planned = { plan: Plan; proposedSource: string } | { reason: RelationEditUnavailableReason; message: string };
 
-function planDecide(source: string, before: ExplainedSource, line: number, kind: BearingKind): Planned {
+// One header changes and its Bearing continues: with another kind, or another target.
+function planRespell(source: string, before: ExplainedSource, line: number, change: { op: BearingKind } | { target: TargetTerm }): Planned {
   const located = locate(before, line);
   if (!located) return { reason: "no-relation", message: "Select an occurrence or constructor that authors a validated Bearing." };
-  const { unit, block, clause, bearing } = located;
-  if (clause.op === kind) return { reason: "unchanged", message: `This relation is already ${kind}.` };
+  const { unit, block, clause, bearing, focus } = located;
   const annotation = block.annotation!;
+  let header: string;
+  if ("op" in change) {
+    if (clause.op === change.op) return { reason: "unchanged", message: `This relation is already ${change.op}.` };
+    header = decidedHeader(annotation, clause, change.op, focus);
+  } else {
+    const term = change.target;
+    const valid = term && typeof term === "object" && (isNamedTarget(term) ? /^[a-z][a-z0-9_-]*$/.test(String(term.id)) : term.local === "point" || term.local === "bearing");
+    if (!valid) return { reason: "invalid-operation", message: "Give the new target as a name, ^ or ^/." };
+    if (JSON.stringify(clause.target) === JSON.stringify(term)) return { reason: "unchanged", message: `This relation already targets ${targetSpelling(term)}.` };
+    // An unbound Ground has no support to move: selecting its target binds
+    // the intention, so the mark's own relation is constructed toward it.
+    const role = annotation.kind === "role" || annotation.kind === "use" ? annotation.role : undefined;
+    const binds = focus && !("operatorClause" in annotation && annotation.operatorClause) && !("selector" in annotation && annotation.selector) && leavesIntentionUnbound(role, focus);
+    header = respellClause(annotation, binds ? { op: MARK_RELATIONS[role!]!, target: term } : { target: term }, focus);
+  }
   const offset = annotationOffset(source, block, before.mode)!;
-  const proposedSource = source.slice(0, offset) + decidedHeader(annotation, clause, kind) + source.slice(offset + annotation.raw.length);
+  const proposedSource = source.slice(0, offset) + header + source.slice(offset + annotation.raw.length);
   return { plan: { unit, lines: splitLines(source, before.mode), lineMap: l => l, replaced: [], createdLines: [], continued: [bearing] }, proposedSource };
 }
 
@@ -141,7 +168,7 @@ function planSeparate(source: string, before: ExplainedSource, line: number): Pl
   if (!located || annotation?.kind !== "bearing" || !annotation.members) {
     return { reason: "not-separable", message: "Select a constructor whose direct neutral children are its sources." };
   }
-  const { unit, block, clause, bearing } = located;
+  const { unit, block, clause, bearing, focus } = located;
   if (annotation.handle || block.text) {
     return { reason: "not-separable", message: "The constructor's handle and description belong to the joint relation, which separation removes; move or drop them first." };
   }
@@ -172,7 +199,7 @@ function planSeparate(source: string, before: ExplainedSource, line: number): Pl
     const at = edited[child.sourceSpan.startLine - 1];
     const column = child.sourceSpan.startColumn - 1 - (memberDash - constructorDash);
     const raw = child.annotation!.raw;
-    at.text = at.text.slice(0, column) + "[" + occurrenceHeader(child.annotation!, clause.op, clause.target) + "]" + at.text.slice(column + raw.length + 2);
+    at.text = at.text.slice(0, column) + "[" + occurrenceHeader(child.annotation!, clause.op, clause.target, focus) + "]" + at.text.slice(column + raw.length + 2);
   }
   const removed = first - block.sourceSpan.startLine;
   const kept = [...edited.slice(0, block.sourceSpan.startLine - 1), ...edited.slice(first - 1)];
@@ -249,10 +276,11 @@ function locate(before: ExplainedSource, line: number) {
   if (!located) return undefined;
   const { unitIndex: index, block, entry } = located;
   const blocks = before.documents[index].blocks;
-  const clause = expandedClause(block.annotation);
+  const focus = focusAt(blocks, block);
+  const clause = expandedClause(block.annotation, focus);
   const emission = entry?.effects.find(e => e.kind === "emitBearing");
   if (!clause || !emission || emission.kind !== "emitBearing") return undefined;
-  return { unit: { index, graph: before.graphs[index], blocks }, block, clause, bearing: emission.bearing.key };
+  return { unit: { index, graph: before.graphs[index], blocks }, block, clause, bearing: emission.bearing.key, focus };
 }
 
 /** Pair entities by where the edit moved their lines. */
@@ -281,22 +309,38 @@ function correspondenceByLine(plan: Plan, after: GraphIR): Correspondence {
  * rather than [G -> ^]; Q, C and neutral marks keep their own meaning and
  * write the clause instead.
  */
-function decidedHeader(annotation: Annotation, clause: OperatorClause, kind: BearingKind): string {
+function decidedHeader(annotation: Annotation, clause: OperatorClause, kind: BearingKind, focus: Focus | undefined): string {
   const role = annotation.kind === "role" || annotation.kind === "use" ? annotation.role : undefined;
   const next = RELATION_MARKS.get(kind);
-  if (role && role !== "Q" && MARK_RELATIONS[role] === clause.op && next && !("operatorClause" in annotation && annotation.operatorClause)) {
+  // The new mark must state the new kind where it stands: beneath a Question, G does not support.
+  const stated = next && ("selector" in annotation && annotation.selector ? MARK_RELATIONS[next] === kind : marks(next, kind, focus));
+  if (role && role !== "Q" && MARK_RELATIONS[role] === clause.op && stated && !("operatorClause" in annotation && annotation.operatorClause)) {
     // Only the mark letter changes; a selector slash, operand and handle stay.
     return annotation.raw.replace(/^(\s*)[GORD]/, `$1${next}`);
   }
-  return respellClause(annotation, { op: kind });
+  // Deciding a mark's own relation down to relevance leaves nothing for the
+  // mark to state: beneath a Point focus the neutral mark records it.
+  if (role && role !== "Q" && MARK_RELATIONS[role] === clause.op && kind === "concerns" && marks(undefined, kind, focus)
+    && !isNamedTarget(clause.target) && clause.target.local === "point" && !("operatorClause" in annotation && annotation.operatorClause)) {
+    return annotation.raw.replace(/^(\s*)[GORD]/, "$1.");
+  }
+  return respellClause(annotation, { op: kind }, focus);
 }
 
 /** A member's header as a separate occurrence stating the constructor's relation. */
-function occurrenceHeader(annotation: Annotation, op: BearingKind, target: TargetTerm): string {
+function occurrenceHeader(annotation: Annotation, op: BearingKind, target: TargetTerm, focus: Focus | undefined): string {
   const operand = annotation.kind === "use" ? ` use @${annotation.ref!.id}` : "anchor" in annotation && annotation.anchor ? ` @${annotation.anchor}` : "";
   const mark = RELATION_MARKS.get(op);
-  if (mark && !isNamedTarget(target)) return mark + (target.local === "bearing" ? "/" : "") + operand;
+  if (!isNamedTarget(target)) {
+    if (target.local === "bearing" && mark) return mark + "/" + operand;
+    if (target.local === "point" && marks(mark, op, focus)) return (mark ?? ".") + operand;
+  }
   return (mark ?? ".") + operand + ` ${operatorSymbol(op) ?? op} ${targetSpelling(target)}`;
+}
+
+/** Whether a bare mark (undefined for the neutral .) constructs exactly this kind beneath the focus. */
+function marks(mark: Role | undefined, kind: BearingKind, focus: Focus | undefined): boolean {
+  return !!focus && defaultRelation(mark, focus) === kind && !leavesIntentionUnbound(mark, focus);
 }
 
 /** An occurrence's header as a neutral member: its operand without mark or clause. */

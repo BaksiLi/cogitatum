@@ -1,6 +1,6 @@
 {
   "mode": "document",
-  "diagnostics": [],
+  "diagnostics": [{ "line": 2, "code": "OPPOSED_FRAMING", "severity": "suggestion" }],
   "graphs": [
     {
       "points": [

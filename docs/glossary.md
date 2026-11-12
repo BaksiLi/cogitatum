@@ -42,7 +42,7 @@ See the [syntax reference](syntax.md#bearing-constructors) for other relations a
 | Handle | 係名 | An authored name for a Bearing, written after `;`. / 以 `;` 寫在後面、為係所取的名字。 |
 | Attachment | 附接 | The Bearing a Point occurrence constructs to its target, by default, selector or explicit clause; `G/`, `O/`, `Q/` and `D/` beneath it select that attachment. / 點的某一出現處（依預設、選取或明示關係）向其目標建構的係；其下的 `G/`、`O/`、`Q/` 與 `D/` 選取它。 |
 | Route | 路徑 | Informal word for a Bearing seen as a step of reasoning, often named by a handle; not a separate type. / 把係視作推理步驟時的非正式說法，常以係名指稱；並非另一種類型。 |
-| Target term | 目標項 | The one target every relation ends in: `@name`, `^` for the nearest enclosing Point, or `^/` for the locally exposed Bearing; a mark such as `[G]` abbreviates `[G +> ^]`. / 每個關係都指向的唯一目標：`@name`、`^`（最近的外層點）或 `^/`（局部呈現的係）；`[G]` 等標記是 `[G +> ^]` 的簡寫。 |
+| Target term | 目標項 | The one target every relation ends in: `@name`, `^` for the nearest enclosing Point, or `^/` for the locally exposed Bearing; beneath a non-Question focus `[G]` abbreviates `[G +> ^]`. / 每個關係都指向的唯一目標：`@name`、`^`（最近的外層點）或 `^/`（局部呈現的係）；在非問題焦點下，`[G]` 是 `[G +> ^]` 的簡寫。 |
 
 ## Points / 點
 
@@ -53,11 +53,11 @@ See the [syntax reference](syntax.md#bearing-constructors) for other relations a
 | `[G]` | Ground | 依據 | 用以支持所論的理由或材料。 |
 | `[O]` | Objection | 駁議 | 對所論提出的異議或反對解釋。 |
 | `[R]` | Response | 回應 | 對另一個 Point 所作的回覆，不限於異議。 |
-| `[D]` | Distinction | 辨別 | 指出有助釐清所論的區別。 |
+| `[D]` | Distinction | 辨別 | 提出對所論的讀法，辨別是其中一種方式。 |
 | `[.]`, `[. @passage]` | Neutral Point | 中性點 | 沒有指定角色的內容，可選擇命名。 |
 | `[. use @p]`, `[G use @p]` | Point use | 點的引用 | 再次使用同一個點；此處所寫的標記只作用於此處。 |
 | — | Declaration | 宣告 | 引入一個新點，並寫明其初始標記。 |
-| `G/`, `O/`, `Q/`, `D/` | Local selector | 局部選取 | 支持、質疑、提問關涉或釐清最近建構處所呈現的係；即目標 `^/`。 |
+| `G/`, `O/`, `Q/`, `D/` | Local selector | 局部選取 | 支持、質疑、提問關涉或詮釋最近上下文所呈現的係；即目標 `^/`。 |
 
 See [Points](points.md) for roles, neutral content, and names.
 
@@ -68,10 +68,15 @@ See [Points](points.md) for roles, neutral content, and names.
 | `+>` | supports | 支持 | 正面作用於目標；不認證推論有效或依據充分。 |
 | `->` | challenges | 質疑 | 對目標 Point 或 Bearing 提出反對。 |
 | `~>` | concerns | 關涉 | 記錄相關性，不承諾正面或反面作用。 |
-| Explicit `answers` | answers | 回答 | 作者明示某個 Point 回答另一個 Point；Q 下的 C 不自動產生此關係。 |
-| Response beneath a Point | respondsTo | 回應 | R 回應最近的外層 Point，不要求目標標成 O。 |
-| Distinction beneath a Point | clarifies | 釐清 | D 用來釐清最近的外層 Point；`D/` 或 `clarifies ^/` 釐清一個係。 |
+| C beneath Q, or explicit `answers` | answers | 回答 | 提出可能的答案，也可間接作答；不判定答案充分或問題已解決。 |
+| Response beneath a Point | respondsTo | 回應 | 記錄對另一個 Point 的承接；不預設回答、反駁、對話雙方或輪次。 |
+| D beneath a Point, or D/ | interprets | 詮釋 | 提出對點或係的讀法；不保證釐清成功或讀法正確。 |
 | Question beneath a Point | concerns | 關涉 | Q 關涉最近的外層 Point，不表示支持或質疑。 |
+
+`by example` qualifies a `supports` Bearing: its sources are offered as one example, without asserting truth, representativeness or sufficiency.
+`by example` 修飾支持的係，表示來源共同作為一個例子提出，不保證為真、具有代表性或充分。
+G directly beneath Q records relevance with an unbound support intention; other Point focuses give G its default support.
+Q 下的 G 記錄相關性與尚未綁定目標的支持意向；其他點焦點下的 G 預設支持該焦點。
 
 See [Bearings](bearings.md) for indentation, joint support, and target restrictions,
 and the [quick start](quick-start.md#writing-and-reconstruction) for a reconstruction example.

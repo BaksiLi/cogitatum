@@ -12,8 +12,8 @@ const typesSource = await readFile("packages/core/src/types.ts", "utf8");
 const formatVersion = /FORMAT_VERSION\s*=\s*"([^"]+)"/.exec(typesSource)?.[1];
 
 const expectedPackage = rootPackage.version;
-// New reserved families and typed literal notes change source interpretation.
-const expectedFormat = "0.6.0";
+// Focus-selected defaults, the interprets kind, example support and the lexical retirements change source interpretation.
+const expectedFormat = "0.7.0";
 // A CLI/API-only compatibility change can advance packages without changing
 // the language format. Check each family internally, not against the other.
 const packages = new Map([

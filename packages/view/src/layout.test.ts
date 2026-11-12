@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { compileSource } from "@cogitatum/core";
 import { projectExploration, projectGraph, referenceKey } from "./projection.js";
 import { layoutGraph, relaxLayout } from "./layout.js";
-import { BEARING_MARKS, POINT_MARKS, bearingMark, isJoint, pointMark } from "./marks.js";
+import { BEARING_MARKS, POINT_MARKS, bearingLabel, bearingMark, isJoint, pointMark } from "./marks.js";
 import { readingLanes, readingPorts } from "./reading.js";
 
 const fixture = (name: string) => readFileSync(new URL(`../../../fixtures/${name}`, import.meta.url), "utf8");
@@ -185,6 +185,14 @@ describe("reading rail", () => {
 });
 
 describe("shared mark vocabulary", () => {
+  it("distinguishes example support in words without another mark kind", () => {
+    expect(bearingLabel("supports", "example")).toBe("supports by example");
+    expect(bearingLabel("supports")).toBe("supports");
+    expect(bearingLabel("interprets")).toBe("interprets");
+    expect(BEARING_MARKS).not.toHaveProperty("clarifies");
+    expect(BEARING_MARKS).not.toHaveProperty("example");
+  });
+
   it("uses canonical names without an openness mark", () => {
     expect(Object.values(POINT_MARKS).map(m => m.name)).toEqual(["Question", "Claim", "Ground", "Objection", "Response", "Distinction", "Neutral Point"]);
     expect(Object.keys(POINT_MARKS)).toEqual(["Q", "C", "G", "O", "R", "D", "Material"]);
@@ -194,7 +202,7 @@ describe("shared mark vocabulary", () => {
     expect(pointMark("O").zh).toBe("駁議");
     expect(bearingMark("challenges").zh).toBe("質疑");
     expect(bearingMark("concerns").tone).toBe("neutral");
-    expect(Object.keys(BEARING_MARKS).sort()).toEqual(["answers", "challenges", "clarifies", "concerns", "respondsTo", "supports"]);
+    expect(Object.keys(BEARING_MARKS).sort()).toEqual(["answers", "challenges", "concerns", "interprets", "respondsTo", "supports"]);
   });
 
   it("matches the glossary's canonical names and suggested readings", () => {

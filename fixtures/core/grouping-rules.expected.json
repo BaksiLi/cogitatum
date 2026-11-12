@@ -29,6 +29,13 @@
       ],
       "bearings": [
         {
+          "line": 3,
+          "kind": "answers",
+          "sources": [3],
+          "target": { "kind": "point", "line": 2 },
+          "derivedBy": "structural"
+        },
+        {
           "line": 4,
           "kind": "supports",
           "sources": [

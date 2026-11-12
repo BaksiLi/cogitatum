@@ -22,6 +22,6 @@ describe("explicit Claim openness retirement", () => {
     const { graph } = compileGraphWithExplain(parseDocument("- [Q @q] What happened?\n  - [C @candidate] The pool may be exhausted.\n    - [. @record ~> @candidate] Calibration record missing.\n- [G use @record +> @candidate] The absence is used as a reason here."));
     expect(graph.diagnostics).toEqual([]);
     expect(graph.points.map(point => point.declaration)).toEqual([{ form: "role", role: "Q" }, { form: "role", role: "C" }, { form: "material" }]);
-    expect(graph.bearings.map(bearing => bearing.kind)).toEqual(["concerns", "supports"]);
+    expect(graph.bearings.map(bearing => bearing.kind)).toEqual(["answers", "concerns", "supports"]);
   });
 });
