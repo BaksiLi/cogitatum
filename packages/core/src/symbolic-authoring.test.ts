@@ -94,7 +94,7 @@ describe("consolidated symbolic authoring", () => {
   it("does not let a Bearing-as-Point use supply a linked target or redirect its sources outward", () => {
     const { graph } = compile("- [. @premise] Premise.\n- [C @claim] Claim.\n- [_ @premise +> @claim; @route]\n- [C @outer] Outer.\n  - [. use @route]\n    - [_ +> ^; @joint]\n      - [. @first] First.\n      - [. @second] Second.");
     expect(graph.bearings.map(bearing => bearing.handle)).toEqual(["route"]);
-    expect(graph.diagnostics.map(diagnostic => diagnostic.code)).toEqual(["BEARING_IS_NOT_POINT_REFERENCE", "BEARING_IS_NOT_BEARING_SOURCE", "POINT_FOCUS_REQUIRES_POINT"]);
+    expect(graph.diagnostics.map(diagnostic => diagnostic.code)).toEqual(["BEARING_IS_NOT_POINT_REFERENCE"]);
     expect(graph.points).toHaveLength(5);
   });
 

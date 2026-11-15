@@ -252,3 +252,49 @@ describe("candidate answers and their reasons", () => {
     expect(formatExplain(compiled)).toContain("Presented as Ground; supports target unstated. The placement records relevance only.");
   });
 });
+
+/**
+ * Same position, two intentions: material the author relates to the focus, and
+ * material placed there but not (yet) attached. These pin what each current
+ * spelling costs and commits, as the comparison set for deciding whether
+ * outdenting remains the only way to keep an addressable Point unattached.
+ */
+describe("same position: related versus unattached material", () => {
+  const graphOf = (source: string) => {
+    const compiled = explainSource(source);
+    const graph = compiled.graphs[0];
+    const name = (key: string) => graph.points.find(p => p.key === key)?.id ?? graph.points.find(p => p.key === key)?.text ?? key;
+    return {
+      points: graph.points.map(p => p.id ?? p.text),
+      relations: graph.bearings.map(b => `${b.kind}(${b.sources.map(s => name(s.key)).join(",")} → ${name(b.target.key)})`),
+      codes: compiled.diagnostics.map(d => d.code)
+    };
+  };
+  const question = "- [Q @plan] 項目應延期嗎？\n";
+
+  it.each([
+    ["related, addressable: [.] beneath the focus", question + "  - [. @budget] 預算已用盡。",
+      { points: ["plan", "budget"], relations: ["concerns(budget → plan)"], codes: [] }],
+    ["related, offered as an answer: [C] beneath the Question", question + "  - [C @budget] 預算已用盡。",
+      { points: ["plan", "budget"], relations: ["answers(budget → plan)"], codes: [] }],
+    ["unattached, not addressable: body beneath the focus", question + "  - 預算已用盡。",
+      { points: ["plan"], relations: [], codes: [] }],
+    ["unattached, not addressable: a literal note beneath the focus", question + "  - [note] 預算已用盡。",
+      { points: ["plan"], relations: [], codes: [] }],
+    ["unattached, addressable: outdented to root", question + "- [. @budget] 預算已用盡。",
+      { points: ["plan", "budget"], relations: [], codes: [] }],
+    ["unattached here, related elsewhere: root declaration and a use beneath another focus",
+      question + "- [. @budget] 預算已用盡。\n- [C @scope] 範圍應縮減。\n  - [G use @budget]",
+      { points: ["plan", "budget", "scope"], relations: ["supports(budget → scope)"], codes: [] }]
+  ] as const)("%s", (_label, source, expected) => {
+    expect(graphOf(source)).toEqual(expected);
+  });
+
+  it("lets a Question heading reach Claims through an ordinary body section, with advice", () => {
+    expect(graphOf(question + "  - 背景\n    - [C @yes] 應延期。\n  - [C @no] 不應延期。")).toEqual({
+      points: ["plan", "yes", "no"],
+      relations: ["answers(yes → plan)", "answers(no → plan)"],
+      codes: ["IMPLICIT_ATTACHMENT_THROUGH_BODY"]
+    });
+  });
+});

@@ -32,6 +32,11 @@ Source that compiled under 0.6 can construct different relations; follow [Migrat
   `[G]ood` is now `MISSING_ANNOTATION_SEPARATOR` instead of silently a Ground with body `ood`.
 - Retire the `node` and `edge` family aliases; use `.`/`point` and `_`/`bearing`.
   The retired words stay recognised with `RETIRED_FAMILY_ALIAS` and construct no Bearing.
+- Diagnose `[./]` and `[./ @id]` as `UNSUPPORTED_LOCAL_BEARING_SELECTOR`, as `[C/]` already was, instead of reading them silently as body.
+  The message names `[. concerns ^/]` for relevance to the locally exposed Bearing; no relation is guessed.
+- Report a Point use whose operand fails once, at the use.
+  Its own relation and the occurrences that attach through it positionally fail for that reason and are counted in its explanation instead of each repeating `UNKNOWN_SOURCE`, `UNKNOWN_TARGET`, `POINT_FOCUS_REQUIRES_POINT`, `BEARING_IS_NOT_BEARING_SOURCE` or `UNRESOLVED_BEARING_TARGET`.
+  A named reference to the same missing id elsewhere is still reported where it is written.
 - Add `previewFramingEdit`, checked previews that re-mark an occurrence only when every relation is unchanged, or split an opposed framing into the aligned mark plus an unbound root use.
   Add the `retarget` relation edit, which moves one Bearing to a selected target and reports what it retracts and adds.
   `analyzeSourceEdits` accepts `framing` requests.

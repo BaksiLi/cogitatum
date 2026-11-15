@@ -180,13 +180,23 @@ function compileDocument(ast: DocumentAst) {
   }
 
   collectBearingSymbols(compiledBearings, symbols, diagnostics);
+  // A use whose operand fails is reported once, at the use; the relation it
+  // would have offered fails for that same reason and is not reported again.
+  const reportedOperands = new Set<string>();
+  const failedUses = new Map<string, Diagnostic>();
   for (const draft of explainDrafts) {
     if (draft.focus?.status !== "pending" || draft.focus.kind !== "point") continue;
     const result = resolvePointFocus(draft.focus.operand, symbols, draft.block.sourceSpan);
     draft.focus = result;
-    if (result.status === "rejected") diagnostics.push(result.diagnostic);
+    if (result.status === "rejected") {
+      diagnostics.push(result.diagnostic);
+      if (result.operand) {
+        reportedOperands.add(operandKey(result.operand.id, draft.block.sourceSpan));
+        if (!failedUses.has(result.operand.id)) failedUses.set(result.operand.id, result.diagnostic);
+      }
+    }
   }
-  const validation = validateBearings(compiledBearings, symbols, diagnostics);
+  const validation = validateBearings(compiledBearings, symbols, diagnostics, reportedOperands, failedUses);
   const validBearingKeys = new Set(validation.bearings.map(bearing => bearing.key));
   for (const draft of explainDrafts) {
     if (draft.selection?.origin !== "use") continue;
@@ -874,9 +884,15 @@ function collectBearingSymbols(
 function validateBearings(
   bearings: CandidateBearing[],
   symbols: SymbolTable,
-  diagnostics: Diagnostic[]
+  diagnostics: Diagnostic[],
+  reportedOperands: ReadonlySet<string> = new Set(),
+  failedUses: ReadonlyMap<string, Diagnostic> = new Map()
 ): BearingValidation {
   const validity = new Map<CandidateBearing, boolean>();
+  // Failures that follow only from a Point use already reported, keyed to
+  // that report: they are counted there instead of repeated beneath it.
+  const derivedFrom = new Map<CandidateBearing, Diagnostic>();
+  const failedUseBearings = new Map<CandidateBearing, Diagnostic>();
 
   for (const bearing of bearings) {
     let isValid = true;
@@ -884,7 +900,11 @@ function validateBearings(
     for (let index = 0; index < bearing.sources.length; index += 1) {
       const source = bearing.sources[index];
       const kind = classifyReference(source, symbols);
-      if (kind === "unknown") {
+      const reported = "id" in source && reportedOperands.has(operandKey(source.id, bearing.sourceSpan));
+      if (reported && (kind === "unknown" || kind === "bearing")) {
+        if (failedUses.has(source.id)) failedUseBearings.set(bearing, failedUses.get(source.id)!);
+        isValid = false;
+      } else if (kind === "unknown") {
         diagnostics.push({
           severity: "error",
           code: "UNKNOWN_SOURCE",
@@ -913,7 +933,10 @@ function validateBearings(
     }
 
     const targetKind = classifyReference(bearing.target, symbols);
-    if (targetKind === "point" || targetKind === "bearing") {
+    if (bearing.targetFocusKind === "point" && "id" in bearing.target && failedUses.has(bearing.target.id)) {
+      derivedFrom.set(bearing, failedUses.get(bearing.target.id)!);
+      isValid = false;
+    } else if (targetKind === "point" || targetKind === "bearing") {
       bearing.target = { key: resolveKey(bearing.target, symbols), kind: targetKind };
       if (bearing.targetFocusKind && targetKind !== bearing.targetFocusKind) {
         diagnostics.push({ severity: "error", code: bearing.targetFocusKind === "point" ? "POINT_FOCUS_REQUIRES_POINT" : "BEARING_FOCUS_REQUIRES_BEARING", message: bearing.targetFocusKind === "point" ? "The nearest Point use cannot supply a Bearing as its Point focus." : "The nearest Bearing use cannot supply a Point as its Bearing focus.", sourceSpan: bearing.sourceSpan });
@@ -976,6 +999,8 @@ function validateBearings(
     for (const dependent of dependents.get(bearings[index].key) ?? []) {
       if (!validity.get(bearings[dependent])) continue;
       validity.set(bearings[dependent], false);
+      const root = derivedFrom.get(bearings[index]) ?? failedUseBearings.get(bearings[index]);
+      if (root && bearings[dependent].targetFocusKind === "bearing") derivedFrom.set(bearings[dependent], root);
       rejected.push({ index: dependent, depth: depth + 1 });
     }
   }
@@ -985,12 +1010,20 @@ function validateBearings(
     .sort((a, b) => a.depth - b.depth || a.index - b.index);
   for (const { index } of propagated) {
     const bearing = bearings[index];
+    if (derivedFrom.has(bearing)) continue;
     diagnostics.push({
       severity: "error",
       code: "UNRESOLVED_BEARING_TARGET",
       message: `Target Bearing ${referenceLabel(bearing.target, symbols)} did not compile into canonical Graph IR.`,
       sourceSpan: bearing.sourceSpan
     });
+  }
+
+  const dependentCounts = new Map<Diagnostic, number>();
+  for (const root of derivedFrom.values()) dependentCounts.set(root, (dependentCounts.get(root) ?? 0) + 1);
+  for (const [root, count] of dependentCounts) {
+    const dependents = count === 1 ? "One occurrence beneath it attaches" : `${count} occurrences beneath it attach`;
+    root.explanation = [root.explanation, `${dependents} through this use and cannot compile until it resolves; ${count === 1 ? "it is" : "they are"} not reported separately.`].filter(Boolean).join(" ");
   }
 
   const accepted = bearings.filter((bearing) => validity.get(bearing));
@@ -1278,6 +1311,10 @@ function classifyId(id: string, symbols: SymbolTable): SymbolKind {
     return "bearing";
   }
   return "unknown";
+}
+
+function operandKey(id: string, sourceSpan: SourceSpan | undefined): string {
+  return sourceSpan ? `${id}@${sourceSpan.startLine}:${sourceSpan.startColumn}` : id;
 }
 
 function classifyReference(ref: BearingTarget | Ref, symbols: SymbolTable): SymbolKind {

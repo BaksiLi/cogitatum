@@ -73,8 +73,8 @@ describe("reference-only Point occurrences", () => {
     expect(graph.bearings.some(bearing => bearing.sources.some(ref => graph.points.find(point => point.key === ref.key)?.id === "child") && bearing.target.key === graph.points.find(point => point.id === "outer")?.key)).toBe(false);
     if (header === ". use @missing" || header === ". use @route") {
       expect(codes(graph)).toEqual(header === ". use @missing"
-        ? ["UNKNOWN_POINT_REFERENCE", "UNKNOWN_SOURCE", "UNKNOWN_TARGET", "UNRESOLVED_BEARING_TARGET"]
-        : ["BEARING_IS_NOT_POINT_REFERENCE", "BEARING_IS_NOT_BEARING_SOURCE", "POINT_FOCUS_REQUIRES_POINT", "UNRESOLVED_BEARING_TARGET"]);
+        ? ["UNKNOWN_POINT_REFERENCE"]
+        : ["BEARING_IS_NOT_POINT_REFERENCE"]);
     } else {
       expect(codes(graph)).toContain("NO_LOCAL_BEARING_ATTACHMENT");
     }
@@ -174,7 +174,7 @@ describe("reference-only Point occurrences", () => {
   it("never lets a failed Bearing-as-Point use supply a legal Bearing target to implicit descendants", () => {
     const { graph } = compile("- [C @claim] Claim.\n- [. @premise] Premise.\n- [_ @premise +> @claim; @route]\n- [. use @route]\n  - [G @child] Must not support route.\n  - [Q @gap] Must not be about route.\n  - [G @independent +> @claim] Independent relation.");
     // [G] and [Q] each state a relation to ^, so each reports the missing Point focus.
-    expect(codes(graph)).toEqual(["BEARING_IS_NOT_POINT_REFERENCE", "POINT_FOCUS_REQUIRES_POINT", "POINT_FOCUS_REQUIRES_POINT"]);
+    expect(codes(graph)).toEqual(["BEARING_IS_NOT_POINT_REFERENCE"]);
     expect(graph.bearings).toHaveLength(2);
     expect(graph.bearings.every(bearing => bearing.target.kind === "point")).toBe(true);
   });

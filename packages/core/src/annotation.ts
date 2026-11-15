@@ -29,7 +29,7 @@ const ROLE_HEADED_BEARING_RE = new RegExp(String.raw`^[QCGORD](?:\?|\/|_)?` + MA
 const RELATION_START_RE = /^(?:\+>|->|\/>|_>|~>)(?=$|\s)|^(?:supports|challenges|concerns|answers|respondsTo|repliesTo|interprets|clarifies|undercuts|about)(?=$|\s)/i;
 const GLUED_BEARING_FAMILY_RE = new RegExp(String.raw`^(\s*)(bearing|edge|_)(?=[QCGORD](?:[?/_])?` + MARK_END + ")", "i");
 const RESERVED_START_RE = new RegExp(
-  String.raw`^(?:(?:[QCGORD](?:\?|\/|_)?|\?[/_]?)` + MARK_END +
+  String.raw`^(?:(?:[QCGORD](?:\?|\/|_)?|\?[/_]?|\.\/)` + MARK_END +
   String.raw`|use(?=$|;|\s+@)|linked(?=$|[\s;])|join(?=$|[\s;])|@)`,
   "i"
 );
@@ -322,7 +322,7 @@ function parsePlainAnnotation(raw: string, sourceSpan?: SourceSpan): AnnotationP
     };
   }
 
-  const selectorIntent = /^([QCGORD?])\//i.exec(trimmed);
+  const selectorIntent = /^([QCGORD?]|\.(?=\/(?:$|[\s;@])))\//i.exec(trimmed);
   if (selectorIntent) {
     const role = selectorIntent[1].toUpperCase();
     if (!SELECTOR_MARK_RE.test(role + "/")) {
@@ -931,6 +931,7 @@ export function operatorSymbol(kind: BearingKind): string | undefined {
 
 // Hints guide authoring without changing diagnostic codes or severities.
 function pointOnlySelectorHint(token: string): string {
+  if (token === "./") return "Only G/, O/, Q/ and D/ select the locally exposed Bearing; . has no selector form. To relate this Point to the locally exposed Bearing, write [. concerns ^/]; to declare a neutral Point, write [.] or [. @id].";
   if (!/^R\/$/i.test(token)) return "";
   return "respondsTo requires a Point target, so there is no [R/]: write [R] for the nearest Point, or [R respondsTo @target] with a named Point target." + markCaseHint(token);
 }

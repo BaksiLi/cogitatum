@@ -174,3 +174,22 @@ describe("the node and edge family aliases are retired", () => {
     expect(edge.tokens.find(t => t.text === "edge")?.kind).toBe("retired");
   });
 });
+
+describe("0.7 diagnostic consolidation", () => {
+  it("reports [./] as a near-miss selector without reading it as body or guessing a relation", () => {
+    const { compiled: { diagnostics }, graph } = compile("- [C @x] 甲。\n  - [G @y] 乙。\n    - [./ @y] 丙。\n    - [./] 丁。\n    - [./run.sh] 腳本。");
+    expect(diagnostics.map(diagnostic => [diagnostic.code, diagnostic.sourceSpan?.startLine])).toEqual([
+      ["UNSUPPORTED_LOCAL_BEARING_SELECTOR", 3], ["UNSUPPORTED_LOCAL_BEARING_SELECTOR", 4]
+    ]);
+    expect(diagnostics[0].message).toContain("[. concerns ^/]");
+    expect(graph.bearings).toHaveLength(1);
+  });
+
+  it("reports a failed use once and counts the occurrences that attach through it", () => {
+    const { compiled: { diagnostics }, graph } = compile("- [C @outer] Outer.\n  - [. use @missing] Local use.\n    - [O/] Through its Bearing.\n    - [G @child] Through its Point.\n- [C @other] Other.\n  - [G +> @missing] Named elsewhere.");
+    expect(diagnostics.map(diagnostic => [diagnostic.code, diagnostic.sourceSpan?.startLine])).toEqual([
+      ["UNKNOWN_POINT_REFERENCE", 2], ["UNKNOWN_TARGET", 6]
+    ]);
+    expect(diagnostics[0].explanation).toContain("2 occurrences beneath it");
+  });
+});
