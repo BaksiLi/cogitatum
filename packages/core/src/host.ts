@@ -1,9 +1,18 @@
-import { FORMAT_VERSION } from "@cogitatum/core";
+import { FORMAT_VERSION } from "./types.js";
 import type {
   AstBlock, Bearing, BearingKind, BearingRef, BearingTarget, Diagnostic, ExplainedSource, ExplainEffect,
   ExplainEntry, ExplainRecognition, GraphIR, LocalBearingChildFunction, ObjectNote, PointRef, SourceParseMode, SourceSpan
-} from "@cogitatum/core";
-import { referenceKey } from "./projection.js";
+} from "./types.js";
+import { explainSource } from "./source.js";
+
+/**
+ * The host boundary: one source revision prepared as plain, serializable data for any renderer
+ * (Web View, a native text view, a terminal). It carries no DOM, functions or class instances,
+ * and its ids address entities only within this result, never across revisions.
+ */
+
+/** A stable string for a graph entity within one compilation. */
+export const referenceKey = (ref: BearingTarget): string => `${ref.kind}:${ref.key}`;
 
 export type ReadingReference =
   | { kind: "declares"; ref: PointRef; name?: string }
@@ -333,9 +342,6 @@ export function projectReading(source: string, explained: ExplainedSource): Read
   return { version: explained.version, mode: explained.mode, source, rows, units, diagnostics: explained.diagnostics };
 }
 
-/** A declared Point with no Bearing joining it to its outline parent: drawing placement only. */
-export type OutlineTie = { child: PointRef; parent: PointRef };
-
 /**
  * The occurrence an editor cursor on a one-based source line stands in.
  * An occurrence's span covers its own lines and children follow it in source order,
@@ -352,31 +358,10 @@ export function occurrenceAtLine(unit: ReadingUnit, line: number): ReadingOccurr
 }
 
 /**
- * Keep a nested declaration near its outline parent only when no Bearing joins the pair in either direction,
- * for example when its explicit clause names another target. Default relations already provide a connection.
- * A use, a failed occurrence, and a constructor member supply no tie; a Point use may still be the parent.
- * Ties record arrangement only, never a relation. Keys and ties belong to this source unit alone.
+ * Compile and project one source revision for a host. Pure and synchronous; it reads no files
+ * and calls nothing back. Use `projectReading` instead when the host already holds this revision's
+ * `explainSource` result, so diagnostics, highlighting and preview share one compilation.
  */
-export function outlineTies(unit: ReadingUnit): OutlineTie[] {
-  const eligible = new Set(unit.commitments.filter(commitment =>
-    (commitment.basis === "none" && commitment.reason !== "local-bearing-membership") ||
-    commitment.basis === "explicit" || commitment.basis === "indentation")
-    .map(commitment => commitment.occurrenceId));
-  const joined = new Set(unit.graph.bearings.flatMap(bearing =>
-    bearing.target.kind === "point"
-      ? bearing.sources.map(source => `${source.key}>${bearing.target.key}`)
-      : []));
-  const ties: OutlineTie[] = [], stack: { depth: number; point?: PointRef }[] = [];
-  for (const occurrence of unit.occurrences) {
-    while (stack.length && stack[stack.length - 1].depth >= occurrence.depth) stack.pop();
-    const declared = occurrence.references.find(reference => reference.kind === "declares")?.ref;
-    const parent = [...stack].reverse().find(entry => entry.point)?.point;
-    if (declared && parent && declared.key !== parent.key && eligible.has(occurrence.id) &&
-      !joined.has(`${declared.key}>${parent.key}`) && !joined.has(`${parent.key}>${declared.key}`)) {
-      ties.push({ child: declared, parent });
-    }
-    const used = occurrence.references.find(reference => reference.kind === "uses")?.ref;
-    stack.push({ depth: occurrence.depth, point: declared ?? (used?.kind === "point" ? used : undefined) });
-  }
-  return ties;
+export function prepareView(source: string, mode: SourceParseMode = "document"): ReadingProjection {
+  return projectReading(source, explainSource(source, mode));
 }

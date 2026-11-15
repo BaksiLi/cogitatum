@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { explainSource } from "@cogitatum/core";
 import { focusNeighborhood, projectExploration, projectGraph, referenceKey } from "./projection.js";
-import { projectReading } from "./reading-projection.js";
+import { projectReading } from "@cogitatum/core/host";
 
 const declarations = [
   "- [. @before] Original clause.",

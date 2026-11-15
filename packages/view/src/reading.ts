@@ -1,7 +1,7 @@
 import type { BearingTarget, Diagnostic, SourceSpan } from "@cogitatum/core";
 import { bearingLabel, bearingMark, createBearingChip, createMarkChip, drawBearingGlyph } from "./marks.js";
 import { focusNeighborhood, guidanceSubject, projectExploration, projectGraph, referenceKey, type GraphProjection } from "./projection.js";
-import type { ReadingCommitment, ReadingEndpoint, ReadingOccurrence, ReadingProjection } from "./reading-projection.js";
+import type { ReadingCommitment, ReadingEndpoint, ReadingOccurrence, ReadingProjection } from "@cogitatum/core/host";
 import { describeCommitment } from "./commitment.js";
 import { createProseScope, isProseInteraction, type ProseRenderer } from "./prose.js";
 

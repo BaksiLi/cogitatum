@@ -37,6 +37,8 @@ Source that compiled under 0.6 can construct different relations; follow [Migrat
   `analyzeSourceEdits` accepts `framing` requests.
 - Add `cog framing-edit --line N --remark <mark>|--split` and `cog relation-edit --retarget <@name|^|^/>`.
   `cog lsp` offers the checked framing repairs as quick fixes for `OPPOSED_FRAMING`.
+- Add `@cogitatum/core/host` with `prepareView(source, mode)`, the source-aware host view as plain, serializable data for Web, native and terminal renderers.
+  The former View `projectReading`, `occurrenceAtLine` and `referenceKey` move there unchanged, so native hosts no longer reconstruct roles, parents or endpoints themselves; private View now renders this data and `outlineTies` remains View's Map placement.
 - Align private View with the 0.7 contracts: commitment descriptions follow `frameOccurrence`, example support is labelled, and outline ties appear only where no Bearing already joins a Point to its outline parent.
 - Snapshot the 0.6.0 schemas under `spec/0.6.0/`; the 0.7.0 schemas validate format 0.7 only.
 

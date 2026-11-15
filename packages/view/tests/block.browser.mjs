@@ -9,13 +9,12 @@ const { build } = require('esbuild');
 const bundle = await build({
   stdin: {
     contents: `
-      import { explainSource } from '@cogitatum/core';
-      import { projectReading, referenceKey } from '@cogitatum/view';
+      import { prepareView, referenceKey } from '@cogitatum/core/host';
       import { createBlockView } from '@cogitatum/view/block';
       window.mount = (source, editable = true, version, logo) => {
         window.block?.destroy();
         window.requests = []; window.modes = [];
-        window.projection = projectReading(source, explainSource(source, 'document'));
+        window.projection = prepareView(source);
         window.block = createBlockView(document.querySelector('#host'), {
           version, logo,
           onMode: mode => window.modes.push(mode),

@@ -208,7 +208,8 @@ run(process.execPath, ["--conditions", "development", "--import", tsx, "--input-
 const integrationProbe = `
 import assert from 'node:assert/strict';
 import { compileSource, explainSource } from '@cogitatum/core';
-import { projectGraph, createGraphView, projectReading, createReadingView } from '@cogitatum/view';
+import { projectGraph, createGraphView, createReadingView } from '@cogitatum/view';
+import { prepareView, projectReading } from '@cogitatum/core/host';
 import { createBlockView } from '@cogitatum/view/block';
 const compiled = compileSource('- [C @claim] A claim.\\n  - [G] A reason.\\n', 'document');
 assert.equal(projectGraph(compiled.graphs[0]).nodes.length, 3);
@@ -216,7 +217,8 @@ assert.equal(typeof createGraphView, 'function');
 assert.equal(typeof createReadingView, 'function');
 assert.equal(typeof createBlockView, 'function');
 const readingSource = '- [C @p] Original.\\n- [. use @p] Here.\\n  - [O] Local concern.';
-const reading = projectReading(readingSource, explainSource(readingSource));
+const reading = prepareView(readingSource);
+assert.deepEqual(reading, projectReading(readingSource, explainSource(readingSource)));
 assert.equal(reading.rows.length, 3);
 assert.equal(reading.units[0].bearings[0].target.occurrenceId, reading.units[0].occurrences[1].id);
 assert.equal(reading.units[0].bearings[0].target.basis, 'context');
@@ -270,7 +272,8 @@ assert.deepEqual(cliReferences, apiReferences);
 assert.equal(cliReferences.references.status, "complete");
 
 writeFileSync(join(temporary, "consumer.mts"), `import {type Point, type PointDeclaration, type Bearing, type Annotation, type ObjectNote, type OperatorClause, type ExplainEmittedBearingSummary, type ExplainRecognition, type SourceReferenceAnalysis, type ReferencedName, type WrittenReference, type TargetFormPreview, type TargetTerm, type SourceEdit, type SourceEditAnalysis, previewTargetForm, analyzeSourceEdits, analyzeSourceReferences, explainSource, formatExplain, EXPLAIN_TEXT_VERSION, formatGraph, GRAPH_TEXT_VERSION, compileGraph, parseDocument} from '@cogitatum/core';
-import { createGraphView, declarationMark, projectReading, createReadingView, type ReadingProjection } from '@cogitatum/view';
+import { createGraphView, declarationMark, createReadingView } from '@cogitatum/view';
+import { prepareView, projectReading, type ReadingProjection } from '@cogitatum/core/host';
 import { createBlockView, type BlockEditRequest, type BlockView } from '@cogitatum/view/block';
 function mountHostBlock(container: HTMLElement): BlockView {
   return createBlockView(container, { onEdit(request: BlockEditRequest) {
@@ -337,6 +340,9 @@ const mount = (container: HTMLElement) => {
   // @ts-expect-error Occurrence selection requires its local id, not a graph entity.
   reading.selectOccurrence({ kind: 'point', key: '_p1' });
   const projected: ReadingProjection = projectReading('- [C] Claim.', explainSource('- [C] Claim.'));
+  const prepared: ReadingProjection = prepareView('Host prose only.', 'host');
+  // @ts-expect-error Retired auto source mode is not a host mode.
+  prepareView('- [C] Claim.', 'auto');
   reading.update(projected);
   reading.update(projected, {notifyClear: false});
   // @ts-expect-error Clear notification is a boolean policy, not a string.

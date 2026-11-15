@@ -1,11 +1,11 @@
-import { explainSource, type BearingTarget, type GraphIR, type SourceSpan } from "@cogitatum/core";
+import type { BearingTarget, GraphIR, SourceSpan } from "@cogitatum/core";
+import { occurrenceAtLine, prepareView, referenceKey, type ReadingProjection } from "@cogitatum/core/host";
 import { createGraphView, type GraphView } from "./index.js";
 import { createReadingView } from "./reading.js";
 import { createStrandsView, type StrandsView } from "./strands.js";
-import { occurrenceAtLine, outlineTies, projectReading } from "./reading-projection.js";
 import { MAP_CONTROLS } from "./map-controls.js";
 import { bearingLabel, declarationMark } from "./marks.js";
-import { referenceKey } from "./projection.js";
+import { outlineTies } from "./projection.js";
 import { createProseScope, type ProseRenderer } from "./prose.js";
 
 export type { ProseRenderer } from "./prose.js";
@@ -150,7 +150,7 @@ export function createBlockView(container: HTMLElement, options: BlockViewOption
 
   let mode: BlockMode = "reading", source: string | undefined, graph: GraphIR | undefined, map: GraphView | undefined;
   let strands: StrandsView | undefined;
-  let projection: ReturnType<typeof projectReading> | undefined;
+  let projection: ReadingProjection | undefined;
   let selected: BearingTarget | undefined, selectedSpan: SourceSpan | undefined;
   let syncing = false, destroyed = false, interacted = false;
   let dialog: HTMLDialogElement | undefined, reservedHeight = "", editing: AbortController | undefined;
@@ -321,15 +321,14 @@ export function createBlockView(container: HTMLElement, options: BlockViewOption
       source = next; cancelEdit();
       selected = undefined; selectedSpan = undefined; clearDetail(); updateEditTitle();
       try {
-        const explained = explainSource(next, "document");
-        graph = explained.graphs[0];
-        projection = projectReading(next, explained);
+        projection = prepareView(next);
+        graph = projection.units[0]?.graph;
         if (!graph) { map?.destroy(); map = undefined; strands?.destroy(); strands = undefined; }
         sync(() => { reading.update(projection!); map?.clear(); if (graph) { map?.update(graph, "code-block", { outline: outlineTies(projection!.units[0]) }); strands?.update(graph); } });
         modeButtons.get("map")!.disabled = !graph || (!graph.points.length && !graph.bearings.length);
         modeButtons.get("strands")!.disabled = !graph?.points.length;
-        const errors = explained.diagnostics.filter(diagnostic => diagnostic.severity === "error").length;
-        const count = explained.diagnostics.length;
+        const errors = projection.diagnostics.filter(diagnostic => diagnostic.severity === "error").length;
+        const count = projection.diagnostics.length;
         issues.textContent = `${count} issue${count === 1 ? "" : "s"}`;
         issues.setAttribute("aria-label", `Diagnostics (${count} issue${count === 1 ? "" : "s"}${errors ? `, ${errors} error${errors === 1 ? "" : "s"}` : ""})`);
         issues.classList.toggle("has-errors", errors > 0);

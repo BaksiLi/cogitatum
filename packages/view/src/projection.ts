@@ -1,5 +1,6 @@
-import type { BearingKind, BearingProfile, BearingTarget, GraphIR, Point, SourceSpan } from "@cogitatum/core";
+import type { BearingKind, BearingProfile, BearingTarget, GraphIR, Point, PointRef, SourceSpan } from "@cogitatum/core";
 import { FORMAT_VERSION } from "@cogitatum/core";
+import { referenceKey, type ReadingUnit } from "@cogitatum/core/host";
 import { declarationMark } from "./marks.js";
 
 export type GraphNode = {
@@ -17,7 +18,7 @@ export type GraphNode = {
 export type GraphLink = { source: string; target: string; bearingKey: string; segment: "input" | "output"; kind?: BearingKind };
 export type GraphProjection = { nodes: GraphNode[]; links: GraphLink[] };
 export type PositionedNode = GraphNode & { x: number; y: number };
-export const referenceKey = (ref: BearingTarget): string => `${ref.kind}:${ref.key}`;
+export { referenceKey };
 
 function requireCurrentGraph(graph: GraphIR): void {
   if (graph.version !== FORMAT_VERSION) throw new Error(`Unsupported graph format ${graph.version}; expected ${FORMAT_VERSION}. Recompile retained source.`);
@@ -121,4 +122,37 @@ export function projectExploration(projection: GraphProjection): GraphProjection
     }),
     inlineBearings
   };
+}
+
+/** A declared Point with no Bearing joining it to its outline parent: drawing placement only. */
+export type OutlineTie = { child: PointRef; parent: PointRef };
+
+/**
+ * Keep a nested declaration near its outline parent only when no Bearing joins the pair in either direction,
+ * for example when its explicit clause names another target. Default relations already provide a connection.
+ * A use, a failed occurrence, and a constructor member supply no tie; a Point use may still be the parent.
+ * Ties record arrangement only, never a relation. Keys and ties belong to this source unit alone.
+ */
+export function outlineTies(unit: ReadingUnit): OutlineTie[] {
+  const eligible = new Set(unit.commitments.filter(commitment =>
+    (commitment.basis === "none" && commitment.reason !== "local-bearing-membership") ||
+    commitment.basis === "explicit" || commitment.basis === "indentation")
+    .map(commitment => commitment.occurrenceId));
+  const joined = new Set(unit.graph.bearings.flatMap(bearing =>
+    bearing.target.kind === "point"
+      ? bearing.sources.map(source => `${source.key}>${bearing.target.key}`)
+      : []));
+  const ties: OutlineTie[] = [], stack: { depth: number; point?: PointRef }[] = [];
+  for (const occurrence of unit.occurrences) {
+    while (stack.length && stack[stack.length - 1].depth >= occurrence.depth) stack.pop();
+    const declared = occurrence.references.find(reference => reference.kind === "declares")?.ref;
+    const parent = [...stack].reverse().find(entry => entry.point)?.point;
+    if (declared && parent && declared.key !== parent.key && eligible.has(occurrence.id) &&
+      !joined.has(`${declared.key}>${parent.key}`) && !joined.has(`${parent.key}>${declared.key}`)) {
+      ties.push({ child: declared, parent });
+    }
+    const used = occurrence.references.find(reference => reference.kind === "uses")?.ref;
+    stack.push({ depth: occurrence.depth, point: declared ?? (used?.kind === "point" ? used : undefined) });
+  }
+  return ties;
 }

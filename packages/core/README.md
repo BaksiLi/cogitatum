@@ -169,6 +169,35 @@ An editor that has already called `explainSource(source, mode)` may pass that re
 The result is a separate analysis projection, not an instance of the Source envelope schema; `version` identifies the underlying format, while the package/source revision identifies this API.
 No existing AST, Graph IR, Explain or Source schema is extended.
 
+## Host view
+
+`@cogitatum/core/host` prepares one source revision as plain data for any renderer: the Web View, a native text view, or a terminal.
+
+```ts
+import { occurrenceAtLine, prepareView } from '@cogitatum/core/host';
+
+const view = prepareView(source, 'host'); // 'document' for a bare inquiry.
+const unit = view.units[0];
+const here = unit && occurrenceAtLine(unit, cursorLine);
+```
+
+`prepareView` is pure and synchronous: it reads no files, calls nothing back and touches no DOM, so it also runs inside JavaScriptCore or a worker.
+The result is JSON-serializable and versioned by the format; ids address entities only within that result, never across revisions.
+A host that already holds this revision's `explainSource` result calls `projectReading(source, explained)` instead, so diagnostics, highlighting and preview share one compilation.
+
+Rows cover every source line in order, including blank lines, host prose, fences, literal note descendants and malformed lines.
+One multiline block occupies one occurrence row, with a span from header content through its last continuation;
+its `raw` holds the complete original physical lines joined with LF.
+Occurrences expose their local text, recognition, diagnostics and typed `declares`, `uses`, `annotates` or `constructs` references,
+so the same Point can be a Ground at one occurrence and an Objection's use at another.
+A rejected summary never becomes a graph reference.
+Each unit carries its graph, Bearings with display endpoints, notes with their literal content, and the commitment each active occurrence makes:
+whether indentation, a named target or constructor membership chose its relation, under which framing, or why none was built.
+Renderers present this data; they do not resolve names, targets or roles again.
+
+The projection indexes Core's evidence and never reconstructs a target from indentation or nearby names.
+Source and compiler mismatches detectable from the supplied evidence throw; this is not a revision authentication mechanism.
+
 ## Highlighting
 
 `tokenizeSource(source)` returns one `SourceLine` per line of a document-mode unit, whose token texts concatenate back to the line exactly:

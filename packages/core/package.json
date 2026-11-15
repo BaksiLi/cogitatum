@@ -34,6 +34,11 @@
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
     },
+    "./host": {
+      "@cogitatum/source": "./src/host.ts",
+      "types": "./dist/host.d.ts",
+      "default": "./dist/host.js"
+    },
     "./schemas/ast": "./dist/schemas/ast.schema.json",
     "./schemas/graph-ir": "./dist/schemas/graph-ir.schema.json",
     "./schemas/explain": "./dist/schemas/explain.schema.json",

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { explainSource } from "../../core/src/index.js";
 import { describeCommitment } from "./commitment.js";
-import { projectReading } from "./reading-projection.js";
+import { projectReading } from "@cogitatum/core/host";
 
 const source = [
   "- [C @c] Claim.",

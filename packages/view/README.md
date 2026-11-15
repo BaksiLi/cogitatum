@@ -36,7 +36,7 @@ block.destroy();
 ```
 
 Supply one document-mode inquiry fragment, without its host Markdown fence.
-Each changed source is compiled once and clears selection and pending navigation from the old revision.
+Each changed source is prepared once with `prepareView` and clears selection and pending navigation from the old revision.
 The chosen mode (`reading`, `map` or `strands`) and the live Map instance survive updates; an empty fragment returns to Reading.
 Read, Map and Strands form one tablist; Left/Right wrap through available views, and Home/End reach its ends.
 Selection is shared across the three modes; Challenge Focus stays within Strands.
@@ -194,11 +194,11 @@ Strands adds no weight, strength, resolution or outcome; its layout is a reading
 ## Reading
 
 Reading presents the original source in order, with connections at the occurrences where they are used.
-Supply the complete original string and its `explainSource` result from the **same revision**:
+It renders the host view that [`@cogitatum/core/host`](../core/README.md#host-view) prepares for one source revision:
 
 ```ts
-import { explainSource } from '@cogitatum/core';
-import { createReadingView, projectReading } from '@cogitatum/view';
+import { prepareView } from '@cogitatum/core/host';
+import { createReadingView } from '@cogitatum/view';
 import '@cogitatum/view/style.css';
 
 const reading = createReadingView(container, {
@@ -207,14 +207,14 @@ const reading = createReadingView(container, {
   onNavigate(selection) { openSource(selection.sourceSpan); },
   onNavigateDiagnostic(diagnostic) { openSource(diagnostic.sourceSpan); }
 });
-const projection = projectReading(originalSource, explainSource(originalSource, 'host'));
-reading.update(projection);
-// After an edit, recompile and project the entire input again.
+reading.update(prepareView(originalSource, 'host'));
+// After an edit, prepare the entire input again.
 // On unmount:
 reading.destroy();
 ```
 
-For editor-to-Reading navigation, call `reading.selectOccurrence(occurrence.id, optionalRef)` using the current projection.
+For editor-to-Reading navigation, call `reading.selectOccurrence(occurrence.id, optionalRef)` using the current projection;
+`occurrenceAtLine(unit, line)` finds the occurrence a cursor line stands in.
 This silently selects the exact local use, body or note; an unknown occurrence clears selection, and a ref belonging to another occurrence throws.
 Do not retain occurrence IDs across updates.
 `update(projection)` clears local selection and calls `onClear`.
@@ -222,20 +222,11 @@ Hosts coordinating a revision across several views can use `update(projection, {
 local selection still clears, while the host owns the surrounding selection transition.
 User selection and Escape continue to notify normally.
 
-`projectReading` is a pure projection, with no DOM access or additional parsing.
-It retains every source line, including blank lines, host prose, fences, literal note descendants and malformed lines, alongside the original string.
-One multiline block occupies one occurrence row, with a span from header content through its last continuation.
-Its `raw` contains the complete original physical lines joined with LF; continuation lines are not repeated as separate rows.
-Flattening each row's `raw.split("\n")` recovers the input's physical lines, while the original source retains exact line endings.
-Selection, Edit and note-source navigation use the full occurrence span.
-Occurrences expose their local text, recognition, diagnostics and typed `declares`, `uses` or `constructs` references.
-A rejected summary never becomes a selectable graph identity.
 Every compiler diagnostic remains available even when it belongs to an omitted host region.
 The diagnostic disclosure includes compiler explanations.
 Supplying `onNavigateDiagnostic` adds a Source button for each diagnostic with a source span;
 updates and destruction retire navigation from the previous projection.
-Source and compiler mismatches detectable from the supplied evidence throw; this is not a revision authentication mechanism.
-The host must pair the exact input and output, including host text outside selected units.
+Selection, Edit and note-source navigation use the full occurrence span.
 
 For an implicit target, the endpoint is the occurrence identified by Core's `implicitAttachment.contextSpan`.
 For an explicit target or source operand, it is the canonical declaration/construction.

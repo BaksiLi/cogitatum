@@ -1,6 +1,6 @@
 import type { BearingKind, BearingTarget } from "@cogitatum/core";
 import { bearingLabel, pointMark } from "./marks.js";
-import type { ReadingCommitment, ReadingUnit } from "./reading-projection.js";
+import type { ReadingCommitment, ReadingUnit } from "@cogitatum/core/host";
 
 const REJECTED: Record<string, string> = {
   "annotation-syntax-error": "the annotation has a syntax error",

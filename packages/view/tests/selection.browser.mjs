@@ -10,7 +10,8 @@ const bundle = await build({
   stdin: {
     contents: `
       import { explainSource } from '../../core/src/index.ts';
-      import { createReadingView, createGraphView, projectReading, referenceKey } from './index.ts';
+      import { createReadingView, createGraphView, referenceKey } from './index.ts';
+      import { projectReading } from '../../core/src/host.ts';
       window.mount = (source, mode = 'document', navigateDiagnostics = true) => {
         window.views?.reading.destroy(); window.views?.map.destroy();
         const events = { reading: [], map: [], clear: 0, navigate: [], diagnostic: [] };
