@@ -469,7 +469,8 @@ function occurrenceFrame(
   const intention = home ? "bound" as const : "none" as const;
   if (relation.by === "clause") {
     const opposed = (role === "G" && relation.kind === "challenges") || (role === "O" && relation.kind === "supports");
-    return { fit: opposed ? "opposed" : home === relation.kind ? "home" : "compatible", intention };
+    // A mark that declares no relation of its own is measured against relevance.
+    return { fit: opposed ? "opposed" : (home ?? "concerns") === relation.kind ? "home" : "compatible", intention };
   }
   if (!focus || relation.target.local === "bearing") return { fit: "home", intention };
   if (leavesIntentionUnbound(role, focus)) return { fit: "compatible", intention: "unbound", awaits: home!, focus, weakDefault: true };
@@ -764,11 +765,11 @@ function recognitionForBlock(block: AstBlock): ExplainRecognition {
   if (annotation.kind === "use") {
     const focus = { kind: "use" as const, ...(annotation.ref ? { ref: { ...annotation.ref } } : {}) };
     return annotation.selector
-      ? { ...focus, role: annotation.role, selector: annotation.selector }
+      ? { ...focus, ...(annotation.role ? { role: annotation.role } : {}), selector: annotation.selector }
       : { ...focus, ...(annotation.role ? { role: annotation.role } : {}) };
   }
   if (annotation.kind === "bearing") return { kind: "bearing", members: annotation.members, ...(annotation.selector ? { selector: annotation.selector } : {}) };
-  return { kind: annotation.kind };
+  return annotation.selector ? { kind: "material", selector: annotation.selector } : { kind: "material" };
 }
 
 function pointReasonForBlock(block: AstBlock): PointDraft["reason"] {
@@ -897,9 +898,12 @@ function validateBearings(
   // that report: they are counted there instead of repeated beneath it.
   const derivedFrom = new Map<CandidateBearing, Diagnostic>();
   const failedUseBearings = new Map<CandidateBearing, Diagnostic>();
+  // A Bearing's own validation failure, which Bearings targeting it inherit.
+  const ownFailure = new Map<CandidateBearing, Diagnostic>();
 
   for (const bearing of bearings) {
     let isValid = true;
+    const reportedBefore = diagnostics.length;
 
     for (let index = 0; index < bearing.sources.length; index += 1) {
       const source = bearing.sources[index];
@@ -988,6 +992,7 @@ function validateBearings(
     }
 
     validity.set(bearing, isValid);
+    if (!isValid && diagnostics.length > reportedBefore) ownFailure.set(bearing, diagnostics[reportedBefore]);
   }
 
   // Follow reverse dependencies once instead of rescanning every Bearing for
@@ -1004,13 +1009,16 @@ function validateBearings(
       else dependents.set(target, [index]);
     }
   }
+  const bearingRoots = new Set(ownFailure.values());
   for (let next = 0; next < rejected.length; next += 1) {
     const { index, depth } = rejected[next];
     for (const dependent of dependents.get(bearings[index].key) ?? []) {
       if (!validity.get(bearings[dependent])) continue;
       validity.set(bearings[dependent], false);
-      const root = derivedFrom.get(bearings[index]) ?? failedUseBearings.get(bearings[index]);
-      if (root && bearings[dependent].targetFocusKind === "bearing") derivedFrom.set(bearings[dependent], root);
+      const root = derivedFrom.get(bearings[index]) ?? failedUseBearings.get(bearings[index]) ?? ownFailure.get(bearings[index]);
+      // A rejected Bearing accounts for every Bearing targeting it, however
+      // named; a failed use or header only for positional attachment through it.
+      if (root && (bearingRoots.has(root) || bearings[dependent].targetFocusKind === "bearing")) derivedFrom.set(bearings[dependent], root);
       rejected.push({ index: dependent, depth: depth + 1 });
     }
   }
@@ -1035,11 +1043,15 @@ function validateBearings(
   for (const [root, derived] of rootDependents) {
     const count = derived.length;
     const header = headerRoots.has(root);
+    const step = !header && bearingRoots.has(root);
     const subject = header ? (count === 1 ? "One occurrence names" : `${count} occurrences name`) + " the handle declared here"
+      : step ? (count === 1 ? "One occurrence targets" : `${count} occurrences target`) + " the Bearing rejected here"
       : count === 1 ? "One occurrence beneath it attaches" : `${count} occurrences beneath it attach`;
-    root.explanation = [root.explanation, `${subject}${header ? "" : " through this use"} and cannot compile until it resolves; ${count === 1 ? "it is" : "they are"} not reported separately.`].filter(Boolean).join(" ");
+    root.explanation = [root.explanation, `${subject}${header || step ? "" : " through this use"} and cannot compile until it resolves; ${count === 1 ? "it is" : "they are"} not reported separately.`].filter(Boolean).join(" ");
+    const note = header ? "Names the handle declared on this failed header; compiles once it is fixed."
+      : step ? "Targets this rejected Bearing; compiles once it is fixed." : "Attaches through this use; compiles once it resolves.";
     root.related = [...(root.related ?? []), ...derived.filter(bearing => bearing.sourceSpan).sort((x, y) => x.sourceSpan!.startLine - y.sourceSpan!.startLine || x.sourceSpan!.startColumn - y.sourceSpan!.startColumn)
-      .map(bearing => ({ sourceSpan: bearing.sourceSpan!, message: header ? "Names the handle declared on this failed header; compiles once it is fixed." : "Attaches through this use; compiles once it resolves." }))];
+      .map(bearing => ({ sourceSpan: bearing.sourceSpan!, message: note }))];
   }
 
   const accepted = bearings.filter((bearing) => validity.get(bearing));
@@ -1175,7 +1187,8 @@ function implicitAttachmentAdvice(
 function reuseSpelling(block: AstBlock, anchor: string): string {
   const annotation = block.annotation;
   // A selector survives reuse: [O/ use @p] still challenges the local attachment.
-  const mark = annotation?.kind === "role" ? annotation.role + (annotation.selector ? "/" : "") : ".";
+  const slash = annotation && "selector" in annotation && annotation.selector ? "/" : "";
+  const mark = (annotation?.kind === "role" ? annotation.role : ".") + slash;
   const clause = annotation && "operatorClause" in annotation && annotation.operatorClause
     ? " " + clauseSpelling(annotation.operatorClause) : "";
   const handle = annotation && "handle" in annotation && annotation.handle ? "; @" + annotation.handle : "";

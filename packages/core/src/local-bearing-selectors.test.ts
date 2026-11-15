@@ -83,7 +83,11 @@ describe("local Bearing attachment selectors", () => {
 
   it("propagates failed owned attachments instead of selecting an outer surviving relation", () => {
     const { graph } = compile("- [C @claim] Claim.\n  - [G @outer; @good] Good.\n    - [G @inner +> @missing; @bad] Invalid attachment.\n      - [O/] Invalid dependent.");
-    expect(codes(graph)).toEqual(["UNKNOWN_TARGET", "UNRESOLVED_BEARING_TARGET"]);
+    expect(codes(graph)).toEqual(["UNKNOWN_TARGET"]);
+    const root = graph.diagnostics[0];
+    expect(root.related?.map(entry => entry.sourceSpan.startLine)).toEqual([4]);
+    expect(root.related?.[0].message).toBe("Targets this rejected Bearing; compiles once it is fixed.");
+    expect(root.explanation).toBe("One occurrence targets the Bearing rejected here and cannot compile until it resolves; it is not reported separately.");
     expect(graph.bearings.map(bearing => bearing.handle)).toEqual(["good"]);
   });
 

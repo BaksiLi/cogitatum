@@ -436,6 +436,7 @@ const decisionText: string = formatExplain(explainSource('- [Q] Which scale?'));
 const decisionVersion: string = EXPLAIN_TEXT_VERSION;
 const pointUse: Annotation = {kind: 'use', ref: {id: 'p'}, role: 'G', raw: 'G use @p'};
 const neutralPoint: Annotation = {kind: 'material', raw: '.'};
+const neutralSelector: Annotation = {kind: 'material', selector: 'attachment', raw: './'};
 const literalNote: Annotation = {kind: 'note', raw: 'note'};
 // @ts-expect-error Notes cannot declare identities.
 const namedNote: Annotation = {kind: 'note', raw: 'note', anchor: 'note'};
@@ -455,13 +456,13 @@ const groundSelectorRecognition: ExplainRecognition = {kind: 'use', role: 'G', s
 const objectionSelectorRecognition: ExplainRecognition = {kind: 'use', role: 'O', selector: 'attachment', ref: {id: 'p'}};
 // Rejected uses may retain the role and selector without a resolved operand.
 const unresolvedSelectorRecognition: ExplainRecognition = {kind: 'use', role: 'O', selector: 'attachment'};
-function selectedUseRole(recognition: ExplainRecognition): 'G' | 'O' | 'Q' | 'D' | undefined {
+function selectedUseRole(recognition: ExplainRecognition): 'G' | 'O' | 'Q' | 'D' | 'C' | undefined {
   if (recognition.kind === 'use' && recognition.selector) return recognition.role;
 }
-// @ts-expect-error An Explain selector requires its local G, O, Q or D role.
+// A neutral use selects the local Bearing for relevance.
 const neutralSelectorRecognition: ExplainRecognition = {kind: 'use', ref: {id: 'p'}, selector: 'attachment'};
 const questionSelectorRecognition: ExplainRecognition = {kind: 'use', role: 'Q', ref: {id: 'p'}, selector: 'attachment'};
-// @ts-expect-error A Claim occurrence cannot select a local Bearing.
+// A Claim use beneath a Bearing concerns it.
 const claimSelectorRecognition: ExplainRecognition = {kind: 'use', role: 'C', ref: {id: 'p'}, selector: 'attachment'};
 // @ts-expect-error A Response occurrence cannot select a local Bearing.
 const replySelectorRecognition: ExplainRecognition = {kind: 'use', role: 'R', ref: {id: 'p'}, selector: 'attachment'};
@@ -473,12 +474,11 @@ const aliasedUse: Annotation = {kind: 'use', ref: {id: 'p'}, anchor: 'alias', ra
 const statusUse: Annotation = {kind: 'use', ref: {id: 'p'}, role: 'C', status: 'open', raw: ''};
 // @ts-expect-error A use selector excludes an explicit operator clause.
 const excludedUse: Annotation = {kind: 'use', ref: {id: 'p'}, role: 'O', selector: 'attachment', operatorClause: {op: 'challenges', sources: 'self', target: {id: 'b'}}, raw: ''};
-// @ts-expect-error Only G, O, Q and D can select local attachments.
-const invalidUseSelector: Annotation = {kind: 'use', ref: {id: 'p'}, role: 'C', selector: 'attachment', raw: ''};
+// C selects a local attachment with concerns.
+const claimUseSelector: Annotation = {kind: 'use', ref: {id: 'p'}, role: 'C', selector: 'attachment', raw: ''};
 // @ts-expect-error A selector and a complete operator clause are mutually exclusive.
 const excludedSelector: Annotation = {kind: 'role', role: 'O', selector: 'attachment', operatorClause: {op: 'challenges', sources: 'self', target: {id: 'b'}}, raw: ''};
-// @ts-expect-error Only G, O, Q and D support a selector.
-const invalidSelector: Annotation = {kind: 'role', role: 'C', selector: 'attachment', raw: 'C/'};
+const claimSelector: Annotation = {kind: 'role', role: 'C', selector: 'attachment', raw: 'C/'};
 // @ts-expect-error Q selectors also exclude explicit clauses.
 const excludedQuestionSelector: Annotation = {kind: 'role', role: 'Q', selector: 'attachment', operatorClause: {op: 'concerns', sources: 'self', target: {id: 'b'}}, raw: ''};
 const namedSelf: Annotation = {kind: 'role', role: 'Q', raw: '', operatorClause: {op: 'respondsTo', sources: 'self', target: {id: 'b'}}};

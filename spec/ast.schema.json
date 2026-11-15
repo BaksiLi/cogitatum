@@ -141,7 +141,7 @@
           },
           "allOf": [
             { "if": { "not": { "required": ["syntaxErrors"] } }, "then": { "required": ["ref"] } },
-            { "if": { "required": ["selector"] }, "then": { "required": ["role"], "properties": { "role": { "enum": ["G", "O", "Q", "D"] } }, "not": { "required": ["operatorClause"] } } }
+            { "if": { "required": ["selector"] }, "then": { "properties": { "role": { "enum": ["G", "O", "Q", "D", "C"] } }, "not": { "required": ["operatorClause"] } } }
           ],
           "additionalProperties": false
         },
@@ -168,7 +168,7 @@
           "allOf": [
             {
               "if": { "required": ["selector"] },
-              "then": { "properties": { "role": { "enum": ["G", "O", "Q", "D"] } }, "not": { "required": ["operatorClause"] } }
+              "then": { "properties": { "role": { "enum": ["G", "O", "Q", "D", "C"] } }, "not": { "required": ["operatorClause"] } }
             }
           ],
           "additionalProperties": false
@@ -199,6 +199,7 @@
           "required": ["kind", "raw"],
           "properties": {
             "kind": { "const": "material" },
+            "selector": { "const": "attachment" },
             "anchor": { "$ref": "#/$defs/authoredId" },
             "operatorClause": { "$ref": "#/$defs/selfOperatorClause" },
             "syntaxErrors": { "$ref": "#/$defs/annotationSyntaxErrors" },
@@ -206,6 +207,7 @@
             "profile": { "const": "example" },
             "raw": { "type": "string" }
           },
+          "allOf": [{ "if": { "required": ["selector"] }, "then": { "not": { "required": ["operatorClause"] } } }],
           "additionalProperties": false
         }
       ]

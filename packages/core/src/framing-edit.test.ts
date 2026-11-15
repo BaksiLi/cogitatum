@@ -86,7 +86,7 @@ describe("re-marking never changes a relation", () => {
     ["the same mark", { operation: "remark", line: 2, mark: "O" }, "unchanged"],
     ["a body line", { operation: "remark", line: 3, mark: "G" }, "no-occurrence"],
     ["an unknown mark", { operation: "remark", line: 2, mark: "X" }, "invalid-operation"],
-    ["a selector that the new mark lacks", { operation: "remark", line: 5, mark: "." }, "invalid-result"]
+    ["a selector whose relation the new mark changes", { operation: "remark", line: 5, mark: "." }, "changes-relation"]
   ] as const)("is unavailable for %s", (_label, edit, reason) => {
     const source = opposed + "- 普通正文\n- [C @c] 主張。\n  - [O/ @y] 沒有步驟可反對。".replace("  - [O/ @y] 沒有步驟可反對。", "  - [G @g] 理由。");
     const withSelector = "- [C @delay] 應延後採用。\n- [O @cost +> @delay] 成本超出預算。\n- 普通正文\n- [C @c] 主張。\n  - [G @g] 理由。\n    - [O/ @y] 反對。";

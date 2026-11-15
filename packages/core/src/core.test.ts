@@ -1297,12 +1297,11 @@ describe("Cogitatum language contracts", () => {
     );
 
     expect(graph.bearings).toEqual([]);
-    expect(graph.diagnostics).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ code: "UNKNOWN_SOURCE" }),
-        expect.objectContaining({ code: "UNRESOLVED_BEARING_TARGET" })
-      ])
-    );
+    expect(graph.diagnostics.map(diagnostic => diagnostic.code)).toEqual(["UNKNOWN_SOURCE"]);
+    const root = graph.diagnostics[0];
+    expect(root.related?.map(entry => entry.sourceSpan.startLine)).toEqual([4]);
+    expect(root.related?.[0].message).toBe("Targets this rejected Bearing; compiles once it is fixed.");
+    expect(root.explanation).toBe("One occurrence targets the Bearing rejected here and cannot compile until it resolves; it is not reported separately.");
   });
 
   it("rejects an entire Bearing when one source reference is malformed", () => {

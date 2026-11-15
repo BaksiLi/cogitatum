@@ -23,12 +23,15 @@ describe("portable language conformance cases", () => {
     const source = readFileSync(new URL(entry.file, fixtureRoot), "utf8");
     const expected = JSON.parse(readFileSync(new URL(entry.expected, fixtureRoot), "utf8"));
     const compiled = compileSource(source, entry.input);
+    // Fixtures can also require exact explanations and related source spans.
+    const diagnosticDetails = expected.diagnostics.some((diagnostic: object) => "explanation" in diagnostic || "related" in diagnostic);
     // Generated keys are deliberately absent from this portable expectation.
     // Resolve them through the graph, then compare exact source-local topology.
     const actual = {
       mode: compiled.mode,
-      diagnostics: compiled.diagnostics.map(({ code, severity, sourceSpan }) => ({
-        line: sourceSpan?.startLine ?? null, code, severity
+      diagnostics: compiled.diagnostics.map(({ code, severity, sourceSpan, explanation, related }) => ({
+        line: sourceSpan?.startLine ?? null, code, severity,
+        ...(diagnosticDetails ? { explanation, related } : {})
       })),
       graphs: compiled.graphs.map((graph, index) => projectGraph(graph, entry.notes ? compiled.documents[index].blocks : undefined))
     };

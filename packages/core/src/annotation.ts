@@ -77,7 +77,7 @@ const RETIRED_OPERATOR_RE = /(^|\s)[_/]>(?=$|\s)/;
 const RETIRED_OPERATOR_RE_GLOBAL = /(^|\s)[_/]>(?=$|\s)/g;
 const GLUED_OPERATOR_RE = /[^\s,;](?:\+>|->|\/>|~>|_>)|(?:\+>|->|\/>|~>|_>)[^\s,;]/;
 const ROLE_RE = /^(Q|C|G|O|R|D)$/;
-const SELECTOR_MARK_RE = /^[GOQD]\/$/;
+const SELECTOR_MARK_RE = /^[GOQDC]\/$/;
 const INVALID_OPEN_ROLE_RE = /^(Q|G|O|R|D)\?$/;
 const ANCHOR_RE = /^@([a-z][a-z0-9_-]*)$/;
 const RELATION_TOKENS = new Map<string, BearingKind>([
@@ -279,24 +279,25 @@ function parsePlainAnnotation(raw: string, sourceSpan?: SourceSpan): AnnotationP
   }
   const useIntent = head.family === "point" && head.operation === "use"
     ? [trimmed, splitTokens(semicolonParts[0])[0]]
-    : /^(?:([QCGORD](?:\?|\/)?|\?)\s+)use(?=$|[\s;])/i.exec(trimmed);
+    : /^(?:([QCGORD](?:\?|\/)?|\?|\.\/)\s+)use(?=$|[\s;])/i.exec(trimmed);
   if (useIntent) {
     const tokens = splitTokens(semicolonParts[0]);
     const useIndex = useIntent[1] ? 1 : 0;
     const mark = useIntent[1];
     const selectorRole = mark && SELECTOR_MARK_RE.test(mark) ? mark[0] as SelectorRole : undefined;
+    const neutralSelector = mark === "./";
     const role = mark && /^[QCGORD]$/.test(mark) ? mark as Role : selectorRole;
     const operand = tokens[useIndex + 1] ? parseSingleRef(tokens[useIndex + 1]) : undefined;
     const handle = semicolonParts.length === 2 ? parseSingleRef(semicolonParts[1]) : undefined;
     const errors: ("reference" | "operator" | "selector" | "handle")[] = [];
-    if (tokens[useIndex] !== "use" || (mark !== "." && !role) || !operand || semicolonParts.length > 2) {
+    if (tokens[useIndex] !== "use" || (mark !== "." && !neutralSelector && !role) || !operand || semicolonParts.length > 2) {
       errors.push("reference");
       diagnostics.push({ severity: "error", code: "MALFORMED_POINT_USE", message: "Point uses must look like [. use @id] or [G use @id]; occurrence status is unsupported." + markCaseHint(mark), sourceSpan });
     }
     const suffix = tokens.slice(useIndex + 2);
     let operatorClause: PointOperatorClause | undefined;
     if (suffix.length) {
-      if (selectorRole) {
+      if (selectorRole || neutralSelector) {
         errors.push("selector");
         diagnostics.push({ severity: "error", code: "LOCAL_SELECTOR_WITH_EXPLICIT_CLAUSE", message: "A local selector and an explicit operator clause are mutually exclusive.", sourceSpan });
       } else if (isRelationToken(suffix[0])) {
@@ -312,7 +313,8 @@ function parsePlainAnnotation(raw: string, sourceSpan?: SourceSpan): AnnotationP
       diagnostics.push({ severity: "error", code: "MALFORMED_BEARING_HANDLE", message: "Bearing handle separator ';' must be followed by exactly one valid @id.", sourceSpan });
     }
     const base = { kind: "use" as const, ref: operand ? { id: operand } : undefined, handle, raw, syntaxErrors: errors.length ? [...new Set(errors)] : undefined };
-    return { annotation: selectorRole ? { ...base, role: selectorRole, selector: "attachment" } : { ...base, role, operatorClause }, diagnostics };
+    return { annotation: selectorRole ? { ...base, role: selectorRole, selector: "attachment" }
+      : neutralSelector ? { ...base, selector: "attachment" } : { ...base, role, operatorClause }, diagnostics };
   }
   if (/^linked(?=$|[\s;])/i.test(trimmed) || /^(?:[QCGORD](?:[/_])?|\.)\s+linked(?=$|[\s;])/i.test(trimmed)) {
     return {
@@ -325,8 +327,8 @@ function parsePlainAnnotation(raw: string, sourceSpan?: SourceSpan): AnnotationP
   const selectorIntent = /^([QCGORD?]|\.(?=\/(?:$|[\s;@])))\//i.exec(trimmed);
   if (selectorIntent) {
     const role = selectorIntent[1].toUpperCase();
-    if (!SELECTOR_MARK_RE.test(role + "/")) {
-      diagnostics.push({ severity: "error", code: "UNSUPPORTED_LOCAL_BEARING_SELECTOR", message: pointOnlySelectorHint(selectorIntent[1] + "/") || "Only G/, O/, Q/ and D/ select the locally exposed Bearing.", sourceSpan });
+    if (role !== "." && !SELECTOR_MARK_RE.test(role + "/")) {
+      diagnostics.push({ severity: "error", code: "UNSUPPORTED_LOCAL_BEARING_SELECTOR", message: pointOnlySelectorHint(selectorIntent[1] + "/") || "Only ., C, G, O, Q and D have a selector form toward the locally exposed Bearing.", sourceSpan });
       return { annotation: { kind: "invalid", raw }, diagnostics };
     }
     const tokens = splitTokens(semicolonParts[0]);
@@ -344,7 +346,10 @@ function parsePlainAnnotation(raw: string, sourceSpan?: SourceSpan): AnnotationP
       errors.push("handle");
       diagnostics.push({ severity: "error", code: "MALFORMED_BEARING_HANDLE", message: "Bearing handle separator ';' must be followed by exactly one valid @id.", sourceSpan });
     }
-    return { annotation: { kind: "role", role: role as SelectorRole, selector: "attachment", anchor, handle, raw, syntaxErrors: errors.length ? errors : undefined }, diagnostics };
+    const syntaxErrors = errors.length ? errors : undefined;
+    return { annotation: role === "."
+      ? { kind: "material", selector: "attachment", anchor, handle, raw, syntaxErrors }
+      : { kind: "role", role: role as SelectorRole, selector: "attachment", anchor, handle, raw, syntaxErrors }, diagnostics };
   }
 
   if (semicolonParts.length > 2) {
@@ -648,7 +653,7 @@ function parseBearingConstructor(raw: string, head: AnnotationHead, sourceSpan?:
 // The unreleased 0.6 role-lettered headers and the relation each one meant.
 const ROLE_HEADER_CLAUSES = new Map<string, string>([
   ["G", "+> ^"], ["O", "-> ^"], ["R", "respondsTo ^"], ["D", "interprets ^"], ["Q", "~> ^"],
-  ["G/", "+> ^/"], ["O/", "-> ^/"], ["Q/", "~> ^/"], ["D/", "interprets ^/"]
+  ["G/", "+> ^/"], ["O/", "-> ^/"], ["Q/", "~> ^/"], ["D/", "interprets ^/"], ["C/", "~> ^/"]
 ]);
 
 function roleHeaderHint(token: string): string {
@@ -783,6 +788,15 @@ export const MARK_RELATIONS: Partial<Record<Role, BearingKind>> = {
 };
 
 /**
+ * The relation a selector abbreviates toward ^/. The slash changes only the
+ * target: the mark keeps its home kind, and C or . record relevance, as they
+ * do beneath any non-Question Point. R has no selector form.
+ */
+export function selectorRelation(mark: SelectorRole | undefined): BearingKind {
+  return (mark && MARK_RELATIONS[mark]) ?? "concerns";
+}
+
+/**
  * The construction table for a Point occurrence without a clause, written
  * beneath a Point focus. Placement is the commitment: every mark constructs
  * one Bearing toward the focus, and the mark and focus choose its kind.
@@ -835,7 +849,7 @@ export function expandedClause(annotation: Annotation | undefined, focus?: Focus
   if (annotation.kind !== "role" && annotation.kind !== "material" && annotation.kind !== "use") return undefined;
   if (annotation.operatorClause) return annotation.operatorClause;
   const role = "role" in annotation ? annotation.role : undefined;
-  if ("selector" in annotation && annotation.selector) return { op: MARK_RELATIONS[annotation.role]!, sources: "self", target: { local: "bearing" } };
+  if ("selector" in annotation && annotation.selector) return { op: selectorRelation(role as SelectorRole | undefined), sources: "self", target: { local: "bearing" } };
   return focus ? { op: defaultRelation(role, focus), sources: "self", target: { local: "point" } } : undefined;
 }
 
@@ -850,7 +864,7 @@ export function isAbbreviatedClause(annotation: Annotation, clause: OperatorClau
   if (annotation.kind === "bearing") return clause.sources === "members" && clause.op === "concerns";
   if (annotation.kind !== "role" && annotation.kind !== "material" && annotation.kind !== "use") return false;
   const role = "role" in annotation ? annotation.role : undefined;
-  if (clause.target.local === "bearing") return !!role && SELECTOR_MARK_RE.test(role + "/") && MARK_RELATIONS[role] === clause.op;
+  if (clause.target.local === "bearing") return (!role || SELECTOR_MARK_RE.test(role + "/")) && selectorRelation(role as SelectorRole | undefined) === clause.op;
   return !!focus && defaultRelation(role, focus) === clause.op && !leavesIntentionUnbound(role, focus);
 }
 
@@ -931,7 +945,6 @@ export function operatorSymbol(kind: BearingKind): string | undefined {
 
 // Hints guide authoring without changing diagnostic codes or severities.
 function pointOnlySelectorHint(token: string): string {
-  if (token === "./") return "Only G/, O/, Q/ and D/ select the locally exposed Bearing; . has no selector form. To relate this Point to the locally exposed Bearing, write [. concerns ^/]; to declare a neutral Point, write [.] or [. @id].";
   if (!/^R\/$/i.test(token)) return "";
   return "respondsTo requires a Point target, so there is no [R/]: write [R] for the nearest Point, or [R respondsTo @target] with a named Point target." + markCaseHint(token);
 }

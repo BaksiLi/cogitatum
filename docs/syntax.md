@@ -120,7 +120,7 @@ In ordinary Point context, a marked occurrence without a clause or `/` selector 
 The mark and the focus choose the kind; a clause replaces that default; at root there is no default attachment.
 The [defaults table](#roles-and-connections) includes the Question-specific cases.
 For a non-Question focus, `[G]` abbreviates `[G +> ^]`; `[O]`, `[Q]`, `[R]` and `[D]` abbreviate `challenges ^`, `concerns ^`, `respondsTo ^` and `interprets ^` respectively.
-`G/`, `O/`, `Q/` and `D/` instead select `^/`, the exposed Bearing, with kinds `supports`, `challenges`, `concerns` and `interprets`.
+`G/`, `O/`, `Q/` and `D/` instead select `^/`, the exposed Bearing, with kinds `supports`, `challenges`, `concerns` and `interprets`; `./` and `C/` select it with `concerns`.
 `[_]` abbreviates `[_ ~> ^]`, and `[_/]` abbreviates `[_ ~> ^/]`, with their direct neutral children as joint sources.
 
 At root, `[G]` is legal and keeps an unbound support intention without a Bearing or diagnostic.
@@ -294,7 +294,7 @@ The marks are authoring choices at an occurrence, not mutually exclusive semanti
 The operator names the relation; the target term alone decides whether its object is a Point or a Bearing.
 `[O -> @claim]` challenges a Point and `[O -> @route]` challenges a Bearing, according to what each name declares.
 In `G/`, `O/`, `Q/` and `D/`, `/` writes the position `^/`: the locally exposed Bearing.
-They construct `supports`, `challenges`, `concerns` and `interprets` respectively.
+They construct `supports`, `challenges`, `concerns` and `interprets` respectively, and `./` and `C/` construct `concerns`.
 The retired `/>` and `_>` operators are diagnosed with `RETIRED_AUTHORING_SYNTAX` and migrate to `->`.
 These are target-selection rules, not degrees of support or opposition.
 
@@ -316,6 +316,7 @@ See [joint relevance](#joint-relevance) for executable examples and the contrast
 
 In ordinary Point context, a marked occurrence without a clause or `/` selector constructs exactly one Bearing toward its focus.
 Ordinary unannotated body bullets are transparent; Notes are opaque and literal.
+The mark is the act of commitment; indentation only selects its object.
 The occurrence's mark and the focus occurrence's own written mark choose the kind:
 
 | Occurrence mark | Focus marked Q | Other Point focus |
@@ -335,7 +336,8 @@ To support the Question itself, write `[G +> ^]`.
 To support an answer, state it and put G beneath it, or give G an explicit target.
 Re-mark C for a candidate answer, or `.` for relevance without an unbound ground intention.
 `O` beneath Q challenges the Question, for example its presupposition.
-`concerns` is complete as relevance; it need not be a draft awaiting a stronger relation.
+`concerns` means that the source bears on its target: the undifferentiated relation, which every other kind entails without being defined by it.
+It is complete as relevance; it need not be a draft awaiting a stronger relation.
 
 A focus `[Q use @q]` counts as a Question, while `[. use @q]` does not, even if `@q` was declared Q.
 A nearer Point always blocks lookup of an outer Q.
@@ -350,7 +352,7 @@ A failed clause constructs nothing and never falls back.
 All six explicit kinds check references, source uniqueness, shape and target type rather than declaration roles.
 A listed-source constructor or Bearing use supplies a Bearing context: its first ordinary Point, possibly through body, still needs an explicit target.
 This includes neutral declarations and uses; they do not add sources or silently become unconnected.
-`G/`, `O/`, `Q/` and `D/` can instead select the exposed Bearing.
+Marks with a `/` selector can instead select the exposed Bearing.
 Direct neutral members of a member-sourced constructor supply its one joint Bearing and get no relevance edge.
 Once a Point establishes a new context, its children use the table again.
 
@@ -362,14 +364,14 @@ The old clause kind `clarifies` receives `RETIRED_BEARING_KIND`, with no alias o
 ### Framing an occurrence
 
 G, O, Q, R and D have home kinds `supports`, `challenges`, `concerns`, `respondsTo` and `interprets`.
-C has home kind `answers` beneath a Question and none elsewhere; `.` has none.
+C has home kind `answers` beneath a Question; elsewhere C, and `.` everywhere, are measured against `concerns`, the undifferentiated relation of bearing on.
 A written clause alone constructs the relation; the role also records how the Point is presented here, on two independent axes.
 
 `fit` compares the constructed kind with the mark, and is absent when nothing is constructed:
 
 | Fit | When |
 | --- | --- |
-| `home` | The clause, selector or default constructs the home kind, or `.`'s relevance default |
+| `home` | The clause, selector or default constructs the home kind, or `concerns` for `.` and C outside a Question |
 | `compatible` | Any other pairing except the two opposed cases, such as `[Q respondsTo @x]`, `[R -> @x]`, `[C +> @x]` or G beneath Q |
 | `opposed` | G with `challenges`, or O with `supports` |
 
@@ -543,6 +545,7 @@ Spans, `derivedBy`, Explain and original source remain distinct.
 | `[Q -> @step]` | `challenges` the named Bearing |
 
 The slash chooses the position `^/`; the relation stays the mark's own.
+This holds for every mark that has a selector: `[./]` and `[C/]` record `concerns` toward `^/`, as `[Q/]` does.
 Asking about an anonymous step therefore needs no handle.
 Use an Objection or a `challenges` clause when the content makes a challenge rather than leaving a question open.
 
@@ -859,7 +862,7 @@ An ordinary O defaults to a Point; beneath a Bearing use it needs O/ or an expli
 An O beneath O/ challenges that new O Point, while a sibling O/ selects its local attack Bearing.
 `R` beneath `O/` responds to that Objection Point.
 Likewise, `R` beneath `Q/` responds to that Question Point, while a further `Q/` concerns its locally constructed `concerns` Bearing.
-G, O, Q and D have selectors; the C→`answers` default and `respondsTo` require Point targets.
+`.`, C, G, O, Q and D have selectors, each with its home kind and `concerns` for `.` and C; `respondsTo` requires a Point target, so there is no `[R/]`.
 Existing explicit graph cycles remain possible; references never recursively expand source.
 
 ```md cog-check require=supports,challenges points=5 bearings=4 diagnostics=0
@@ -976,7 +979,7 @@ For debugging, `compileGraphWithExplain` and `explainSource` add a compiler trac
 Every constructor has AST annotation and Explain recognition `kind: "bearing"`.
 `members: true` records that its direct children are its sources, including on a failed header; `members: false` that it lists them.
 `[_/]` adds `selector: "attachment"`, and `[_]` and `[_/]` write no `operatorClause`.
-Selector roles are G, O, Q and D, with this correlation enforced in types and schemas.
+Selector roles are C, G, O, Q and D, and a neutral `[./]` or `[./ use @p]` carries the selector without a role; types and schemas exclude `R`.
 Explain `localBearingMember` effects identify the constructor's span (`localBearingSpan`), syntactic eligibility and function: source, commentary, independent, supplementary or unclassified.
 Eligibility alone never certifies that the whole joint survived validation.
 selectAttachment records the nearest ownerSpan and optional candidate Bearing target; a failed candidate is not a canonical graph entity.

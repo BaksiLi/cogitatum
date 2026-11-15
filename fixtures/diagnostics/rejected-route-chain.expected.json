@@ -4,17 +4,28 @@
     {
       "line": 3,
       "code": "UNKNOWN_TARGET",
-      "severity": "error"
-    },
-    {
-      "line": 4,
-      "code": "UNRESOLVED_BEARING_TARGET",
-      "severity": "error"
-    },
-    {
-      "line": 5,
-      "code": "UNRESOLVED_BEARING_TARGET",
-      "severity": "error"
+      "severity": "error",
+      "explanation": "2 occurrences target the Bearing rejected here and cannot compile until it resolves; they are not reported separately.",
+      "related": [
+        {
+          "sourceSpan": {
+            "startLine": 4,
+            "startColumn": 3,
+            "endLine": 4,
+            "endColumn": 67
+          },
+          "message": "Targets this rejected Bearing; compiles once it is fixed."
+        },
+        {
+          "sourceSpan": {
+            "startLine": 5,
+            "startColumn": 3,
+            "endLine": 5,
+            "endColumn": 75
+          },
+          "message": "Targets this rejected Bearing; compiles once it is fixed."
+        }
+      ]
     }
   ],
   "graphs": [

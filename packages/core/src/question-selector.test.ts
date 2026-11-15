@@ -189,7 +189,11 @@ ${premise}
     const { graph } = compile(premise + `
     - [G +> @missing; @failed] A failed step.
       - [Q/] Which condition applies?`);
-    expect(graph.diagnostics.map(diagnostic => diagnostic.code)).toEqual(["UNKNOWN_TARGET", "UNRESOLVED_BEARING_TARGET"]);
+    expect(graph.diagnostics.map(diagnostic => diagnostic.code)).toEqual(["UNKNOWN_TARGET"]);
+    const root = graph.diagnostics[0];
+    expect(root.related?.map(entry => entry.sourceSpan.startLine)).toEqual([4]);
+    expect(root.related?.[0].message).toBe("Targets this rejected Bearing; compiles once it is fixed.");
+    expect(root.explanation).toBe("One occurrence targets the Bearing rejected here and cannot compile until it resolves; it is not reported separately.");
     expect(graph.bearings.map(bearing => bearing.handle)).toEqual(["step"]);
   });
 

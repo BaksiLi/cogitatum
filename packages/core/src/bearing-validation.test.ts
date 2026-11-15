@@ -16,12 +16,14 @@ describe("Bearing dependency validation", () => {
     ].join("\n");
     const { graph, explain } = compile(source);
     expect(graph.bearings.map(bearing => bearing.handle)).toEqual(["independent", "left", "right", "self"]);
-    expect(graph.diagnostics.map(diagnostic => diagnostic.code)).toEqual([
-      "UNKNOWN_TARGET", ...Array(length - 1).fill("UNRESOLVED_BEARING_TARGET")
-    ]);
-    expect(graph.diagnostics.map(diagnostic => diagnostic.sourceSpan?.startLine)).toEqual(
-      Array.from({ length }, (_, index) => length + 1 - index)
-    );
+    expect(graph.diagnostics.map(diagnostic => diagnostic.code)).toEqual(["UNKNOWN_TARGET"]);
+    expect(graph.diagnostics.map(diagnostic => diagnostic.sourceSpan?.startLine)).toEqual([length + 1]);
+    const root = graph.diagnostics[0];
+    expect(root.related).toHaveLength(length - 1);
+    expect(root.related?.[0].sourceSpan.startLine).toBe(2);
+    expect(root.related?.at(-1)?.sourceSpan.startLine).toBe(length);
+    expect(root.related?.every(entry => entry.message === "Targets this rejected Bearing; compiles once it is fixed.")).toBe(true);
+    expect(root.explanation).toBe(`${length - 1} occurrences target the Bearing rejected here and cannot compile until it resolves; they are not reported separately.`);
     expect(explain.entries.slice(1, length + 1).every(entry => entry.effects.some(effect => effect.kind === "rejectBearing"))).toBe(true);
     expect(explain.diagnostics).toEqual(graph.diagnostics);
   });
@@ -39,10 +41,18 @@ describe("Bearing dependency validation", () => {
     ].join("\n"));
     expect(graph.bearings).toEqual([]);
     expect(graph.diagnostics.map(diagnostic => [diagnostic.code, diagnostic.sourceSpan?.startLine])).toEqual([
-      ["UNKNOWN_TARGET", 7], ["UNKNOWN_TARGET", 8],
-      ["UNRESOLVED_BEARING_TARGET", 2], ["UNRESOLVED_BEARING_TARGET", 3],
-      ["UNRESOLVED_BEARING_TARGET", 4], ["UNRESOLVED_BEARING_TARGET", 5], ["UNRESOLVED_BEARING_TARGET", 6]
+      ["UNKNOWN_TARGET", 7], ["UNKNOWN_TARGET", 8]
     ]);
+    expect(graph.diagnostics.map(diagnostic => diagnostic.related?.map(entry => entry.sourceSpan.startLine))).toEqual([
+      [3, 5], [2, 4, 6]
+    ]);
+    expect(graph.diagnostics.map(diagnostic => diagnostic.explanation)).toEqual([
+      "2 occurrences target the Bearing rejected here and cannot compile until it resolves; they are not reported separately.",
+      "3 occurrences target the Bearing rejected here and cannot compile until it resolves; they are not reported separately."
+    ]);
+    for (const diagnostic of graph.diagnostics) {
+      expect(diagnostic.related?.every(entry => entry.message === "Targets this rejected Bearing; compiles once it is fixed.")).toBe(true);
+    }
   });
 
   it("invalidates a cycle with a failed source once and rejects its incoming dependents", () => {
@@ -55,10 +65,12 @@ describe("Bearing dependency validation", () => {
     ].join("\n"));
     expect(graph.bearings).toEqual([]);
     expect(graph.diagnostics.map(diagnostic => [diagnostic.code, diagnostic.sourceSpan?.startLine])).toEqual([
-      ["UNKNOWN_SOURCE", 3],
-      ["UNRESOLVED_BEARING_TARGET", 2], ["UNRESOLVED_BEARING_TARGET", 4],
-      ["UNRESOLVED_BEARING_TARGET", 5]
+      ["UNKNOWN_SOURCE", 3]
     ]);
+    const root = graph.diagnostics[0];
+    expect(root.related?.map(entry => entry.sourceSpan.startLine)).toEqual([2, 4, 5]);
+    expect(root.related?.every(entry => entry.message === "Targets this rejected Bearing; compiles once it is fixed.")).toBe(true);
+    expect(root.explanation).toBe("3 occurrences target the Bearing rejected here and cannot compile until it resolves; they are not reported separately.");
     expect(explain.entries.slice(1).every(entry => entry.effects.some(effect => effect.kind === "rejectBearing"))).toBe(true);
   });
 });

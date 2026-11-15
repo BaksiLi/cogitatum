@@ -176,13 +176,16 @@ describe("the node and edge family aliases are retired", () => {
 });
 
 describe("0.7 diagnostic consolidation", () => {
-  it("reports [./] as a near-miss selector without reading it as body or guessing a relation", () => {
-    const { compiled: { diagnostics }, graph } = compile("- [C @x] 甲。\n  - [G @y] 乙。\n    - [./ @y] 丙。\n    - [./] 丁。\n    - [./run.sh] 腳本。");
-    expect(diagnostics.map(diagnostic => [diagnostic.code, diagnostic.sourceSpan?.startLine])).toEqual([
-      ["UNSUPPORTED_LOCAL_BEARING_SELECTOR", 3], ["UNSUPPORTED_LOCAL_BEARING_SELECTOR", 4]
+  it("reads ./ and C/ as relevance to the local Bearing, keeps [./run.sh] body and still refuses R/", () => {
+    const { compiled: { diagnostics }, graph } = compile("- [C @x] 甲。\n  - [G @y] 乙。\n    - [./ @z] 丙。\n    - [./] 丁。\n    - [C/] 戊。\n    - [./run.sh] 腳本。");
+    expect(diagnostics).toEqual([]);
+    const route = graph.bearings[0].key;
+    expect(graph.bearings.slice(1).map(bearing => [bearing.kind, bearing.target.key])).toEqual([
+      ["concerns", route], ["concerns", route], ["concerns", route]
     ]);
-    expect(diagnostics[0].message).toContain("[. concerns ^/]");
-    expect(graph.bearings).toHaveLength(1);
+    const refused = compile("- [C @x] 甲。\n  - [G @y] 乙。\n    - [R/] 己。");
+    expect(refused.compiled.diagnostics.map(diagnostic => diagnostic.code)).toContain("UNSUPPORTED_LOCAL_BEARING_SELECTOR");
+    expect(refused.graph.bearings).toHaveLength(1);
   });
 
   it("reports a failed use once and counts the occurrences that attach through it", () => {

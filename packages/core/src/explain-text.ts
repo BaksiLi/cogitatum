@@ -57,7 +57,7 @@ export function formatExplain(source: ExplainedSource): string {
         case "skipBearing": return `No Bearing: ${effect.reason}.`;
         case "frameOccurrence": {
           const presented = "Presented as " + MARK_NAMES[("role" in entry.recognition && entry.recognition.role) || "."];
-          const fit = effect.fit === "home" ? (effect.focus ? `: the default beneath a ${effect.focus === "question" ? "Question" : "Point"} focus` : ": the mark's own relation")
+          const fit = effect.fit === "home" ? (effect.focus ? `: the default beneath a ${effect.focus === "question" ? "Question" : "Point"} focus` : effect.intention === "none" ? ": relevance, which the mark leaves unqualified" : ": the mark's own relation")
             : effect.fit === "opposed" ? "; the clause alone constructs the relation, which the mark opposes"
             : effect.fit === "compatible" ? (effect.focus ? "; placement records relevance only" : "; the clause states another relation, which the mark does not oppose")
             : "; no relation";
@@ -71,7 +71,7 @@ export function formatExplain(source: ExplainedSource): string {
     for (const entry of entries) {
       const r = entry.recognition;
       const mark = r.kind === "bearing" ? (r.selector ? "/" : "") + (r.members ? " member sources" : " listed sources")
-        : "role" in r && r.role ? " " + r.role + ("selector" in r && r.selector ? "/" : "") : "";
+        : ("role" in r && r.role ? " " + r.role : "selector" in r && r.selector ? " ." : "") + ("selector" in r && r.selector ? "/" : "");
       lines.push(`  ${location(entry.sourceSpan)} ${r.kind}${mark}`);
       for (const effect of entry.effects) lines.push("    " + effectText(effect, entry));
       if (entry.diagnosticCodes.length) lines.push("    Diagnostics: " + entry.diagnosticCodes.join(", ") + ".");

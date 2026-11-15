@@ -34,8 +34,13 @@ Source that compiled under 0.6 can construct different relations; follow [Migrat
   `[G]ood` is now `MISSING_ANNOTATION_SEPARATOR` instead of silently a Ground with body `ood`.
 - Retire the `node` and `edge` family aliases; use `.`/`point` and `_`/`bearing`.
   The retired words stay recognised with `RETIRED_FAMILY_ALIAS` and construct no Bearing.
-- Diagnose `[./]` and `[./ @id]` as `UNSUPPORTED_LOCAL_BEARING_SELECTOR`, as `[C/]` already was, instead of reading them silently as body.
-  The message names `[. concerns ^/]` for relevance to the locally exposed Bearing; no relation is guessed.
+- Unify the selector slash: `/` only moves the target to `^/`, and the relation stays the mark's own kind.
+  `[./]`, `[./ @id]`, `[./ use @p]` and `[C/]` now record `concerns` toward the locally exposed Bearing; in 0.6 `[./]` was silent body and `[C/]` an error.
+  `[R/]` stays `UNSUPPORTED_LOCAL_BEARING_SELECTOR`, since `respondsTo` needs a Point target, and `[./run.sh]` stays body.
+  Fit now measures `.` and C outside a Question against `concerns`, so `[. ~> @x]` is `home` rather than `compatible`.
+- Report a Bearing rejected by validation once, at its own diagnostic.
+  Bearings that fail only because they target it, by handle or by `/`, directly or transitively, are listed in that diagnostic's `related` instead of each reporting `UNRESOLVED_BEARING_TARGET`.
+  `UNRESOLVED_BEARING_TARGET` remains for a target whose failure was reported elsewhere.
 - Report a Point use whose operand fails once, at the use.
   Its own relation and the occurrences that attach through it positionally fail for that reason and are counted in its explanation instead of each repeating `UNKNOWN_SOURCE`, `UNKNOWN_TARGET`, `POINT_FOCUS_REQUIRES_POINT`, `BEARING_IS_NOT_BEARING_SOURCE` or `UNRESOLVED_BEARING_TARGET`.
   A named reference to the same missing id elsewhere is still reported where it is written.

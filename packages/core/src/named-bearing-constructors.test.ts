@@ -94,7 +94,11 @@ describe("named canonical Bearing constructors", () => {
 
   it("propagates failed Bearing dependencies while retaining valid unrelated structure", () => {
     const graph = compile(declarations + "\n- [_ @first supports @missing; @failed]\n- [_ @second concerns @failed; @dependent]\n- [_ @second interprets @target; @independent]");
-    expect(codes(graph)).toEqual(["UNKNOWN_TARGET", "UNRESOLVED_BEARING_TARGET"]);
+    expect(codes(graph)).toEqual(["UNKNOWN_TARGET"]);
+    const root = graph.diagnostics[0];
+    expect(root.related?.map(entry => entry.sourceSpan.startLine)).toEqual([6]);
+    expect(root.related?.[0].message).toBe("Targets this rejected Bearing; compiles once it is fixed.");
+    expect(root.explanation).toBe("One occurrence targets the Bearing rejected here and cannot compile until it resolves; it is not reported separately.");
     expect(graph.bearings.map(bearing => bearing.handle)).toEqual(["base", "independent"]);
   });
 

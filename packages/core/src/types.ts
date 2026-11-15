@@ -15,7 +15,8 @@ export type AnnotationSyntaxError = "operator" | "handle" | "mode" | "selector" 
 export type BearingProfile = "example";
 export type LocalBearingChildFunction = "source" | "commentary" | "independent" | "supplementary" | "unclassified";
 /** Roles whose `/` form selects the locally exposed Bearing. */
-export type SelectorRole = "G" | "O" | "Q" | "D";
+/** Marks with a selector form; R has none, because respondsTo requires a Point target. */
+export type SelectorRole = "G" | "O" | "Q" | "D" | "C";
 export type SourceParseMode = "document" | "host";
 export type SourceUnitKind = "document" | "fence";
 
@@ -75,7 +76,8 @@ type AnnotationBase<ErrorKind extends AnnotationSyntaxError = "operator" | "hand
   raw: string;
 };
 
-// A selector is the authored shorthand for the role's default relation to `^/`.
+// A selector is the authored shorthand for the mark's relation to `^/`: its
+// home kind, or concerns for C and . (selectorRelation).
 type RoleMark =
   | { role: SelectorRole; status?: never; selector: "attachment"; operatorClause?: never }
   | { role: Role; status?: never; selector?: never };
@@ -84,7 +86,11 @@ type RoleMark =
 // role/selector correlation.
 type PointUseMark =
   | { role?: Role; selector?: never }
-  | { role: SelectorRole; selector: "attachment"; operatorClause?: never };
+  | { role?: SelectorRole; selector: "attachment"; operatorClause?: never };
+
+type MaterialMark =
+  | { selector?: never }
+  | { selector: "attachment"; operatorClause?: never };
 
 type PointAnnotationBase = AnnotationBase & {
   anchor?: string;
@@ -101,7 +107,7 @@ export type Annotation =
       operatorClause?: PointOperatorClause;
     } & PointUseMark)
   | (PointAnnotationBase & RoleMark & { kind: "role" })
-  | (PointAnnotationBase & { kind: "material" })
+  | (PointAnnotationBase & MaterialMark & { kind: "material" })
   /**
    * Bearing construction. A valid header without a clause is `[_]` or `[_/]`:
    * joint `concerns` from its members to the selected slot. `members` records
@@ -232,7 +238,7 @@ export type ExplainRecognition =
   | { kind: "body" }
   | { kind: "invalid"; selector?: "attachment" }
   | ({ kind: "role" } & RoleMark)
-  | { kind: "material" }
+  | { kind: "material"; selector?: "attachment" }
   | { kind: "bearing"; members: boolean; selector?: "attachment" }
   | { kind: "bearingUse"; ref?: Ref }
   | ({ kind: "use"; ref?: Ref } & PointUseMark);
@@ -265,8 +271,8 @@ export type ExplainEmittedBearingSummary = Omit<BearingBase, "text" | "sourceSpa
  *
  * fit, present only when a relation is constructed: whether its kind is the
  * mark's own.
- * - home: the mark's own relation, by default, selector or clause; for . the
- *   relevance default.
+ * - home: the mark's own relation, by default, selector or clause; for ., and
+ *   C outside a Question, which declare none, it is concerns.
  * - compatible: another relation that the mark does not oppose.
  * - opposed: G with challenges, or O with supports. The clause alone constructs.
  *

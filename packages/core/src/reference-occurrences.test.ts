@@ -115,7 +115,11 @@ describe("reference-only Point occurrences", () => {
       const declaration = sources.includes("[. @premise]") ? "" : "- [C @premise] Original.\n";
       const { graph } = compile(declaration + "- [C @claim] Claim.\n  - [_ +> ^; @joint]\n" + sources + "\n    - [O/] Failed joint assessment.");
       expect(graph.bearings).toEqual([]);
-      expect(codes(graph)).toEqual(["DUPLICATE_BEARING_SOURCES", "UNRESOLVED_BEARING_TARGET"]);
+      expect(codes(graph)).toEqual(["DUPLICATE_BEARING_SOURCES"]);
+      const root = graph.diagnostics[0];
+      expect(root.related?.map(entry => entry.sourceSpan.startLine)).toEqual([declaration ? 6 : 5]);
+      expect(root.related?.[0].message).toBe("Targets this rejected Bearing; compiles once it is fixed.");
+      expect(root.explanation).toBe("One occurrence targets the Bearing rejected here and cannot compile until it resolves; it is not reported separately.");
     }
   });
 

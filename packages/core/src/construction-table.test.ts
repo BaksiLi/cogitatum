@@ -99,7 +99,7 @@ describe("a valid clause replaces the default and alone constructs", () => {
     ["R respondsTo @other", "respondsTo(x → other)", "home"],
     ["D interprets @other", "interprets(x → other)", "home"],
     ["C +> @other", "supports(x → other)", "compatible"],
-    [". ~> @other", "concerns(x → other)", "compatible"],
+    [". ~> @other", "concerns(x → other)", "home"],
     ["Q respondsTo @other", "respondsTo(x → other)", "compatible"],
     ["R -> @other", "challenges(x → other)", "compatible"],
     ["D -> @other", "challenges(x → other)", "compatible"],
@@ -299,5 +299,31 @@ describe("same position: related versus unattached material", () => {
       relations: ["answers(yes → plan)", "answers(no → plan)"],
       codes: ["IMPLICIT_ATTACHMENT_THROUGH_BODY"]
     });
+  });
+});
+
+describe("a slash selects the local Bearing and keeps the mark's own kind", () => {
+  const local = (header: string, focus = "C") => outcome(`- [${focus} @f] 焦點。\n  - [G @g] 理由。\n    - [${header}] 內容。`, 3);
+
+  it.each([
+    ["G/", "supports(x → g)"],
+    ["O/", "challenges(x → g)"],
+    ["Q/", "concerns(x → g)"],
+    ["D/", "interprets(x → g)"],
+    ["C/", "concerns(x → g)"],
+    ["./", "concerns(x → g)"]
+  ])("[%s @x] constructs %s", (mark, relation) => {
+    for (const focus of ["C", "Q"]) {
+      const result = local(`${mark} @x`, focus);
+      expect(result.relation?.replace(/→ \S+\)/, "→ g)")).toBe(relation);
+      expect(result.codes).toEqual([]);
+    }
+  });
+
+  it("applies to a neutral use and still refuses R/", () => {
+    const use = outcome("- [C @f] 焦點。\n  - [G @g] 理由。\n- [. @x] 材料。\n- [C @h] 另一點。\n  - [G @k] 另一理由。\n    - [./ use @x]", 6);
+    expect(use.relation?.startsWith("concerns(x → ")).toBe(true);
+    expect(use.codes).toEqual([]);
+    expect(local("R/ @x").codes).toContain("UNSUPPORTED_LOCAL_BEARING_SELECTOR");
   });
 });

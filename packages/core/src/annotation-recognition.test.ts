@@ -64,7 +64,7 @@ describe("annotation recognition boundaries", () => {
     ["[c @claim]", "MALFORMED_ANNOTATION", "write C, not c"],
     ["[C?]", "RETIRED_CLAIM_OPENNESS", "C? is retired"],
     ["[Q?]", "ROLE_OPENNESS_UNSUPPORTED", "Keep tentative wording"],
-    ["[C/]", "UNSUPPORTED_LOCAL_BEARING_SELECTOR", "Only G/, O/, Q/ and D/"],
+    ["[R/]", "UNSUPPORTED_LOCAL_BEARING_SELECTOR", "there is no [R/]"],
     ["[?/]", "RETIRED_GAP_ANNOTATION", "Gap [?] is retired"],
     ["[C major]", "MALFORMED_ROLE_ANNOTATION", "remove the brackets"],
     ["[O-> @outer", "MALFORMED_ANNOTATION_PREFIX", "closing ']'"]

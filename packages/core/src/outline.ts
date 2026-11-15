@@ -308,7 +308,7 @@ function toAstBlock(node: RawNode, diagnostics: Diagnostic[]): AstBlock {
     : undefined;
   const retiredClaimRaw = !node.annotationRaw && header.startsWith("[") && isRetiredClaimStart(inner) ? inner : undefined;
   const annotationRaw = node.annotationRaw ?? retiredClaimRaw ?? (unclosedConstructor === "join" || unclosedConstructor === "linked" ? inner : undefined);
-  const unclosedSelector = node.indentationValid && !node.annotationRaw && unterminated && /^\[\s*(?:[GO][_/]|[QD]\/)(?=$|[\s;@])/i.test(open);
+  const unclosedSelector = node.indentationValid && !node.annotationRaw && unterminated && /^\[\s*(?:[GO][_/]|[QDC.]\/)(?=$|[\s;@])/i.test(open);
   const unclosedUse = node.indentationValid && !node.annotationRaw && header.startsWith("[") && unterminated && head.operation === "use";
   const unclosedBearingUse = unclosedConstructor === "_" && head.operation === "use";
   const unclosedMembersBearing = unclosedConstructor === "_" && head.sources === "members";
@@ -342,8 +342,10 @@ function toAstBlock(node: RawNode, diagnostics: Diagnostic[]): AstBlock {
     annotation = { kind: "bearing", members: true, raw: inner, syntaxErrors: [...new Set(["operator" as const, ...syntaxErrors, ...retired])] };
   } else if (unclosedUse) {
     // Retain clear selector intent so an unfinished use cannot become a joint source.
-    const role = /^\[\s*([GOQD])\/\s+use(?=$|[\s;])/i.exec(open)?.[1].toUpperCase() as SelectorRole | undefined;
-    annotation = role
+    const role = /^\[\s*([GOQDC.])\/\s+use(?=$|[\s;])/i.exec(open)?.[1].toUpperCase() as SelectorRole | "." | undefined;
+    annotation = role === "."
+      ? { kind: "use", selector: "attachment", raw: inner, syntaxErrors: ["reference"] }
+      : role
       ? { kind: "use", role, selector: "attachment", raw: inner, syntaxErrors: ["reference"] }
       : { kind: "use", raw: inner, syntaxErrors: ["reference"] };
   } else if (unclosedSelector) {

@@ -116,7 +116,11 @@ describe("format 0.6 unified challenges", () => {
     const failed = compile(declarations + "\n- [_ @a respondsTo @route; @failed]\n  - [O/] No outward fallback.\n- [O -> @failed] Dependent.\n- [O -> @claim] Independent.").graph;
     expect(failed.bearings.map(b => b.handle)).toEqual(["route", undefined]);
     expect(failed.bearings[1].target.kind).toBe("point");
-    expect(failed.diagnostics.filter(d => d.code === "UNRESOLVED_BEARING_TARGET")).toHaveLength(2);
+    expect(failed.diagnostics.map(d => d.code)).toEqual(["BEARING_KIND_REQUIRES_POINT_TARGET"]);
+    const root = failed.diagnostics[0];
+    expect(root.related?.map(entry => entry.sourceSpan.startLine)).toEqual([6, 7]);
+    expect(root.related?.every(entry => entry.message === "Targets this rejected Bearing; compiles once it is fixed.")).toBe(true);
+    expect(root.explanation).toBe("2 occurrences target the Bearing rejected here and cannot compile until it resolves; they are not reported separately.");
   });
 
   it("rejects old target-kind JSON instead of relabelling it", () => {

@@ -231,7 +231,7 @@ describe("public compiler contract boundaries", () => {
     expect(validateGraph(json(graph))).toBe(true);
     expect(validateExplain(json(explain))).toBe(true);
     const invalid = json(ast);
-    invalid.blocks[0].children[0].children[1].annotation.role = "C";
+    invalid.blocks[0].children[0].children[1].annotation.role = "R";
     expect(validateAst(invalid)).toBe(false);
     const malformed = parseDocument("- [C] Claim.\n  - [G] Ground.\n    - [O/ /> @missing] Excluded combination.");
     const result = compileGraphWithExplain(malformed);
@@ -239,7 +239,7 @@ describe("public compiler contract boundaries", () => {
     expect(validateExplain(json(result.explain))).toBe(true);
   });
 
-  it.each(["G", "O", "Q", "D"])("keeps the %s/ use recognition correlated with its local role", role => {
+  it.each(["G", "O", "Q", "D", "C"])("keeps the %s/ use recognition correlated with its local role", role => {
     const source = `- [C @claim] Claim.\n  - [G @reason; @route] Reason.\n    - [${role}/ use @reason] Review this step.`;
     const { explain } = compileGraphWithExplain(parseDocument(source));
     const recognition = explain.entries[2].recognition;
@@ -247,11 +247,12 @@ describe("public compiler contract boundaries", () => {
     expect(explain.diagnostics).toEqual([]);
     expect(validateAst(json(parseDocument(source))), JSON.stringify(validateAst.errors)).toBe(true);
     expect(validateExplain(json(explain)), JSON.stringify(validateExplain.errors)).toBe(true);
-    for (const invalidRole of [undefined, "C", "R"]) {
-      const invalid = json(explain);
-      invalid.entries[2].recognition.role = invalidRole;
-      expect(validateExplain(json(invalid)), String(invalidRole)).toBe(false);
-    }
+    const neutral = json(explain);
+    delete neutral.entries[2].recognition.role;
+    expect(validateExplain(neutral)).toBe(true);
+    const response = json(explain);
+    response.entries[2].recognition.role = "R";
+    expect(validateExplain(response)).toBe(false);
   });
 
   it("preserves a Q selector and its typed target through complete source serialization", () => {
@@ -261,7 +262,7 @@ describe("public compiler contract boundaries", () => {
     const { graph, explain } = compileGraphWithExplain(result.documents[0]);
     expect(graph).toEqual(result.graphs[0]);
     expect(explain).toEqual(result.explanations[0]);
-    for (const role of ["C", "R"]) {
+    for (const role of ["R"]) {
       const invalid = structuredClone(result);
       invalid.documents[0].blocks[0].children[0].children[0].annotation.role = role;
       expect(validateAst(invalid.documents[0]), role).toBe(false);

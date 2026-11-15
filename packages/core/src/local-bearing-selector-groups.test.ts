@@ -128,11 +128,15 @@ describe("local Bearing selector constructors", () => {
     - [.] Backing.`);
     expect(graph.bearings).toEqual([]);
     expect(graph.diagnostics.map(d => d.code)).toEqual([
-      "UNKNOWN_TARGET", "UNRESOLVED_BEARING_TARGET", "UNRESOLVED_BEARING_TARGET", "INVALID_BEARING_REFERENCE"
+      "UNKNOWN_TARGET", "INVALID_BEARING_REFERENCE"
     ]);
+    const root = graph.diagnostics[0];
+    expect(root.related?.map(entry => entry.sourceSpan.startLine)).toEqual([3, 7]);
+    expect(root.related?.every(entry => entry.message === "Targets this rejected Bearing; compiles once it is fixed.")).toBe(true);
+    expect(root.explanation).toBe("2 occurrences target the Bearing rejected here and cannot compile until it resolves; they are not reported separately.");
   });
 
-  it.each([["_ Q", "[_ ~> ^]"], ["_ D/", "[_ interprets ^/]"], ["_ C/", "Write an operator and target"]])("names the relation instead of accepting the role header %s", (header, hint) => {
+  it.each([["_ Q", "[_ ~> ^]"], ["_ D/", "[_ interprets ^/]"], ["_ C/", "[_ ~> ^/]"]])("names the relation instead of accepting the role header %s", (header, hint) => {
     const { diagnostics } = parseAnnotation(header);
     expect(diagnostics.map(d => d.code)).toEqual(["MALFORMED_BEARING_MODE"]);
     expect(diagnostics[0].message).toContain(hint);

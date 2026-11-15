@@ -319,9 +319,12 @@ function decidedHeader(annotation: Annotation, clause: OperatorClause, kind: Bea
     return annotation.raw.replace(/^(\s*)[GORD]/, `$1${next}`);
   }
   // Deciding a mark's own relation down to relevance leaves nothing for the
-  // mark to state: beneath a Point focus the neutral mark records it.
-  if (role && role !== "Q" && MARK_RELATIONS[role] === clause.op && kind === "concerns" && marks(undefined, kind, focus)
-    && !isNamedTarget(clause.target) && clause.target.local === "point" && !("operatorClause" in annotation && annotation.operatorClause)) {
+  // mark to state: beneath a Point focus the neutral mark records it, and a
+  // selector slash keeps selecting the local Bearing as [./].
+  const selected = "selector" in annotation && annotation.selector;
+  if (role && role !== "Q" && MARK_RELATIONS[role] === clause.op && kind === "concerns"
+    && !isNamedTarget(clause.target) && !("operatorClause" in annotation && annotation.operatorClause)
+    && (selected ? clause.target.local === "bearing" : clause.target.local === "point" && marks(undefined, kind, focus))) {
     return annotation.raw.replace(/^(\s*)[GORD]/, "$1.");
   }
   return respellClause(annotation, { op: kind }, focus);
