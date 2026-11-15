@@ -57,13 +57,13 @@ export function formatExplain(source: ExplainedSource): string {
         case "skipBearing": return `No Bearing: ${effect.reason}.`;
         case "frameOccurrence": {
           const presented = "Presented as " + MARK_NAMES[("role" in entry.recognition && entry.recognition.role) || "."];
-          switch (effect.framing) {
-            case "aligned": return presented + (effect.focus ? `: the default beneath a ${effect.focus === "question" ? "Question" : "Point"} focus.` : ": the mark's own relation.");
-            case "compatible": return presented + "; the clause states the relation (compatible framing).";
-            case "opposed": return presented + "; the clause alone constructs the relation (opposed framing).";
-            case "unbound": return presented + `; ${effect.intention} target unstated` + (effect.focus ? ". The placement records relevance only." : ".");
-            case "none": return presented + "; no relation and no intention awaiting one.";
-          }
+          const fit = effect.fit === "home" ? (effect.focus ? `: the default beneath a ${effect.focus === "question" ? "Question" : "Point"} focus` : ": the mark's own relation")
+            : effect.fit === "opposed" ? "; the clause alone constructs the relation, which the mark opposes"
+            : effect.fit === "compatible" ? (effect.focus ? "; placement records relevance only" : "; the clause states another relation, which the mark does not oppose")
+            : "; no relation";
+          const intention = effect.intention === "unbound" ? `; ${effect.awaits} target unstated`
+            : effect.intention === "none" && !effect.fit ? " and no function awaiting one" : "";
+          return presented + fit + intention + ".";
         }
       }
     };

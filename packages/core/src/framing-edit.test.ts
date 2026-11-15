@@ -6,11 +6,11 @@ const bearings = (source: string) => explainSource(source).graphs[0].bearings.ma
 
 describe("graph-preserving repairs of an opposed framing", () => {
   it.each([
-    ["G", "- [C @delay] 應延後採用。\n- [G @cost +> @delay] 成本超出預算。\n", "aligned"],
+    ["G", "- [C @delay] 應延後採用。\n- [G @cost +> @delay] 成本超出預算。\n", "home"],
     [".", "- [C @delay] 應延後採用。\n- [. @cost +> @delay] 成本超出預算。\n", "compatible"]
-  ] as const)("re-marks as %s, keeping the clause and every relation", (mark, proposedSource, framing) => {
+  ] as const)("re-marks as %s, keeping the clause and every relation", (mark, proposedSource, fit) => {
     const preview = previewFramingEdit(opposed, { operation: "remark", line: 2, mark });
-    expect(preview).toMatchObject({ status: "ready", proposedSource, proposedDiagnostics: [], declarationChanged: true, framing: { before: { framing: "opposed" }, after: { framing } } });
+    expect(preview).toMatchObject({ status: "ready", proposedSource, proposedDiagnostics: [], declarationChanged: true, framing: { before: { fit: "opposed" }, after: { fit } } });
     expect(preview.status === "ready" && preview.edit).toEqual({ offset: opposed.indexOf("[O") + 1, remove: "O", insert: mark });
     expect(bearings(proposedSource)).toEqual(bearings(opposed));
   });
@@ -70,7 +70,7 @@ describe("re-marking never changes a relation", () => {
 
   it("re-marks freely where the clause states the relation, on declarations and uses", () => {
     expect(previewFramingEdit("- [C @c] 主張。\n- [R @x -> @c] 回應並反駁。", { operation: "remark", line: 2, mark: "O" }))
-      .toMatchObject({ status: "ready", framing: { before: { framing: "compatible" }, after: { framing: "aligned" } }, proposedSource: "- [C @c] 主張。\n- [O @x -> @c] 回應並反駁。" });
+      .toMatchObject({ status: "ready", framing: { before: { fit: "compatible", intention: "bound" }, after: { fit: "home", intention: "bound" } }, proposedSource: "- [C @c] 主張。\n- [O @x -> @c] 回應並反駁。" });
     expect(previewFramingEdit("- [C @c] 主張。\n- [. @x] 材料。\n- [. use @x +> @c; @r]", { operation: "remark", line: 3, mark: "G" }))
       .toMatchObject({ status: "ready", declarationChanged: false, proposedSource: "- [C @c] 主張。\n- [. @x] 材料。\n- [G use @x +> @c; @r]" });
     expect(previewFramingEdit("- [C @c] 主張。\n- [point @x +> @c] 材料。", { operation: "remark", line: 2, mark: "G" }))
@@ -79,7 +79,7 @@ describe("re-marking never changes a relation", () => {
 
   it("re-marks a root occurrence, changing only its unbound intention", () => {
     expect(previewFramingEdit("- [O @cost] 成本超出預算。", { operation: "remark", line: 1, mark: "." }))
-      .toMatchObject({ status: "ready", framing: { before: { framing: "unbound", intention: "challenges" }, after: { framing: "none" } } });
+      .toMatchObject({ status: "ready", framing: { before: { intention: "unbound", awaits: "challenges" }, after: { intention: "none" } } });
   });
 
   it.each([

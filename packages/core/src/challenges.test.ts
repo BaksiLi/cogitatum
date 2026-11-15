@@ -52,7 +52,7 @@ describe("format 0.6 unified challenges", () => {
     expect(graph.bearings.map(b => b.handle)).toEqual(["route", "outer-route", "kept"]);
     expect(graph.bearings[2].target).toEqual({ kind: "bearing", key: graph.bearings[0].key });
     expect(graph.points.some(p => p.id === "child")).toBe(true);
-    expect(graph.diagnostics.map(d => d.code)).toEqual([code, "NO_LOCAL_BEARING_ATTACHMENT", "EXPLICIT_BEARING_DESCENDANT_REQUIRES_TARGET", "UNKNOWN_TARGET"]);
+    expect(graph.diagnostics.map(d => d.code)).toEqual([code, "NO_LOCAL_BEARING_ATTACHMENT", "EXPLICIT_BEARING_DESCENDANT_REQUIRES_TARGET"]);
     const entry = explain.entries.find(e => e.sourceSpan.startLine === 7)!;
     expect(entry.recognition).toEqual({ kind: "bearing", members: false });
     expect(entry.effects.some(e => e.kind === "emitBearing")).toBe(false);

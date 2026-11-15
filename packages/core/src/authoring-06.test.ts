@@ -188,7 +188,7 @@ describe("authoring boundaries under the 0.7 construction table", () => {
   it.each(["_", "edge", "bearing"])("rejects named about or the retired %s family while preserving the failed boundary", family => {
     const {graph} = compile(`- [. @a] Source.\n- [C @c] Claim.\n  - [${family} @a about @c; @r]\n    - [G] Child.\n- [O -> @r] Dependent.`);
     expect(graph.bearings).toEqual([]);
-    expect(graph.diagnostics.map(d=>d.code)).toEqual([family === "edge" ? "RETIRED_FAMILY_ALIAS" : "RETIRED_BEARING_KIND","EXPLICIT_BEARING_DESCENDANT_REQUIRES_TARGET","UNKNOWN_TARGET"]);
+    expect(graph.diagnostics.map(d=>d.code)).toEqual([family === "edge" ? "RETIRED_FAMILY_ALIAS" : "RETIRED_BEARING_KIND","EXPLICIT_BEARING_DESCENDANT_REQUIRES_TARGET"]);
   });
 
   it("keeps a question reply and a joint answer explicit without relabelling their Points", () => {

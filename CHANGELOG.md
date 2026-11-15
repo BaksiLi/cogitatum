@@ -17,9 +17,11 @@ Source that compiled under 0.6 can construct different relations; follow [Migrat
   G directly beneath Q constructs `concerns`, with suggestion `UNBOUND_GROUND_UNDER_QUESTION`, instead of supporting the Question; write `+> ^` when that is meant.
   The focus is the occurrence's own mark, so `[. use @q]` is no Question focus even when `@q` was declared Q.
   Detaching is positional: outdent to root rather than re-marking as `.`.
-- Record how a mark and its relation agree as Explain effect `frameOccurrence`, with framing `aligned`, `compatible`, `opposed`, `unbound` or `none`.
+- Record an occurrence's framing as Explain effect `frameOccurrence` on two independent axes.
+  `fit` (`home`, `compatible` or `opposed`, absent when nothing is constructed) compares the constructed kind with the mark; `intention` (`bound`, `unbound` with `awaits`, or `none`) says whether the mark's function has a stated object.
+  So `[O @x +> @c]` is opposed but bound, and G beneath Q is compatible but unbound.
   An opposed framing, such as `[O @x +> @c]`, keeps the written relation and adds suggestion `OPPOSED_FRAMING`; the relation is never changed to fit the mark.
-  A root role with a directed intention (G, O, R, D) is `unbound`: presented as that role, target unstated.
+  A root role with a directed intention (G, O, R, D) has intention `unbound`: presented as that role, target unstated.
   Explain text reads these as, for example, “Presented as Objection; …”.
 - Rename the `clarifies` kind to `interprets`.
   `clarifies` is diagnosed with `RETIRED_BEARING_KIND` and constructs nothing.
@@ -37,6 +39,10 @@ Source that compiled under 0.6 can construct different relations; follow [Migrat
 - Report a Point use whose operand fails once, at the use.
   Its own relation and the occurrences that attach through it positionally fail for that reason and are counted in its explanation instead of each repeating `UNKNOWN_SOURCE`, `UNKNOWN_TARGET`, `POINT_FOCUS_REQUIRES_POINT`, `BEARING_IS_NOT_BEARING_SOURCE` or `UNRESOLVED_BEARING_TARGET`.
   A named reference to the same missing id elsewhere is still reported where it is written.
+- Count a reference to a handle written on a header that failed to parse, such as `[edge @a +> @c; @route]`, at that header instead of reporting `UNKNOWN_TARGET` or `UNKNOWN_SOURCE` for a name the author did write.
+- Add optional `related` spans to diagnostics, each with a message and, when it names another diagnostic in the same result, its code.
+  A failed use lists the occurrences that attach through it; independent errors on one header, such as a retired alias that is also unclosed, stay reported and name each other.
+  `cog lsp` publishes them as `relatedInformation`.
 - Add `previewFramingEdit`, checked previews that re-mark an occurrence only when every relation is unchanged, or split an opposed framing into the aligned mark plus an unbound root use.
   Add the `retarget` relation edit, which moves one Bearing to a selected target and reports what it retracts and adds.
   `analyzeSourceEdits` accepts `framing` requests.

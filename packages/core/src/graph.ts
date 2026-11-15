@@ -196,7 +196,8 @@ function compileDocument(ast: DocumentAst) {
       }
     }
   }
-  const validation = validateBearings(compiledBearings, symbols, diagnostics, reportedOperands, failedUses);
+  const failedHandles = collectFailedHandles(ast.blocks, diagnostics, symbols);
+  const validation = validateBearings(compiledBearings, symbols, diagnostics, reportedOperands, failedUses, failedHandles);
   const validBearingKeys = new Set(validation.bearings.map(bearing => bearing.key));
   for (const draft of explainDrafts) {
     if (draft.selection?.origin !== "use") continue;
@@ -216,7 +217,7 @@ function compileDocument(ast: DocumentAst) {
   const visibleDiagnosticCounts = explainDrafts.map(draft => {
     const candidate = draft.bearing?.outcome === "candidate" ? draft.bearing.candidate : undefined;
     const emitted = candidate && bearingTargets.has(candidate.key) ? candidate : undefined;
-    if (emitted && draft.frame?.framing === "unbound") {
+    if (emitted && draft.frame?.intention === "unbound") {
       diagnostics.push({
         severity: "suggestion",
         code: "UNBOUND_GROUND_UNDER_QUESTION",
@@ -227,7 +228,7 @@ function compileDocument(ast: DocumentAst) {
         sourceSpan: draft.block.sourceSpan
       });
     }
-    if (emitted && draft.frame?.framing === "opposed") {
+    if (emitted && draft.frame?.fit === "opposed") {
       const annotation = draft.block.annotation as Extract<Annotation, { kind: "role" | "use" }>;
       const [presented, aligned] = annotation.role === "O" ? ["an Objection", "G"] : ["a Ground", "O"];
       const operand = annotation.kind === "use" ? annotation.ref && " use @" + annotation.ref.id : annotation.anchor && " @" + annotation.anchor;
@@ -458,20 +459,22 @@ function occurrenceFrame(
 ): Frame | undefined {
   if (!bearing || bearing.outcome === "rejected") return undefined;
   const role = "role" in annotation ? annotation.role : undefined;
-  const home = role && MARK_RELATIONS[role];
+  // C declares an answer only beneath a Question; elsewhere it is a Claim.
+  const home = role === "C" ? (focus === "question" ? "answers" as const : undefined) : role && MARK_RELATIONS[role];
   if (bearing.outcome === "skipped") {
     // A root Question introduces an inquiry; it awaits no target.
-    if (bearing.reason === "no-eligible-ancestor") return home && role !== "Q" ? { framing: "unbound", intention: home } : { framing: "none" };
-    return memberFunction === "source" ? { framing: "none" } : undefined;
+    if (bearing.reason === "no-eligible-ancestor") return home && role !== "Q" ? { intention: "unbound", awaits: home } : { intention: "none" };
+    return memberFunction === "source" ? { intention: "none" } : undefined;
   }
+  const intention = home ? "bound" as const : "none" as const;
   if (relation.by === "clause") {
     const opposed = (role === "G" && relation.kind === "challenges") || (role === "O" && relation.kind === "supports");
-    return { framing: opposed ? "opposed" : home === relation.kind ? "aligned" : "compatible" };
+    return { fit: opposed ? "opposed" : home === relation.kind ? "home" : "compatible", intention };
   }
-  if (!focus || relation.target.local === "bearing") return { framing: "aligned" };
-  if (leavesIntentionUnbound(role, focus)) return { framing: "unbound", intention: home!, focus, weakDefault: true };
+  if (!focus || relation.target.local === "bearing") return { fit: "home", intention };
+  if (leavesIntentionUnbound(role, focus)) return { fit: "compatible", intention: "unbound", awaits: home!, focus, weakDefault: true };
   // C and . record relevance by placement alone; a candidate answer is a stronger selection.
-  return { framing: "aligned", focus, ...(!home && relation.kind === "concerns" ? { weakDefault: true } : {}) };
+  return { fit: "home", intention, focus, ...(!home && relation.kind === "concerns" ? { weakDefault: true } : {}) };
 }
 
 /** Why the nearest context has no Point slot. */
@@ -886,7 +889,8 @@ function validateBearings(
   symbols: SymbolTable,
   diagnostics: Diagnostic[],
   reportedOperands: ReadonlySet<string> = new Set(),
-  failedUses: ReadonlyMap<string, Diagnostic> = new Map()
+  failedUses: ReadonlyMap<string, Diagnostic> = new Map(),
+  failedHandles: ReadonlyMap<string, Diagnostic> = new Map()
 ): BearingValidation {
   const validity = new Map<CandidateBearing, boolean>();
   // Failures that follow only from a Point use already reported, keyed to
@@ -903,6 +907,9 @@ function validateBearings(
       const reported = "id" in source && reportedOperands.has(operandKey(source.id, bearing.sourceSpan));
       if (reported && (kind === "unknown" || kind === "bearing")) {
         if (failedUses.has(source.id)) failedUseBearings.set(bearing, failedUses.get(source.id)!);
+        isValid = false;
+      } else if (kind === "unknown" && "id" in source && failedHandles.has(source.id)) {
+        derivedFrom.set(bearing, failedHandles.get(source.id)!);
         isValid = false;
       } else if (kind === "unknown") {
         diagnostics.push({
@@ -952,6 +959,9 @@ function validateBearings(
         isValid = false;
       }
     } else if (targetKind === "invalid") {
+      isValid = false;
+    } else if ("id" in bearing.target && failedHandles.has(bearing.target.id)) {
+      if (!derivedFrom.has(bearing)) derivedFrom.set(bearing, failedHandles.get(bearing.target.id)!);
       isValid = false;
     } else {
       diagnostics.push({
@@ -1019,11 +1029,17 @@ function validateBearings(
     });
   }
 
-  const dependentCounts = new Map<Diagnostic, number>();
-  for (const root of derivedFrom.values()) dependentCounts.set(root, (dependentCounts.get(root) ?? 0) + 1);
-  for (const [root, count] of dependentCounts) {
-    const dependents = count === 1 ? "One occurrence beneath it attaches" : `${count} occurrences beneath it attach`;
-    root.explanation = [root.explanation, `${dependents} through this use and cannot compile until it resolves; ${count === 1 ? "it is" : "they are"} not reported separately.`].filter(Boolean).join(" ");
+  const rootDependents = new Map<Diagnostic, CandidateBearing[]>();
+  for (const [bearing, root] of derivedFrom) rootDependents.set(root, [...(rootDependents.get(root) ?? []), bearing]);
+  const headerRoots = new Set(failedHandles.values());
+  for (const [root, derived] of rootDependents) {
+    const count = derived.length;
+    const header = headerRoots.has(root);
+    const subject = header ? (count === 1 ? "One occurrence names" : `${count} occurrences name`) + " the handle declared here"
+      : count === 1 ? "One occurrence beneath it attaches" : `${count} occurrences beneath it attach`;
+    root.explanation = [root.explanation, `${subject}${header ? "" : " through this use"} and cannot compile until it resolves; ${count === 1 ? "it is" : "they are"} not reported separately.`].filter(Boolean).join(" ");
+    root.related = [...(root.related ?? []), ...derived.filter(bearing => bearing.sourceSpan).sort((x, y) => x.sourceSpan!.startLine - y.sourceSpan!.startLine || x.sourceSpan!.startColumn - y.sourceSpan!.startColumn)
+      .map(bearing => ({ sourceSpan: bearing.sourceSpan!, message: header ? "Names the handle declared on this failed header; compiles once it is fixed." : "Attaches through this use; compiles once it resolves." }))];
   }
 
   const accepted = bearings.filter((bearing) => validity.get(bearing));
@@ -1376,6 +1392,29 @@ function pointKeyForBlock(block: AstBlock, pointKeys: WeakMap<AstBlock, string>)
     throw new Error("Compiler invariant violated: Point block has no compilation key.");
   }
   return generated;
+}
+
+/**
+ * Handles written on a header that failed to parse, keyed to that header's
+ * first error. A later reference to such a handle fails for the header's
+ * reason and is counted there; a handle also declared elsewhere is ordinary.
+ */
+function collectFailedHandles(blocks: AstBlock[], diagnostics: Diagnostic[], symbols: SymbolTable): Map<string, Diagnostic> {
+  const failed = new Map<string, Diagnostic>();
+  walkBlocks(blocks, block => {
+    const annotation = block.annotation;
+    if (!annotation || !("handle" in annotation) || !annotation.handle || !("syntaxErrors" in annotation) || !annotation.syntaxErrors?.length) return;
+    const handle = annotation.handle;
+    if (failed.has(handle) || symbols.bearingIds.has(handle) || symbols.declaredPointIds.has(handle)) return;
+    const span = block.sourceSpan;
+    const index = diagnostics.findIndex(d => d.severity === "error" && d.sourceSpan?.startLine === span.startLine && d.sourceSpan.startColumn === span.startColumn);
+    if (index < 0) return;
+    // Graph accounting extends a copy; the caller's AST diagnostic stays unchanged.
+    const root = [...failed.values()].includes(diagnostics[index]) ? diagnostics[index] : { ...diagnostics[index] };
+    diagnostics[index] = root;
+    failed.set(handle, root);
+  });
+  return failed;
 }
 
 function walkBlocks(blocks: AstBlock[], visit: (block: AstBlock) => void): void {

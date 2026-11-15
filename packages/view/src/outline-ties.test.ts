@@ -54,7 +54,7 @@ describe("outline ties", () => {
     if (name === "a neutral Point with default relevance") {
       const staffing = reading.units[0].occurrences.find(item => item.text === "Staffing.")!;
       expect(reading.units[0].commitments.find(item => item.occurrenceId === staffing.id)).toMatchObject({
-        basis: "indentation", kind: "concerns", frame: { framing: "aligned", focus: "point" }
+        basis: "indentation", kind: "concerns", frame: { fit: "home", focus: "point" }
       });
     }
     const text = new Map(reading.units[0].graph.points.map(point => [point.key, point.text]));

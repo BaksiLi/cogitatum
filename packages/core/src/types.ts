@@ -204,6 +204,8 @@ export type Diagnostic = {
   message: string;
   explanation?: string;
   sourceSpan?: SourceSpan;
+  /** Spans to present with this diagnostic: what it accounts for, or a companion diagnostic on the same header. */
+  related?: RelatedDiagnostic[];
 };
 
 /** One authored occurrence, identified within this source unit by sourceSpan.
@@ -258,18 +260,36 @@ export type ExplainBearingSummary = {
 export type ExplainEmittedBearingSummary = Omit<BearingBase, "text" | "sourceSpan"> & BearingRelation;
 
 /**
- * How an occurrence's written mark stands to the relation it constructs.
+ * How an occurrence's written mark stands to what it constructs, on two
+ * independent axes.
  *
- * - aligned: the relation is the mark's own, by default, selector or clause.
- * - compatible: a clause states another relation that the mark does not oppose.
+ * fit, present only when a relation is constructed: whether its kind is the
+ * mark's own.
+ * - home: the mark's own relation, by default, selector or clause; for . the
+ *   relevance default.
+ * - compatible: another relation that the mark does not oppose.
  * - opposed: G with challenges, or O with supports. The clause alone constructs.
- * - unbound: the mark's home relation is not realized: a relation mark at
- *   root, or G beneath a Question, which records relevance only.
- * - none: no relation and no intention awaiting one.
+ *
+ * intention: whether the function the mark declares has a stated object.
+ * - bound: context, selector or clause gives it one.
+ * - unbound: it awaits one, kind `awaits`: a relation mark at root, or G
+ *   beneath a Question, which records relevance only.
+ * - none: the mark declares no relational function here (., C outside a
+ *   Question, a root Question, a member source).
  */
-export type ExplainFraming =
-  | { framing: "aligned" | "compatible" | "opposed" | "none" }
-  | { framing: "unbound"; intention: BearingKind };
+export type FramingFit = "home" | "compatible" | "opposed";
+
+export type ExplainFraming = { fit?: FramingFit } & (
+  | { intention: "bound" | "none" }
+  | { intention: "unbound"; awaits: BearingKind }
+);
+
+/** Another span that belongs with a diagnostic when it is presented. With a code, it is another diagnostic in the same result. */
+export type RelatedDiagnostic = {
+  sourceSpan: SourceSpan;
+  message: string;
+  code?: string;
+};
 
 export type ExplainEffect =
   | { kind: "preserveNote"; parentSpan?: SourceSpan }

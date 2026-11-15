@@ -191,5 +191,28 @@ describe("0.7 diagnostic consolidation", () => {
       ["UNKNOWN_POINT_REFERENCE", 2], ["UNKNOWN_TARGET", 6]
     ]);
     expect(diagnostics[0].explanation).toContain("2 occurrences beneath it");
+    expect(diagnostics[0].related?.map(item => [item.sourceSpan.startLine, item.code])).toEqual([[3, undefined], [4, undefined]]);
+    expect(diagnostics[1].related).toBeUndefined();
+  });
+
+  it("counts references to a handle declared on a failed header at that header", () => {
+    const source = "- [C @claim] Claim.\n- [. @ground] Ground.\n- [edge @ground +> @claim; @route] Step.\n  - [O @objection -> @route] Undercut.\n- [C @other] Other.\n  - [G +> @nowhere] Unrelated.";
+    const { compiled } = compile(source);
+    expect(compiled.diagnostics.map(diagnostic => [diagnostic.code, diagnostic.sourceSpan?.startLine])).toEqual([["RETIRED_FAMILY_ALIAS", 3], ["UNKNOWN_TARGET", 6]]);
+    expect(compiled.diagnostics[0].explanation).toContain("One occurrence names the handle declared here");
+    expect(compiled.diagnostics[0].related?.map(item => item.sourceSpan.startLine)).toEqual([4]);
+    // Graph accounting extends a copy: the AST's own diagnostic is unchanged.
+    expect(compiled.documents[0].diagnostics[0]).not.toHaveProperty("explanation");
+    expect(explainSource(source).diagnostics).toEqual(compiled.diagnostics);
+  });
+
+  it("keeps independent errors on one header and names each from the other", () => {
+    for (const source of ["- [. @p] Text.\n- [node use @p", "- [node @p]x"]) {
+      const { compiled: { diagnostics } } = compile(source);
+      expect(diagnostics).toHaveLength(2);
+      const [first, second] = diagnostics;
+      expect(first.related).toEqual([{ sourceSpan: second.sourceSpan, code: second.code, message: "Also on this header: " + second.message }]);
+      expect(second.related).toEqual([{ sourceSpan: first.sourceSpan, code: first.code, message: "Also on this header: " + first.message }]);
+    }
   });
 });

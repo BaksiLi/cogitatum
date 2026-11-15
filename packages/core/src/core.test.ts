@@ -303,7 +303,7 @@ describe("Cogitatum language contracts", () => {
       effects: [
         { kind: "emitPoint", ref: pointRef(compilation.graph, "claim"), reason: "role-annotation" },
         { kind: "skipBearing", reason: "no-eligible-ancestor" },
-        { kind: "frameOccurrence", framing: "none" }
+        { kind: "frameOccurrence", intention: "none" }
       ]
     });
     expect(firstBody).toMatchObject({
@@ -330,7 +330,7 @@ describe("Cogitatum language contracts", () => {
           },
           reason: "annotated-containment"
         },
-        { kind: "frameOccurrence", framing: "aligned", focus: "point" }
+        { kind: "frameOccurrence", fit: "home", intention: "bound", focus: "point" }
       ]
     });
     expect(compilation.explain.diagnostics).toEqual([expect.objectContaining({ code: "IMPLICIT_ATTACHMENT_THROUGH_BODY", severity: "suggestion" })]);

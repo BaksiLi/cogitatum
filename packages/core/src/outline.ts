@@ -22,12 +22,35 @@ export function parseDocument(source: string, options: ParseOptions = {}): Docum
   const diagnostics: Diagnostic[] = [];
   const rawRoots = parseRawOutline(source, diagnostics, options.lineOffset ?? 0, options.lineColumnOffsets ?? []);
   const blocks = rawRoots.map((node) => toAstBlock(node, diagnostics));
+  linkHeaderCompanions(diagnostics);
 
   return {
     version: FORMAT_VERSION,
     blocks,
     diagnostics
   };
+}
+
+/**
+ * Independent errors on one header, such as a retired alias that is also
+ * unclosed, each still need a fix. Both stay reported; each names the other
+ * so a host can present them together.
+ */
+function linkHeaderCompanions(diagnostics: Diagnostic[]): void {
+  const spanKey = (span: SourceSpan) => [span.startLine, span.startColumn, span.endLine, span.endColumn].join(":");
+  const byHeader = new Map<string, Diagnostic[]>();
+  for (const diagnostic of diagnostics) {
+    if (diagnostic.severity !== "error" || !diagnostic.sourceSpan) continue;
+    const key = spanKey(diagnostic.sourceSpan);
+    byHeader.set(key, [...(byHeader.get(key) ?? []), diagnostic]);
+  }
+  for (const group of byHeader.values()) {
+    if (new Set(group.map(diagnostic => diagnostic.code)).size < 2) continue;
+    for (const diagnostic of group) {
+      const companions = group.filter(other => other !== diagnostic && other.code !== diagnostic.code);
+      diagnostic.related = [...(diagnostic.related ?? []), ...companions.map(other => ({ sourceSpan: other.sourceSpan!, message: "Also on this header: " + other.message, code: other.code }))];
+    }
+  }
 }
 
 function parseRawOutline(

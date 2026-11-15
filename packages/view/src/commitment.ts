@@ -37,9 +37,9 @@ export function describeCommitment(unit: ReadingUnit, commitment: ReadingCommitm
   const mark = "role" in recognition && recognition.role ? recognition.role : undefined;
   const crossed = commitment.crossedOccurrenceIds.length ? `, passing through ordinary body at ${lines(commitment.crossedOccurrenceIds)}` : "";
   const frame = commitment.frame;
-  const unbound = frame?.framing === "unbound"
-    ? `Presented as ${pointMark(mark ?? "Material").name}; ${INTENTIONS[frame.intention]} target unstated` : "";
-  const opposed = frame?.framing === "opposed" ? " (opposed framing)" : "";
+  const unbound = frame?.intention === "unbound"
+    ? `Presented as ${pointMark(mark ?? "Material").name}; ${INTENTIONS[frame.awaits]} target unstated` : "";
+  const opposed = frame?.fit === "opposed" ? " (the mark opposes it)" : "";
   switch (commitment.basis) {
     case "indentation": {
       const relation = bearingLabel(commitment.kind!, commitment.profile);

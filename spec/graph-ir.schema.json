@@ -168,7 +168,20 @@
         "code": { "type": "string" },
         "message": { "type": "string" },
         "explanation": { "type": "string" },
-        "sourceSpan": { "$ref": "#/$defs/sourceSpan" }
+        "sourceSpan": { "$ref": "#/$defs/sourceSpan" },
+        "related": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["sourceSpan", "message"],
+            "properties": {
+              "sourceSpan": { "$ref": "#/$defs/sourceSpan" },
+              "message": { "type": "string" },
+              "code": { "type": "string" }
+            },
+            "additionalProperties": false
+          }
+        }
       },
       "additionalProperties": false
     }

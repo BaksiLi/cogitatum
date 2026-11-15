@@ -278,16 +278,17 @@
         },
         {
           "type": "object",
-          "required": ["kind", "framing"],
+          "required": ["kind", "intention"],
           "properties": {
             "kind": { "const": "frameOccurrence" },
-            "framing": { "enum": ["aligned", "compatible", "opposed", "unbound", "none"] },
-            "intention": { "enum": ["supports", "challenges", "respondsTo", "interprets"] },
+            "fit": { "enum": ["home", "compatible", "opposed"] },
+            "intention": { "enum": ["bound", "unbound", "none"] },
+            "awaits": { "enum": ["supports", "challenges", "respondsTo", "interprets"] },
             "focus": { "enum": ["question", "point"] }
           },
-          "if": { "properties": { "framing": { "const": "unbound" } } },
-          "then": { "required": ["intention"] },
-          "else": { "properties": { "intention": false } },
+          "if": { "properties": { "intention": { "const": "unbound" } } },
+          "then": { "required": ["awaits"] },
+          "else": { "properties": { "awaits": false } },
           "additionalProperties": false
         },
         {
@@ -369,7 +370,20 @@
         "code": { "type": "string" },
         "message": { "type": "string" },
         "explanation": { "type": "string" },
-        "sourceSpan": { "$ref": "#/$defs/sourceSpan" }
+        "sourceSpan": { "$ref": "#/$defs/sourceSpan" },
+        "related": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["sourceSpan", "message"],
+            "properties": {
+              "sourceSpan": { "$ref": "#/$defs/sourceSpan" },
+              "message": { "type": "string" },
+              "code": { "type": "string" }
+            },
+            "additionalProperties": false
+          }
+        }
       },
       "additionalProperties": false
     }

@@ -53,7 +53,7 @@ describe("Reading commitments", () => {
   it("distinguishes named, default, root and failed occurrences", () => {
     expect(at(10)).toMatchObject({ basis: "explicit", kind: "challenges" });
     expect(at(10)!.contextOccurrenceId).toBeUndefined();
-    expect(at(9)).toMatchObject({ basis: "indentation", kind: "concerns", frame: { framing: "aligned", focus: "point" } });
+    expect(at(9)).toMatchObject({ basis: "indentation", kind: "concerns", frame: { fit: "home", focus: "point" } });
     expect(at(1)).toMatchObject({ basis: "none", reason: "no-eligible-ancestor" });
     expect(at(12)).toMatchObject({ basis: "failed", reason: "invalid-local-bearing" });
     expect(at(12)!.target).toBeUndefined();
@@ -67,7 +67,7 @@ describe("Reading commitments", () => {
     expect(text(6)).toBe("Source of the constructor at L5; it adds no relation of its own.");
     expect(text(8)).toBe("From indentation: a note on @r (L5).");
     expect(text(9)).toBe("Placement records relevance: concerns @g (L2), the nearest enclosing Point; moving it can change the target; the mark and Point focus select the relation.");
-    expect(text(10)).toBe("Named target: challenges @g (opposed framing); indentation does not choose this target.");
+    expect(text(10)).toBe("Named target: challenges @g (the mark opposes it); indentation does not choose this target.");
     expect(text(1)).toBe("No enclosing Point or step; its position creates no relation.");
     expect(text(12)).toMatch(/^No relation: the constructor or its members are invalid; its context is L11\. The nearest enclosing Point has no attachment, so \^\/ has no step to support\. To support the Point itself, write \[_ \+> \^\]/);
     expect(unit.occurrences.find(item => item.line === 12)!.diagnostics).toContainEqual(expect.objectContaining({ code: "NO_LOCAL_BEARING_ATTACHMENT" }));
@@ -76,7 +76,7 @@ describe("Reading commitments", () => {
   it.each([
     ["G", "mark", "the mark and Point focus select the relation."],
     ["G +> ^", "clause", "the written clause states the relation."],
-    ["G -> ^", "clause", "the written clause states the relation (opposed framing)."],
+    ["G -> ^", "clause", "the written clause states the relation (the mark opposes it)."],
     ["G/", "mark", "the mark states the relation."],
     ["G +> ^/", "clause", "the written clause states the relation."],
     [". use @shared ~> ^", "clause", "the written clause states the relation."],
@@ -139,7 +139,7 @@ describe("Reading commitments", () => {
     ["Q", ".", "concerns", "point", "Placement records relevance"]
   ])("uses the focus occurrence's [%s] declaration / [%s use] framing", (declaration, use, kind, focus, prefix) => {
     const { commitment, text } = inspect(`- [${declaration} @focus] Declared.\n- [${use} use @focus]\n  - [C] Content.`, 3);
-    expect(commitment).toMatchObject({ kind, frame: { framing: "aligned", focus } });
+    expect(commitment).toMatchObject({ kind, frame: { fit: "home", focus } });
     expect(text.startsWith(`${prefix}:`)).toBe(true);
     expect(text).toContain("@focus (L2)");
   });
@@ -161,7 +161,7 @@ describe("Reading commitments", () => {
   ])("keeps a root [%s] intention unbound without inventing a target", (mark, intention) => {
     const { unit, commitment, text } = inspect(`- [${mark}] Content.`, 1);
     expect(unit.graph.bearings).toEqual([]);
-    expect(commitment).toMatchObject({ basis: "none", frame: { framing: "unbound" } });
+    expect(commitment).toMatchObject({ basis: "none", frame: { intention: "unbound" } });
     expect(commitment.target).toBeUndefined();
     expect(text).toContain(`${intention} target unstated; its position creates no relation.`);
   });
@@ -173,10 +173,10 @@ describe("Reading commitments", () => {
       const { unit, explained, commitment, text } = inspect(`- [C @target] Target.\n  - [${mark} ${clause} ${target}] Content.`, 2);
       expect(explained.diagnostics.map(diagnostic => diagnostic.code)).toEqual(["OPPOSED_FRAMING"]);
       expect(unit.graph.bearings).toHaveLength(1);
-      expect(commitment).toMatchObject({ kind, frame: { framing: "opposed" } });
+      expect(commitment).toMatchObject({ kind, frame: { fit: "opposed" } });
       expect(commitment.frame?.focus).toBeUndefined();
       expect(text).toContain(`${kind} @target`);
-      expect(text).toContain("(opposed framing)");
+      expect(text).toContain("(the mark opposes it)");
     }
   });
 

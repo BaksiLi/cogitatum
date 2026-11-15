@@ -86,7 +86,7 @@ export function previewFramingEditFrom(source: string, before: ExplainedSource, 
     mark = options.mark;
     if (mark === written) return unavailable("unchanged", `This occurrence is already marked ${written}.`);
   } else {
-    if (framed.framing !== "opposed") return unavailable("not-opposed", "Only an opposed framing, a G whose clause challenges or an O whose clause supports, is split.");
+    if (framed.fit !== "opposed") return unavailable("not-opposed", "Only an opposed framing, a G whose clause challenges or an O whose clause supports, is split.");
     mark = written === "O" ? "G" : "O";
     name = annotation.kind === "use" ? annotation.ref?.id : annotation.anchor;
     if (!name) return unavailable("unnamed-point", "A separate use needs a name to refer to; name this Point deliberately first.");
@@ -142,7 +142,7 @@ export function previewFramingEditFrom(source: string, before: ExplainedSource, 
   }
   if (addedLine !== undefined) {
     const kept = after.explanations[unitIndex].entries.find(e => e.sourceSpan.startLine === addedLine)?.effects.find(e => e.kind === "frameOccurrence");
-    if (kept?.framing !== "unbound" || kept.intention !== MARK_RELATIONS[written as Role]) return unavailable("preservation-failed", "The added use would not keep the original intention unbound; no edit is offered.");
+    if (kept?.intention !== "unbound" || kept.awaits !== MARK_RELATIONS[written as Role]) return unavailable("preservation-failed", "The added use would not keep the original intention unbound; no edit is offered.");
   }
   const { kind: _b, focus: _bf, ...framingBefore } = framed;
   const { kind: _a, focus: _af, ...framingAfter } = reframed;

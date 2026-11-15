@@ -101,7 +101,7 @@ No graph row asserts truth, logical validity, defeat, acceptability or resolutio
 | Compilation key spelling | Omitted; labels do not promise persistence between exports or revisions |
 | Entity `sourceSpan` and Bearing `derivedBy` | Omitted from the structural projection |
 | `notes` source/target records | Omitted; identical structure text does not establish equal object notes |
-| Diagnostics | Reported separately in original order, including severity, code, message, optional span and explanation |
+| Diagnostics | Reported separately in original order, including severity, code, message, optional span, explanation and related spans |
 | Original source, ordinary body, note prose and literal subtrees, use-occurrence prose and marks, AST target requirements, Explain trace | Not part of Graph IR and not reconstructed |
 
 Always retain the original input, input mode, compiler/package version and complete source envelope when source fidelity or reproducibility matters.
@@ -389,7 +389,7 @@ Moving a positional occurrence can change its target; changing a mark does not o
 Root C and neutral Points create no default relation.
 In ordinary Point context they construct relevance, except C beneath Q constructs a candidate `answers` Bearing.
 A nested Q records `concerns` toward its nearest Point.
-Explain `frameOccurrence` retains `framing`, an `intention` for unbound cases, and `focus` when a Point focus selected a default.
+Explain `frameOccurrence` retains `fit` and `intention`, an `awaits` kind for unbound cases, and `focus` when a Point focus selected a default.
 Graph IR cannot certify retention of this framing or Note prose.
 
 ## Core API and compatibility

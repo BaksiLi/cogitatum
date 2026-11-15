@@ -59,6 +59,16 @@ describe("cog lsp", () => {
     expect(diagnostics()).toEqual([]);
   });
 
+  it("publishes related spans as relatedInformation in the same document", () => {
+    const { open, diagnostics } = session();
+    open("- [C @outer] Outer.\n  - [. use @missing] Local use.\n    - [G @child] Through it.");
+    const [unknown] = diagnostics();
+    expect(unknown).toMatchObject({ code: "UNKNOWN_POINT_REFERENCE" });
+    expect(unknown.relatedInformation).toEqual([
+      { location: { uri: DOCUMENT, range: { start: { line: 2, character: 6 }, end: { line: 2, character: 28 } } }, message: "Attaches through this use; compiles once it resolves." }
+    ]);
+  });
+
   it("resolves definitions, references and hover through compiler-validated names", () => {
     const { open, at } = session();
     open(SOURCE);

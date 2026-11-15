@@ -5,7 +5,7 @@ import type { ExplainEffect } from "./types.js";
 /**
  * The 0.7 construction table: for a mark, its context and any clause, exactly
  * one outcome — the relation constructed (possibly none), the occurrence's
- * framing and any diagnostic. Tokens and position alone select a cell.
+ * framing on its two axes (fit, intention) and any diagnostic. Tokens and position alone select a cell.
  */
 function outcome(source: string, line: number) {
   const compiled = explainSource(source);
@@ -17,7 +17,8 @@ function outcome(source: string, line: number) {
   const frame = effect("frameOccurrence");
   return {
     relation: emitted ? `${emitted.bearing.kind}(${emitted.bearing.sources.map(s => name(s.key)).join(",")} → ${name(emitted.bearing.target.key)})` : undefined,
-    framing: frame && frame.framing + (frame.framing === "unbound" ? ":" + frame.intention : ""),
+    fit: frame?.fit,
+    intention: frame && frame.intention + (frame.intention === "unbound" ? ":" + frame.awaits : ""),
     focus: frame?.focus,
     codes: entry.diagnosticCodes,
     bearings: graph.bearings.length,
@@ -55,7 +56,8 @@ describe("default relation of a marked occurrence beneath a Point focus", () => 
       for (const header of [`${mark} @x`, mark]) {
         const result = outcome(`${head}\n${indent}- [${header}] 成本超出預算。`, lines.length + 1);
         expect(result.relation).toBe(`${kind}(${header.includes("@x") ? "x" : result.relation!.split("(")[1].split(" ")[0]} → f)`);
-        expect(result.framing).toBe(unbound ? "unbound:supports" : "aligned");
+        expect(result.fit).toBe(unbound ? "compatible" : "home");
+        expect(result.intention).toBe(unbound ? "unbound:supports" : mark === "." || (mark === "C" && !question) ? "none" : "bound");
         expect(result.focus).toBe(question ? "question" : "point");
         expect(result.codes).toEqual(unbound ? ["UNBOUND_GROUND_UNDER_QUESTION"] : []);
       }
@@ -69,19 +71,19 @@ describe("default relation of a marked occurrence beneath a Point focus", () => 
 
 describe("root occurrences have no default attachment", () => {
   it.each([[".", "none"], ["C", "none"], ["Q", "none"], ["G", "unbound:supports"], ["O", "unbound:challenges"], ["R", "unbound:respondsTo"], ["D", "unbound:interprets"]])(
-    "[%s] at root constructs nothing; framing %s", (mark, framing) => {
+    "[%s] at root constructs nothing; intention %s", (mark, intention) => {
       const result = outcome(`- [${mark} @cost] 成本超出預算。`, 1);
-      expect(result).toMatchObject({ relation: undefined, framing, focus: undefined, codes: [], bearings: 0 });
+      expect(result).toMatchObject({ relation: undefined, fit: undefined, intention, focus: undefined, codes: [], bearings: 0 });
     });
 
   it("lets an explicit clause work at root", () => {
     const result = outcome("- [C @delay] 應延後採用。\n- [G @cost +> @delay] 成本超出預算。", 2);
-    expect(result).toMatchObject({ relation: "supports(cost → delay)", framing: "aligned", codes: [] });
+    expect(result).toMatchObject({ relation: "supports(cost → delay)", fit: "home", intention: "bound", codes: [] });
   });
 
   it("an unbound root use keeps an objection intention without inventing a target", () => {
     const result = outcome("- [C @delay] 應延後採用。\n- [G @cost +> @delay] 成本超出預算。\n- [O use @cost]", 3);
-    expect(result).toMatchObject({ relation: undefined, framing: "unbound:challenges", codes: [], bearings: 1 });
+    expect(result).toMatchObject({ relation: undefined, fit: undefined, intention: "unbound:challenges", codes: [], bearings: 1 });
   });
 });
 
@@ -91,11 +93,11 @@ describe("a valid clause replaces the default and alone constructs", () => {
   const beneath = (focus: string, header: string) => outcome(`- [C @other] 另一點。\n- [${focus} @f] 焦點。\n  - [${header}] 內容。`, 3);
 
   it.each([
-    ["G +> @other", "supports(x → other)", "aligned"],
-    ["O -> @other", "challenges(x → other)", "aligned"],
-    ["Q ~> @other", "concerns(x → other)", "aligned"],
-    ["R respondsTo @other", "respondsTo(x → other)", "aligned"],
-    ["D interprets @other", "interprets(x → other)", "aligned"],
+    ["G +> @other", "supports(x → other)", "home"],
+    ["O -> @other", "challenges(x → other)", "home"],
+    ["Q ~> @other", "concerns(x → other)", "home"],
+    ["R respondsTo @other", "respondsTo(x → other)", "home"],
+    ["D interprets @other", "interprets(x → other)", "home"],
     ["C +> @other", "supports(x → other)", "compatible"],
     [". ~> @other", "concerns(x → other)", "compatible"],
     ["Q respondsTo @other", "respondsTo(x → other)", "compatible"],
@@ -104,28 +106,29 @@ describe("a valid clause replaces the default and alone constructs", () => {
     ["G ~> @other", "concerns(x → other)", "compatible"],
     ["G -> @other", "challenges(x → other)", "opposed"],
     ["O +> @other", "supports(x → other)", "opposed"]
-  ])("[%s] constructs only %s (%s)", (header, relation, framing) => {
+  ])("[%s] constructs only %s (fit %s)", (header, relation, fit) => {
     const withName = header.replace(/^(\S+)/, "$1 @x");
     for (const focus of ["C", "Q"]) {
       const result = beneath(focus, withName);
       expect(result.relation).toBe(relation);
-      expect(result.framing).toBe(framing);
+      expect(result.fit).toBe(fit);
+      expect(result.intention).toBe(header.startsWith(".") || (header.startsWith("C") && focus === "C") ? "none" : "bound");
       expect(result.focus).toBeUndefined();
       expect(result.bearings).toBe(1);
-      expect(result.codes).toEqual(framing === "opposed" ? ["OPPOSED_FRAMING"] : []);
+      expect(result.codes).toEqual(fit === "opposed" ? ["OPPOSED_FRAMING"] : []);
     }
     expect(under("Q", withName).bearings).toBe(1);
   });
 
   it("supports the Question explicitly and silently with [G +> ^]", () => {
-    expect(beneath("Q", "G @x +> ^")).toMatchObject({ relation: "supports(x → f)", framing: "aligned", codes: [] });
-    expect(beneath("Q", "G @x +> @f")).toMatchObject({ relation: "supports(x → f)", framing: "aligned", codes: [] });
+    expect(beneath("Q", "G @x +> ^")).toMatchObject({ relation: "supports(x → f)", fit: "home", intention: "bound", codes: [] });
+    expect(beneath("Q", "G @x +> @f")).toMatchObject({ relation: "supports(x → f)", fit: "home", intention: "bound", codes: [] });
   });
 
   it("never falls back to a default when the clause fails", () => {
     for (const header of ["G +> @missing", "C answers", ". ~>", "G clarifies ^"]) {
       const result = beneath("Q", header);
-      expect(result).toMatchObject({ relation: undefined, framing: undefined, bearings: 0 });
+      expect(result).toMatchObject({ relation: undefined, fit: undefined, intention: undefined, bearings: 0 });
       expect(result.severities).toContain("error");
     }
   });
@@ -140,7 +143,7 @@ describe("opposed framing", () => {
     expect(compiled.graphs[0].bearings[0]).toMatchObject({ kind: "supports", derivedBy: "operator" });
     expect(compiled.diagnostics).toEqual([expect.objectContaining({ severity: "suggestion", code: "OPPOSED_FRAMING" })]);
     expect(compiled.diagnostics[0].explanation).toContain("[O use @cost] at root");
-    expect(formatExplain(compiled)).toContain("Presented as Objection; the clause alone constructs the relation (opposed framing).");
+    expect(formatExplain(compiled)).toContain("Presented as Objection; the clause alone constructs the relation, which the mark opposes.");
   });
 
   it.each([
@@ -163,7 +166,7 @@ describe("focus lookup", () => {
   it("a nearer Point blocks an outer Question", () => {
     const source = "- [Q @q] 應延期嗎？\n  - [. @bg] 去年的決議。\n    - [C @c] 預算已用盡。\n    - [G @g] 帳目如此。";
     expect(outcome(source, 3).relation).toBe("concerns(c → bg)");
-    expect(outcome(source, 4)).toMatchObject({ relation: "supports(g → bg)", framing: "aligned", codes: [] });
+    expect(outcome(source, 4)).toMatchObject({ relation: "supports(g → bg)", fit: "home", intention: "bound", codes: [] });
   });
 
   it("a nested Question concerns the nearer focus and becomes the focus for its own children", () => {
@@ -197,7 +200,7 @@ describe("focus lookup", () => {
     const detached = "- [C @outer] 外層。\n  - [C @inner] 內層。\n- [. @m] 材料。";
     expect(outcome(nested, 3).relation).toBe("concerns(m → inner)");
     expect(outcome(outdented, 3).relation).toBe("concerns(m → outer)");
-    expect(outcome(detached, 3)).toMatchObject({ relation: undefined, framing: "none" });
+    expect(outcome(detached, 3)).toMatchObject({ relation: undefined, fit: undefined, intention: "none" });
   });
 });
 
@@ -208,17 +211,17 @@ describe("Bearing contexts and constructor members keep their own rules", () => 
     expect(compiled.diagnostics).toEqual([]);
     expect(compiled.graphs[0].bearings).toHaveLength(1);
     expect(compiled.graphs[0].bearings[0]).toMatchObject({ kind: "answers", sources: [{ kind: "point" }, { kind: "point" }] });
-    expect(outcome(source, 3)).toMatchObject({ relation: undefined, framing: "none" });
+    expect(outcome(source, 3)).toMatchObject({ relation: undefined, fit: undefined, intention: "none" });
   });
 
   it.each([".", "C", "G"])("the first [%s] beneath a listed-source constructor still needs an explicit target", mark => {
     const source = `- [C @a] 甲。\n- [C @b] 乙。\n- [_ @a +> @b]\n  - [${mark}] 評論。`;
-    expect(outcome(source, 4)).toMatchObject({ relation: undefined, framing: undefined, codes: ["EXPLICIT_BEARING_DESCENDANT_REQUIRES_TARGET"], bearings: 1 });
+    expect(outcome(source, 4)).toMatchObject({ relation: undefined, fit: undefined, intention: undefined, codes: ["EXPLICIT_BEARING_DESCENDANT_REQUIRES_TARGET"], bearings: 1 });
   });
 
   it("selectors address the exposed Bearing whatever the focus mark", () => {
     const source = "- [C @c] 應延後。\n  - [Q @q] 延到何時？\n    - [G/ @why] 因為這個問題取決於預算週期。";
-    expect(outcome(source, 3)).toMatchObject({ framing: "aligned", focus: undefined, codes: [] });
+    expect(outcome(source, 3)).toMatchObject({ fit: "home", intention: "bound", focus: undefined, codes: [] });
     expect(outcome(source, 3).relation).toMatch(/^supports\(why → _b\d+\)$/);
   });
 
@@ -249,7 +252,7 @@ describe("candidate answers and their reasons", () => {
     expect(compiled.graphs[0].bearings.map(b => b.kind)).toEqual(["concerns"]);
     expect(compiled.diagnostics).toEqual([expect.objectContaining({ severity: "suggestion", code: "UNBOUND_GROUND_UNDER_QUESTION" })]);
     expect(compiled.diagnostics[0].explanation).toContain("[G @g +> ^]");
-    expect(formatExplain(compiled)).toContain("Presented as Ground; supports target unstated. The placement records relevance only.");
+    expect(formatExplain(compiled)).toContain("Presented as Ground; placement records relevance only; supports target unstated.");
   });
 });
 

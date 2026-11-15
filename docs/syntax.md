@@ -362,16 +362,27 @@ The old clause kind `clarifies` receives `RETIRED_BEARING_KIND`, with no alias o
 ### Framing an occurrence
 
 G, O, Q, R and D have home kinds `supports`, `challenges`, `concerns`, `respondsTo` and `interprets`.
-C and `.` have none outside the defaults table.
-A written clause alone constructs the relation; the role also records how the Point is presented here:
+C has home kind `answers` beneath a Question and none elsewhere; `.` has none.
+A written clause alone constructs the relation; the role also records how the Point is presented here, on two independent axes.
 
-| Framing | When |
+`fit` compares the constructed kind with the mark, and is absent when nothing is constructed:
+
+| Fit | When |
 | --- | --- |
-| `aligned` | The clause matches the home kind, or an ordinary default applies |
-| `compatible` | Any other pairing except the two opposed cases, such as `[Q respondsTo @x]`, `[R -> @x]`, `[D -> @route]` or `[C +> @x]` |
+| `home` | The clause, selector or default constructs the home kind, or `.`'s relevance default |
+| `compatible` | Any other pairing except the two opposed cases, such as `[Q respondsTo @x]`, `[R -> @x]`, `[C +> @x]` or G beneath Q |
 | `opposed` | G with `challenges`, or O with `supports` |
-| `unbound` | Root G/O/R/D, or G beneath Q |
-| `none` | No relation or unbound intention, such as root C or a neutral source member |
+
+`intention` asks whether the function the mark declares has a stated object:
+
+| Intention | When |
+| --- | --- |
+| `bound` | Context, selector or clause gives it one, whatever the fit |
+| `unbound` | Root G/O/R/D, or G beneath Q; `awaits` names the home kind |
+| `none` | The mark declares no relational function here, such as `.`, C outside a Question, root Q or a neutral source member |
+
+So `[O @cost +> @delay]` is opposed but bound, and `[G]` beneath a Question is compatible but unbound.
+A host reading fit asks whether to re-mark; one reading intention asks for a target.
 
 Opposed framing adds suggestion `OPPOSED_FRAMING`, never a hidden second relation.
 There is no source-level suppression; consumers may filter suggestions by code.
@@ -980,10 +991,10 @@ Bearing uses emit neither entity.
 A constructor toward a position emits with `local-bearing-containment`, toward a name with `operator-clause`; a membership failure rejects it with `invalid-local-bearing`, and later name/reference rejection uses `validation-error`.
 A source member skips its own attachment with `local-bearing-membership`, and the first Point beneath a listed-source constructor without its own target rejects with `explicit-bearing-descendant-requires-target`.
 Membership eligibility does not certify that the whole constructed Bearing survived validation.
-`frameOccurrence { framing, intention?, focus? }` records each successful Point occurrence's presentation.
-`framing` is `aligned`, `compatible`, `opposed`, `unbound` or `none`; only `unbound` carries `intention`, a Bearing kind.
+`frameOccurrence { fit?, intention, awaits?, focus? }` records each successful Point occurrence's presentation.
+`fit` is `home`, `compatible` or `opposed`, present only when a relation is constructed; `intention` is `bound`, `unbound` or `none`, and only `unbound` carries `awaits`, a Bearing kind.
 `focus`, when a Point focus selects a default, is `"question"` or `"point"`.
-For example, Explain text prints “Presented as Objection; the clause alone constructs the relation (opposed framing).”
+For example, Explain text prints “Presented as Objection; the clause alone constructs the relation, which the mark opposes.”
 It explains compilation decisions, not the truth of the prose, the strength of a reason, or a history of the author's thinking.
 The trace is an experimental interface with a versioned schema; ordinary integrations can use AST and Graph IR alone.
 `cog explain --format text` renders all decisions, including non-emissions and failed candidates.

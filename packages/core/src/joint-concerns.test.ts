@@ -99,9 +99,10 @@ describe("joint concerns", () => {
       `- [_ ${clause}; @failed] Rejected comparison.`,
       "- [_ @before, @after concerns @failed; @dependent]"
     ].join("\n"));
-    expect(result.diagnostics.map(diagnostic => diagnostic.code)).toEqual([
-      code, code === "DUPLICATE_BEARING_SOURCES" ? "UNKNOWN_TARGET" : "UNRESOLVED_BEARING_TARGET"
-    ]);
+    // A handle on a header that failed to parse is counted at that header.
+    expect(result.diagnostics.map(diagnostic => diagnostic.code)).toEqual(
+      code === "DUPLICATE_BEARING_SOURCES" ? [code] : [code, "UNRESOLVED_BEARING_TARGET"]
+    );
     expect(result.graphs[0].bearings.map(bearing => bearing.handle)).toEqual(["existing"]);
     expect(result.graphs[0].notes).toEqual([]);
     for (const entry of result.explanations[0].entries.slice(4)) {

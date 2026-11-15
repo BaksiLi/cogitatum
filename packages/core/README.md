@@ -279,7 +279,7 @@ if (preview.status === 'ready') {
 
 `formatExplain(explainSource(source, mode))` prints every active compiler decision, including failed candidates, membership, selected context, ordered endpoints and note ownership.
 It includes all host units and source-selection diagnostics.
-Explain `frameOccurrence { framing, intention?, focus? }` records aligned, compatible, opposed, unbound or no framing per Point occurrence.
+Explain `frameOccurrence { fit?, intention, awaits?, focus? }` records per Point occurrence whether the constructed kind is the mark's own (`fit`) and whether the mark's function has a stated object (`intention`).
 G with a challenge clause and O with a supports clause are opposed (`OPPOSED_FRAMING`); the clause alone constructs the relation.
 Graph IR has no framing and cannot certify its preservation or that of Notes.
 `EXPLAIN_TEXT_VERSION` identifies its readable notation independently of `FORMAT_VERSION`.

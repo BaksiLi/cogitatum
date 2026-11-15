@@ -49,7 +49,7 @@ export function createLanguageServer(send: (message: Message) => void) {
     document.occurrences ??= locateOccurrences(document.text, analyzeSourceReferences(document.text, document.mode, explained(document)));
 
   function publishDiagnostics(uri: string, document?: OpenDocument): void {
-    const diagnostics = document ? explained(document).diagnostics.map(toLspDiagnostic) : [];
+    const diagnostics = document ? explained(document).diagnostics.map(diagnostic => toLspDiagnostic(diagnostic, uri)) : [];
     send({ jsonrpc: "2.0", method: "textDocument/publishDiagnostics", params: { uri, version: document?.version, diagnostics } });
   }
 
@@ -147,7 +147,7 @@ export function createLanguageServer(send: (message: Message) => void) {
           const end = positionAt(document.text, preview.edit.offset + preview.edit.remove.length);
           return [{
             title, kind: "quickfix",
-            ...(diagnostic ? { diagnostics: [toLspDiagnostic(diagnostic)] } : {}),
+            ...(diagnostic ? { diagnostics: [toLspDiagnostic(diagnostic, textDocument.uri)] } : {}),
             edit: { changes: { [textDocument.uri]: [{ range: { start, end }, newText: preview.edit.insert }] } }
           }];
         });
@@ -270,9 +270,10 @@ function positionAt(text: string, offset: number): Position {
   return { line, character: offset - lineStart };
 }
 
-function toLspDiagnostic(diagnostic: Diagnostic) {
+function toLspDiagnostic(diagnostic: Diagnostic, uri?: string) {
   const origin = { line: 0, character: 0 };
   return {
+    ...(uri && diagnostic.related?.length ? { relatedInformation: diagnostic.related.map(item => ({ location: { uri, range: toRange(item.sourceSpan) }, message: item.message })) } : {}),
     range: diagnostic.sourceSpan ? toRange(diagnostic.sourceSpan) : { start: origin, end: origin },
     severity: SEVERITY[diagnostic.severity],
     code: diagnostic.code,
