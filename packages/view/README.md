@@ -205,7 +205,7 @@ const reading = createReadingView(container, {
   onSelect(selection) { showOccurrence(selection.unitIndex, selection.sourceSpan, selection.ref); },
   onClear() { clearDetails(); },
   onNavigate(selection) { openSource(selection.sourceSpan); },
-  onNavigateDiagnostic(diagnostic) { openSource(diagnostic.sourceSpan); }
+  onNavigateDiagnostic(diagnostic, related) { openSource(related?.sourceSpan ?? diagnostic.sourceSpan); }
 });
 reading.update(prepareView(originalSource, 'host'));
 // After an edit, prepare the entire input again.
@@ -223,9 +223,10 @@ local selection still clears, while the host owns the surrounding selection tran
 User selection and Escape continue to notify normally.
 
 Every compiler diagnostic remains available even when it belongs to an omitted host region.
-The diagnostic disclosure includes compiler explanations.
-Supplying `onNavigateDiagnostic` adds a Source button for each diagnostic with a source span;
-updates and destruction retire navigation from the previous projection.
+The diagnostic disclosure includes compiler explanations and every coded companion or uncoded dependent in `related`, without increasing the root issue count.
+Supplying `onNavigateDiagnostic` adds a Source button for each root or related source span.
+The callback receives the original diagnostic and, for a related location, the original related entry as its second argument.
+Updates and destruction retire navigation from the previous projection.
 Selection, Edit and note-source navigation use the full occurrence span.
 
 For an implicit target, the endpoint is the occurrence identified by Core's `implicitAttachment.contextSpan`.

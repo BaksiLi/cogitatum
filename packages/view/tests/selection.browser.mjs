@@ -14,7 +14,7 @@ const bundle = await build({
       import { projectReading } from '../../core/src/host.ts';
       window.mount = (source, mode = 'document', navigateDiagnostics = true) => {
         window.views?.reading.destroy(); window.views?.map.destroy();
-        const events = { reading: [], map: [], clear: 0, navigate: [], diagnostic: [] };
+        const events = { reading: [], map: [], clear: 0, navigate: [], diagnostic: [], related: [] };
         const compiled = explainSource(source, mode);
         const projection = projectReading(source, compiled);
         const readingOptions = {
@@ -24,7 +24,9 @@ const bundle = await build({
           onNavigate: selection => events.navigate.push(selection)
         };
         if (navigateDiagnostics) {
-          readingOptions.onNavigateDiagnostic = diagnostic => events.diagnostic.push(diagnostic);
+          readingOptions.onNavigateDiagnostic = (diagnostic, related) => {
+            events.diagnostic.push(diagnostic); events.related.push(related);
+          };
         }
         const reading = createReadingView(document.querySelector('#reading'), readingOptions);
         const map = createGraphView(document.querySelector('#map'), {
@@ -216,6 +218,53 @@ try {
     await mount('- [C @same] First.\n- [C @same] Second.', 'document', false);
     assert.equal(await diagnosticButton.count(), 0, 'without a host callback Reading stays static');
     await page.evaluate(() => { window.views.reading.destroy(); window.views.map.destroy(); });
+
+    const rejectedChain = [
+      '- [C @claim] A surviving claim.', '- [G @ground] A surviving reason.',
+      '- [_ @ground +> @missing; @broken] Rejected route.',
+      '- [O -> @broken; @pressure] Depends on the rejected route.',
+      '- [Q ~> @pressure] Depends on the rejected pressure.',
+    ].join('\n');
+    await mount(rejectedChain);
+    const relatedLocations = page.locator('.cog-reading-diagnostic-related > li');
+    assert.equal(await page.locator('.cog-reading-diagnostics > ul > li').count(), 1, 'dependents do not inflate the root issue count');
+    assert.equal(await relatedLocations.count(), 2, 'both direct and transitive dependents remain visible');
+    assert.match(await relatedLocations.nth(0).textContent(), /L4:3: Targets this rejected Bearing/);
+    await page.locator('.cog-reading-diagnostics summary').click();
+    await relatedLocations.nth(1).getByRole('button', { name: 'Source', exact: true }).click();
+    assert.deepEqual(await page.evaluate(() => {
+      const { events, projection } = window.views;
+      return {
+        root: events.diagnostic[0] === projection.diagnostics[0],
+        location: events.related[0] === projection.diagnostics[0].related[1],
+        line: events.related[0].sourceSpan.startLine,
+        code: events.related[0].code,
+      };
+    }), { root: true, location: true, line: 5, code: undefined }, 'navigation keeps root and uncoded dependent evidence intact');
+    const staleRelated = await relatedLocations.nth(1).getByRole('button', { name: 'Source', exact: true }).elementHandle();
+    await page.evaluate(() => {
+      const { reading, projection } = window.views;
+      const diagnostic = projection.diagnostics[0];
+      reading.update({ ...projection, diagnostics: [{
+        ...diagnostic, sourceSpan: undefined,
+        related: [{ ...diagnostic.related[0], code: 'COMPANION_CODE' }]
+      }] });
+    });
+    assert.match(await relatedLocations.textContent(), /COMPANION_CODE · L4:3/);
+    await staleRelated.evaluate(node => node.click());
+    assert.equal(await page.evaluate(() => window.views.events.diagnostic.length), 1, 'replacement retires related controls too');
+    await relatedLocations.getByRole('button', { name: 'Source', exact: true }).click();
+    assert.equal(await page.evaluate(() => window.views.events.related.at(-1).sourceSpan.startLine), 4, 'a related span navigates even without a root span');
+    await mount(rejectedChain, 'document', false);
+    assert.equal(await relatedLocations.count(), 2, 'read-only hosts still display dependent locations');
+    assert.equal(await diagnosticButton.count(), 0);
+
+    await mount('- [C @claim] Claim.\n  - [. @reason] Authored relevance.\n  - [_ @reason +> ^] Stronger relation.');
+    assert.equal(await row(2).getAttribute('data-entailed'), 'true');
+    assert.equal(await row(2).isVisible(), true, 'entailed relevance remains authored source');
+    await row(2).focus(); await page.keyboard.press('Space');
+    assert.match(await row(2).locator('.cog-reading-inspection').textContent(), /already entailed by the relation at L3/);
+    assert.equal(await page.evaluate(() => window.views.projection.units[0].graph.bearings.length), 2, 'presentation keeps the original graph intact');
 
     await mount('- [C @c] First.\n  - [G +> @missing] Preserved prose.\n- [C @c] Duplicate.\n- [_ use @unknown] Local unresolved wording.');
     assert.match(await row(2).locator('.cog-reading-text').textContent(), /^\[G \+> @missing\] Preserved prose\.$/);

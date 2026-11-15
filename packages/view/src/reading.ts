@@ -1,4 +1,4 @@
-import type { BearingTarget, Diagnostic, SourceSpan } from "@cogitatum/core";
+import type { BearingTarget, Diagnostic, RelatedDiagnostic, SourceSpan } from "@cogitatum/core";
 import { bearingLabel, bearingMark, createBearingChip, createMarkChip, drawBearingGlyph } from "./marks.js";
 import { focusNeighborhood, guidanceSubject, projectExploration, projectGraph, referenceKey, type GraphProjection } from "./projection.js";
 import type { ReadingCommitment, ReadingEndpoint, ReadingOccurrence, ReadingProjection } from "@cogitatum/core/host";
@@ -18,7 +18,8 @@ export type ReadingViewOptions = {
   onSelect?: (selection: ReadingSelection) => void;
   onClear?: () => void;
   onNavigate?: (selection: ReadingSelection) => void;
-  onNavigateDiagnostic?: (diagnostic: Diagnostic) => void;
+  /** The original root diagnostic, and the selected related location when navigating a companion or dependent. */
+  onNavigateDiagnostic?: (diagnostic: Diagnostic, related?: RelatedDiagnostic) => void;
 };
 export type ReadingView = {
   /** Replaces the projection and clears local selection; hosts may suppress the clear notification. */
@@ -285,13 +286,26 @@ export function createReadingView(container: HTMLElement, options: ReadingViewOp
         const explanation = html("p", "cog-reading-diagnostic-explanation", item);
         explanation.textContent = diagnostic.explanation;
       }
-      if (options.onNavigateDiagnostic && diagnostic.sourceSpan) {
-        const source = html("button", "cog-reading-diagnostic-source", item);
+      const navigate = (parent: HTMLElement, related?: RelatedDiagnostic) => {
+        const span = related?.sourceSpan ?? diagnostic.sourceSpan;
+        if (!options.onNavigateDiagnostic || !span) return;
+        const source = html("button", "cog-reading-diagnostic-source", parent);
         source.type = "button";
         source.textContent = "Source";
-        source.addEventListener("click", () => options.onNavigateDiagnostic?.(diagnostic), {
+        source.title = `Open source at line ${span.startLine}, column ${span.startColumn}`;
+        source.addEventListener("click", () => options.onNavigateDiagnostic?.(diagnostic, related), {
           signal: diagnosticControls.signal
         });
+      };
+      navigate(item);
+      if (diagnostic.related?.length) {
+        const relatedList = html("ul", "cog-reading-diagnostic-related", item);
+        for (const related of diagnostic.related) {
+          const location = html("li", "", relatedList), span = related.sourceSpan;
+          location.dataset.line = String(span.startLine);
+          location.textContent = `${related.code ? related.code + " · " : ""}L${span.startLine}:${span.startColumn}: ${related.message}`;
+          navigate(location, related);
+        }
       }
     }
     const last = projection.rows.at(-1);
