@@ -334,6 +334,8 @@ export type ExplainEffect =
       ref: ExplainBearingRef;
       bearing: ExplainEmittedBearingSummary;
       reason: "operator-clause" | "annotated-containment" | "local-bearing-containment" | "local-attachment";
+      /** Relevance constructed by placement alone that stronger stated Bearings already entail. */
+      entailedBy?: ExplainBearingRef[];
     }
   | {
       kind: "rejectBearing";

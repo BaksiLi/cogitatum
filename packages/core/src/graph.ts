@@ -2,6 +2,7 @@ import type {
   Annotation,
   AstBlock,
   Bearing,
+  ExplainBearingRef,
   BearingDerivedBy,
   BearingKind,
   BearingProfile,
@@ -31,6 +32,8 @@ import type {
 import { FORMAT_VERSION, isNamedTarget } from "./types.js";
 import { clauseSpelling, expandedClause, focusOf, leavesIntentionUnbound, MARK_RELATIONS, respellClause, respellTarget } from "./annotation.js";
 import type { Focus } from "./annotation.js";
+import { entailment, graphCommitments } from "./commitments.js";
+import type { Commitment } from "./commitments.js";
 
 // A Point slot carries its occurrence's focus: the written mark, not the
 // declaration of a reused Point, decides which defaults apply beneath it.
@@ -1061,6 +1064,33 @@ function validateBearings(
   };
 }
 
+/**
+ * For relevance that placement alone constructed, the stronger stated
+ * relations that already entail it. The Graph keeps both: the default is the
+ * author's placement, and this only lets a reader see it adds no commitment.
+ * Another concerns is a parallel statement, not a stronger one, so it never
+ * counts; neither of two equal defaults then hides the other.
+ */
+function strongerWitnesses(bearings: readonly Bearing[]): (bearing: Bearing) => ExplainBearingRef[] | undefined {
+  let stronger: Commitment[] | undefined;
+  const indexes = new Map(bearings.map((bearing, graphIndex) => [bearing.key, graphIndex] as const));
+  const cache = new Map<string, ExplainBearingRef[] | undefined>();
+  return bearing => {
+    if (bearing.kind !== "concerns") return undefined;
+    if (cache.has(bearing.key)) return cache.get(bearing.key);
+    stronger ??= graphCommitments({ bearings } as GraphIR).filter(commitment => commitment.kind !== "concerns");
+    const witnesses = entailment(stronger, { kind: "concerns", sources: bearing.sources.map(source => source.key).sort(), target: bearing.target }) as Commitment[] | undefined;
+    const refs = witnesses?.map(witness => {
+      const key = witness.bearings[0];
+      const graphIndex = indexes.get(key)!;
+      const handle = bearings[graphIndex].handle;
+      return { kind: "bearing" as const, key, graphIndex, ...(handle ? { handle } : {}) };
+    });
+    cache.set(bearing.key, refs);
+    return refs;
+  };
+}
+
 function buildExplainEntries(compiled: ReturnType<typeof compileDocument>): ExplainEntry[] {
   const { graph: { diagnostics }, drafts, validation, pointTargets, bearingTargets, visibleDiagnosticCounts } = compiled;
   const bearingIndexes = new Map(
@@ -1068,6 +1098,7 @@ function buildExplainEntries(compiled: ReturnType<typeof compileDocument>): Expl
   );
 
   const codesForSpan = diagnosticCodesBySpan(diagnostics);
+  const entailedBy = strongerWitnesses(validation.bearings);
   return drafts.map((draft, index) => {
     const effects: ExplainEffect[] = [];
 
@@ -1136,7 +1167,8 @@ function buildExplainEntries(compiled: ReturnType<typeof compileDocument>): Expl
           kind: "emitBearing",
           ref: { key, kind: "bearing", graphIndex, ...(handle ? { handle } : {}) },
           bearing: summarizeEmittedBearing(canonical),
-          reason: draft.bearing.reason
+          reason: draft.bearing.reason,
+          ...(draft.frame?.weakDefault && entailedBy(canonical) ? { entailedBy: entailedBy(canonical) } : {})
         });
       }
     } else if (draft.bearing?.outcome === "rejected") {

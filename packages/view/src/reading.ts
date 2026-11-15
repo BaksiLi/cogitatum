@@ -307,6 +307,8 @@ export function createReadingView(container: HTMLElement, options: ReadingViewOp
       const content = html("div", "cog-reading-content", row);
       if (source.kind === "occurrence") {
         row.dataset.occurrence = source.id; row.dataset.unit = String(source.unitIndex);
+        // Authored relevance that a stronger stated relation already entails; hosts may quiet it.
+        if (commitments.get(source.id)?.entailedByOccurrenceIds?.length) row.dataset.entailed = "true";
         if ((source.recognition.kind === "role" || source.recognition.kind === "use") && source.recognition.role) row.dataset.role = source.recognition.role;
         row.style.setProperty("--cog-reading-depth", String(source.depth));
         row.setAttribute("role", "group");

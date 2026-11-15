@@ -327,3 +327,22 @@ describe("a slash selects the local Bearing and keeps the mark's own kind", () =
     expect(local("R/ @x").codes).toContain("UNSUPPORTED_LOCAL_BEARING_SELECTOR");
   });
 });
+
+describe("placement relevance already entailed by a stronger relation", () => {
+  const source = "- [C @c] 主張。\n  - [. @x] 材料。\n  - [C @y] 另一點。\n- [_ @x, @y +> @c; @route] 一起支持。\n- [C @d] 另一主張。\n  - [. use @x]\n  - [. use @x]\n  - [. use @x ~> @c]";
+  const emitted = (line: number) => explainSource(source).explanations[0].entries.find(e => e.sourceSpan.startLine === line)!
+    .effects.find((e): e is Extract<ExplainEffect, { kind: "emitBearing" }> => e.kind === "emitBearing")!;
+
+  it("names the stronger Bearing, keeping the default in the Graph", () => {
+    expect(explainSource(source).graphs[0].bearings.map(b => b.kind)).toEqual(["concerns", "concerns", "supports", "concerns", "concerns", "concerns"]);
+    expect(emitted(2).entailedBy).toEqual([expect.objectContaining({ handle: "route" })]);
+    expect(emitted(3).entailedBy).toEqual([expect.objectContaining({ handle: "route" })]);
+    expect(formatExplain(explainSource(source))).toContain("already entailed by bearing @route");
+  });
+
+  it("treats equal relevance and written clauses as statements, not entailed defaults", () => {
+    expect(emitted(6).entailedBy).toBeUndefined();
+    expect(emitted(7).entailedBy).toBeUndefined();
+    expect(emitted(8).entailedBy).toBeUndefined();
+  });
+});

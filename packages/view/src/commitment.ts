@@ -54,7 +54,8 @@ export function describeCommitment(unit: ReadingUnit, commitment: ReadingCommitm
         : commitment.relationBy === "default" ? "; the constructor defaults to concerns"
         : frame?.focus && !unbound ? `; the mark and ${frame.focus === "question" ? "Question" : "Point"} focus select the relation`
         : !unbound ? "; the mark states the relation" : "";
-      return `${selected}${joint}: ${relation} ${name(commitment.target!, commitment.contextOccurrenceId)}, ${nearest}${crossed}; moving it can change the target${stated}.`;
+      const entailed = commitment.entailedByOccurrenceIds?.length ? `; already entailed by the relation at ${lines(commitment.entailedByOccurrenceIds)}` : "";
+      return `${selected}${joint}: ${relation} ${name(commitment.target!, commitment.contextOccurrenceId)}, ${nearest}${crossed}; moving it can change the target${stated}${entailed}.`;
     }
     case "explicit":
       return `Named target: ${bearingLabel(commitment.kind!, commitment.profile)} ${name(commitment.target!)}${opposed}; indentation does not choose this target.`;

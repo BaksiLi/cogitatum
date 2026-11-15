@@ -17,6 +17,8 @@ Source that compiled under 0.6 can construct different relations; follow [Migrat
   G directly beneath Q constructs `concerns`, with suggestion `UNBOUND_GROUND_UNDER_QUESTION`, instead of supporting the Question; write `+> ^` when that is meant.
   The focus is the occurrence's own mark, so `[. use @q]` is no Question focus even when `@q` was declared Q.
   Detaching is positional: outdent to root rather than re-marking as `.`.
+- Mark placement relevance that a stronger stated relation already entails.
+  `emitBearing.entailedBy` names the entailing Bearings, readback says “already entailed by”, host commitments carry `entailedByOccurrenceIds`, and View rows get `data-entailed`; the Graph is unchanged.
 - Record an occurrence's framing as Explain effect `frameOccurrence` on two independent axes.
   `fit` (`home`, `compatible` or `opposed`, absent when nothing is constructed) compares the constructed kind with the mark; `intention` (`bound`, `unbound` with `awaits`, or `none`) says whether the mark's function has a stated object.
   So `[O @x +> @c]` is opposed but bound, and G beneath Q is compatible but unbound.

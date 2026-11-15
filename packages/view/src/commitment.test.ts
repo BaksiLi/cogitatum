@@ -199,4 +199,9 @@ describe("Reading commitments", () => {
     expect(commitment.frame).toBeUndefined();
     expect(text).toBe("No relation: by example requires a supports Bearing. by example qualifies a supports Bearing, but [.] beneath this Point constructs concerns. Write a supports clause, as in [. +> ^ by example].");
   });
+
+  it("names the relation that already entails placement relevance", () => {
+    const { text } = inspect("- [C @c] Claim.\n  - [. @x] Material.\n- [_ @x +> @c; @route] Support.", 2);
+    expect(text).toBe("Placement records relevance: concerns @c (L1), the nearest enclosing Point; moving it can change the target; the mark and Point focus select the relation; already entailed by the relation at L3.");
+  });
 });

@@ -320,7 +320,8 @@
             "kind": { "const": "emitBearing" },
             "ref": { "$ref": "#/$defs/emittedBearingRef" },
             "bearing": { "$ref": "#/$defs/emittedBearingSummary" },
-            "reason": { "enum": ["operator-clause", "annotated-containment", "local-bearing-containment", "local-attachment"] }
+            "reason": { "enum": ["operator-clause", "annotated-containment", "local-bearing-containment", "local-attachment"] },
+            "entailedBy": { "type": "array", "items": { "$ref": "#/$defs/emittedBearingRef" }, "minItems": 1 }
           },
           "additionalProperties": false
         },

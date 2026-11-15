@@ -415,3 +415,14 @@ describe("Reading over the conformance corpus", () => {
     }
   });
 });
+
+describe("entailed placement relevance in the Reading", () => {
+  it("points a default concerns at the occurrence stating the stronger Bearing", () => {
+    const reading = project("- [C @c] Claim.\n  - [. @x] Material.\n- [_ @x +> @c; @route] Support.\n- [C @d] Other.\n  - [. use @x]");
+    const commitments = reading.units[0].commitments;
+    const at = (line: number) => commitments.find(item => item.occurrenceId === occurrence(reading, line).id)!;
+    expect(at(2).entailedByOccurrenceIds?.map(id => lineOf(reading, id))).toEqual([3]);
+    expect(at(3)).not.toHaveProperty("entailedByOccurrenceIds");
+    expect(at(5)).not.toHaveProperty("entailedByOccurrenceIds");
+  });
+});

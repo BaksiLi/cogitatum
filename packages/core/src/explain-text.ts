@@ -52,7 +52,7 @@ export function formatExplain(source: ExplainedSource): string {
         case "emitPoint": return `Declare ${reference(effect.ref)} (${effect.reason}).`;
         case "rejectPoint": return `Reject Point${effect.id ? " @" + effect.id : ""}: ${effect.reason}.`;
         case "implicitAttachment": return `Local context ${location(effect.contextSpan)} selects ${reference(effect.target)}${crossings(effect.crossedBodySpans)}.`;
-        case "emitBearing": return `Construct ${reference(effect.ref)}: ${effect.bearing.kind}${effect.bearing.profile ? " by " + effect.bearing.profile : ""}([${effect.bearing.sources.map(reference).join(", ")}], ${reference(effect.bearing.target)}); ${effect.bearing.derivedBy}, ${effect.reason}.`;
+        case "emitBearing": return `Construct ${reference(effect.ref)}: ${effect.bearing.kind}${effect.bearing.profile ? " by " + effect.bearing.profile : ""}([${effect.bearing.sources.map(reference).join(", ")}], ${reference(effect.bearing.target)}); ${effect.bearing.derivedBy}, ${effect.reason}${effect.entailedBy ? `; already entailed by ${effect.entailedBy.map(reference).join(", ")}` : ""}.`;
         case "rejectBearing": return `Reject Bearing: ${effect.reason}${effect.bearing ? `; candidate ${effect.bearing.kind}([${effect.bearing.sources.map(reference).join(", ")}], ${reference(effect.bearing.target)})` : ""}.`;
         case "skipBearing": return `No Bearing: ${effect.reason}.`;
         case "frameOccurrence": {

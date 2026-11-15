@@ -998,6 +998,9 @@ Membership eligibility does not certify that the whole constructed Bearing survi
 `fit` is `home`, `compatible` or `opposed`, present only when a relation is constructed; `intention` is `bound`, `unbound` or `none`, and only `unbound` carries `awaits`, a Bearing kind.
 `focus`, when a Point focus selects a default, is `"question"` or `"point"`.
 For example, Explain text prints “Presented as Objection; the clause alone constructs the relation, which the mark opposes.”
+When relevance that placement alone constructed (`.`, C outside a Question, or G beneath one) is entailed by stronger stated Bearings, its `emitBearing` effect lists them in `entailedBy`.
+The Graph keeps both Bearings: the placement remains authored, and another `concerns` never counts as stronger.
+Host views carry the same fact as `entailedByOccurrenceIds` on the occurrence's commitment.
 It explains compilation decisions, not the truth of the prose, the strength of a reason, or a history of the author's thinking.
 The trace is an experimental interface with a versioned schema; ordinary integrations can use AST and Graph IR alone.
 `cog explain --format text` renders all decisions, including non-emissions and failed candidates.

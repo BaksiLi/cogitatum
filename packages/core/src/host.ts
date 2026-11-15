@@ -77,6 +77,12 @@ export type ReadingCommitment = {
   profile?: Bearing["profile"];
   /** Core's framing decision for this occurrence, including the focus that selected a default. */
   frame?: Extract<ExplainEffect, { kind: "frameOccurrence" }>;
+  /**
+   * Relevance placement alone constructed, which stronger Bearings stated at
+   * these occurrences already entail. It still counts as authored; a renderer
+   * may quiet it beside them.
+   */
+  entailedByOccurrenceIds?: string[];
   /** How the emitted relation is stated, independently of how its target is selected. */
   relationBy?: "mark" | "clause" | "default";
   /** Ordinary body rows the selection passed through, outermost first. */
@@ -317,6 +323,7 @@ export function projectReading(source: string, explained: ExplainedSource): Read
         return [{
           ...base, basis: context ? "indentation" : "explicit", target: route.bearing.target, kind: route.bearing.kind,
           ...(route.bearing.profile ? { profile: route.bearing.profile } : {}),
+          ...(emitted.entailedBy ? { entailedByOccurrenceIds: emitted.entailedBy.map(ref => bearings[ref.graphIndex].occurrenceId) } : {}),
           relationBy: written ? "clause" : entry.recognition.kind === "bearing" ? "default" : "mark",
           ...(context ? { contextOccurrenceId: route.target.occurrenceId, crossedOccurrenceIds: crossed(context.crossedBodySpans) } : {}),
           memberOccurrenceIds: route.sources.filter(source => source.basis === "local-bearing-member").map(source => source.occurrenceId),
