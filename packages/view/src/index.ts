@@ -67,7 +67,9 @@ type Gesture =
 type Box = { x0: number; x1: number; y0: number; y1: number };
 type Shape = { id: string; node: GraphNode; g: SVGGElement; glyph?: SVGGElement; label?: SVGTextElement; labelHit?: SVGRectElement; inline: boolean; scale?: number };
 /** Length of an awaiting stub beyond the mark's ring, and how far successive stubs on one mark turn apart. */
-const STUB = 15, STUB_TURN = .5;
+const STUB = 18, STUB_TURN = .5, STUB_END = 2.8;
+/** Spacing, in pixels, between links that join the same two marks. */
+const PARALLEL = 7;
 
 /**
  * Framework-neutral mount/update/destroy lifecycle. Positions live in a world space; the camera maps
@@ -295,8 +297,9 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
   /**
    * Route links around a Point's wording whenever the other endpoint lies below it.
    * `port` shifts the end sideways so links sharing a side of one mark fan out instead of bundling.
+   * An end on the wording's lower edge is `flat`: it already stands apart from its neighbours.
    */
-  function anchor(id: string, toward: Point2, port = 0, wording?: Box): Point2 & { side?: number } {
+  function anchor(id: string, toward: Point2, port = 0, wording?: Box): Point2 & { side?: number; flat?: boolean } {
     const p = screen(world.get(id)!), shape = shapes.get(id);
     const isPoint = shape?.node.ref.kind === "point", r = isPoint ? ringR() * (endings.has(id) ? ENDING : 1) + 1.5 : JUNCTION_R + 1;
     if (isPoint && wording && toward.y > p.y + r) {
@@ -306,9 +309,12 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
         x: (side < 0 ? wording.x0 : wording.x1) + side * 6,
         y: Math.max(wording.y0 + 8, Math.min(wording.y1 - 8, toward.y)), side,
       };
-      return { x: p.x + port, y: wording.y1 + 6 };
+      return { x: p.x + port, y: wording.y1 + 6, flat: true };
     }
-    if (port && Math.abs(toward.y - p.y) > r) return { x: p.x + port, y: p.y + Math.sign(toward.y - p.y) * Math.sqrt(r * r - port * port) };
+    if (port && Math.abs(toward.y - p.y) > r) {
+      const x = Math.max(-r * .8, Math.min(r * .8, port));
+      return { x: p.x + x, y: p.y + Math.sign(toward.y - p.y) * Math.sqrt(r * r - x * x) };
+    }
     const dx = toward.x - p.x, dy = toward.y - p.y, d = Math.hypot(dx, dy) || 1;
     return { x: p.x + dx / d * r, y: p.y + dy / d * r };
   }
@@ -377,7 +383,6 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
       if (guides.x !== undefined) { const x = screen({ x: guides.x, y: 0 }).x; element("line", { class: "cog-guide", x1: String(x), x2: String(x), y1: "0", y2: String(size.h), "aria-hidden": "true" }, edgeLayer); }
       if (guides.y !== undefined) { const y = screen({ x: 0, y: guides.y }).y; element("line", { class: "cog-guide", x1: "0", x2: String(size.w), y1: String(y), y2: String(y), "aria-hidden": "true" }, edgeLayer); }
     }
-    const pairs = new Map<string, number>();
     // Marks and their wording are obstacles; a link prefers the candidate curve that crosses fewest.
     const wording = new Map<string, Box>();
     const obstacles = [...shapes.values()].filter(shape => !shape.inline).flatMap(shape => {
@@ -413,7 +418,7 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
         const from = { x: p.x + ux * (r + 2), y: p.y + uy * (r + 2) }, to = { x: p.x + ux * (r + STUB), y: p.y + uy * (r + STUB) };
         const g = element("g", { class: `cog-await cog-tone-${bearingMark(kind).tone}`, "data-active": String(!guided || related.has(id)), "aria-hidden": "true" }, edgeLayer);
         element("path", { d: `M${from.x.toFixed(1)} ${from.y.toFixed(1)}L${to.x.toFixed(1)} ${to.y.toFixed(1)}` }, g);
-        element("circle", { cx: (to.x + ux * 2.4).toFixed(1), cy: (to.y + uy * 2.4).toFixed(1), r: "2.4" }, g);
+        element("circle", { cx: (to.x + ux * STUB_END).toFixed(1), cy: (to.y + uy * STUB_END).toFixed(1), r: String(STUB_END) }, g);
         if (entrance) g.style.opacity = String(pointIn(id));
       });
     }
@@ -422,67 +427,94 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
       return { x: u*u*u*a.x + 3*u*u*s*c1.x + 3*u*s*s*c2.x + s*s*s*t.x, y: u*u*u*a.y + 3*u*u*s*c1.y + 3*u*s*s*c2.y + s*s*s*t.y };
     };
     const crossings = (ends: string[], a: Point2, c1: Point2, c2: Point2, t: Point2) => {
-      const samples = Array.from({ length: 15 }, (_, i) => at(a, c1, c2, t, (i + 1) / 16));
+      const samples = Array.from({ length: 23 }, (_, i) => at(a, c1, c2, t, (i + 1) / 24));
       let hits = 0;
       for (const box of obstacles) {
         if (!box.label && ends.includes(box.id)) continue;
-        for (const p of samples) if (p.x > box.x0 && p.x < box.x1 && p.y > box.y0 && p.y < box.y1) { hits++; break; }
+        // Other wording keeps a little air: a line grazing its edge reads as crossing it.
+        const m = box.label && !ends.includes(box.id) ? 4 : 0;
+        for (const p of samples) if (p.x > box.x0 - m && p.x < box.x1 + m && p.y > box.y0 - m && p.y < box.y1 + m) { hits++; break; }
       }
       return hits;
     };
-    // Ports: tails leaving one side of a mark are ordered by where they go, so they fan instead of bundling.
-    // Arrowheads keep converging on the mark; side-by-side heads would read as a doubled arrow.
-    const ports = new Map<string, number>(), sides = new Map<string, { key: string; x: number }[]>();
+    // Ports: ends sharing one side of a mark are ordered by where their other end lies, so they fan without crossing.
+    // On a ring the fan stays tight and arrowheads still meet the mark; along a wording's lower edge every
+    // end, head or tail, takes its own clear place, so a support and a check never land on one spot.
+    // Links joining the same two marks run as evenly spaced parallels.
+    const ports = new Map<string, number>(), sides = new Map<string, { key: string; x: number; order: number }[]>();
+    const pairOf = (link: { source: string; target: string }) => [link.source, link.target].sort().join("|");
+    const pairCount = new Map<string, number>();
+    for (const link of topology.links) pairCount.set(pairOf(link), (pairCount.get(pairOf(link)) ?? 0) + 1);
     topology.links.forEach((link, index) => ([link.source, link.target] as const).forEach((id, end) => {
-      if (end && link.segment === "output") return;
       const p = screen(world.get(id)!), other = screen(world.get(end ? link.source : link.target)!);
       if (Math.abs(other.y - p.y) <= 24) return;
       const side = `${id}|${other.y < p.y ? "up" : "down"}`;
-      sides.set(side, [...sides.get(side) ?? [], { key: `${index}:${end}`, x: other.x }]);
+      sides.set(side, [...sides.get(side) ?? [], { key: `${index}:${end}`, x: other.x, order: index }]);
     }));
     for (const [side, list] of sides) {
-      if (list.length < 2) continue;
-      const r = nodeById(side.split("|")[0])?.ref.kind === "point" ? pointR() : JUNCTION_R - 2;
-      const spacing = Math.min(4, (r * 1.4) / (list.length - 1));
-      list.sort((a, b) => a.x - b.x).forEach((item, i) => ports.set(item.key, (i - (list.length - 1) / 2) * spacing));
+      const [id, direction] = side.split("|"), box = direction === "down" ? wording.get(id) : undefined;
+      // A head arriving on a ring converges on the mark; only tails fan there.
+      const fanned = box ? list : list.filter(item => item.key.endsWith(":0") || topology.links[item.order].segment !== "output");
+      if (fanned.length < 2) continue;
+      const r = nodeById(id)?.ref.kind === "point" ? pointR() : JUNCTION_R - 2;
+      const spacing = box ? Math.min(16, (box.x1 - box.x0 - 24) / (fanned.length - 1)) : Math.min(4, (r * 1.4) / (fanned.length - 1));
+      fanned.sort((a, b) => a.x - b.x || a.order - b.order).forEach((item, i) => ports.set(item.key, (i - (fanned.length - 1) / 2) * spacing));
     }
+    const pairSeen = new Map<string, number>();
     topology.links.forEach((link, index) => {
       const bearingId = referenceKey({ kind: "bearing", key: link.bearingKey }), bearing = nodeById(bearingId)!;
       const mark = bearingMark(bearing.label), isInline = shapes.get(bearingId)!.inline;
       const A0 = screen(world.get(link.source)!), T0 = screen(world.get(link.target)!);
-      const pair = [link.source, link.target].sort().join("|"), nth = pairs.get(pair) ?? 0; pairs.set(pair, nth + 1);
-      const tail = ports.get(`${index}:0`) ?? 0, head = ports.get(`${index}:1`) ?? 0;
+      const pair = pairOf(link), nth = pairSeen.get(pair) ?? 0, parallel = pairCount.get(pair)!;
+      pairSeen.set(pair, nth + 1);
+      // Parallels shift as a whole, both ends alike, so they keep one spacing and never cross each other.
+      const lane = parallel > 1 ? (nth - (parallel - 1) / 2) * PARALLEL : 0;
+      const tail = (ports.get(`${index}:0`) ?? 0) + lane, head = (ports.get(`${index}:1`) ?? 0) + lane;
       // A challenge to a step lands on the side of its junction that faces it: no bar stands off the diamond;
       // that side of the diamond is inked instead, so the step itself reads as the thing challenged.
       const target = nodeById(link.target), contest = link.segment === "output" && bearing.label === "challenges";
       const onStep = contest && target?.ref.kind === "bearing" && !shapes.get(link.target)?.inline;
       const side = { x: Math.sign(A0.x - T0.x) || 1, y: Math.sign(A0.y - T0.y) || 1 };
       const a = anchor(link.source, T0, tail, wording.get(link.source));
-      const t: Point2 & { side?: number } = onStep ? { x: T0.x + side.x * (JUNCTION_R / 2 + .6), y: T0.y + side.y * (JUNCTION_R / 2 + .6) } : anchor(link.target, A0, head, wording.get(link.target));
+      const t: Point2 & { side?: number; flat?: boolean } = onStep ? { x: T0.x + side.x * (JUNCTION_R / 2 + .6), y: T0.y + side.y * (JUNCTION_R / 2 + .6) } : anchor(link.target, A0, head, wording.get(link.target));
       const dx = t.x - a.x, dy = t.y - a.y, len = Math.hypot(dx, dy) || 1;
-      const curveFor = (bend: number): [Point2, Point2] => {
-        // Layered links leave and enter vertically, as an S; parallel links and detours bow sideways.
-        if (!bend && (a.side || t.side || Math.abs(dy) > 24)) {
-          const h = Math.sign(dy) * Math.max(Math.abs(dy) * .5, Math.min(60, Math.abs(dx) * .3));
-          // Fanned ends splay along their port so neighbouring tails part at once instead of running parallel.
-          // The head end arrives straight, so every arrowhead sits square to its mark.
+      const layered = Boolean(a.side || t.side || a.flat || t.flat || Math.abs(dy) > 24);
+      /**
+       * One family of curves. A layered link leaves and arrives square, as an S whose control points meet
+       * halfway, so a wide, shallow link turns cleanly instead of hooking back. A detour (`swerve`, in pixels)
+       * bows out near its tail and still lands square, so every arrowhead and bar sits straight on its mark.
+       * A link within one row is straight, or a shallow arc when it must clear something.
+       */
+      const curveFor = (swerve: number): [Point2, Point2] => {
+        // A short link never curls into a loop: an arc bows at most part of its length, an S at most a little over it.
+        const reach = len * (layered ? 1.3 : .6), bow = Math.max(-reach, Math.min(reach, swerve));
+        if (layered) {
+          const h = dy / 2;
+          // An end on a wording's lower edge always meets it upright from below, however shallow the link.
+          const lead = Math.max(Math.abs(h), Math.min(18, len / 2));
+          // A tail fanned on a ring splays along its port, so neighbours part at once instead of running parallel.
           // A challenge to a step arrives square to the junction side it rims.
           const square = Math.min(48, Math.abs(dy) * .45, len * .4);
           const out = Math.max(24, Math.min(64, len * .35));
-          return [{ x: a.x + (a.side ? a.side * out : tail * 4), y: a.side ? a.y : a.y + h },
-            onStep ? { x: t.x + side.x * square, y: t.y + side.y * square } : { x: t.x + (t.side ? t.side * out : 0), y: t.side ? t.y : t.y - h }];
+          const splay = a.side ? a.side * out : a.flat ? 0 : (tail - lane) * 4;
+          return [{ x: a.x + splay + bow, y: a.side ? a.y : a.flat ? a.y + lead : a.y + h },
+            onStep ? { x: t.x + side.x * square, y: t.y + side.y * square } : { x: t.x + (t.side ? t.side * out : 0), y: t.side ? t.y : t.flat ? t.y + lead : t.y - h }];
         }
-        const c = { x: (a.x + t.x) / 2 - dy / len * bend * len, y: (a.y + t.y) / 2 + dx / len * bend * len };
+        const c = { x: (a.x + t.x) / 2 - dy / len * bow, y: (a.y + t.y) / 2 + dx / len * bow };
         return [c, c];
       };
-      let [c1, c2] = curveFor(nth ? (nth % 2 ? 1 : -1) * Math.ceil(nth / 2) * .22 : 0);
-      if (!nth) {
+      let [c1, c2] = curveFor(0);
+      // Parallels keep their shared shape; a single link may swerve to clear marks and wording.
+      if (parallel === 1) {
         const key = `${link.source}>${link.target}`;
         let bend = wordingHeld ? bends.get(key) : undefined;
         if (bend === undefined) {
           bend = 0;
           let best = crossings([link.source, link.target], a, c1, c2, t);
-          for (const option of [.2, -.2, .38, -.38]) {
+          // Only the tail bows, so a curve strays about half its swerve; wider detours clear a whole mark.
+          // The side the link already leans toward is tried first, so a detour seldom doubles back across others.
+          const lean = Math.sign(t.x - a.x) || 1;
+          for (const option of [36, 72, 128, 192].flatMap(s => [lean * s, -lean * s])) {
             if (!best) break;
             const [d1, d2] = curveFor(option), hits = crossings([link.source, link.target], a, d1, d2, t);
             if (hits < best) { best = hits; bend = option; }
@@ -526,7 +558,8 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
       }
       if (isInline) {
         element("path", { d, class: "cog-link-hit", "data-node": bearingId, "aria-hidden": "true" }, edgeLayer);
-        const m = { x: .125 * a.x + .375 * c1.x + .375 * c2.x + .125 * t.x, y: .125 * a.y + .375 * c1.y + .375 * c2.y + .125 * t.y };
+        // Parallel marks stagger along their lines, so two Bearings between one pair never sit side by side.
+        const m = at(a, c1, c2, t, .5 + (parallel > 1 ? (nth - (parallel - 1) / 2) * .16 : 0));
         const shape = shapes.get(bearingId)!;
         shape.g.setAttribute("transform", `translate(${m.x.toFixed(1)} ${m.y.toFixed(1)})`);
         shape.g.style.opacity = entrance ? String(traced) : "";

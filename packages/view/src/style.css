@@ -38,8 +38,8 @@
 .cog-graph .cog-link.cog-quiet, .cog-graph .cog-arrow.cog-quiet { opacity: .3; stroke-width: 1; }
 .cog-graph .cog-inline-bearing.cog-quiet:not(:hover, :focus-visible, [aria-pressed="true"]) { opacity: .45; }
 /* An awaiting role: an open stub toward a target the author has not stated yet. */
-.cog-graph .cog-await { fill: none; stroke-width: 1.2; stroke-dasharray: 2 2.5; stroke-linecap: round; opacity: .75; pointer-events: none; transition: opacity 160ms ease; }
-.cog-graph .cog-await circle { stroke-dasharray: none; fill: var(--cog-canvas-resolved); }
+.cog-graph .cog-await { fill: none; stroke-width: 1.6; stroke-dasharray: 0 3.4; stroke-linecap: round; opacity: .8; pointer-events: none; transition: opacity 160ms ease; }
+.cog-graph .cog-await circle { stroke-width: 1.2; stroke-dasharray: none; fill: var(--cog-canvas-resolved); }
 .cog-graph[data-guided="true"] .cog-await[data-active="false"] { opacity: .2; }
 
 /* Fixed, readable type: the camera never scales text. */
