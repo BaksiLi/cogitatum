@@ -79,6 +79,7 @@ const GLUED_OPERATOR_RE = /[^\s,;](?:\+>|->|\/>|~>|_>)|(?:\+>|->|\/>|~>|_>)[^\s,
 const ROLE_RE = /^(Q|C|G|O|R|D)$/;
 const SELECTOR_MARK_RE = /^[GOQDC]\/$/;
 const INVALID_OPEN_ROLE_RE = /^(Q|G|O|R|D)\?$/;
+const HANDLE_SEPARATOR_MESSAGE = "Bearing handle separator ';' must be followed by exactly one valid @id.";
 const ANCHOR_RE = /^@([a-z][a-z0-9_-]*)$/;
 const RELATION_TOKENS = new Map<string, BearingKind>([
   ["+>", "supports"],
@@ -120,13 +121,9 @@ function parseRetiredFamilyAlias(raw: string, head: AnnotationHead, sourceSpan?:
   else annotation = { ...shape, raw, syntaxErrors: [...new Set<AnnotationSyntaxError>([...(shape.syntaxErrors ?? []), "retired"])] } as Annotation;
   return {
     annotation,
-    diagnostics: [{
-      severity: "error",
-      code: "RETIRED_FAMILY_ALIAS",
-      message: `The ${head.retiredAlias} spelling of the ${family} family is retired; write ${short} or ${long}. `
-        + (malformed ? `Respell the family token and recompile.` + proseHint(splitTokens(head.canonicalRaw)) : `Migrate this annotation to [${head.canonicalRaw.trim()}] and recompile the original source.`),
-      sourceSpan
-    }]
+    diagnostics: [errorDiagnostic("RETIRED_FAMILY_ALIAS",
+      `The ${head.retiredAlias} spelling of the ${family} family is retired; write ${short} or ${long}. `
+        + (malformed ? `Respell the family token and recompile.` + proseHint(splitTokens(head.canonicalRaw)) : `Migrate this annotation to [${head.canonicalRaw.trim()}] and recompile the original source.`), sourceSpan)]
   };
 }
 
@@ -137,7 +134,7 @@ export function parseAnnotation(raw: string, sourceSpan?: SourceSpan): Annotatio
     const valid = head.canonicalRaw.trim().replace(/\s+/g, " ") === (head.family === "point" ? ". note" : head.family === "bearing" ? "_ note" : "note");
     return {
       annotation: { kind: "note", raw, ...(head.family ? { targetKind: head.family } : {}), ...(!valid ? { syntaxErrors: ["note" as const] } : {}) },
-      diagnostics: valid ? [] : [{ severity: "error", code: "MALFORMED_NOTE", message: "Notes use [note], [. note] or [_ note] followed by prose, without targets, anchors or other parameters." + proseHint(splitTokens(head.canonicalRaw)), sourceSpan }]
+      diagnostics: valid ? [] : [errorDiagnostic("MALFORMED_NOTE", "Notes use [note], [. note] or [_ note] followed by prose, without targets, anchors or other parameters." + proseHint(splitTokens(head.canonicalRaw)), sourceSpan)]
     };
   }
   const parsed = parseRecognizedAnnotation(head.canonicalRaw, sourceSpan);
@@ -149,13 +146,13 @@ function parseRecognizedAnnotation(raw: string, sourceSpan?: SourceSpan): Annota
   if (RETIRED_CLAIM_RE.test(raw)) {
     return {
       annotation: { kind: "invalid", raw },
-      diagnostics: [{ severity: "error", code: "RETIRED_CLAIM_OPENNESS", message: "C? is retired. Deliberately migrate to C to remove Claim open metadata, retaining tentative wording and the original source/version. C does not assert truth, certainty, acceptance or completion.", sourceSpan }]
+      diagnostics: [errorDiagnostic("RETIRED_CLAIM_OPENNESS", "C? is retired. Deliberately migrate to C to remove Claim open metadata, retaining tentative wording and the original source/version. C does not assert truth, certainty, acceptance or completion.", sourceSpan)]
     };
   }
   if (/^\s*\?(?=$|[\s;@/_]|[+\-~]>)/.test(raw)) {
     return {
       annotation: { kind: "invalid", raw },
-      diagnostics: [{ severity: "error", code: "RETIRED_GAP_ANNOTATION", message: "Gap [?] is retired. Use a Point for a scoped absence claim, retaining its anchor and explicit ~> attachment when needed, or a note for an author's task. Notes remove Point identity; G/O add a different commitment. Recompile the retained source.", sourceSpan }]
+      diagnostics: [errorDiagnostic("RETIRED_GAP_ANNOTATION", "Gap [?] is retired. Use a Point for a scoped absence claim, retaining its anchor and explicit ~> attachment when needed, or a note for an author's task. Notes remove Point identity; G/O add a different commitment. Recompile the retained source.", sourceSpan)]
     };
   }
   if (GLUED_OPERATOR_RE.test(raw)) {
@@ -178,7 +175,7 @@ function parseRecognizedAnnotation(raw: string, sourceSpan?: SourceSpan): Annota
     }
     const operatorNote = RETIRED_OPERATOR_RE.test(raw)
       ? " -> challenges a Point or a Bearing; its reference, or ^/ for the locally exposed Bearing, selects which." : "";
-    return { annotation: /^\s*@/.test(raw) ? { kind: "invalid", raw } : annotation ?? { kind: "invalid", raw }, diagnostics: [{ severity: "error", code: "RETIRED_AUTHORING_SYNTAX", message: "Retired authoring spelling; migrate this annotation to [" + normalized + "] and reparse the original source." + operatorNote, sourceSpan }, ...parsed.diagnostics] };
+    return { annotation: /^\s*@/.test(raw) ? { kind: "invalid", raw } : annotation ?? { kind: "invalid", raw }, diagnostics: [errorDiagnostic("RETIRED_AUTHORING_SYNTAX", "Retired authoring spelling; migrate this annotation to [" + normalized + "] and reparse the original source." + operatorNote, sourceSpan), ...parsed.diagnostics] };
   }
   return parseCurrentAnnotation(raw, sourceSpan);
 }
@@ -201,12 +198,8 @@ function parseGluedOperator(raw: string, sourceSpan?: SourceSpan): AnnotationPar
   const spaced = raw.trim().replace(/\s*(\+>|->|\/>|~>|_>)\s*/g, " $1 ").replace(/\s+;/g, ";").trim();
   const parsed = parseAnnotation(spaced, sourceSpan);
   const annotation = parsed.annotation;
-  const spacing: Diagnostic = {
-    severity: "error",
-    code: "MALFORMED_EXPLICIT_BEARING",
-    message: `Separate an operator from its neighbours with spaces, as in [${spaced.replace(RETIRED_OPERATOR_RE_GLOBAL, "$1->")}].`,
-    sourceSpan
-  };
+  const spacing: Diagnostic = errorDiagnostic("MALFORMED_EXPLICIT_BEARING",
+    `Separate an operator from its neighbours with spaces, as in [${spaced.replace(RETIRED_OPERATOR_RE_GLOBAL, "$1->")}].`, sourceSpan);
   if (!annotation || annotation.kind === "invalid" || annotation.kind === "note" || annotation.kind === "bearingUse") {
     return { annotation: annotation ? { ...annotation, raw } : { kind: "invalid", raw }, diagnostics: [spacing, ...parsed.diagnostics] };
   }
@@ -233,7 +226,7 @@ function parseCurrentAnnotation(raw: string, sourceSpan?: SourceSpan): Annotatio
     else if (annotation && annotation.kind !== "invalid" && annotation.kind !== "note") {
       (annotation as { syntaxErrors?: AnnotationSyntaxError[] }).syntaxErrors = [...new Set<AnnotationSyntaxError>([...(annotation.syntaxErrors ?? []), "profile"])];
     }
-    return { annotation: annotation ?? { kind: "invalid", raw }, diagnostics: [...parsed.diagnostics, { severity: "error", code, message, sourceSpan }] };
+    return { annotation: annotation ?? { kind: "invalid", raw }, diagnostics: [...parsed.diagnostics, errorDiagnostic(code, message, sourceSpan)] };
   };
   if (name !== "example") {
     return fail("MALFORMED_BEARING_PROFILE", `The only Bearing profile is written by example, after a supports clause or a G head and before any handle, as in [G by example] or [. +> @claim by example; @route].${name ? "" : " Name the profile after by."}`);
@@ -264,7 +257,7 @@ function parsePlainAnnotation(raw: string, sourceSpan?: SourceSpan): AnnotationP
     const valid = tokens[0] === "_" && tokens[1] === "use" && Boolean(operand) && tokens.length === 3 && semicolonParts.length === 1;
     return {
       annotation: { kind: "bearingUse", raw, ...(operand ? { ref: { id: operand } } : {}), ...(!valid ? { syntaxErrors: ["reference"] } : {}) },
-      diagnostics: valid ? [] : [{ severity: "error", code: "MALFORMED_BEARING_USE", message: "Bearing uses must look like [_ use @id]; they cannot declare an alias or construct an attachment.", sourceSpan }]
+      diagnostics: valid ? [] : [errorDiagnostic("MALFORMED_BEARING_USE", "Bearing uses must look like [_ use @id]; they cannot declare an alias or construct an attachment.", sourceSpan)]
     };
   }
 
@@ -273,8 +266,8 @@ function parsePlainAnnotation(raw: string, sourceSpan?: SourceSpan): AnnotationP
   if (/^join(?=$|[\s;])/i.test(trimmed)) {
     return {
       annotation: { kind: "bearing", members: true, raw, syntaxErrors: ["retired"] },
-      diagnostics: [{ severity: "error", code: "RETIRED_JOIN_ANNOTATION",
-        message: "The join keyword is retired. Use [_ +> ^], [_ -> ^], [_ respondsTo ^] or [_ interprets ^] (or another operator and target), optionally followed by ; @route, with neutral [.] or [. use @id] source members. Then recompile the original source.", sourceSpan }]
+      diagnostics: [errorDiagnostic("RETIRED_JOIN_ANNOTATION",
+        "The join keyword is retired. Use [_ +> ^], [_ -> ^], [_ respondsTo ^] or [_ interprets ^] (or another operator and target), optionally followed by ; @route, with neutral [.] or [. use @id] source members. Then recompile the original source.", sourceSpan)]
     };
   }
   const useIntent = head.family === "point" && head.operation === "use"
@@ -292,25 +285,25 @@ function parsePlainAnnotation(raw: string, sourceSpan?: SourceSpan): AnnotationP
     const errors: ("reference" | "operator" | "selector" | "handle")[] = [];
     if (tokens[useIndex] !== "use" || (mark !== "." && !neutralSelector && !role) || !operand || semicolonParts.length > 2) {
       errors.push("reference");
-      diagnostics.push({ severity: "error", code: "MALFORMED_POINT_USE", message: "Point uses must look like [. use @id] or [G use @id]; occurrence status is unsupported." + markCaseHint(mark), sourceSpan });
+      diagnostics.push(errorDiagnostic("MALFORMED_POINT_USE", "Point uses must look like [. use @id] or [G use @id]; occurrence status is unsupported." + markCaseHint(mark), sourceSpan));
     }
     const suffix = tokens.slice(useIndex + 2);
     let operatorClause: PointOperatorClause | undefined;
     if (suffix.length) {
       if (selectorRole || neutralSelector) {
         errors.push("selector");
-        diagnostics.push({ severity: "error", code: "LOCAL_SELECTOR_WITH_EXPLICIT_CLAUSE", message: "A local selector and an explicit operator clause are mutually exclusive.", sourceSpan });
+        diagnostics.push(errorDiagnostic("LOCAL_SELECTOR_WITH_EXPLICIT_CLAUSE", "A local selector and an explicit operator clause are mutually exclusive.", sourceSpan));
       } else if (isRelationToken(suffix[0])) {
         operatorClause = parseOperatorClause(suffix[0], "self", suffix.slice(1), sourceSpan, diagnostics);
         if (!operatorClause) errors.push("operator");
       } else {
         errors.push("operator");
-        diagnostics.push({ severity: "error", code: "MALFORMED_POINT_USE", message: "After a Point use operand, only a complete symbolic operator or canonical named-kind clause is permitted." + kindHint(suffix[0]), sourceSpan });
+        diagnostics.push(errorDiagnostic("MALFORMED_POINT_USE", "After a Point use operand, only a complete symbolic operator or canonical named-kind clause is permitted." + kindHint(suffix[0]), sourceSpan));
       }
     }
     if (semicolonParts.length === 2 && !handle) {
       errors.push("handle");
-      diagnostics.push({ severity: "error", code: "MALFORMED_BEARING_HANDLE", message: "Bearing handle separator ';' must be followed by exactly one valid @id.", sourceSpan });
+      diagnostics.push(errorDiagnostic("MALFORMED_BEARING_HANDLE", HANDLE_SEPARATOR_MESSAGE, sourceSpan));
     }
     const base = { kind: "use" as const, ref: operand ? { id: operand } : undefined, handle, raw, syntaxErrors: errors.length ? [...new Set(errors)] : undefined };
     return { annotation: selectorRole ? { ...base, role: selectorRole, selector: "attachment" }
@@ -319,8 +312,8 @@ function parsePlainAnnotation(raw: string, sourceSpan?: SourceSpan): AnnotationP
   if (/^linked(?=$|[\s;])/i.test(trimmed) || /^(?:[QCGORD](?:[/_])?|\.)\s+linked(?=$|[\s;])/i.test(trimmed)) {
     return {
       annotation: { kind: "bearing", members: true, raw, syntaxErrors: ["retired"] },
-      diagnostics: [{ severity: "error", code: "RETIRED_LINKED_ANNOTATION",
-        message: "The linked keyword is retired. Use [_ +> ^], [_ -> ^], [_ respondsTo ^] or [_ interprets ^] (or another operator and target), optionally followed by ; @route, with neutral [.] or [. use @id] source members. Preserve the intended relation, names, commentary and member subtrees when migrating.", sourceSpan }]
+      diagnostics: [errorDiagnostic("RETIRED_LINKED_ANNOTATION",
+        "The linked keyword is retired. Use [_ +> ^], [_ -> ^], [_ respondsTo ^] or [_ interprets ^] (or another operator and target), optionally followed by ; @route, with neutral [.] or [. use @id] source members. Preserve the intended relation, names, commentary and member subtrees when migrating.", sourceSpan)]
     };
   }
 
@@ -328,7 +321,7 @@ function parsePlainAnnotation(raw: string, sourceSpan?: SourceSpan): AnnotationP
   if (selectorIntent) {
     const role = selectorIntent[1].toUpperCase();
     if (role !== "." && !SELECTOR_MARK_RE.test(role + "/")) {
-      diagnostics.push({ severity: "error", code: "UNSUPPORTED_LOCAL_BEARING_SELECTOR", message: pointOnlySelectorHint(selectorIntent[1] + "/") || "Only ., C, G, O, Q and D have a selector form toward the locally exposed Bearing.", sourceSpan });
+      diagnostics.push(errorDiagnostic("UNSUPPORTED_LOCAL_BEARING_SELECTOR", pointOnlySelectorHint(selectorIntent[1] + "/") || "Only ., C, G, O, Q and D have a selector form toward the locally exposed Bearing.", sourceSpan));
       return { annotation: { kind: "invalid", raw }, diagnostics };
     }
     const tokens = splitTokens(semicolonParts[0]);
@@ -340,11 +333,11 @@ function parsePlainAnnotation(raw: string, sourceSpan?: SourceSpan): AnnotationP
     const errors: ("selector" | "handle")[] = [];
     if (invalidSelector) {
       errors.push("selector");
-      diagnostics.push({ severity: "error", code: combined ? "LOCAL_SELECTOR_WITH_EXPLICIT_CLAUSE" : "MALFORMED_LOCAL_BEARING_SELECTOR", message: combined ? "A local selector and an explicit operator clause are mutually exclusive; the selector already states its relation to ^/. Write a complete clause such as [G +> @route] or [O -> ^/] instead." : "Local selectors must look like [G/], [O/ @id], or [Q/ @id; @question-route]." + markCaseHint(tokens[0]), sourceSpan });
+      diagnostics.push(errorDiagnostic(combined ? "LOCAL_SELECTOR_WITH_EXPLICIT_CLAUSE" : "MALFORMED_LOCAL_BEARING_SELECTOR", combined ? "A local selector and an explicit operator clause are mutually exclusive; the selector already states its relation to ^/. Write a complete clause such as [G +> @route] or [O -> ^/] instead." : "Local selectors must look like [G/], [O/ @id], or [Q/ @id; @question-route]." + markCaseHint(tokens[0]), sourceSpan));
     }
     if (invalidHandle) {
       errors.push("handle");
-      diagnostics.push({ severity: "error", code: "MALFORMED_BEARING_HANDLE", message: "Bearing handle separator ';' must be followed by exactly one valid @id.", sourceSpan });
+      diagnostics.push(errorDiagnostic("MALFORMED_BEARING_HANDLE", HANDLE_SEPARATOR_MESSAGE, sourceSpan));
     }
     const syntaxErrors = errors.length ? errors : undefined;
     return { annotation: role === "."
@@ -353,12 +346,8 @@ function parsePlainAnnotation(raw: string, sourceSpan?: SourceSpan): AnnotationP
   }
 
   if (semicolonParts.length > 2) {
-    diagnostics.push({
-      severity: "error",
-      code: "MALFORMED_ANNOTATION",
-      message: "Annotation may contain at most one Bearing handle separator.",
-      sourceSpan
-    });
+    diagnostics.push(errorDiagnostic("MALFORMED_ANNOTATION",
+      "Annotation may contain at most one Bearing handle separator.", sourceSpan));
     return { diagnostics };
   }
 
@@ -368,22 +357,14 @@ function parsePlainAnnotation(raw: string, sourceSpan?: SourceSpan): AnnotationP
   const handle = hasHandleSeparator && handlePart ? parseSingleRef(handlePart) : undefined;
   const invalidHandle = hasHandleSeparator && !handle;
   if (invalidHandle) {
-    diagnostics.push({
-      severity: "error",
-      code: "MALFORMED_BEARING_HANDLE",
-      message: "Bearing handle separator ';' must be followed by exactly one valid @id.",
-      sourceSpan
-    });
+    diagnostics.push(errorDiagnostic("MALFORMED_BEARING_HANDLE",
+      HANDLE_SEPARATOR_MESSAGE, sourceSpan));
   }
 
   const tokens = splitTokens(main);
   if (tokens.length === 0) {
-    diagnostics.push({
-      severity: "error",
-      code: "EMPTY_ANNOTATION",
-      message: "Cogitatum annotation is empty.",
-      sourceSpan
-    });
+    diagnostics.push(errorDiagnostic("EMPTY_ANNOTATION",
+      "Cogitatum annotation is empty.", sourceSpan));
     return { diagnostics };
   }
 
@@ -412,66 +393,34 @@ function parsePlainAnnotation(raw: string, sourceSpan?: SourceSpan): AnnotationP
 
   const first = tokens[0];
   const parsedRole = parseRoleToken(first);
-  if (parsedRole) {
-    const anchor = tokens[1] ? parseSingleRef(tokens[1]) : undefined;
-    if (tokens.length > 2 || (tokens[1] && !anchor)) {
-      diagnostics.push({
-        severity: "error",
-        code: "MALFORMED_ROLE_ANNOTATION",
-        message: "Role annotations must look like [C], [G @id], or [Q @id respondsTo @target]." + (targetTermHint(first, tokens[1]) ?? proseHint(tokens)),
-        sourceSpan
-      });
-      return { diagnostics };
-    }
-    return {
-      annotation: {
-        kind: "role",
-        ...parsedRole,
-        anchor,
-        syntaxErrors: invalidHandle ? ["handle"] : undefined,
-        handle,
-        raw
-      },
-      diagnostics
-    };
-  }
-
   if (INVALID_OPEN_ROLE_RE.test(first)) {
     diagnostics.push(openStatusDiagnostic(sourceSpan));
     return { diagnostics };
   }
-
-  const anchor = tokens[1] ? parseSingleRef(tokens[1]) : undefined;
-  if (first === ".") {
+  if (parsedRole || first === ".") {
+    const anchor = tokens[1] ? parseSingleRef(tokens[1]) : undefined;
     if (tokens.length > 2 || (tokens[1] && !anchor)) {
-      diagnostics.push({
-        severity: "error",
-        code: "MALFORMED_ANCHOR_ANNOTATION",
-        message: "Neutral Point declarations must look like [.], [. @id], or [. @id +> @target].",
-        sourceSpan
-      });
+      diagnostics.push(errorDiagnostic(parsedRole ? "MALFORMED_ROLE_ANNOTATION" : "MALFORMED_ANCHOR_ANNOTATION",
+        parsedRole ? "Role annotations must look like [C], [G @id], or [Q @id respondsTo @target]." + (targetTermHint(first, tokens[1]) ?? proseHint(tokens))
+          : "Neutral Point declarations must look like [.], [. @id], or [. @id +> @target].", sourceSpan));
       return { diagnostics };
     }
+    const declaration = parsedRole ? { kind: "role" as const, ...parsedRole } : { kind: "material" as const };
     return {
-      annotation: {
-        kind: "material",
-        anchor,
-        syntaxErrors: invalidHandle ? ["handle"] : undefined,
-        handle,
-        raw
-      },
+      annotation: { ...declaration, anchor, syntaxErrors: invalidHandle ? ["handle"] : undefined, handle, raw },
       diagnostics
     };
   }
 
-  diagnostics.push({
-    severity: "error",
-    code: "MALFORMED_ANNOTATION",
-    message: `Could not parse Cogitatum annotation [${raw}].` + markCaseHint(first),
-    sourceSpan
-  });
+  diagnostics.push(errorDiagnostic("MALFORMED_ANNOTATION",
+    `Could not parse Cogitatum annotation [${raw}].` + markCaseHint(first), sourceSpan));
   return { diagnostics };
 }
+
+const RETIRED_KIND_MESSAGES = new Map([
+  ["repliesto", "The named repliesTo spelling is retired. Use respondsTo, retaining the same sources, Point target, handle and prose, then recompile retained source; do not relabel old JSON."],
+  ["clarifies", "The named clarifies spelling is retired. Use interprets, retaining the same sources, target, handle and prose, then recompile retained source; do not relabel old JSON. The kind records an offered reading, not that the target was made clear."]
+]);
 
 function parseOperatorClause(
   opToken: string,
@@ -494,35 +443,18 @@ function parseOperatorClause(
   sourceSpan: SourceSpan | undefined,
   diagnostics: Diagnostic[]
 ): OperatorClause | undefined {
-  if (opToken.toLowerCase() === "repliesto") {
-    diagnostics.push({
-      severity: "error",
-      code: "RETIRED_BEARING_KIND",
-      message: "The named repliesTo spelling is retired. Use respondsTo, retaining the same sources, Point target, handle and prose, then recompile retained source; do not relabel old JSON.",
-      sourceSpan
-    });
-    return undefined;
-  }
-  if (opToken.toLowerCase() === "clarifies") {
-    diagnostics.push({
-      severity: "error",
-      code: "RETIRED_BEARING_KIND",
-      message: "The named clarifies spelling is retired. Use interprets, retaining the same sources, target, handle and prose, then recompile retained source; do not relabel old JSON. The kind records an offered reading, not that the target was made clear.",
-      sourceSpan
-    });
+  const retired = RETIRED_KIND_MESSAGES.get(opToken.toLowerCase());
+  if (retired) {
+    diagnostics.push(errorDiagnostic("RETIRED_BEARING_KIND", retired, sourceSpan));
     return undefined;
   }
   const op = RELATION_TOKENS.get(opToken);
   const listed = Array.isArray(sourceTokens);
   if (!op || (listed && sourceTokens.length === 0) || targetTokens.length === 0) {
     // Only listed sources are written in the clause; self and member sources are implied.
-    diagnostics.push({
-      severity: "error",
-      code: "MALFORMED_EXPLICIT_BEARING",
-      message: (listed ? "Operator clause must include sources, a symbolic operator or canonical kind, and one target." : "Operator clause must include a symbolic operator or canonical kind and one target.") +
-        (!op ? kindHint(opToken) : targetTokens.length === 0 ? POSITIONAL_TARGET_HINT : ""),
-      sourceSpan
-    });
+    diagnostics.push(errorDiagnostic("MALFORMED_EXPLICIT_BEARING",
+      (listed ? "Operator clause must include sources, a symbolic operator or canonical kind, and one target." : "Operator clause must include a symbolic operator or canonical kind and one target.") +
+        (!op ? kindHint(opToken) : targetTokens.length === 0 ? POSITIONAL_TARGET_HINT : ""), sourceSpan));
     return undefined;
   }
 
@@ -530,17 +462,13 @@ function parseOperatorClause(
   if (listed) {
     const sourceResult = parseRefs(sourceTokens);
     if (sourceResult.invalid.length > 0 || sourceResult.refs.length === 0) {
-      diagnostics.push({ severity: "error", code: "MALFORMED_BEARING_SOURCES", message: invalidRefsMessage("sources", sourceResult.invalid), sourceSpan });
+      diagnostics.push(errorDiagnostic("MALFORMED_BEARING_SOURCES", invalidRefsMessage("sources", sourceResult.invalid), sourceSpan));
       return undefined;
     }
     const duplicateSources = duplicateRefIds(sourceResult.refs);
     if (duplicateSources.length > 0) {
-      diagnostics.push({
-        severity: "error",
-        code: "DUPLICATE_BEARING_SOURCES",
-        message: `Operator clause source references must be unique. Duplicate: ${duplicateSources.map((id) => `@${id}`).join(", ")}.`,
-        sourceSpan
-      });
+      diagnostics.push(errorDiagnostic("DUPLICATE_BEARING_SOURCES",
+        `Operator clause source references must be unique. Duplicate: ${duplicateSources.map((id) => `@${id}`).join(", ")}.`, sourceSpan));
       return undefined;
     }
     sources = sourceResult.refs;
@@ -562,21 +490,13 @@ function parseTargetTerm(tokens: string[], sourceSpan: SourceSpan | undefined, d
   const { refs, invalid } = parseRefs(tokens);
   if (invalid.length > 0 || refs.length === 0) {
     const positional = invalid.some(part => /^@\^|\^/.test(part));
-    diagnostics.push({
-      severity: "error",
-      code: "MALFORMED_BEARING_TARGETS",
-      message: invalidRefsMessage("targets", invalid) + (positional ? " Positional targets are written ^ or ^/ alone, without @." : ""),
-      sourceSpan
-    });
+    diagnostics.push(errorDiagnostic("MALFORMED_BEARING_TARGETS",
+      invalidRefsMessage("targets", invalid) + (positional ? " Positional targets are written ^ or ^/ alone, without @." : ""), sourceSpan));
     return undefined;
   }
   if (refs.length > 1) {
-    diagnostics.push({
-      severity: "error",
-      code: "MULTIPLE_BEARING_TARGETS_UNSUPPORTED",
-      message: "Operator clauses accept exactly one target; a Bearing constructor can list several sources.",
-      sourceSpan
-    });
+    diagnostics.push(errorDiagnostic("MULTIPLE_BEARING_TARGETS_UNSUPPORTED",
+      "Operator clauses accept exactly one target; a Bearing constructor can list several sources.", sourceSpan));
     return undefined;
   }
   return refs[0];
@@ -591,12 +511,12 @@ function parseBearingConstructor(raw: string, head: AnnotationHead, sourceSpan?:
   const errors = new Set<BearingError>();
   const fail = (error: BearingError, code: string, message: string) => {
     errors.add(error);
-    diagnostics.push({ severity: "error", code, message, sourceSpan });
+    diagnostics.push(errorDiagnostic(code, message, sourceSpan));
   };
   const parts = head.canonicalRaw.trim().split(";").map(part => part.trim());
   const handle = parts.length === 2 ? parseSingleRef(parts[1]) : undefined;
   if (parts.length > 2) fail("operator", "MALFORMED_ANNOTATION", "Annotation may contain at most one Bearing handle separator.");
-  else if (parts.length === 2 && !handle) fail("handle", "MALFORMED_BEARING_HANDLE", "Bearing handle separator ';' must be followed by exactly one valid @id.");
+  else if (parts.length === 2 && !handle) fail("handle", "MALFORMED_BEARING_HANDLE", HANDLE_SEPARATOR_MESSAGE);
   const [family, ...rest] = splitTokens(parts[0]);
   let operatorClause: BearingOperatorClause | undefined;
   let selector = false;
@@ -739,12 +659,8 @@ function parseBearingHost(
   if (parsedRole) {
     const anchor = prefix[1] ? parseSingleRef(prefix[1]) : undefined;
     if (prefix.length > 2 || (prefix[1] && !anchor)) {
-      diagnostics.push({
-        severity: "error",
-        code: "MALFORMED_ROLE_BEARING",
-        message: "Role Bearing annotations must look like [O -> @target] or [O @id -> ^/]." + jointSourceHint(prefix, clause),
-        sourceSpan
-      });
+      diagnostics.push(errorDiagnostic("MALFORMED_ROLE_BEARING",
+        "Role Bearing annotations must look like [O -> @target] or [O @id -> ^/]." + jointSourceHint(prefix, clause), sourceSpan));
       return undefined;
     }
     return {
@@ -765,12 +681,8 @@ function parseBearingHost(
     return { kind: "material", anchor, raw };
   }
 
-  diagnostics.push({
-    severity: "error",
-    code: "MALFORMED_EXPLICIT_BEARING",
-    message: "Operator clauses must begin with a role, . or _." + (first === "." ? jointSourceHint(prefix, clause) : markCaseHint(first)),
-    sourceSpan
-  });
+  diagnostics.push(errorDiagnostic("MALFORMED_EXPLICIT_BEARING",
+    "Operator clauses must begin with a role, . or _." + (first === "." ? jointSourceHint(prefix, clause) : markCaseHint(first)), sourceSpan));
   return undefined;
 }
 
@@ -996,12 +908,8 @@ function parseRoleToken(token: string): { role: Role } | undefined {
 }
 
 function openStatusDiagnostic(sourceSpan: SourceSpan | undefined): Diagnostic {
-  return {
-    severity: "error",
-    code: "ROLE_OPENNESS_UNSUPPORTED",
-    message: "Role-level open status is unsupported. Keep tentative wording in Point content and author tasks in notes.",
-    sourceSpan
-  };
+  return errorDiagnostic("ROLE_OPENNESS_UNSUPPORTED",
+    "Role-level open status is unsupported. Keep tentative wording in Point content and author tasks in notes.", sourceSpan);
 }
 
 function splitTokens(input: string): string[] {
@@ -1010,4 +918,8 @@ function splitTokens(input: string): string[] {
     .trim()
     .split(/\s+/)
     .filter(Boolean);
+}
+
+function errorDiagnostic(code: string, message: string, sourceSpan: SourceSpan | undefined): Diagnostic {
+  return { severity: "error", code, message, sourceSpan };
 }
