@@ -1011,6 +1011,7 @@ including selectors and constructors; see [the preservation limits](graph-inspec
 
 A Graph IR Point holds `key`, optional `id`, shared `text`, its canonical declaration `sourceSpan`, and `declaration`.
 `declaration` records how the Point was introduced: `form` (`role` or `material`), with `role` required only for the role form.
+It is the declaring occurrence's presentation, not a type of the Point: the same Point can be used elsewhere with another mark, and a role commits to a relation only through a Bearing.
 Neither form carries a resolution status, and no use changes the declaration.
 Marks written at uses, including neutral and selector marks, live only in the AST annotation and Explain recognition; derive them from there, never from `declaration`.
 An attachment created at an occurrence is an ordinary Bearing.

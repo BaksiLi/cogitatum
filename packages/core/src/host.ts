@@ -73,6 +73,8 @@ export type ReadingCommitment = {
   contextOccurrenceId?: string;
   /** A surviving graph entity only; a failed candidate has none. */
   target?: BearingTarget;
+  /** The surviving Bearing this occurrence constructs, if any. */
+  bearing?: BearingRef;
   kind?: BearingKind;
   profile?: Bearing["profile"];
   /** Core's framing decision for this occurrence, including the focus that selected a default. */
@@ -321,7 +323,8 @@ export function projectReading(source: string, explained: ExplainedSource): Read
         const annotation = evidence!.block.annotation;
         const written = annotation && "operatorClause" in annotation && annotation.operatorClause;
         return [{
-          ...base, basis: context ? "indentation" : "explicit", target: route.bearing.target, kind: route.bearing.kind,
+          ...base, basis: context ? "indentation" : "explicit", target: route.bearing.target,
+          bearing: { kind: "bearing", key: route.bearing.key }, kind: route.bearing.kind,
           ...(route.bearing.profile ? { profile: route.bearing.profile } : {}),
           ...(emitted.entailedBy ? { entailedByOccurrenceIds: emitted.entailedBy.map(ref => bearings[ref.graphIndex].occurrenceId) } : {}),
           relationBy: written ? "clause" : entry.recognition.kind === "bearing" ? "default" : "mark",

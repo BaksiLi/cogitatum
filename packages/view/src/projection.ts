@@ -1,4 +1,4 @@
-import type { BearingKind, BearingProfile, BearingTarget, GraphIR, Point, PointRef, SourceSpan } from "@cogitatum/core";
+import type { BearingKind, BearingProfile, BearingRef, BearingTarget, GraphIR, Point, PointRef, SourceSpan } from "@cogitatum/core";
 import { FORMAT_VERSION } from "@cogitatum/core";
 import { referenceKey, type ReadingUnit } from "@cogitatum/core/host";
 import { declarationMark } from "./marks.js";
@@ -92,7 +92,7 @@ export function focusNeighborhood(projection: GraphProjection, ref?: BearingTarg
 }
 
 /** Visual topology only. A collapsed line still identifies exactly one compiled Bearing. */
-export function projectExploration(projection: GraphProjection): GraphProjection & { inlineBearings: GraphNode[] } {
+export function projectExploration(projection: GraphProjection, quiet: ReadonlySet<string> = new Set()): GraphProjection & { inlineBearings: GraphNode[] } {
   // Only a sole input can be collapsed; null keeps every joint Bearing explicit.
   const inputs = new Map<string, GraphLink | null>(), outputs = new Map<string, GraphLink>();
   const addressed = new Set<string>(), pairs = new Map<string, number>();
@@ -104,13 +104,14 @@ export function projectExploration(projection: GraphProjection): GraphProjection
     const input = inputs.get(node.id), output = outputs.get(node.id);
     return input && output ? [input.source, output.target].sort().join("\0") : undefined;
   };
-  for (const node of projection.nodes.filter(node => node.ref.kind === "bearing")) {
+  // Quiet relevance shares its endpoints with the relation that entails it; it neither claims the pair nor needs a junction.
+  for (const node of projection.nodes.filter(node => node.ref.kind === "bearing" && !quiet.has(node.ref.key))) {
     const key = pair(node); if (key) pairs.set(key, (pairs.get(key) ?? 0) + 1);
   }
   const inlineBearings = projection.nodes.filter(node => {
     if (node.ref.kind !== "bearing" || addressed.has(node.id)) return false;
     const input = inputs.get(node.id), output = outputs.get(node.id), key = pair(node);
-    return !!input && !!output && input.source !== output.target && !!key && pairs.get(key) === 1;
+    return !!input && !!output && input.source !== output.target && !!key && (quiet.has(node.ref.key) || pairs.get(key) === 1);
   });
   const collapsed = new Set(inlineBearings.map(node => node.id));
   return {
@@ -126,6 +127,30 @@ export function projectExploration(projection: GraphProjection): GraphProjection
 
 /** A declared Point with no Bearing joining it to its outline parent: drawing placement only. */
 export type OutlineTie = { child: PointRef; parent: PointRef };
+
+/** An occurrence that presents its Point in a directed role whose object it leaves unstated. */
+export type AwaitedRelation = { point: PointRef; awaits: BearingKind };
+
+/**
+ * What a Map needs from one source unit beyond its graph. `quiet` lists Bearings that placement alone
+ * constructed and a stronger stated relation already entails: drawn faintly, still selectable, never hidden.
+ * `awaiting` lists, once per Point and kind, roles whose object is still to be written.
+ */
+export type MapContext = { outline?: readonly OutlineTie[]; quiet?: readonly BearingRef[]; awaiting?: readonly AwaitedRelation[] };
+
+export function mapContext(unit: ReadingUnit): Required<MapContext> {
+  const points = new Map(unit.occurrences.map(occurrence => [occurrence.id,
+    occurrence.references.find(reference => reference.kind === "declares" || (reference.kind === "uses" && reference.ref.kind === "point"))?.ref]));
+  const quiet: BearingRef[] = [], awaiting: AwaitedRelation[] = [], seen = new Set<string>();
+  for (const commitment of unit.commitments) {
+    if (commitment.bearing && commitment.entailedByOccurrenceIds?.length) quiet.push(commitment.bearing);
+    const frame = commitment.frame, point = points.get(commitment.occurrenceId);
+    if (frame?.intention !== "unbound" || point?.kind !== "point") continue;
+    const key = `${point.key}>${frame.awaits}`;
+    if (!seen.has(key)) { seen.add(key); awaiting.push({ point, awaits: frame.awaits }); }
+  }
+  return { outline: outlineTies(unit), quiet, awaiting };
+}
 
 /**
  * Keep a nested declaration near its outline parent only when no Bearing joins the pair in either direction,

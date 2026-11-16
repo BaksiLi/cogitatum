@@ -1,5 +1,6 @@
 import type { BearingTarget, GraphIR, Point, PointRef } from "@cogitatum/core";
 import { bearingLabel, bearingMark, createBearingChip, createMarkChip, drawBearingGlyph, drawPointGlyph } from "./marks.js";
+import type { MapContext } from "./projection.js";
 import { createProseScope, isProseInteraction, type ProseRenderer } from "./prose.js";
 import { projectContest, projectStrands, strandRootOf, type StrandKnot, type StrandRow, type StrandsProjection } from "./strands-projection.js";
 
@@ -11,7 +12,8 @@ export type StrandsViewOptions = {
   onNavigate?: (ref: BearingTarget) => void;
 };
 export type StrandsView = {
-  update(graph: GraphIR): void;
+  /** `quiet` relevance, as from `mapContext(unit)`, is set faint in its knot and never left out. */
+  update(graph: GraphIR, context?: Pick<MapContext, "quiet">): void;
   /** Silent. An entity in these strands is selected in place; otherwise follow its target to a focus Point. */
   select(ref: BearingTarget): void;
   /** Silent; also leaves Challenge Focus. */
@@ -50,6 +52,7 @@ export function createStrandsView(container: HTMLElement, options: StrandsViewOp
   const prose = createProseScope(options.renderProse, () => schedule());
   const abort = new AbortController(), on = { signal: abort.signal };
   let graph: GraphIR | undefined, projection: StrandsProjection | undefined, focus: PointRef | undefined;
+  let quiet = new Set<string>();
   let selected: BearingTarget | undefined, contest: string | undefined, frame = 0, destroyed = false;
   let items: { element: HTMLLIElement; row: StrandRow; refs: BearingTarget[] }[] = [];
 
@@ -77,6 +80,7 @@ export function createStrandsView(container: HTMLElement, options: StrandsViewOp
   function knot(parent: HTMLElement, value: StrandKnot): void {
     const box = html("div", "cog-strands-knot", parent);
     box.dataset.polarity = value.polarity; box.dataset.bearing = value.bearing.key;
+    if (quiet.has(value.bearing.key)) box.dataset.quiet = "true";
     const head = html("div", "cog-strands-knot-head", box);
     head.append(createBearingChip(doc, value.bearing.kind, 14));
     const on = value.on.kind === "bearing" ? graph!.bearings.find(b => b.key === value.on.key) : undefined;
@@ -90,6 +94,7 @@ export function createStrandsView(container: HTMLElement, options: StrandsViewOp
     for (const relation of value.relations) {
       const item = html("div", "cog-strands-relation", box);
       item.dataset.bearing = relation.key;
+      if (quiet.has(relation.key)) item.dataset.quiet = "true";
       const head = html("div", "cog-strands-knot-head", item);
       head.append(createBearingChip(doc, relation.kind, 12));
       const target = targetLabel(relation.target), step = target.startsWith("the step ");
@@ -344,10 +349,11 @@ export function createStrandsView(container: HTMLElement, options: StrandsViewOp
   const observer = typeof ResizeObserver === "function" ? new ResizeObserver(schedule) : undefined;
 
   return {
-    update(next) {
+    update(next, context) {
       if (destroyed) throw new Error("This strands view has been destroyed.");
       const name = focus ? graph?.points.find(point => point.key === focus!.key)?.id : undefined;
       graph = next; selected = undefined; contest = undefined;
+      quiet = new Set((context?.quiet ?? []).map(ref => ref.key));
       // Compilation keys are revision-local; only an authored name can retain the focus.
       const retained = name ? next.points.find(point => point.id === name) : undefined;
       focus = retained ? { kind: "point", key: retained.key } : undefined;

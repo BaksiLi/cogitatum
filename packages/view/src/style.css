@@ -34,6 +34,14 @@
 .cog-outline-tie { fill: none; stroke: var(--cog-line-resolved); stroke-width: 1; stroke-dasharray: 1 3.5; stroke-linecap: round; opacity: .8; transition: opacity 160ms ease; }
 .cog-graph[data-guided="true"] .cog-outline-tie[data-active="false"] { opacity: .25; }
 
+/* Quiet relevance: placement constructed it and a stated relation already entails it. Faint, never hidden. */
+.cog-graph .cog-link.cog-quiet, .cog-graph .cog-arrow.cog-quiet { opacity: .3; stroke-width: 1; }
+.cog-graph .cog-inline-bearing.cog-quiet:not(:hover, :focus-visible, [aria-pressed="true"]) { opacity: .45; }
+/* An awaiting role: an open stub toward a target the author has not stated yet. */
+.cog-graph .cog-await { fill: none; stroke-width: 1.2; stroke-dasharray: 2 2.5; stroke-linecap: round; opacity: .75; pointer-events: none; transition: opacity 160ms ease; }
+.cog-graph .cog-await circle { stroke-dasharray: none; fill: var(--cog-canvas-resolved); }
+.cog-graph[data-guided="true"] .cog-await[data-active="false"] { opacity: .2; }
+
 /* Fixed, readable type: the camera never scales text. */
 .cog-graph text { pointer-events: none; }
 .cog-graph .cog-text { font-size: 14px; fill: var(--cog-ink-resolved); paint-order: stroke; stroke: var(--cog-canvas-resolved); stroke-width: 4px; stroke-linejoin: round; }
@@ -212,6 +220,8 @@
 .cog-strands-row-focus { padding-bottom: 22px; }
 .cog-strands-row-focus .cog-strands-point-line > .cog-strands-text { font-size: 18px; line-height: 1.4; font-weight: 600; letter-spacing: -.01em; }
 .cog-strands-knot-source, .cog-strands-relation-source { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 8px; align-items: start; }
+/* Relevance that a stated relation already entails: kept in place, set back. */
+.cog-strands [data-quiet="true"]:not(:hover, :focus-within) { opacity: .5; }
 .cog-strands-knot-source > .cog-chip, .cog-strands-relation-source > .cog-chip { margin-top: 4px; }
 :is(.cog-strands-knot-source, .cog-strands-relation-source) > .cog-strands-name { grid-column: 2; max-width: none; }
 .cog-strands-knot-head > .cog-chip { flex: none; align-self: center; }
