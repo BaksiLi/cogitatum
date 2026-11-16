@@ -57,15 +57,30 @@ describe("graph-preserving repairs of an opposed framing", () => {
   });
 });
 
-describe("re-marking never changes a relation", () => {
+describe("re-marking reports constructed consequences", () => {
   it.each([
-    ["a default support to neutral", "- [C @c] 主張。\n  - [G @x] 理由。", ".", "concerns in place of supports"],
-    ["a default support to an objection", "- [C @c] 主張。\n  - [G @x] 理由。", "O", "challenges in place of supports"],
-    ["a candidate answer to a Ground", "- [Q @q] 問題？\n  - [C @x] 回答。", "G", "concerns in place of answers"],
-    ["a root Ground into no change of relation but a selector", "- [C @c] 主張。\n  - [G @g] 理由。\n    - [O/ @x] 反對這一步。", "G", "supports in place of challenges"]
-  ] as const)("refuses %s", (_label, source, mark, detail) => {
+    ["a default support to neutral", "- [C @c] 主張。\n  - [G @x] 理由。", ".", "weakening", "supports", "concerns"],
+    ["a default support to an objection", "- [C @c] 主張。\n  - [G @x] 理由。", "O", "revision", "supports", "challenges"],
+    ["a candidate answer to a Ground", "- [Q @q] 問題？\n  - [C @x] 回答。", "G", "weakening", "answers", "concerns"],
+    ["an objection selector to support", "- [C @c] 主張。\n  - [G @g] 理由。\n    - [O/ @x] 反對這一步。", "G", "revision", "challenges", "supports"]
+  ] as const)("previews %s", (_label, source, mark, relation, before, after) => {
     const preview = previewFramingEdit(source, { operation: "remark", line: source.split("\n").length, mark });
-    expect(preview).toMatchObject({ status: "unavailable", reason: "changes-relation", message: expect.stringContaining(detail) });
+    expect(preview).toMatchObject({ status: "ready", comparison: { relation } });
+    if (preview.status !== "ready") throw new Error(preview.message);
+    const line = source.split("\n").length;
+    expect(explainSource(source).graphs[0].bearings.find(bearing => bearing.sourceSpan?.startLine === line)?.kind).toBe(before);
+    expect(explainSource(preview.proposedSource).graphs[0].bearings.find(bearing => bearing.sourceSpan?.startLine === line)?.kind).toBe(after);
+  });
+
+  it("reports effects on descendants when changing the focus, without inventing content", () => {
+    const source = "- [C @focus] 應延期。\n  - [C @answer] 預算已用盡。\n  - [G @reason] 帳單尚未付清。";
+    const preview = previewFramingEdit(source, { operation: "remark", line: 1, mark: "Q" });
+    expect(preview).toMatchObject({
+      status: "ready", proposedSource: source.replace("[C @focus]", "[Q @focus]"),
+      comparison: { relation: "revision", retracted: [{ kind: "supports" }], added: [{ kind: "answers" }] }
+    });
+    if (preview.status !== "ready") throw new Error(preview.message);
+    expect(explainSource(preview.proposedSource).graphs[0].bearings.map(bearing => bearing.kind)).toEqual(["answers", "concerns"]);
   });
 
   it("re-marks freely where the clause states the relation, on declarations and uses", () => {
@@ -85,13 +100,10 @@ describe("re-marking never changes a relation", () => {
   it.each([
     ["the same mark", { operation: "remark", line: 2, mark: "O" }, "unchanged"],
     ["a body line", { operation: "remark", line: 3, mark: "G" }, "no-occurrence"],
-    ["an unknown mark", { operation: "remark", line: 2, mark: "X" }, "invalid-operation"],
-    ["a selector whose relation the new mark changes", { operation: "remark", line: 5, mark: "." }, "changes-relation"]
+    ["an unknown mark", { operation: "remark", line: 2, mark: "X" }, "invalid-operation"]
   ] as const)("is unavailable for %s", (_label, edit, reason) => {
-    const source = opposed + "- 普通正文\n- [C @c] 主張。\n  - [O/ @y] 沒有步驟可反對。".replace("  - [O/ @y] 沒有步驟可反對。", "  - [G @g] 理由。");
-    const withSelector = "- [C @delay] 應延後採用。\n- [O @cost +> @delay] 成本超出預算。\n- 普通正文\n- [C @c] 主張。\n  - [G @g] 理由。\n    - [O/ @y] 反對。";
-    const target = _label.startsWith("a selector") ? { ...edit, line: 6 } : edit;
-    expect(previewFramingEdit(_label.startsWith("a selector") ? withSelector : source, target as never)).toMatchObject({ status: "unavailable", reason });
+    const source = opposed + "- 普通正文\n- [C @c] 主張。\n  - [G @g] 理由。";
+    expect(previewFramingEdit(source, edit as never)).toMatchObject({ status: "unavailable", reason });
   });
 
   it("requires an error-free source and is offered through the shared analysis", () => {
@@ -125,6 +137,29 @@ describe("selected target correction", () => {
       proposedSource: "- [Q @q] 應延期嗎？\n  - [C @a] 應延期。\n  - [G @g +> @a] 預算已用盡。\n",
       comparison: { relation: "revision", retracted: [{ kind: "concerns" }], added: [{ kind: "supports" }] }
     });
+  });
+
+  it("can bind support to the current Question without mistaking the existing relevance for support", () => {
+    expect(previewRelationEdit(source, { operation: "retarget", line: 3, target: { local: "point" } })).toMatchObject({
+      status: "ready",
+      proposedSource: source.replace("[G @g]", "[G @g +> ^]"),
+      comparison: { relation: "refinement", retracted: [], added: [{ kind: "supports" }] }
+    });
+  });
+
+  it.each([
+    ["C", "refinement", "answers", "bound"],
+    [".", "equivalent", "concerns", "none"]
+  ] as const)("re-marks the unbound Ground as %s, separating relation and intention", (mark, relation, kind, intention) => {
+    const preview = previewFramingEdit(source, { operation: "remark", line: 3, mark });
+    expect(preview).toMatchObject({
+      status: "ready", proposedSource: source.replace("[G @g]", `[${mark} @g]`),
+      comparison: { relation },
+      framing: { before: { intention: "unbound", awaits: "supports" }, after: { intention } }
+    });
+    if (preview.status !== "ready") throw new Error(preview.message);
+    expect(explainSource(preview.proposedSource).graphs[0].bearings.at(-1)?.kind).toBe(kind);
+    expect(preview.comparison.presentationChanges.length).toBeGreaterThan(0);
   });
 
   it("keeps kind, sources and outline position, abbreviating only where the mark states the relation", () => {

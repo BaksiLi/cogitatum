@@ -180,7 +180,16 @@ Names with no written references generate no new warnings, and the command never
 
 A structural comparison asks whether two graphs are the same.
 A commitment comparison asks what a revision retracted and what it added.
-It distinguishes a refinement, which only adds, from a revision, which also retracts.
+Under a fixed interpretation and entity correspondence, it classifies the change in selected Points and entailed relation commitments:
+
+| Comparison result | Terminology | Change |
+| --- | --- | --- |
+| `equivalent` | 等價 | Neither adds nor retracts |
+| `refinement` | 精進 | Adds without retracting |
+| `weakening` | 修訂 | Retracts without adding |
+| `revision` | 修訂 | Both retracts and adds |
+
+Both weakening and revision are forms of 修訂; refinement (精進) retains earlier commitments while making the record more specific.
 
 A commitment is a relation kind, an optional support profile, an unordered set of sources and a target.
 Several Bearings may state one commitment; they stay distinct entities when something addresses them.
@@ -227,6 +236,32 @@ The result reports changed Point content and declarations for separate review; i
 `bearings.changed` reports each continued Bearing's profile change, even when another parallel Bearing makes the aggregate commitments equivalent.
 Notes, body prose, names, marks, source order and positions are outside this order, and changes to them may still alter how the argument is read.
 
+採用 (adoption) explicitly chooses a profile, rules or assumptions for evaluation.
+It belongs to evaluating an argument and is not a comparison result or an endorsement of a conclusion.
+The built-in `by example` modifier is a recorded Bearing commitment, so changes to it participate in the comparison described above.
+
+### Compare retained source presentation
+
+Core provides `compareSourceRevisions(beforeExplained, afterExplained, { unitIndex, correspondence, lines })` for matching `explainSource` results.
+`unitIndex` selects one source unit in both revisions, starting at zero; the input mode and format must match.
+`correspondence` explicitly pairs Point and Bearing identities, as for `compareCommitments`.
+`lines` separately asserts which source occurrence continues which: earlier block-start line → later block-start line, using one-based complete-input coordinates.
+For the three-line library note, an unchanged outline uses `{ 1: 1, 2: 2, 3: 3 }`, including its ordinary body block.
+Each later occurrence can continue at most one earlier occurrence.
+Pair body blocks and Note headers as well as annotations, but not continuation lines or literal Note descendants.
+Unmapped occurrences are reported as removed or added; names, matching text and generated keys do not silently establish this correspondence.
+
+`SourceComparison` combines the graph commitment comparison with `presentationChanges`.
+It reports added and removed source occurrences, and changed marks, framing fit, bound or unbound intention, prose content, annotation shape and construction provenance.
+A Note's content includes its whole literal subtree; ordinary body content is also compared.
+Source coordinates and annotation whitespace alone do not count as presentation changes.
+Invalid occurrence correspondence produces `indeterminate` with reason `invalid-source-correspondence`; the graph comparison's error and identity checks still apply.
+This bounded comparison reports retained evidence, without judging the prose's interpretation or evaluation.
+
+All three ready source-edit previews—relation, framing and target-form—provide `correspondence` and `comparison`.
+Each preview supplies the occurrence-line correspondence from its own edit plan and returns a `SourceComparison`.
+Review `presentationChanges` even when `comparison.relation` is `equivalent`: equal graph commitments can accompany a changed mark or withdrawn intention.
+
 ## Preview relation edits
 
 ```sh
@@ -246,8 +281,8 @@ Four edits change recorded relations without touching Point text:
 - `--retarget <@name|^|^/>` gives one relation another target, preserving kind, sources and outline position.
   For G left unbound beneath Q, it binds the support intention: `[G @g]` becomes `[G @g +> @answer]`, replacing relevance with support and reporting a revision.
 
-Each preview knows which entity continues which, so it supplies its own correspondence to `compareCommitments` and reports the resulting relation.
-The author sees whether the edit is a refinement, which only adds, or a weakening or revision, which retracts something already recorded.
+Each preview knows which entity and source occurrence continues which, so it supplies its own correspondence and reports the resulting source comparison.
+The author sees whether the edit is equivalent, a refinement (精進), or a weakening or revision (both 修訂).
 Deciding `[_]` as joint support is a refinement.
 Separating its relevance into individual Bearings is equivalent; joining two supports is a revision.
 
@@ -271,16 +306,39 @@ cog framing-edit inquiry.cog.md --line 2 --split
 Core provides `previewFramingEdit(source, { operation: "remark", line, mark })` with mark `.`/Q/C/G/O/R/D, or `{ operation: "split", line }`.
 Add `mode: "host"` in Core or `--input host` in the CLI; lines refer to the complete file.
 These commands print ready/unavailable previews and never write source.
-A framing edit never changes a relation.
-Re-marking is available only when the same Bearing is constructed afterwards, such as with a written clause, or when a root occurrence stays unattached.
-Changing a default support to `.` is refused with reason `changes-relation`; use a relation edit when weakening it to relevance is intended.
+Re-marking changes the occurrence's mark while leaving any written clause in place.
+When the mark supplies a default, changing it can also change the relation.
+The complete proposed source is recompiled and checked, and a ready preview reports the commitment comparison for the change.
+
+Return to the [library note](syntax.md#roles-and-connections):
+
+```md cog-check require=concerns points=2 bearings=1 diagnostics=0
+- [C @evening] 圖書館可以試辦週五延長開館。
+  - 先看既有的服務紀錄。
+    - [. @trial] 上月讀書會開到晚上八點，仍使用原有的人力。
+```
+
+`--line 3 --remark G` refines relevance to support (精進), keeping the observation's prose and its target through ordinary body.
+Re-marking that G back to `.` weakens support to relevance (修訂).
+Changing a default support to a challenge instead retracts and adds, so its comparison is `revision` (修訂).
+These are checked authoring changes whose comparison must be reviewed.
+
+Re-marking a focus can also change descendants' defaults.
+In the Ground version of the library note, re-marking `@evening` Q changes `@trial` from support to relevance with an unbound Ground intention.
+The full preview reports those consequences as well as changes to the selected occurrence.
 
 For opposed `[O @cost +> @delay]`, re-marking G aligns the presentation, while `.` keeps it neutral and the support explicit.
+Those re-markings retain the relation commitment and report `equivalent`; framing and declaration changes still need review.
 `--split` instead writes `[G @cost +> @delay]` and adds a root `[O use @cost]`, preserving an unbound objection intention.
 Splitting requires a named Point and opposed framing; a nested objection use would construct a challenge.
-The preview records framing before/after and whether the declaration changed; a split also reports its added line.
+`--split` must preserve all constructed relations.
+The preview records the comparison, framing before/after and whether the declaration changed; a split also reports its added line.
 The [migration examples](syntax.md#migrating-from-06) show all three repairs and the nested near miss.
 `cog lsp` exposes these three previews as quick fixes for `OPPOSED_FRAMING`.
+
+For `UNBOUND_GROUND_UNDER_QUESTION`, LSP offers re-marking C to record a candidate `answers` relation, or `.` to retain `concerns` and withdraw the unbound Ground intention.
+The C repair refines the commitments; the neutral repair has equivalent commitments and a presentation change.
+Quick fixes use `WorkspaceEdit.documentChanges` with the current document version, so the edit is bound to the analyzed editor revision.
 
 ## Preview named and positional targets
 
@@ -344,7 +402,7 @@ Use `relation-edit --retarget` to bind that intention to a chosen target deliber
 A positional target must resolve to the same entity at the occurrence's position.
 No missing premise, new authored name or role interpretation is supplied automatically.
 
-A ready result includes `originalSource`, `proposedSource`, one `edit` with a UTF-16 `offset`, exact `remove` text and `insert` text, both diagnostic lists, and the consequence.
+A ready result includes `originalSource`, `proposedSource`, one `edit` with a UTF-16 `offset`, exact `remove` text and `insert` text, both diagnostic lists, `correspondence`, `comparison`, and the consequence.
 The edit is the minimal one between the two annotations.
 Before applying a saved preview, an editor or caller must compare the complete current source with `originalSource`; any difference requires a new preview.
 An unavailable result contains a reason and message, with no edit or proposed source.
@@ -357,6 +415,15 @@ Diagnostics retain their ordered severity, code and owning occurrence, except th
 These checks establish the stated structural and source preservation conditions; they do not certify an interpretation of the prose.
 
 The published `explicit-target` command and `previewExplicitTarget` were retired in 0.6: the command now reports `RETIRED_COMMAND` and points here.
+
+## Apply a checked preview
+
+Core provides `applySourceEdit(source, preview)` for all three source-edit previews.
+It returns `{ status: "applied", source }` with the checked source text, or `{ status: "unavailable", reason, message }`.
+It accepts only a ready preview for the current format, requires the complete current source to equal `originalSource`, checks the replacement's offset and exact removed text, and verifies that the result equals `proposedSource`.
+Any change anywhere in the source invalidates the snapshot with `stale-source`, even when the selected annotation still matches.
+Other refusal reasons are `unavailable-preview`, `unsupported-version` and `invalid-preview`.
+The helper returns text without writing a file; an editor must still apply it against the same document revision and analyze the new source before preparing another edit.
 
 ## Inspect every local decision
 

@@ -54,7 +54,7 @@ for (const name of ["ast", "graph-ir", "explain", "source"]) {
 }
 const probe = `
 import assert from 'node:assert/strict';
-import { analyzeSourceEdits, analyzeSourceReferences, compileGraph, compileGraphWithExplain, compileSource, explainSource, formatGraph, formatExplain, GRAPH_TEXT_VERSION, EXPLAIN_TEXT_VERSION, parseDocument, previewTargetForm } from '@cogitatum/core';
+import { analyzeSourceEdits, analyzeSourceReferences, applySourceEdit, compareSourceRevisions, compileGraph, compileGraphWithExplain, compileSource, explainSource, formatGraph, formatExplain, GRAPH_TEXT_VERSION, EXPLAIN_TEXT_VERSION, parseDocument, previewFramingEdit, previewTargetForm } from '@cogitatum/core';
 const { graph, explain } = compileGraphWithExplain(parseDocument('- Ordinary context.\\n  - [C @claim] A claim.\\n    - [G; @route] A reason.\\n- [O -> @route] A route objection.\\n'));
 assert.equal(GRAPH_TEXT_VERSION, '1');
 assert.ok(formatGraph(graph).includes('b2: challenges([p3], b1)'));
@@ -121,6 +121,14 @@ assert.equal(explicitPreview.proposedSource, explicitSource.replace('[G;', '[G +
 const edits = analyzeSourceEdits(explicitSource);
 assert.deepEqual(edits.preview({kind: 'target-form', line: 2, form: 'named'}), explicitPreview);
 assert.deepEqual(edits.siblingsAt(3), {lines: [3], index: 0});
+assert.equal(typeof compareSourceRevisions, 'function');
+assert.deepEqual(applySourceEdit(explicitSource, explicitPreview), {status: 'applied', source: explicitPreview.proposedSource});
+assert.equal(applySourceEdit(explicitSource + '\\n', explicitPreview).reason, 'stale-source');
+const ground = '- [Q @q] Delay?\\n  - [G @g] Budget exhausted.';
+const answer = previewFramingEdit(ground, {operation: 'remark', line: 2, mark: 'C'});
+assert.equal(answer.status, 'ready');
+assert.equal(answer.comparison.relation, 'refinement');
+assert.ok(answer.comparison.presentationChanges.length > 0);
 assert.equal(formatGraph(compileGraph(parseDocument(explicitSource))), formatGraph(compileGraph(parseDocument(explicitPreview.proposedSource))));
 assert.equal(previewTargetForm('- [C] Anonymous.\\n  - [G] Reason.', {line: 2, form: 'named'}).reason, 'unnamed-target');
 const jointSelectorSource = '- [C @c] Claim.\\n  - [G; @step] Reason.\\n    - [_ -> ^/; @review]\\n      - [. @a] First.\\n      - [. @b] Second.\\n      - [_ note] Review note.';
@@ -271,7 +279,7 @@ const apiReferences = JSON.parse(run(process.execPath, ["--input-type=module", "
 assert.deepEqual(cliReferences, apiReferences);
 assert.equal(cliReferences.references.status, "complete");
 
-writeFileSync(join(temporary, "consumer.mts"), `import {type Point, type PointDeclaration, type Bearing, type Annotation, type ObjectNote, type OperatorClause, type ExplainEmittedBearingSummary, type ExplainRecognition, type SourceReferenceAnalysis, type ReferencedName, type WrittenReference, type TargetFormPreview, type TargetTerm, type SourceEdit, type SourceEditAnalysis, previewTargetForm, analyzeSourceEdits, analyzeSourceReferences, explainSource, formatExplain, EXPLAIN_TEXT_VERSION, formatGraph, GRAPH_TEXT_VERSION, compileGraph, parseDocument} from '@cogitatum/core';
+writeFileSync(join(temporary, "consumer.mts"), `import {type Point, type PointDeclaration, type Bearing, type Annotation, type ObjectNote, type OperatorClause, type ExplainEmittedBearingSummary, type ExplainRecognition, type SourceReferenceAnalysis, type ReferencedName, type WrittenReference, type TargetFormPreview, type TargetTerm, type SourceEdit, type SourceEditAnalysis, type SourceComparison, type PresentationChange, type SourceEditApplication, applySourceEdit, compareSourceRevisions, previewTargetForm, analyzeSourceEdits, analyzeSourceReferences, explainSource, formatExplain, EXPLAIN_TEXT_VERSION, formatGraph, GRAPH_TEXT_VERSION, compileGraph, parseDocument} from '@cogitatum/core';
 import { createGraphView, declarationMark, createReadingView } from '@cogitatum/view';
 import { prepareView, projectReading, type ReadingProjection } from '@cogitatum/core/host';
 import { createBlockView, type BlockEditRequest, type BlockView } from '@cogitatum/view/block';
@@ -284,6 +292,8 @@ function mountHostBlock(container: HTMLElement): BlockView {
 }
 const preview: TargetFormPreview = previewTargetForm('- [C @c] Claim.\\n  - [G] Reason.', {line: 2, form: 'named', mode: 'document'});
 const edits: SourceEditAnalysis = analyzeSourceEdits('- [C @c] Claim.\\n  - [G] Reason.');
+const application: SourceEditApplication = applySourceEdit('- [C @c] Claim.\\n  - [G] Reason.', preview);
+const compareSources: typeof compareSourceRevisions = compareSourceRevisions;
 edits.preview({kind: 'relation', edit: {operation: 'decide', line: 2, kind: 'challenges'}});
 // @ts-expect-error A relation request must carry a relation edit.
 edits.preview({kind: 'relation', line: 2, form: 'named'});
@@ -295,6 +305,8 @@ if (preview.status === 'ready') {
   const edit: SourceEdit = preview.edit;
   const offset: number = edit.offset;
   const removed: string = edit.remove;
+  const comparison: SourceComparison = preview.comparison;
+  const presentation: PresentationChange[] = preview.comparison.presentationChanges;
 } else {
   const message: string = preview.message;
   // @ts-expect-error A refused preview provides no applicable edit.

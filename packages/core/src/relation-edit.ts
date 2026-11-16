@@ -1,7 +1,8 @@
 import { defaultRelation, expandedClause, leavesIntentionUnbound, MARK_RELATIONS, operatorSymbol, respellClause, targetSpelling } from "./annotation.js";
 import type { Focus } from "./annotation.js";
-import { compareCommitments } from "./commitments.js";
-import type { CommitmentComparison, Correspondence } from "./commitments.js";
+import type { Correspondence } from "./commitments.js";
+import type { SourceComparison } from "./source-comparison.js";
+import { compareSourceEdit } from "./source-comparison.js";
 import { annotationOffset, focusAt, locateSourceBlock, minimalEdit, parentBlock, same, splitLines, subtreeEndLine } from "./source-edit.js";
 import type { SourceEdit, SourceLine } from "./source-edit.js";
 import { explainSource } from "./source.js";
@@ -51,7 +52,7 @@ export type RelationEditPreview = {
        * refinement only adds; any retraction makes the edit a weakening or
        * revision, which a caller may require the author to confirm.
        */
-      comparison: Extract<CommitmentComparison, { status: "compared" }>;
+      comparison: Extract<SourceComparison, { status: "compared" }>;
     }
   | { status: "unavailable"; reason: RelationEditUnavailableReason; message: string }
 );
@@ -115,8 +116,7 @@ export function previewRelationEditFrom(source: string, before: ExplainedSource,
   if (!same(others(before), others(after), ["sourceSpan"])) return unavailable("preservation-failed", "The edit would change another source unit; no edit is offered.");
 
   const later = after.graphs[plan.unit.index];
-  const correspondence = correspondenceByLine(plan, later);
-  const comparison = compareCommitments(plan.unit.graph, later, correspondence);
+  const { correspondence, comparison } = compareSourceEdit(before, after, plan.unit.index, plan.lineMap, plan.replaced);
   if (comparison.status !== "compared") return unavailable("preservation-failed", comparison.message);
   const created = new Set(later.bearings.filter(b => b.sourceSpan && plan.createdLines.includes(b.sourceSpan.startLine)).map(b => b.key));
   const editedBefore = new Set([...plan.replaced, ...plan.continued]);
@@ -150,11 +150,11 @@ function planRespell(source: string, before: ExplainedSource, line: number, chan
     const term = change.target;
     const valid = term && typeof term === "object" && (isNamedTarget(term) ? /^[a-z][a-z0-9_-]*$/.test(String(term.id)) : term.local === "point" || term.local === "bearing");
     if (!valid) return { reason: "invalid-operation", message: "Give the new target as a name, ^ or ^/." };
-    if (JSON.stringify(clause.target) === JSON.stringify(term)) return { reason: "unchanged", message: `This relation already targets ${targetSpelling(term)}.` };
     // An unbound Ground has no support to move: selecting its target binds
     // the intention, so the mark's own relation is constructed toward it.
     const role = annotation.kind === "role" || annotation.kind === "use" ? annotation.role : undefined;
     const binds = focus && !("operatorClause" in annotation && annotation.operatorClause) && !("selector" in annotation && annotation.selector) && leavesIntentionUnbound(role, focus);
+    if (!binds && JSON.stringify(clause.target) === JSON.stringify(term)) return { reason: "unchanged", message: `This relation already targets ${targetSpelling(term)}.` };
     header = respellClause(annotation, binds ? { op: MARK_RELATIONS[role!]!, target: term } : { target: term }, focus);
   }
   const offset = annotationOffset(source, block, before.mode)!;
@@ -281,26 +281,6 @@ function locate(before: ExplainedSource, line: number) {
   const emission = entry?.effects.find(e => e.kind === "emitBearing");
   if (!clause || !emission || emission.kind !== "emitBearing") return undefined;
   return { unit: { index, graph: before.graphs[index], blocks }, block, clause, bearing: emission.bearing.key, focus };
-}
-
-/** Pair entities by where the edit moved their lines. */
-function correspondenceByLine(plan: Plan, after: GraphIR): Correspondence {
-  const at = <T extends { key: string; sourceSpan?: { startLine: number } }>(items: T[]) =>
-    new Map(items.filter(e => e.sourceSpan).map(e => [e.sourceSpan!.startLine, e.key]));
-  const laterPoints = at(after.points), laterBearings = at(after.bearings);
-  const points: Record<string, string> = {}, bearings: Record<string, string> = {};
-  for (const point of plan.unit.graph.points) {
-    const line = point.sourceSpan && plan.lineMap(point.sourceSpan.startLine);
-    const key = line === undefined ? undefined : laterPoints.get(line);
-    if (key !== undefined) points[point.key] = key;
-  }
-  for (const bearing of plan.unit.graph.bearings) {
-    if (plan.replaced.includes(bearing.key)) continue;
-    const line = bearing.sourceSpan && plan.lineMap(bearing.sourceSpan.startLine);
-    const key = line === undefined ? undefined : laterBearings.get(line);
-    if (key !== undefined) bearings[bearing.key] = key;
-  }
-  return { points, bearings };
 }
 
 /**

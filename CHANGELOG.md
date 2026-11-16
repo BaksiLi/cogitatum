@@ -53,11 +53,19 @@ Source that compiled under 0.6 can construct different relations; follow [Migrat
 - Add optional `related` spans to diagnostics, each with a message and, when it names another diagnostic in the same result, its code.
   A failed use lists the occurrences that attach through it; independent errors on one header, such as a retired alias that is also unclosed, stay reported and name each other.
   `cog lsp` publishes them as `relatedInformation`.
-- Add `previewFramingEdit`, checked previews that re-mark an occurrence only when every relation is unchanged, or split an opposed framing into the aligned mark plus an unbound root use.
+- Add `previewFramingEdit`, checked previews that re-mark an occurrence and report the resulting commitments, or split an opposed framing into the aligned mark plus an unbound root use.
+  Re-marking a focus can change its descendants' defaults; the full comparison includes those consequences.
+  Splitting still requires every constructed relation to stay unchanged.
   Add the `retarget` relation edit, which moves one Bearing to a selected target and reports what it retracts and adds.
+  Binding a G beneath Q to its current positional target explicitly adds support, rather than mistaking existing relevance for an unchanged support.
   `analyzeSourceEdits` accepts `framing` requests.
+- Add `compareSourceRevisions`, comparing one source unit through explicit entity and occurrence correspondence.
+  Its `presentationChanges` exposes mark, framing and retained content changes even when commitments are equivalent; graph equivalence alone does not establish source fidelity or assessment applicability.
+  All three edit preview families share this comparison.
+  Add pure `applySourceEdit`, which checks the complete original source snapshot and the replacement before returning updated source; stale previews require reanalysis.
 - Add `cog framing-edit --line N --remark <mark>|--split` and `cog relation-edit --retarget <@name|^|^/>`.
-  `cog lsp` offers the checked framing repairs as quick fixes for `OPPOSED_FRAMING`.
+  `cog lsp` offers the checked framing repairs as quick fixes for `OPPOSED_FRAMING` and C/neutral alternatives for `UNBOUND_GROUND_UNDER_QUESTION`, with their different consequences named.
+  Quick fixes carry the document revision in versioned workspace edits.
 - Add `@cogitatum/core/host` with `prepareView(source, mode)`, the source-aware host view as plain, serializable data for Web, native and terminal renderers.
   The former View `projectReading`, `occurrenceAtLine` and `referenceKey` move there unchanged, so native hosts no longer reconstruct roles, parents or endpoints themselves; private View now renders this data and `outlineTies` remains View's Map placement.
 - Align private View with the 0.7 contracts: commitment descriptions follow `frameOccurrence`, example support is labelled, and outline ties appear only where no Bearing already joins a Point to its outline parent.

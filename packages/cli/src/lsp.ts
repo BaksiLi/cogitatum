@@ -1,6 +1,6 @@
 import type { Readable, Writable } from "node:stream";
 import { analyzeSourceEdits, analyzeSourceReferences, explainSource, tokenizeHostSource, tokenizeSource } from "@cogitatum/core";
-import type { AstBlock, Diagnostic, ExplainedSource, SourceParseMode, SourceReferenceAnalysis, SourceSpan, SourceTokenKind } from "@cogitatum/core";
+import type { AstBlock, Diagnostic, ExplainedSource, FramingEdit, SourceParseMode, SourceReferenceAnalysis, SourceSpan, SourceTokenKind } from "@cogitatum/core";
 
 // A Language Server Protocol endpoint over the existing compiler.
 // Core spans are one-based UTF-16 line/column positions: LSP's default
@@ -118,28 +118,36 @@ export function createLanguageServer(send: (message: Message) => void) {
       if (!found) return null;
       return { range: found.target.range, contents: { kind: "markdown", value: describeEntity(explained(found.document), found.target) } };
     },
-    // Quick fixes are Core's checked previews: each is offered only when the
-    // recompiled result constructs exactly the same relations.
     "textDocument/codeAction": ({ textDocument, range }: { textDocument: { uri: string }; range: Range }) => {
       const document = documents.get(textDocument.uri);
       if (!document) return null;
       const compiled = explained(document);
-      const opposed = compiled.explanations.flatMap(explanation => explanation.entries)
-        .filter(entry => entry.diagnosticCodes.includes("OPPOSED_FRAMING")
-          && entry.sourceSpan.startLine - 1 <= range.end.line && entry.sourceSpan.endLine - 1 >= range.start.line);
-      if (!opposed.length) return [];
+      const entries = compiled.explanations.flatMap(explanation => explanation.entries)
+        .filter(entry => (entry.diagnosticCodes.includes("OPPOSED_FRAMING") || entry.diagnosticCodes.includes("UNBOUND_GROUND_UNDER_QUESTION"))
+          && intersects(toRange(entry.sourceSpan), range));
+      if (!entries.length) return [];
       const analysis = analyzeSourceEdits(document.text, document.mode);
-      return opposed.flatMap(entry => {
+      return entries.flatMap(entry => {
         const line = entry.sourceSpan.startLine;
         const written = "role" in entry.recognition ? entry.recognition.role : undefined;
-        if (written !== "G" && written !== "O") return [];
-        const [aligned, intention] = written === "O" ? ["G" as const, "objection"] : ["O" as const, "ground"];
-        const diagnostic = compiled.diagnostics.find(d => d.code === "OPPOSED_FRAMING" && d.sourceSpan?.startLine === line);
-        const offers = [
-          { title: `Re-mark as ${aligned}, keeping the clause`, edit: { operation: "remark", line, mark: aligned } as const },
-          { title: "Re-mark as neutral (.), keeping the clause", edit: { operation: "remark", line, mark: "." } as const },
-          { title: `Re-mark as ${aligned} and keep the ${intention} as an unbound use at root`, edit: { operation: "split", line } as const }
-        ];
+        const code = entry.diagnosticCodes.includes("OPPOSED_FRAMING") ? "OPPOSED_FRAMING" : "UNBOUND_GROUND_UNDER_QUESTION";
+        const diagnostic = compiled.diagnostics.find(d => d.code === code && d.sourceSpan?.startLine === line);
+        let offers: { title: string; edit: FramingEdit }[];
+        if (code === "UNBOUND_GROUND_UNDER_QUESTION") {
+          if (written !== "G") return [];
+          offers = [
+            { title: "Re-mark as C to offer an answer (concerns → answers)", edit: { operation: "remark", line, mark: "C" } },
+            { title: "Re-mark as neutral (.) to keep concerns and withdraw the unbound Ground intention", edit: { operation: "remark", line, mark: "." } }
+          ];
+        } else {
+          if (written !== "G" && written !== "O") return [];
+          const [aligned, intention] = written === "O" ? ["G" as const, "objection"] : ["O" as const, "ground"];
+          offers = [
+            { title: `Re-mark as ${aligned}, keeping the clause`, edit: { operation: "remark", line, mark: aligned } },
+            { title: "Re-mark as neutral (.), keeping the clause", edit: { operation: "remark", line, mark: "." } },
+            { title: `Re-mark as ${aligned} and keep the ${intention} as an unbound use at root`, edit: { operation: "split", line } }
+          ];
+        }
         return offers.flatMap(({ title, edit }) => {
           const preview = analysis.preview({ kind: "framing", edit });
           if (preview.status !== "ready") return [];
@@ -148,7 +156,10 @@ export function createLanguageServer(send: (message: Message) => void) {
           return [{
             title, kind: "quickfix",
             ...(diagnostic ? { diagnostics: [toLspDiagnostic(diagnostic, textDocument.uri)] } : {}),
-            edit: { changes: { [textDocument.uri]: [{ range: { start, end }, newText: preview.edit.insert }] } }
+            edit: { documentChanges: [{
+              textDocument: { uri: textDocument.uri, version: document.version },
+              edits: [{ range: { start, end }, newText: preview.edit.insert }]
+            }] }
           }];
         });
       });
@@ -257,6 +268,14 @@ function toRange(span: SourceSpan): Range {
 function contains(range: Range, position: Position): boolean {
   const notBefore = (a: Position, b: Position) => a.line > b.line || (a.line === b.line && a.character >= b.character);
   return notBefore(position, range.start) && notBefore(range.end, position);
+}
+
+function intersects(span: Range, selection: Range): boolean {
+  const before = (a: Position, b: Position) => a.line < b.line || (a.line === b.line && a.character < b.character);
+  if (selection.start.line === selection.end.line && selection.start.character === selection.end.character) {
+    return !before(selection.start, span.start) && before(selection.start, span.end);
+  }
+  return before(span.start, selection.end) && before(selection.start, span.end);
 }
 
 /** The LSP position of a UTF-16 offset; \r\n, \r and \n each end a line. */

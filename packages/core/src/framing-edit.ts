@@ -1,16 +1,18 @@
 import { MARK_RELATIONS } from "./annotation.js";
 import { annotationOffset, locateSourceBlock, minimalEdit, same, splitLines, subtreeEndLine } from "./source-edit.js";
 import type { SourceEdit } from "./source-edit.js";
+import { compareSourceEdit } from "./source-comparison.js";
+import type { Correspondence } from "./commitments.js";
+import type { SourceComparison } from "./source-comparison.js";
 import { explainSource } from "./source.js";
 import { FORMAT_VERSION } from "./types.js";
 import type { Diagnostic, ExplainedSource, ExplainFraming, GraphIR, Role, SourceParseMode } from "./types.js";
 
 /**
- * An edit to how an occurrence is presented, which never changes a relation:
+ * An edit to an occurrence's mark, with its constructed consequences:
  *
- * - remark: write another mark on the occurrence. Offered only where the
- *   occurrence constructs the same Bearing afterwards, as with a written
- *   clause; re-marking a default changes its relation and is refused.
+ * - remark: write another mark on the occurrence. A clause may keep the
+ *   relation unchanged; a default or a changed focus can change relations.
  * - split: for an opposed framing such as [O @cost +> @delay], re-mark the
  *   occurrence to agree with its clause and keep the original intention as an
  *   unbound use at root, [O use @cost], for the author to target later.
@@ -24,7 +26,7 @@ export type FramingEditOptions = FramingEdit & { mode?: SourceParseMode };
 
 export type FramingEditUnavailableReason =
   | "invalid-line" | "invalid-operation" | "source-errors" | "no-occurrence" | "unchanged"
-  | "not-opposed" | "unnamed-point" | "changes-relation" | "invalid-result" | "preservation-failed";
+  | "not-opposed" | "unnamed-point" | "invalid-result" | "preservation-failed";
 
 export type FramingEditPreview = {
   version: string;
@@ -37,6 +39,8 @@ export type FramingEditPreview = {
       proposedSource: string;
       edit: SourceEdit;
       proposedDiagnostics: Diagnostic[];
+      correspondence: Correspondence;
+      comparison: Extract<SourceComparison, { status: "compared" }>;
       /** The edited occurrence's framing before and after. */
       framing: { before: ExplainFraming; after: ExplainFraming };
       /** Re-marking a declaration also changes the Point's recorded declaration mark. */
@@ -52,9 +56,8 @@ const MARKS: readonly string[] = [".", "Q", "C", "G", "O", "R", "D"];
 
 /**
  * Preview a framing edit without writing source. The complete proposed input
- * is recompiled and must construct exactly the same Points and Bearings; only
- * the occurrence's framing, a declaration mark and, for split, one added
- * unbound occurrence may differ.
+ * is recompiled, and comparison reports changes to relations and presentation.
+ * Split additionally requires that every constructed relation stays unchanged.
  */
 export function previewFramingEdit(source: string, options: FramingEditOptions): FramingEditPreview {
   return previewFramingEditFrom(source, explainSource(source, options.mode ?? "document"), options);
@@ -121,7 +124,6 @@ export function previewFramingEditFrom(source: string, before: ExplainedSource, 
   const reframed = afterEntry?.effects.find(e => e.kind === "frameOccurrence");
   if (!reframed) return unavailable("preservation-failed", "The edited occurrence no longer stands; no edit is offered.");
 
-  // Everything constructed stays; a declaration records its new mark.
   const declares = annotation.kind !== "use";
   const expected = structuredClone(before.graphs);
   if (declares) {
@@ -131,14 +133,8 @@ export function previewFramingEditFrom(source: string, before: ExplainedSource, 
     point.declaration = mark === "." ? { form: "material" } : { form: "role", role: mark };
   }
   const constructed = (graphs: GraphIR[]) => graphs.map(({ diagnostics: _diagnostics, ...graph }) => graph);
-  if (!same(constructed(expected), constructed(after.graphs), ["sourceSpan"])) {
-    const relation = (entry: typeof afterEntry) => {
-      const emitted = entry?.effects.find(e => e.kind === "emitBearing");
-      return emitted?.kind === "emitBearing" ? emitted.bearing.kind : "no relation";
-    };
-    return unavailable("changes-relation", options.operation === "remark" && relation(located.entry) !== relation(afterEntry)
-      ? `Here the mark states the relation: ${mark} would construct ${relation(afterEntry)} in place of ${relation(located.entry)}. That changes a commitment; decide the relation's kind instead, or write a clause first.`
-      : "Recompilation changed more than this occurrence's framing; no edit is offered.");
+  if (options.operation === "split" && !same(constructed(expected), constructed(after.graphs), ["sourceSpan"])) {
+    return unavailable("preservation-failed", "Splitting would change a constructed relation; no edit is offered.");
   }
   if (addedLine !== undefined) {
     const kept = after.explanations[unitIndex].entries.find(e => e.sourceSpan.startLine === addedLine)?.effects.find(e => e.kind === "frameOccurrence");
@@ -146,12 +142,17 @@ export function previewFramingEditFrom(source: string, before: ExplainedSource, 
   }
   const { kind: _b, focus: _bf, ...framingBefore } = framed;
   const { kind: _a, focus: _af, ...framingAfter } = reframed;
+  const checked = compareSourceEdit(before, after, unitIndex, line => addedLine !== undefined && line >= addedLine ? line + 1 : line);
+  if (checked.comparison.status !== "compared") return unavailable("preservation-failed", checked.comparison.message);
+  const comparison = checked.comparison;
   const consequence = (declares ? `The Point is now declared ${mark}; ` : "This occurrence is now marked " + mark + "; ")
-    + "every constructed relation is unchanged."
+    + (comparison.relation === "equivalent" ? "recorded commitments are equivalent."
+      : `recorded commitments change (${comparison.relation}): ${comparison.retracted.length} retracted, ${comparison.added.length} added. Review the full comparison, including relations selected by this occurrence as a focus.`)
     + (addedLine !== undefined ? ` Line ${addedLine} keeps the ${written === "O" ? "objection" : "ground"} intention as an unbound use with no target; it constructs nothing until it is placed or given a clause.` : "");
   return {
     ...base, status: "ready", originalSource: source, proposedSource,
     edit: minimalEdit(source, proposedSource), proposedDiagnostics: after.diagnostics,
+    correspondence: checked.correspondence, comparison,
     framing: { before: framingBefore as ExplainFraming, after: framingAfter as ExplainFraming },
     declarationChanged: declares,
     ...(addedLine !== undefined ? { addedLine } : {}),

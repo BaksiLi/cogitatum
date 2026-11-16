@@ -2,9 +2,18 @@ import { spawn } from "node:child_process";
 import { createRequire } from "node:module";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { analyzeSourceEdits, explainSource } from "@cogitatum/core";
 import { describe, expect, it } from "vitest";
 import { createLanguageServer, semanticTokens, sourceModeFor } from "./lsp.js";
-import type { Message, Position } from "./lsp.js";
+import type { Message, Position, Range } from "./lsp.js";
+
+type TextEdit = { range: Range; newText: string };
+type QuickFix = {
+  title: string;
+  kind: string;
+  diagnostics: { code: string; range: Range }[];
+  edit: { documentChanges: { textDocument: { uri: string; version: number }; edits: TextEdit[] }[] };
+};
 
 const DOCUMENT = "file:///notes/inquiry.cog.md";
 const SOURCE = [
@@ -26,10 +35,21 @@ function session() {
     return reply;
   };
   const notify = (method: string, params: unknown) => server.handle({ jsonrpc: "2.0", method, params });
-  const open = (text: string, uri = DOCUMENT) => notify("textDocument/didOpen", { textDocument: { uri, languageId: "markdown", version: 1, text } });
+  const open = (text: string, uri = DOCUMENT, version = 1) => notify("textDocument/didOpen", { textDocument: { uri, languageId: "markdown", version, text } });
   const diagnostics = (uri = DOCUMENT) => sent.filter(message => message.method === "textDocument/publishDiagnostics" && message.params.uri === uri).at(-1)!.params.diagnostics;
   const at = (method: string, position: Position, extra: object = {}, uri = DOCUMENT) => request(method, { textDocument: { uri }, position, ...extra });
-  return { server, sent, request, notify, open, diagnostics, at };
+  const actions = (range: Range, uri = DOCUMENT) => request("textDocument/codeAction", { textDocument: { uri }, range, context: { diagnostics: [] } }).result as QuickFix[];
+  return { server, sent, request, notify, open, diagnostics, at, actions };
+}
+
+function applyFix(text: string, action: QuickFix): string {
+  const starts = [0, ...Array.from(text.matchAll(/\r\n|\r|\n/g), match => match.index + match[0].length)];
+  const offset = ({ line, character }: Position) => starts[line] + character;
+  const [change] = action.edit.documentChanges;
+  expect(action.edit.documentChanges).toHaveLength(1);
+  expect(change.edits).toHaveLength(1);
+  const [{ range, newText }] = change.edits;
+  return text.slice(0, offset(range.start)) + newText + text.slice(offset(range.end));
 }
 
 /** The position of the first character of `@name` on a zero-based line. */
@@ -142,29 +162,170 @@ describe("cog lsp", () => {
   });
 
   it("offers Core's checked framing repairs as quick fixes for an opposed framing only", () => {
-    const { open, request, diagnostics } = session();
+    const { open, actions, diagnostics } = session();
     const opposed = "- [C @delay] 應延後採用。\n- [O @cost +> @delay] 成本超出預算。";
-    open(opposed);
+    open(opposed, DOCUMENT, 7);
     expect(diagnostics()).toEqual([expect.objectContaining({ code: "OPPOSED_FRAMING" })]);
-    const apply = (text: string, { range, newText }: { range: { start: Position; end: Position }; newText: string }) => {
-      const offset = ({ line, character }: Position) => text.split("\n").slice(0, line).reduce((sum, l) => sum + l.length + 1, 0) + character;
-      return text.slice(0, offset(range.start)) + newText + text.slice(offset(range.end));
-    };
-    const actions = request("textDocument/codeAction", { textDocument: { uri: DOCUMENT }, range: { start: { line: 1, character: 0 }, end: { line: 1, character: 0 } }, context: { diagnostics: [] } }).result;
-    expect(actions.map((action: { title: string }) => action.title)).toEqual([
+    const fixes = actions(diagnostics()[0].range);
+    expect(fixes.map(action => action.title)).toEqual([
       "Re-mark as G, keeping the clause",
       "Re-mark as neutral (.), keeping the clause",
       "Re-mark as G and keep the objection as an unbound use at root"
     ]);
-    expect(actions[0].diagnostics).toEqual([expect.objectContaining({ code: "OPPOSED_FRAMING" })]);
-    const results = actions.map((action: { edit: { changes: Record<string, { range: { start: Position; end: Position }; newText: string }[]> } }) =>
-      action.edit.changes[DOCUMENT].reduce((text, edit) => apply(text, edit), opposed));
+    for (const fix of fixes) {
+      expect(fix.diagnostics).toEqual([expect.objectContaining({ code: "OPPOSED_FRAMING" })]);
+      expect(fix.kind).toBe("quickfix");
+      expect(fix.edit).not.toHaveProperty("changes");
+      expect(fix.edit.documentChanges[0].textDocument).toEqual({ uri: DOCUMENT, version: 7 });
+    }
+    const results = fixes.map(fix => applyFix(opposed, fix));
     expect(results).toEqual([
       opposed.replace("[O", "[G"),
       opposed.replace("[O", "[."),
       opposed.replace("[O", "[G") + "\n- [O use @cost]"
     ]);
-    expect(request("textDocument/codeAction", { textDocument: { uri: DOCUMENT }, range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } }, context: { diagnostics: [] } }).result).toEqual([]);
+    for (const result of results) {
+      const readback = explainSource(result);
+      expect(readback.diagnostics).toEqual([]);
+      expect(readback.graphs[0].points).toHaveLength(2);
+      expect(readback.graphs[0].bearings.map(bearing => bearing.kind)).toEqual(["supports"]);
+    }
+    expect(actions({ start: { line: 0, character: 0 }, end: { line: 0, character: 0 } })).toEqual([]);
+  });
+
+  it.each(["\n", "\r\n"])("offers explicit Ground-under-Question choices with UTF-16 edits using %j endings", ending => {
+    const { open, actions, diagnostics } = session();
+    const source = ["- [Q @q] 應延後採用嗎 😀？", "  - [G @cost] 成本超出預算。"].join(ending);
+    open(source, DOCUMENT, 12);
+    expect(diagnostics()).toEqual([expect.objectContaining({ code: "UNBOUND_GROUND_UNDER_QUESTION" })]);
+    const fixes = actions(diagnostics()[0].range);
+    expect(fixes.map(fix => fix.title)).toEqual([
+      "Re-mark as C to offer an answer (concerns → answers)",
+      "Re-mark as neutral (.) to keep concerns and withdraw the unbound Ground intention"
+    ]);
+    const analysis = analyzeSourceEdits(source);
+    for (const [index, mark] of (["C", "."] as const).entries()) {
+      const fix = fixes[index];
+      expect(fix.diagnostics).toEqual(diagnostics());
+      expect(fix.edit).toEqual({ documentChanges: [{
+        textDocument: { uri: DOCUMENT, version: 12 },
+        edits: [{ range: { start: { line: 1, character: 5 }, end: { line: 1, character: 6 } }, newText: mark }]
+      }] });
+      const result = applyFix(source, fix);
+      expect(result).toBe(source.replace("[G", `[${mark}`));
+      const preview = analysis.preview({ kind: "framing", edit: { operation: "remark", line: 2, mark } });
+      expect(preview).toMatchObject({
+        status: "ready", proposedSource: result,
+        comparison: { status: "compared", relation: mark === "C" ? "refinement" : "equivalent", retracted: [] }
+      });
+      const readback = explainSource(result);
+      expect(readback.diagnostics).toEqual([]);
+      expect(readback.graphs[0].points.map(point => [point.id, point.text])).toEqual([["q", "應延後採用嗎 😀？"], ["cost", "成本超出預算。"]]);
+      expect(readback.graphs[0].bearings).toEqual([expect.objectContaining({
+        kind: mark === "C" ? "answers" : "concerns",
+        sources: [{ kind: "point", key: readback.graphs[0].points[1].key }],
+        target: { kind: "point", key: readback.graphs[0].points[0].key }
+      })]);
+      expect(readback.explanations[0].entries[1].effects).toContainEqual(expect.objectContaining({
+        kind: "frameOccurrence", intention: mark === "C" ? "bound" : "none"
+      }));
+    }
+  });
+
+  it("re-marks an existing Point use without changing its declaration or targeting another answer", () => {
+    const { open, actions, diagnostics } = session();
+    const source = ["- [. @cost] 成本 😀 超出預算。", "- [Q @q] 應延期嗎？", "  - [C @answer] 應延期。", "  - [G use @cost; @step]"].join("\n");
+    open(source);
+    const fixes = actions(diagnostics()[0].range);
+    expect(fixes).toHaveLength(2);
+    for (const [index, mark] of (["C", "."] as const).entries()) {
+      const result = applyFix(source, fixes[index]);
+      expect(result).toBe(source.replace("[G use", `[${mark} use`));
+      const graph = explainSource(result).graphs[0];
+      expect(graph.points.map(point => point.id)).toEqual(["cost", "q", "answer"]);
+      expect(graph.points[0].declaration).toEqual({ form: "material" });
+      expect(graph.bearings.find(bearing => bearing.handle === "step")).toMatchObject({
+        kind: mark === "C" ? "answers" : "concerns",
+        sources: [{ kind: "point", key: graph.points[0].key }],
+        target: { kind: "point", key: graph.points[1].key }
+      });
+      expect(graph.diagnostics).toEqual([]);
+    }
+  });
+
+  it("filters fixes by half-open diagnostic ranges, including cursor and multiline selections", () => {
+    const { open, actions, diagnostics } = session();
+    const source = ["- [C @claim] 主張。", "- [O @cost +> @claim] 成本。", "- [Q @q] 問題？", "  - [G @g] 理由 😀。", "    延續說明。"].join("\n");
+    open(source);
+    const [opposed, unbound] = diagnostics() as { code: string; range: Range }[];
+    expect(actions({ start: opposed.range.start, end: opposed.range.start })).toHaveLength(3);
+    expect(actions({ start: unbound.range.start, end: unbound.range.start })).toHaveLength(2);
+    expect(actions({ start: { line: 4, character: 5 }, end: { line: 4, character: 5 } })).toHaveLength(2);
+    for (const diagnostic of [opposed, unbound]) {
+      expect(actions({ start: diagnostic.range.end, end: diagnostic.range.end })).toEqual([]);
+      expect(actions({ start: { line: diagnostic.range.start.line, character: 0 }, end: diagnostic.range.start })).toEqual([]);
+      expect(actions({ start: { line: diagnostic.range.start.line, character: 0 }, end: { line: diagnostic.range.start.line, character: 0 } })).toEqual([]);
+    }
+    expect(actions({ start: { line: 0, character: 0 }, end: { line: 1, character: 0 } })).toEqual([]);
+    expect(actions({ start: { line: 2, character: 0 }, end: { line: 3, character: 0 } })).toEqual([]);
+    const all = actions({ start: opposed.range.start, end: unbound.range.end });
+    expect(all.map(fix => fix.diagnostics[0].code)).toEqual(["OPPOSED_FRAMING", "OPPOSED_FRAMING", "OPPOSED_FRAMING", "UNBOUND_GROUND_UNDER_QUESTION", "UNBOUND_GROUND_UNDER_QUESTION"]);
+  });
+
+  it("keeps host fixes within the selected fence in host coordinates", () => {
+    const { open, actions, diagnostics } = session();
+    const uri = "file:///notes/journal.md";
+    const source = ["# 札記 😀", "", "  ```cog", "  - [Q @q] 第一問？", "    - [G @g] 理由。", "  ```", "", "```cog", "- [Q @q] 第二問？", "  - [G @g] 另一理由。", "```"].join("\r\n");
+    open(source, uri, 5);
+    const [first, second] = diagnostics(uri);
+    const fixes = actions(first.range, uri);
+    expect(fixes).toHaveLength(2);
+    expect(fixes.every(fix => fix.diagnostics[0].range.start.line === 4)).toBe(true);
+    expect(actions(second.range, uri)).toHaveLength(2);
+    expect(actions({ start: { line: 0, character: 0 }, end: { line: 3, character: 0 } }, uri)).toEqual([]);
+    for (const [index, mark] of (["C", "."] as const).entries()) {
+      expect(fixes[index].edit.documentChanges[0]).toEqual({
+        textDocument: { uri, version: 5 },
+        edits: [{ range: { start: { line: 4, character: 7 }, end: { line: 4, character: 8 } }, newText: mark }]
+      });
+      const result = applyFix(source, fixes[index]);
+      expect(result).toBe(source.replace("[G @g] 理由", `[${mark} @g] 理由`));
+      const readback = explainSource(result, "host");
+      expect(readback.graphs.map(graph => graph.bearings.map(bearing => bearing.kind))).toEqual([[mark === "C" ? "answers" : "concerns"], ["concerns"]]);
+      expect(readback.diagnostics.map(diagnostic => diagnostic.sourceSpan?.startLine)).toEqual([10]);
+    }
+  });
+
+  it("conveys the checked document version so clients can reject stale quick fixes", () => {
+    const { open, actions, notify, diagnostics } = session();
+    const source = "- [Q @q] 問題？\n  - [G @g] 理由。";
+    open(source, DOCUMENT, 20);
+    const oldFixes = actions(diagnostics()[0].range);
+    expect(oldFixes).toHaveLength(2);
+    notify("textDocument/didChange", { textDocument: { uri: DOCUMENT, version: 21 }, contentChanges: [{ text: "\n" + source }] });
+    const newFixes = actions(diagnostics()[0].range);
+    expect(newFixes).toHaveLength(2);
+    for (const [index, fix] of oldFixes.entries()) {
+      expect(fix.edit).not.toHaveProperty("changes");
+      expect(fix.edit.documentChanges[0].textDocument).toEqual({ uri: DOCUMENT, version: 20 });
+      expect(newFixes[index].edit.documentChanges[0].textDocument).toEqual({ uri: DOCUMENT, version: 21 });
+      expect(newFixes[index].edit.documentChanges[0].edits[0].range.start.line).toBe(2);
+    }
+    notify("textDocument/didChange", { textDocument: { uri: DOCUMENT, version: 22 }, contentChanges: [{ text: source.replace("[G", "[.") }] });
+    expect(actions({ start: { line: 1, character: 5 }, end: { line: 1, character: 5 } })).toEqual([]);
+    notify("textDocument/didClose", { textDocument: { uri: DOCUMENT } });
+    expect(actions({ start: { line: 1, character: 5 }, end: { line: 1, character: 5 } })).toBeNull();
+  });
+
+  it("offers only checked results when an opposed Point is unnamed or the source has errors", () => {
+    const { open, actions, diagnostics } = session();
+    const source = "- [C @claim] 主張。\n- [O +> @claim] 反對理由。";
+    open(source);
+    expect(actions(diagnostics()[0].range).map(fix => fix.title)).toEqual([
+      "Re-mark as G, keeping the clause", "Re-mark as neutral (.), keeping the clause"
+    ]);
+    open(source + "\n- [G +> @missing] 未知。\n- [Q] 問題？\n  - [G] 理由。");
+    expect(actions({ start: { line: 0, character: 0 }, end: { line: 4, character: 20 } })).toEqual([]);
   });
 
   it("speaks framed JSON-RPC over stdio and exits cleanly after shutdown", async () => {

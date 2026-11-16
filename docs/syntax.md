@@ -57,11 +57,13 @@ The AST preserves block order, multiline content, raw block lines, body, and sou
 This is a restricted outline parser, without Markdown lazy continuation or arbitrary block parsing.
 
 ```md cog-check require=supports points=2 bearings=1 diagnostics=1
-- Ordinary context.
-  - [C @claim] A claim.
-    - An unmarked explanation.
-      - [G] A selected reason.
+- [C @evening] 圖書館可以試辦週五延長開館。
+  - 先看既有的服務紀錄。
+    - [G @trial] 上月讀書會開到晚上八點，仍使用原有的人力。
 ```
+
+The unmarked service-record sentence is ordinary body, so the Ground still selects `@evening` through it.
+The [defaults explanation](#roles-and-connections) returns to this prose with a neutral mark.
 
 Outlines copied from tools that indent with tabs, such as Logseq or Obsidian, compile to the same graph as their space-indented form:
 
@@ -315,8 +317,10 @@ Invalid sources or targets reject the entire relation, preserving diagnostics ra
 See [joint relevance](#joint-relevance) for executable examples and the contrast with two independent `concerns` Bearings.
 
 In ordinary Point context, a marked occurrence without a clause or `/` selector constructs exactly one Bearing toward its focus.
-Ordinary unannotated body bullets are transparent; Notes are opaque and literal.
-The mark is the act of commitment; indentation only selects its object.
+The marker is the author's act of commitment at this occurrence: it selects prose as a Point and records how it is presented.
+Indentation selects the context in which that act is interpreted; the compiler does not infer a relation from the prose's wording.
+This context scopes through ordinary unannotated body bullets, which create no Point or Bearing of their own.
+A nearer Point or Bearing context takes over; a failed boundary blocks outward lookup, and Notes are opaque and literal.
 The occurrence's mark and the focus occurrence's own written mark choose the kind:
 
 | Occurrence mark | Focus marked Q | Other Point focus |
@@ -335,11 +339,28 @@ The compiler neither judges its adequacy nor inserts a conclusion.
 To support the Question itself, write `[G +> ^]`.
 To support an answer, state it and put G beneath it, or give G an explicit target.
 Re-mark C for a candidate answer, or `.` for relevance without an unbound ground intention.
+The [LSP quick fixes](graph-inspection.md#preview-framing-edits) offer both choices and report their different consequences: C adds `answers`, while `.` retains `concerns` and withdraws the Ground intention.
 `O` beneath Q challenges the Question, for example its presupposition.
 `concerns` means that the source bears on its target: the undifferentiated relation, which every other kind entails without being defined by it.
 It is complete as relevance; it need not be a draft awaiting a stronger relation.
 
+In the library note, `.` selects the same observation while committing only to relevance:
+
+```md cog-check require=concerns points=2 bearings=1 diagnostics=0
+- [C @evening] 圖書館可以試辦週五延長開館。
+  - 先看既有的服務紀錄。
+    - [. @trial] 上月讀書會開到晚上八點，仍使用原有的人力。
+```
+
+`@trial` concerns `@evening` through the ordinary body; the grouping neither breaks that scope nor supplies a premise.
+Re-marking this occurrence G, as in the earlier example, records `supports` with the same prose and target.
+That is a refinement (精進): support retains relevance and adds a more specific commitment.
+Returning to `.` is a weakening, a form of 修訂 that retracts support while retaining relevance.
+The stronger default also receives `IMPLICIT_ATTACHMENT_THROUGH_BODY`; the neutral default does not.
+See [commitment comparison](graph-inspection.md#compare-commitments-across-revisions) for the full terminology and its limits.
+
 A focus `[Q use @q]` counts as a Question, while `[. use @q]` does not, even if `@q` was declared Q.
+Re-marking a focus can therefore change its descendants' defaults; checked framing previews report those consequences too.
 A nearer Point always blocks lookup of an outer Q.
 A use presents the existing Point without creating one or importing its declaration mark.
 At root there is no default attachment; root G/O/R/D retain unbound intentions without an error, while root `.`, C and Q have none.
@@ -390,7 +411,7 @@ Opposed framing adds suggestion `OPPOSED_FRAMING`, never a hidden second relatio
 There is no source-level suppression; consumers may filter suggestions by code.
 Explain exposes `frameOccurrence`; Graph IR contains no framing.
 A graph-only comparison therefore cannot certify that framing or Notes were retained.
-See [framing previews](graph-inspection.md#preview-framing-edits) for checked re-marking and splitting.
+See [source comparison](graph-inspection.md#compare-retained-source-presentation) for marks, intentions, Note and body content alongside graph commitments, and [framing previews](graph-inspection.md#preview-framing-edits) for checked re-marking and splitting.
 
 Successful positional selection across ordinary body adds `IMPLICIT_ATTACHMENT_THROUGH_BODY` at `suggestion` severity for stronger defaults, written positional clauses, selectors and constructors.
 It names the actual selected target (or its source span if anonymous), the responsible occurrence and the crossed body regions, grouped once per selection.
@@ -660,7 +681,7 @@ Only `trial` has the profile; the reused staffing Point's new support is plain.
 `MALFORMED_BEARING_PROFILE` rejects an unknown profile such as `by analogy`, or a missing name.
 The Point is kept when otherwise valid, but neither a plain support nor a default Bearing replaces the rejected request.
 
-Example support entails plain support, not conversely; adding the profile is a refinement and removing it a weakening.
+Example support entails plain support, not conversely; adding the profile refines the support (精進), while removing it weakens the support (修訂).
 `compareCommitments(...).bearings.changed` reports each continued Bearing's profile change, even when aggregate commitments remain equivalent because another Bearing already states that commitment.
 Checked edits refuse to join, separate or kind-decide a profiled relation with reason `profiled-relation`.
 `target-form` preserves the profile.
@@ -1213,6 +1234,8 @@ Near miss: nesting that use beneath a Point would construct a challenge:
 These alternatives preserve the support, but differ in framing and possibly declaration metadata.
 A graph-only check cannot establish preservation of framing or Notes.
 Use `cog framing-edit inquiry.cog.md --line 2 --remark G`, `--remark .` or `--split` for checked previews.
+Re-marking an occurrence whose mark supplies its default can instead change the relation, as in the library note's `.`/G exchange.
+The [framing preview](graph-inspection.md#preview-framing-edits) checks the proposed change and reports its commitment comparison alongside framing changes.
 `cog lsp` offers the same three quick fixes for `OPPOSED_FRAMING`.
 There is no source-level suppression; consumers may filter the suggestion by code.
 

@@ -7,6 +7,7 @@ import { explainSource } from "./source.js";
 import { previewTargetFormFrom } from "./target-form.js";
 import type { TargetForm, TargetFormPreview } from "./target-form.js";
 import type { Diagnostic, SourceParseMode } from "./types.js";
+import { FORMAT_VERSION } from "./types.js";
 
 export type SourceEditRequest =
   | { kind: "target-form"; line: number; form: TargetForm }
@@ -18,6 +19,25 @@ export type SourceEditAnalysis = {
   siblingsAt(line: number): { lines: number[]; index: number };
   preview(request: SourceEditRequest): SourceEditPreview;
 };
+
+export type SourceEditApplication =
+  | { status: "applied"; source: string }
+  | { status: "unavailable"; reason: "unavailable-preview" | "unsupported-version" | "stale-source" | "invalid-preview"; message: string };
+
+export function applySourceEdit(source: string, preview: SourceEditPreview): SourceEditApplication {
+  const unavailable = (reason: Extract<SourceEditApplication, { status: "unavailable" }>["reason"], message: string): SourceEditApplication =>
+    ({ status: "unavailable", reason, message });
+  if (preview.status !== "ready") return unavailable("unavailable-preview", "Only a ready preview supplies an edit.");
+  if (preview.version !== FORMAT_VERSION) return unavailable("unsupported-version", "Reanalyse the source with this format before applying an edit.");
+  if (source !== preview.originalSource) return unavailable("stale-source", "The source has changed since this preview; reanalyse before editing.");
+  const { offset, remove, insert } = preview.edit;
+  if (!Number.isSafeInteger(offset) || offset < 0 || offset > source.length || source.slice(offset, offset + remove.length) !== remove) {
+    return unavailable("invalid-preview", "The edit does not match its source snapshot.");
+  }
+  const proposed = source.slice(0, offset) + insert + source.slice(offset + remove.length);
+  if (proposed !== preview.proposedSource) return unavailable("invalid-preview", "The edit does not produce its checked source.");
+  return { status: "applied", source: proposed };
+}
 
 /**
  * Analyze one immutable source snapshot for several checked edit previews.

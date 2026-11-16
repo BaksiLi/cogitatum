@@ -1,6 +1,9 @@
 import { expandedClause, isRelationSpelling, respellTarget, targetSpelling } from "./annotation.js";
 import { annotationOffset, findBlock, focusAt, locateSourceBlock, minimalEdit, same } from "./source-edit.js";
 import type { SourceEdit } from "./source-edit.js";
+import { compareSourceEdit } from "./source-comparison.js";
+import type { Correspondence } from "./commitments.js";
+import type { SourceComparison } from "./source-comparison.js";
 import { explainSource } from "./source.js";
 import { FORMAT_VERSION, isNamedTarget } from "./types.js";
 import type { Focus } from "./annotation.js";
@@ -24,6 +27,8 @@ export type TargetFormPreview = {
       proposedSource: string;
       edit: SourceEdit;
       proposedDiagnostics: Diagnostic[];
+      correspondence: Correspondence;
+      comparison: Extract<SourceComparison, { status: "compared" }>;
       consequence: string;
     }
   | { status: "unavailable"; reason: TargetFormUnavailableReason; message: string }
@@ -103,7 +108,11 @@ export function previewTargetFormFrom(source: string, before: ExplainedSource, o
     ? ` The relation is now written as ${writtenAfter}` + (marked ? "; changing the mark will no longer change it." : ".")
     : writtenAfter ? ""
       : marked ? " The mark states the relation again; changing the mark will change it." : " The constructor's default states the relation again.";
-  return { ...base, status: "ready", originalSource: source, proposedSource, edit, proposedDiagnostics: after.diagnostics, consequence: consequence + relation + " Sources, members and their order are unchanged." };
+  const checked = compareSourceEdit(before, after, unitIndex);
+  if (checked.comparison.status !== "compared") return unavailable("preservation-failed", checked.comparison.message);
+  return { ...base, status: "ready", originalSource: source, proposedSource, edit, proposedDiagnostics: after.diagnostics,
+    correspondence: checked.correspondence, comparison: checked.comparison,
+    consequence: consequence + relation + " Sources, members and their order are unchanged." };
 }
 
 function hasWrittenClause(annotation: Annotation): boolean {

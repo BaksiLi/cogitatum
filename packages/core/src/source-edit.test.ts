@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
-import { analyzeSourceEdits, explainSource, previewRelationEdit, previewTargetForm } from "./index.js";
+import { analyzeSourceEdits, applySourceEdit, explainSource, previewFramingEdit, previewRelationEdit, previewTargetForm } from "./index.js";
 import type { SourceEditRequest, SourceParseMode } from "./index.js";
 import * as sourceModule from "./source.js";
+import { compareSourceEdit } from "./source-comparison.js";
 
 const previews = [
   {
@@ -13,6 +14,63 @@ const previews = [
     preview: (source: string, line: number, mode: SourceParseMode) => previewTargetForm(source, { line, form: "named", mode })
   }
 ];
+
+describe("applying checked previews to an exact source snapshot", () => {
+  const source = "- [C @c] 主張 😀。\r\n  - [G @g] 理由。\r\n";
+  const ready = () => previewFramingEdit(source, { operation: "remark", line: 2, mark: "." });
+
+  it("applies the checked UTF-16 patch without normalizing line endings", () => {
+    expect(applySourceEdit(source, ready())).toEqual({ status: "applied", source: source.replace("[G @g]", "[. @g]") });
+  });
+
+  it.each([
+    source.replace("主張", "新主張"), source + "\r\n", source.replace(/\r\n/g, "\n")
+  ])("rejects stale source even when the selected header still matches", stale => {
+    expect(applySourceEdit(stale, ready())).toMatchObject({ status: "unavailable", reason: "stale-source" });
+  });
+
+  it("refuses unavailable, unsupported and inconsistent previews", () => {
+    expect(applySourceEdit(source, previewFramingEdit(source, { operation: "remark", line: 2, mark: "G" })))
+      .toMatchObject({ status: "unavailable", reason: "unavailable-preview" });
+    const preview = ready();
+    if (preview.status !== "ready") throw new Error(preview.message);
+    expect(applySourceEdit(source, { ...preview, version: "0.6.0" })).toMatchObject({ status: "unavailable", reason: "unsupported-version" });
+    expect(applySourceEdit(source, { ...preview, proposedSource: "something else" })).toMatchObject({ status: "unavailable", reason: "invalid-preview" });
+    expect(applySourceEdit(source, { ...preview, edit: { ...preview.edit, offset: -1 } })).toMatchObject({ status: "unavailable", reason: "invalid-preview" });
+    expect(applySourceEdit(source, { ...preview, edit: { ...preview.edit, remove: "wrong" } })).toMatchObject({ status: "unavailable", reason: "invalid-preview" });
+  });
+});
+
+describe("removing clauses, weakening and detaching are different changes", () => {
+  it.each([
+    [".", "concerns", "weakening"],
+    ["O", "challenges", "revision"]
+  ] as const)("removing explicit support from %s reactivates its actual default", (mark, kind, relation) => {
+    const source = `- [C @c] 應延期。\n  - [${mark} @x +> ^] 預算已用盡。`;
+    const before = explainSource(source), after = explainSource(source.replace(" +> ^", ""));
+    expect(after.graphs[0].bearings).toMatchObject([{ kind }]);
+    expect(compareSourceEdit(before, after, 0).comparison).toMatchObject({
+      status: "compared", relation, retracted: [{ kind: "supports" }]
+    });
+  });
+
+  it("one outdent can rebind relevance, while moving outside every focus detaches", () => {
+    const source = "- [C @outer] 外層主張。\n  - [C @inner] 局部主張。\n    - [. @x] 相關材料。";
+    const before = explainSource(source);
+    const rebound = explainSource(source.replace("    - [. @x]", "  - [. @x]"));
+    const detached = explainSource(source.replace("    - [. @x]", "- [. @x]"));
+    expect(compareSourceEdit(before, rebound, 0).comparison).toMatchObject({
+      status: "compared", relation: "revision",
+      retracted: [{ kind: "concerns", target: { key: before.graphs[0].points[1].key } }],
+      added: [{ kind: "concerns", target: { key: rebound.graphs[0].points[0].key } }]
+    });
+    expect(compareSourceEdit(before, detached, 0).comparison).toMatchObject({
+      status: "compared", relation: "weakening", added: [],
+      retracted: [{ kind: "concerns" }], points: { removed: [], added: [] }
+    });
+    expect(detached.graphs[0].points[2].text).toBe("相關材料。");
+  });
+});
 
 describe.each(previews)("$name source selection", ({ preview, missingReason, replacement }) => {
   it("selects the owning header from continuation lines, keeping literal note descendants inert", () => {
