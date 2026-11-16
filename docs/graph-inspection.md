@@ -259,6 +259,9 @@ Unmapped occurrences are reported as removed or added; names, matching text and 
 `SourceComparison` combines the graph commitment comparison with `presentationChanges`.
 It reports added and removed source occurrences, and changed marks, framing fit, bound or unbound intention, prose content, annotation shape and construction provenance.
 A Note's content includes its whole literal subtree; ordinary body content is also compared.
+Authored object Note snapshots also retain the resolved typed `noteTarget`; constructor descriptions do not.
+A changed record includes `noteTarget: true` only when targeting is added, removed or changed, or its target has no declared continuation, even when all other flags are false and commitments remain equivalent.
+Targets are compared through the caller's separate Point and Bearing correspondences; equal generated keys do not establish continuity, and renumbered keys alone do not count as a change.
 Source coordinates and annotation whitespace alone do not count as presentation changes.
 Invalid occurrence correspondence produces `indeterminate` with reason `invalid-source-correspondence`; the graph comparison's error and identity checks still apply.
 This bounded comparison reports retained evidence, without judging the prose's interpretation or evaluation.

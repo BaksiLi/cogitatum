@@ -178,6 +178,102 @@ describe("source revision evidence beyond commitments", () => {
   });
 });
 
+describe("authored object Note target changes", () => {
+  const pointNote = "- [. @p] Observation.\n  - [. note] Treat cautiously.\n- [C @q] Conclusion.";
+  const pointCorrespondence: Correspondence = { points: pair.points, bearings: {} };
+  const bearingNote = "- [. @p] Observation.\n- [C @q] Conclusion.\n- [_ @p +> @q; @first]\n  - [_ note] Treat cautiously.\n- [_ @p +> @q; @second]";
+  const bearingCorrespondence: Correspondence = { points: pair.points, bearings: { _b1: "_b1", _b2: "_b2" } };
+  const unchangedFlags = { mark: false, fit: false, intention: false, content: false, annotation: false, provenance: false };
+
+  it("reports a continued Note moving between Points with unchanged prose and commitments", () => {
+    const after = "- [. @p] Observation.\n- [C @q] Conclusion.\n  - [. note] Treat cautiously.";
+    const result = compare(pointNote, after, { 1: 1, 2: 3, 3: 2 }, pointCorrespondence);
+    expect(result).toMatchObject({ relation: "equivalent", points: { changed: [] }, bearings: { changed: [] } });
+    expect(changed(result)).toMatchObject({
+      ...unchangedFlags, noteTarget: true,
+      before: { noteTarget: { kind: "point", key: "_p1" } },
+      after: { noteTarget: { kind: "point", key: "_p2" } }
+    });
+  });
+
+  it("distinguishes Notes on parallel Bearings with identical endpoints", () => {
+    const after = "- [. @p] Observation.\n- [C @q] Conclusion.\n- [_ @p +> @q; @first]\n- [_ @p +> @q; @second]\n  - [_ note] Treat cautiously.";
+    const result = compare(bearingNote, after, { 1: 1, 2: 2, 3: 3, 4: 5, 5: 4 }, bearingCorrespondence);
+    expect(result).toMatchObject({ relation: "equivalent", bearings: { changed: [] } });
+    expect(changed(result)).toMatchObject({
+      ...unchangedFlags, noteTarget: true,
+      before: { noteTarget: { kind: "bearing", key: "_b1" } },
+      after: { noteTarget: { kind: "bearing", key: "_b2" } }
+    });
+  });
+
+  it("reports switching between the Point and Bearing slots of one context", () => {
+    const before = claim + "\n  - [G @reason; @step] A reason.\n    - [. note] Treat cautiously.";
+    const result = compare(before, before.replace("[. note]", "[_ note]"), { 1: 1, 2: 2, 3: 3 }, pair);
+    expect(result.relation).toBe("equivalent");
+    expect(changed(result)).toMatchObject({
+      noteTarget: true, content: false,
+      before: { noteTarget: { kind: "point", key: "_p2" } },
+      after: { noteTarget: { kind: "bearing", key: "_b1" } }
+    });
+  });
+
+  it.each([". note", "_ note"])("reports adding and removing typed targeting with [%s]", header => {
+    const plain = claim + "\n  - [G @reason; @step] A reason.\n    - [note] Treat cautiously.\n      - [G] Literal quotation.";
+    const typed = plain.replace("[note]", `[${header}]`);
+    const lines = { 1: 1, 2: 2, 3: 3 };
+    const added = changed(compare(plain, typed, lines, pair));
+    const removed = changed(compare(typed, plain, lines, pair));
+    expect(added).toMatchObject({ noteTarget: true, content: false });
+    expect(added.before).not.toHaveProperty("noteTarget");
+    expect(added.after.noteTarget?.kind).toBe(header === ". note" ? "point" : "bearing");
+    expect(removed).toMatchObject({ noteTarget: true, content: false });
+    expect(removed.before.noteTarget).toEqual(added.after.noteTarget);
+    expect(removed.after).not.toHaveProperty("noteTarget");
+  });
+
+  it("continues a Point Note through coordinate movement and key renumbering", () => {
+    const after = "\n- [C @q] Conclusion.\n- [. @p] Observation.\n  - [. note] Treat cautiously.";
+    const result = compare(pointNote, after, { 1: 3, 2: 4, 3: 2 }, {
+      points: { _p1: "_p2", _p2: "_p1" }, bearings: {}
+    });
+    expect(result).toMatchObject({ relation: "equivalent", presentationChanges: [] });
+  });
+
+  it("continues a Bearing Note when both Point and Bearing keys are renumbered", () => {
+    const after = "\n- [C @q] Conclusion.\n- [. @p] Observation.\n- [_ @p +> @q; @second]\n- [_ @p +> @q; @first]\n  - [_ note] Treat cautiously.";
+    const result = compare(bearingNote, after, { 1: 3, 2: 2, 3: 5, 4: 6, 5: 4 }, {
+      points: { _p1: "_p2", _p2: "_p1" }, bearings: { _b1: "_b2", _b2: "_b1" }
+    });
+    expect(result).toMatchObject({ relation: "equivalent", presentationChanges: [] });
+  });
+
+  it.each(["point", "bearing"] as const)("requires explicit %s target continuity even when generated keys agree", kind => {
+    const text = kind === "point" ? pointNote : bearingNote;
+    const lines = kind === "point" ? { 1: 1, 2: 2, 3: 3 } : { 1: 1, 2: 2, 3: 3, 4: 4, 5: 5 };
+    const correspondence = kind === "point" ? { points: { _p2: "_p2" }, bearings: {} }
+      : { points: pair.points, bearings: { _b2: "_b2" } };
+    const change = changed(compare(text, text, lines, correspondence));
+    expect(change).toMatchObject({ ...unchangedFlags, noteTarget: true });
+    expect(change.before.noteTarget).toEqual(change.after.noteTarget);
+  });
+
+  it("omits the optional change flag when a typed Note only changes prose", () => {
+    const result = compare(pointNote, pointNote.replace("Treat cautiously.", "Observation withdrawn."), { 1: 1, 2: 2, 3: 3 }, pointCorrespondence);
+    const change = changed(result);
+    expect(change).toMatchObject({ content: true });
+    expect(change.before.noteTarget).toEqual(change.after.noteTarget);
+    expect(change).not.toHaveProperty("noteTarget");
+  });
+
+  it("does not treat constructor descriptions as authored object Notes", () => {
+    const text = "- [. @p] Observation.\n- [C @q] Conclusion.\n- [_ @p +> @q; @step] Route description.";
+    expect(source(text).graphs[0].notes).toMatchObject([{ origin: "constructor-description" }]);
+    const result = compare(text, text, { 1: 1, 2: 2, 3: 3 }, pointCorrespondence);
+    expect(result).toMatchObject({ relation: "equivalent", presentationChanges: [] });
+  });
+});
+
 describe("source correspondence boundaries", () => {
   const text = claim + "\n  - Body.\n    Continued.\n  - [note] Aside.\n    - Literal.";
 

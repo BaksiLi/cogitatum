@@ -62,6 +62,7 @@ Source that compiled under 0.6 can construct different relations; follow [Migrat
   `analyzeSourceEdits` accepts `framing` requests.
 - Add `compareSourceRevisions`, comparing one source unit through explicit entity and occurrence correspondence.
   Its `presentationChanges` exposes mark, framing and retained content changes even when commitments are equivalent; graph equivalence alone does not establish source fidelity or assessment applicability.
+  Authored object Note snapshots retain their typed `noteTarget`; changed records add `noteTarget: true` for changed or added/removed targeting, or missing target continuity, through the caller's Point and Bearing correspondences.
   All three edit preview families share this comparison.
   Add pure `applySourceEdit`, which checks the complete original source snapshot and the replacement before returning updated source; stale previews require reanalysis.
 - Add `cog framing-edit --line N --remark <mark>|--split` and `cog relation-edit --retarget <@name|^|^/>`.

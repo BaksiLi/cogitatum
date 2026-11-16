@@ -3,7 +3,7 @@ import type { CommitmentComparison, Correspondence } from "./commitments.js";
 import { same } from "./source-edit.js";
 import { FORMAT_VERSION } from "./types.js";
 import type {
-  Annotation, AstBlock, ExplainedSource, ExplainEntry, ExplainFraming,
+  Annotation, AstBlock, BearingTarget, ExplainedSource, ExplainEntry, ExplainFraming,
   ExplainRecognition, GraphIR, SourceSpan
 } from "./types.js";
 
@@ -11,7 +11,7 @@ type AnnotationShape<T = Annotation> = T extends Annotation ? Omit<T, "raw"> : n
 type LiteralBlock = { text: string; children: LiteralBlock[] };
 type Emission = Extract<ExplainEntry["effects"][number], { kind: "emitBearing" }>;
 
-/** Revision-local source evidence, without generated entity keys or identity claims. */
+/** Revision-local source evidence; entity continuity is supplied separately. */
 type BlockSnapshot = {
   sourceSpan: SourceSpan;
   recognition: ExplainRecognition;
@@ -21,6 +21,7 @@ type BlockSnapshot = {
   literalChildren?: LiteralBlock[];
   /** Parsed authoring shape: annotation spacing is not an intention change. */
   annotation?: AnnotationShape;
+  noteTarget?: BearingTarget;
   relations: {
     reason: Emission["reason"];
     kind: Emission["bearing"]["kind"];
@@ -45,6 +46,7 @@ export type PresentationChange =
       content: boolean;
       annotation: boolean;
       provenance: boolean;
+      noteTarget?: true;
     };
 
 type Indeterminate = Extract<CommitmentComparison, { status: "indeterminate" }>;
@@ -108,6 +110,10 @@ export function compareSourceRevisions(
     taken.add(to);
   }
 
+  const targetMaps = {
+    point: new Map(Object.entries(options.correspondence.points)),
+    bearing: new Map(Object.entries(options.correspondence.bearings))
+  };
   const presentationChanges: PresentationChange[] = [];
   for (const [line, previous] of earlier) {
     const to = pairs.get(line);
@@ -116,13 +122,18 @@ export function compareSourceRevisions(
       continue;
     }
     const next = later.get(to)!;
+    const noteTargetChanged = previous.noteTarget
+      ? !next.noteTarget || previous.noteTarget.kind !== next.noteTarget.kind
+        || targetMaps[previous.noteTarget.kind].get(previous.noteTarget.key) !== next.noteTarget.key
+      : next.noteTarget !== undefined;
     const flags = {
       mark: !same(previous.recognition, next.recognition, ["ref"]),
       fit: previous.framing?.fit !== next.framing?.fit,
       intention: !same(intention(previous.framing), intention(next.framing)),
       content: previous.text !== next.text || !same(previous.literalChildren, next.literalChildren),
       annotation: !same(previous.annotation, next.annotation),
-      provenance: !same(previous.relations, next.relations)
+      provenance: !same(previous.relations, next.relations),
+      ...(noteTargetChanged ? { noteTarget: true as const } : {})
     };
     if (Object.values(flags).some(Boolean)) presentationChanges.push({ kind: "changed", before: previous, after: next, ...flags });
   }
@@ -187,6 +198,7 @@ function activeSnapshots(source: ExplainedSource, index: number): Map<number, Bl
 
 function snapshot(block: AstBlock, entry: ExplainEntry): BlockSnapshot {
   const frame = entry.effects.find(effect => effect.kind === "frameOccurrence");
+  const attachedNote = entry.effects.find(effect => effect.kind === "attachNote");
   const framing: ExplainFraming | undefined = frame && {
     ...(frame.fit ? { fit: frame.fit } : {}),
     ...intention(frame)!
@@ -199,6 +211,7 @@ function snapshot(block: AstBlock, entry: ExplainEntry): BlockSnapshot {
     text: block.text,
     ...(block.annotation?.kind === "note" ? { literalChildren: block.children.map(literalSnapshot) } : {}),
     ...(annotation ? { annotation: structuredClone(annotation) } : {}),
+    ...(attachedNote?.note.origin === "note" ? { noteTarget: { ...attachedNote.note.target } } : {}),
     relations: entry.effects.flatMap(effect => effect.kind === "emitBearing" ? [{
       reason: effect.reason, kind: effect.bearing.kind, targetBy: effect.bearing.targetBy,
       ...(effect.bearing.profile ? { profile: effect.bearing.profile } : {})
