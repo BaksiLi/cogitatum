@@ -40,6 +40,8 @@ try {
     const sha256 = createHash("sha256").update(readFileSync(join(out, packed.filename))).digest("hex");
     packages[name] = { file: packed.filename, sha256 };
   }
+  const showcase = join(source, "examples", "host-showcase.cog.md");
+  const showcaseSha256 = createHash("sha256").update(readFileSync(showcase)).digest("hex");
   process.stdout.write(`${JSON.stringify({ repository, ref: commit, packages }, null, 2)}\n`);
 
   for (const host of hosts.map(path => resolve(path))) {
@@ -58,6 +60,9 @@ try {
       specs.push(`@cogitatum/${name}@file:vendor/${file}`);
     }
     Object.assign(manifest.cogitatumSource, { repository, ref: commit });
+    manifest.cogitatumSource.sha256.showcase = showcaseSha256;
+    mkdirSync(join(host, "tests", "fixtures"), { recursive: true });
+    copyFileSync(showcase, join(host, "tests", "fixtures", "host-showcase.cog.md"));
     writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
     copyFileSync(join(root, "scripts", "host-pin.mjs"), join(host, "pin.mjs"));
     run("npm", ["install", "--prefer-offline", "--no-audit", "--no-fund", ...specs], host, { stdio: ["ignore", "ignore", "inherit"] });

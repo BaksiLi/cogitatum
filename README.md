@@ -182,6 +182,13 @@ The current development checkout also contains an experimental integration packa
 It leaves evidence, persistence, review, and application UI with the host.
 The checkout compiler uses format 0.7.0; publishing, site deployment and host adoption remain separate.
 
+Cross-host regression tests share [`examples/host-showcase.cog.md`](examples/host-showcase.cog.md).
+`scripts/vendor-hosts.mjs` copies this source into each host's tests and pins its checksum alongside Core/View.
+The website tests consume the same example from their pinned public checkout.
+For native checks, `node scripts/host-showcase.mjs obsidian` (or `logseq`, or `document` for Vim)
+prints the matching wrapper to standard output. Save it as a separate test note; the exporter never writes to a vault.
+Existing hand-edited showcases and installed plugin builds are independent and are not silently synchronized.
+
 The public source covers the language, compiler, CLI, schemas, conformance fixtures, selected examples, and these usage documents. Website source and brand assets are maintained and deployed separately; the website renders the public documents and uses the compiler. Research essays, benchmarks, prompts, and runtime experiments are outside this source distribution.
 
 `npm run check:publication` checks local licensing and package metadata separately from compiler verification. This repository is the source of truth for subsequent language and compiler development.
