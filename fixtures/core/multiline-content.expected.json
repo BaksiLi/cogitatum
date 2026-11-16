@@ -12,8 +12,8 @@
       {"line": 11, "form": "role", "role": "O"}
     ],
     "bearings": [
-      {"line": 3, "kind": "supports", "sources": [3], "target": {"kind": "point", "line": 1}, "derivedBy": "structural", "handle": "route"},
-      {"line": 11, "kind": "challenges", "sources": [11], "target": {"kind": "bearing", "line": 3}, "derivedBy": "structural"}
+      {"line": 3, "kind": "supports", "sources": [3], "target": {"kind": "point", "line": 1}, "targetBy": "position", "handle": "route"},
+      {"line": 11, "kind": "challenges", "sources": [11], "target": {"kind": "bearing", "line": 3}, "targetBy": "position"}
     ]
   }]
 }

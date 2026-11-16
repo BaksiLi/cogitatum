@@ -87,7 +87,7 @@ describe("consolidated symbolic authoring", () => {
     expect(graph.diagnostics).toEqual([]);
     expect(explain.entries[2].recognition).toEqual({ kind: "bearing", members: true, ...(target === "bearing" ? { selector: "attachment" } : {}) });
     const joint = graph.bearings.at(-1)!;
-    expect(joint).toMatchObject({ kind: "concerns", derivedBy: "structural", sources: graph.points.slice(2).map(point => ({ kind: "point", key: point.key })) });
+    expect(joint).toMatchObject({ kind: "concerns", targetBy: "position", sources: graph.points.slice(2).map(point => ({ kind: "point", key: point.key })) });
     expect(joint.target).toEqual(target === "point" ? { kind: "point", key: graph.points[1].key } : { kind: "bearing", key: graph.bearings[0].key });
   });
 

@@ -38,7 +38,7 @@
             "kind": "point",
             "line": 2
           },
-          "derivedBy": "operator"
+          "targetBy": "name"
         },
         {
           "line": 5,
@@ -50,7 +50,7 @@
             "kind": "point",
             "line": 2
           },
-          "derivedBy": "operator",
+          "targetBy": "name",
           "handle": "route"
         },
         {
@@ -63,7 +63,7 @@
             "kind": "bearing",
             "line": 5
           },
-          "derivedBy": "operator"
+          "targetBy": "name"
         }
       ]
     }

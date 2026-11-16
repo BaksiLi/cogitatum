@@ -33,7 +33,7 @@
           "kind": "answers",
           "sources": [3],
           "target": { "kind": "point", "line": 2 },
-          "derivedBy": "structural"
+          "targetBy": "position"
         },
         {
           "line": 4,
@@ -45,7 +45,7 @@
             "kind": "point",
             "line": 3
           },
-          "derivedBy": "structural"
+          "targetBy": "position"
         },
         {
           "line": 5,
@@ -57,7 +57,7 @@
             "kind": "point",
             "line": 4
           },
-          "derivedBy": "operator"
+          "targetBy": "name"
         }
       ]
     }

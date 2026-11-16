@@ -8,7 +8,7 @@ const projection = (graph: GraphIR) => {
   const names = new Map([...graph.points.map(point => [point.key, point.id] as const), ...graph.bearings.map(bearing => [bearing.key, bearing.handle] as const)]);
   return {
     points: graph.points.map(({ key: _key, sourceSpan: _span, ...point }) => point),
-    bearings: graph.bearings.map(({ key: _key, sourceSpan: _span, derivedBy: _origin, ...bearing }) => ({ ...bearing, sources: bearing.sources.map(ref => names.get(ref.key)), target: { kind: bearing.target.kind, name: names.get(bearing.target.key) } }))
+    bearings: graph.bearings.map(({ key: _key, sourceSpan: _span, targetBy: _origin, ...bearing }) => ({ ...bearing, sources: bearing.sources.map(ref => names.get(ref.key)), target: { kind: bearing.target.kind, name: names.get(bearing.target.key) } }))
   };
 };
 
@@ -23,8 +23,8 @@ describe("local Bearing attachment selectors", () => {
     expect(projection(local.graph)).toEqual(projection(explicit.graph));
     expect(local.graph.bearings.map(bearing => bearing.kind)).toEqual(["supports", "supports", "challenges", "respondsTo"]);
     expect(local.explain.entries[4].effects).toContainEqual({ kind: "selectAttachment", ownerSpan: local.graph.points[1].sourceSpan, target: { kind: "bearing", key: local.graph.bearings[0].key } });
-    expect(local.graph.bearings[1].derivedBy).toBe("structural");
-    expect(explicit.graph.bearings[1].derivedBy).toBe("operator");
+    expect(local.graph.bearings[1].targetBy).toBe("position");
+    expect(explicit.graph.bearings[1].targetBy).toBe("name");
   });
 
   it.each([["G/", "supports"], ["O/", "challenges"], ["Q/", "concerns"]])("selects an unnamed concerns attachment for %s as %s", (mark, kind) => {

@@ -8,8 +8,8 @@
       {"line": 6, "form": "role", "role": "O"}
     ],
     "bearings": [
-      {"line": 4, "kind": "supports", "sources": [5], "target": {"kind": "point", "line": 3}, "derivedBy": "structural", "handle": "route"},
-      {"line": 6, "kind": "challenges", "sources": [6], "target": {"kind": "bearing", "line": 4}, "derivedBy": "operator"}
+      {"line": 4, "kind": "supports", "sources": [5], "target": {"kind": "point", "line": 3}, "targetBy": "position", "handle": "route"},
+      {"line": 6, "kind": "challenges", "sources": [6], "target": {"kind": "bearing", "line": 4}, "targetBy": "name"}
     ]
   }]
 }

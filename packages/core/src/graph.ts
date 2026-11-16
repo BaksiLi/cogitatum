@@ -3,7 +3,7 @@ import type {
   AstBlock,
   Bearing,
   ExplainBearingRef,
-  BearingDerivedBy,
+  BearingTargetBy,
   BearingKind,
   BearingProfile,
   BearingRef,
@@ -58,7 +58,7 @@ type CandidateBearing = {
   profile?: BearingProfile;
   sources: (PointRef | Ref)[];
   target: BearingTarget | Ref;
-  derivedBy: BearingDerivedBy;
+  targetBy: BearingTargetBy;
   sourceSpan?: SourceSpan;
   // Set for a positional target: the slot that supplied it.
   targetFocusKind?: "point" | "bearing";
@@ -388,12 +388,12 @@ function compileBlock(
     });
     draft.bearing = { outcome: "rejected", reason: "unsupported-profile" };
   } else if (isNamedTarget(relation.target)) {
-    produced = addBearing(bearings, candidate(block, relation.kind!, [source!], relation.target, "operator"));
+    produced = addBearing(bearings, candidate(block, relation.kind!, [source!], relation.target, "name"));
     draft.bearing = { outcome: "candidate", candidate: produced, reason: "operator-clause" };
   } else if (relation.target.local === "bearing") {
     const selected = resolveBearingSlot(context, draft);
     if (selected) {
-      produced = addBearing(bearings, candidate(block, relation.kind!, [source!], selected, "structural", "bearing"));
+      produced = addBearing(bearings, candidate(block, relation.kind!, [source!], selected, "position", "bearing"));
       draft.bearing = { outcome: "candidate", candidate: produced, reason: "local-attachment" };
     } else {
       diagnostics.push({ severity: "error", code: "NO_LOCAL_BEARING_ATTACHMENT", message: noLocalBearingMessage(context, annotation, relation.kind!), sourceSpan: block.sourceSpan });
@@ -402,7 +402,7 @@ function compileBlock(
   } else {
     if ("target" in slot) {
       // Beneath a Point focus every mark constructs one Bearing: a clause's, or the default.
-      produced = addBearing(bearings, candidate(block, relation.kind!, [source!], slot.target, "structural", "point"));
+      produced = addBearing(bearings, candidate(block, relation.kind!, [source!], slot.target, "position", "point"));
       draft.bearing = { outcome: "candidate", candidate: produced, reason: "annotated-containment" };
     } else {
       const outcome = POINT_SLOT_OUTCOMES[slot.failure][relation.by];
@@ -424,7 +424,7 @@ function compileBlock(
       sourceSpan: block.sourceSpan
     });
   }
-  if (produced?.derivedBy === "structural" && context) {
+  if (produced?.targetBy === "position" && context) {
     draft.implicit = { contextSpan: context.sourceSpan, crossedBodySpans: context.crossedBodySpans ?? [] };
   }
   draft.frame = occurrenceFrame(annotation, draft.bearing, relation, focus, childFunction);
@@ -636,7 +636,7 @@ function compileBearingConstructor(
     draft.bearing = { outcome: "rejected", reason: clause.sources === "members" ? "invalid-local-bearing" : reason === "local-attachment" ? "no-local-attachment" : "no-local-point" };
     return { memberFunctions };
   }
-  const bearing = addBearing(bearings, candidate(block, clause.op, sources, target, targetFocusKind ? "structural" : "operator", targetFocusKind));
+  const bearing = addBearing(bearings, candidate(block, clause.op, sources, target, targetFocusKind ? "position" : "name", targetFocusKind));
   draft.bearing = { outcome: "candidate", candidate: bearing, reason };
   if (targetFocusKind && context) draft.implicit = { contextSpan: context.sourceSpan, crossedBodySpans: context.crossedBodySpans ?? [] };
   return { bearing, memberFunctions };
@@ -669,7 +669,7 @@ function candidate(
   kind: BearingKind,
   sources: (PointRef | Ref)[],
   target: BearingTarget | Ref,
-  derivedBy: BearingDerivedBy,
+  targetBy: BearingTargetBy,
   targetFocusKind?: "point" | "bearing"
 ): CandidateBearing {
   const handle = block.annotation && "handle" in block.annotation ? block.annotation.handle : undefined;
@@ -682,7 +682,7 @@ function candidate(
     ...(profile ? { profile } : {}),
     sources: sources.map(source => ({ ...source })),
     target: { ...target },
-    derivedBy,
+    targetBy,
     ...(targetFocusKind ? { targetFocusKind } : {}),
     sourceSpan: block.sourceSpan
   };
@@ -1247,7 +1247,7 @@ function summarizeCandidate(candidate: CandidateBearing): ExplainBearingSummary 
     ...(candidate.profile ? { profile: candidate.profile } : {}),
     sources: candidate.sources.map((source) => ({ ...source })),
     target: { ...candidate.target },
-    derivedBy: candidate.derivedBy
+    targetBy: candidate.targetBy
   };
 }
 

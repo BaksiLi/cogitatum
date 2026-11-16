@@ -244,6 +244,14 @@ for example when its explicit clause names another target.
 Default relations already connect nested Points to their Point focus; failed occurrences and constructor sources supply no tie.
 Host units repeat anonymous keys, so each unit is passed separately with its own graph.
 
+`mapContext(unit)` returns everything the Map and Strands take from that unit besides its graph:
+its `outline` ties, `quiet` relevance and `awaiting` roles.
+Pass it as `map.update(unit.graph, scope, mapContext(unit))` and `strands.update(unit.graph, mapContext(unit))`.
+Quiet relevance is a `concerns` Bearing that placement alone constructed and a stated relation already entails, such as `[. @x]` beneath `@c` beside `[G use @x]` there.
+The Map draws it faintly along the line it shares and Strands sets its knot back; both keep it selectable and never omit it.
+An awaiting role is an occurrence whose mark has a function but no stated object, such as a root `[O]` or a G directly beneath Q.
+The Map gives that Point an open stub in the awaited relation's tone, joined to nothing; the stub states no relation.
+
 `ReadingUnit.commitments` records active occurrences' relation and note decisions from Explain, with the matching AST for written syntax:
 `indentation` (the nearest context selected the target, with that context row and any crossed body rows),
 `explicit` (a named target fixed it), `member` (a constructor's member source, adding no relation of its own), `note`,

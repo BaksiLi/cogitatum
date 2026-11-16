@@ -198,8 +198,8 @@ describe("reference-only Point occurrences", () => {
     expect(codes(explicit.graph)).toEqual([]);
     expect(relations(local.graph)).toEqual(relations(explicit.graph));
     expect(local.graph.points).toEqual(explicit.graph.points);
-    expect(local.graph.bearings.map(bearing => bearing.derivedBy)).toEqual(["structural", "structural", "structural"]);
-    expect(explicit.graph.bearings.map(bearing => bearing.derivedBy)).toEqual(["operator", "operator", "operator"]);
+    expect(local.graph.bearings.map(bearing => bearing.targetBy)).toEqual(["position", "position", "position"]);
+    expect(explicit.graph.bearings.map(bearing => bearing.targetBy)).toEqual(["name", "name", "name"]);
     expect(local.graph.bearings[0].sourceSpan?.startLine).toBe(7);
     expect(explicit.graph.bearings[0].sourceSpan?.startLine).toBe(5);
     expect(local.explain.entries.filter(entry => entry.effects.some(effect => effect.kind === "focusPoint"))).toHaveLength(4);

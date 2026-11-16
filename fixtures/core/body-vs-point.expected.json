@@ -34,7 +34,7 @@
             "kind": "point",
             "line": 1
           },
-          "derivedBy": "structural"
+          "targetBy": "position"
         },
         {
           "line": 6,
@@ -46,7 +46,7 @@
             "kind": "point",
             "line": 1
           },
-          "derivedBy": "structural"
+          "targetBy": "position"
         }
       ]
     }

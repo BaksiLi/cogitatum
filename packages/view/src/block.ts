@@ -5,7 +5,7 @@ import { createReadingView } from "./reading.js";
 import { createStrandsView, type StrandsView } from "./strands.js";
 import { MAP_CONTROLS } from "./map-controls.js";
 import { bearingLabel, declarationMark } from "./marks.js";
-import { outlineTies } from "./projection.js";
+import { mapContext } from "./projection.js";
 import { createProseScope, type ProseRenderer } from "./prose.js";
 
 export type { ProseRenderer } from "./prose.js";
@@ -262,7 +262,7 @@ export function createBlockView(container: HTMLElement, options: BlockViewOption
         onClear: () => choose(),
         onNavigate: options.onEdit ? ref => { choose(ref); void revealSource(selectedSpan); } : undefined
       });
-      sync(() => { strands!.update(graph!); if (selected) strands!.select(selected); });
+      sync(() => { strands!.update(graph!, mapContext(projection!.units[0])); if (selected) strands!.select(selected); });
     }
     if (mode === "map" && !map && graph) {
       map = createGraphView(mapSurface, {
@@ -270,7 +270,7 @@ export function createBlockView(container: HTMLElement, options: BlockViewOption
         onClear: () => choose(),
         onNavigate: options.onEdit ? () => { void revealSource(selectedSpan); } : undefined
       });
-      sync(() => { map!.update(graph!, "code-block", { outline: outlineTies(projection!.units[0]) }); if (selected) map!.select(selected); });
+      sync(() => { map!.update(graph!, "code-block", mapContext(projection!.units[0])); if (selected) map!.select(selected); });
       showDetail();
     }
   }
@@ -324,7 +324,7 @@ export function createBlockView(container: HTMLElement, options: BlockViewOption
         projection = prepareView(next);
         graph = projection.units[0]?.graph;
         if (!graph) { map?.destroy(); map = undefined; strands?.destroy(); strands = undefined; }
-        sync(() => { reading.update(projection!); map?.clear(); if (graph) { map?.update(graph, "code-block", { outline: outlineTies(projection!.units[0]) }); strands?.update(graph); } });
+        sync(() => { reading.update(projection!); map?.clear(); if (graph) { const context = mapContext(projection!.units[0]); map?.update(graph, "code-block", context); strands?.update(graph, context); } });
         modeButtons.get("map")!.disabled = !graph || (!graph.points.length && !graph.bearings.length);
         modeButtons.get("strands")!.disabled = !graph?.points.length;
         const errors = projection.diagnostics.filter(diagnostic => diagnostic.severity === "error").length;

@@ -92,7 +92,7 @@ describe("authoring boundaries under the 0.7 construction table", () => {
       // Naming the target changes only provenance; the members stay sources.
       const spanless = (bearings: typeof graph.bearings) => bearings.map(({sourceSpan: _s, ...b}) => b);
       expect(spanless(compile(source.replace(`[_ ${kind} ^; @joint]`, `[_ ${kind} @target; @joint]`)).graph.bearings))
-        .toEqual(spanless(graph.bearings).map((b, i) => i === 0 ? {...b, derivedBy:"operator"} : b));
+        .toEqual(spanless(graph.bearings).map((b, i) => i === 0 ? {...b, targetBy:"name"} : b));
       expect(graph.notes).toHaveLength(2);
     }
   );
@@ -134,13 +134,13 @@ describe("authoring boundaries under the 0.7 construction table", () => {
     expect(graph.diagnostics).toEqual([]);
     expect(graph.points).toHaveLength(4);
     expect(graph.bearings).toEqual([expect.objectContaining({
-      kind: "concerns", derivedBy: "structural",
+      kind: "concerns", targetBy: "position",
       sources: [{kind:"point", key: graph.points[1].key}], target: {kind:"point", key: graph.points[0].key}
     }), expect.objectContaining({
-      kind: "answers", derivedBy: "structural",
+      kind: "answers", targetBy: "position",
       sources: [{kind:"point", key: graph.points[2].key}], target: {kind:"point", key: graph.points[1].key}
     }), expect.objectContaining({
-      kind: "concerns", derivedBy: "structural",
+      kind: "concerns", targetBy: "position",
       sources: [{kind:"point", key: graph.points[3].key}], target: {kind:"point", key: graph.points[1].key}
     })]);
     expect(explain.entries.flatMap(entry => entry.effects.filter(effect => effect.kind === "implicitAttachment"))).toHaveLength(3);
@@ -149,7 +149,7 @@ describe("authoring boundaries under the 0.7 construction table", () => {
   it("keeps Q uses local and explicit overrides singular, with a source-preserving preview", () => {
     const source = "- [C @p] Parent.\n- [C @q] Reused as inquiry.\n- [. use @p]\n  - [Q use @q]";
     const {graph} = compile(source);
-    expect(graph.bearings.map(b=>[b.kind, b.derivedBy])).toEqual([["concerns", "structural"]]);
+    expect(graph.bearings.map(b=>[b.kind, b.targetBy])).toEqual([["concerns", "position"]]);
     expect(graph.points[1].declaration).toEqual({form:"role",role:"C"});
     expect(compile(source.replace("[Q use @q]", "[Q use @q +> @p]")).graph.bearings.map(b=>b.kind)).toEqual(["supports"]);
     expect(previewTargetForm(source, {line:4, form:"named"})).toMatchObject({status:"ready", proposedSource: source.replace("[Q use @q]", "[Q use @q ~> @p]")});

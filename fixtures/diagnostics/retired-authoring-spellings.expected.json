@@ -19,9 +19,9 @@
       { "line": 11, "form": "role", "role": "G", "id": "independent" }
     ],
     "bearings": [
-      { "line": 3, "kind": "supports", "sources": [1], "target": { "kind": "point", "line": 2 }, "derivedBy": "operator", "handle": "route" },
-      { "line": 7, "kind": "challenges", "sources": [7], "target": { "kind": "point", "line": 6 }, "derivedBy": "structural" },
-      { "line": 11, "kind": "supports", "sources": [11], "target": { "kind": "point", "line": 2 }, "derivedBy": "operator" }
+      { "line": 3, "kind": "supports", "sources": [1], "target": { "kind": "point", "line": 2 }, "targetBy": "name", "handle": "route" },
+      { "line": 7, "kind": "challenges", "sources": [7], "target": { "kind": "point", "line": 6 }, "targetBy": "position" },
+      { "line": 11, "kind": "supports", "sources": [11], "target": { "kind": "point", "line": 2 }, "targetBy": "name" }
     ]
   }]
 }

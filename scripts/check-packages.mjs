@@ -391,7 +391,7 @@ const closedGap: PointDeclaration = {form: 'gap'};
 const keys: string[] = bearings.flatMap(bearing => bearing.sources.map(source => source.key));
 const pointTarget = {key: 'point-key', kind: 'point' as const};
 const routeTarget = {key: 'route-key', kind: 'bearing' as const};
-const summary = {key: 'another-route', sources: [pointTarget], derivedBy: 'operator' as const};
+const summary = {key: 'another-route', sources: [pointTarget], targetBy: 'name' as const};
 const routeChallenge: ExplainEmittedBearingSummary = {...summary, kind: 'challenges', target: routeTarget};
 const pointChallenge: ExplainEmittedBearingSummary = {...summary, kind: 'challenges', target: pointTarget};
 // @ts-expect-error undercuts is no longer a canonical kind.

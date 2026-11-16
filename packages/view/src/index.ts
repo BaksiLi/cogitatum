@@ -1,10 +1,10 @@
-import type { BearingTarget, GraphIR } from "@cogitatum/core";
+import type { BearingKind, BearingTarget, GraphIR } from "@cogitatum/core";
 import { endingPoints, focusNeighborhood, guidanceSubject, projectExploration, projectGraph, referenceKey, type GraphNode, type GraphProjection } from "./projection.js";
 import { layoutGraph, type LabelExtent, type Point2 } from "./layout.js";
 import { createDragMotion, type DragReach } from "./motion.js";
 import { estimateEms, labelWidth, wrapMapLabel, type LabelLine } from "./map-label.js";
 import { bearingLabel, bearingMark, drawBearingGlyph, drawPointGlyph, MARK_TYPE, pointMark } from "./marks.js";
-import type { OutlineTie } from "./projection.js";
+import type { MapContext } from "./projection.js";
 export * from "./projection.js";
 export * from "./layout.js";
 export * from "./marks.js";
@@ -30,8 +30,10 @@ export type GraphView = {
   /**
    * Scope identifies one source unit; anonymous keys never survive an update.
    * `outline` keeps Points the author nested together near each other, with a faint tie and no Bearing.
+   * `quiet` relevance is drawn faintly on the line it shares; `awaiting` roles get an open stub toward their unstated target.
+   * `mapContext(unit)` derives all three from one host unit.
    */
-  update(graph: GraphIR, scope: string, context?: { outline?: readonly OutlineTie[] }): void;
+  update(graph: GraphIR, scope: string, context?: MapContext): void;
   resetLayout(): void;
   select(ref: BearingTarget): void;
   clear(): void;
@@ -64,6 +66,8 @@ type Gesture =
   | { kind: "pinch"; distance: number; scale: number; anchor: Point2 };
 type Box = { x0: number; x1: number; y0: number; y1: number };
 type Shape = { id: string; node: GraphNode; g: SVGGElement; glyph?: SVGGElement; label?: SVGTextElement; labelHit?: SVGRectElement; inline: boolean; scale?: number };
+/** Length of an awaiting stub beyond the mark's ring, and how far successive stubs on one mark turn apart. */
+const STUB = 15, STUB_TURN = .5;
 
 /**
  * Framework-neutral mount/update/destroy lifecycle. Positions live in a world space; the camera maps
@@ -90,6 +94,8 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
   let ties: { source: string; target: string }[] = [];
   /** Points that bear on nothing yet have something bearing on them: the inquiry's conclusions. */
   let endings = new Set<string>();
+  /** Bearing keys of placement relevance that a stated relation entails; node ids awaiting a stated target, with the kinds they await. */
+  let quiet = new Set<string>(), awaiting = new Map<string, BearingKind[]>();
   let world = new Map<string, Point2>(), camera: Camera = { k: 1, tx: 0, ty: 0 }, size = { w: 0, h: 0 };
   let scope = "", selected: string | undefined, hovered: string | undefined;
   let destroyed = false, cameraTouched = false, frame = 0, settleFrame = 0, bottomInset = 0;
@@ -188,7 +194,7 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
     }
     for (const node of inline) {
       const id = node.id;
-      const g = element("g", { class: `cog-node bearing cog-inline-bearing cog-${node.label}`, role: "button", tabindex: "-1", "data-node": id }, glyphLayer);
+      const g = element("g", { class: `cog-node bearing cog-inline-bearing cog-${node.label}${quiet.has(node.ref.key) ? " cog-quiet" : ""}`, role: "button", tabindex: "-1", "data-node": id }, glyphLayer);
       element("circle", { class: "cog-hit", r: "13" }, g);
       element("circle", { class: "cog-focus-ring", r: "12" }, g);
       drawBearingGlyph(g, node.label, false);
@@ -205,8 +211,11 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
     const shape = node.ref.kind === "bearing" ? (sources > 1 ? `joint, ${sources} sources` : "one source") : "";
     const text = node.text === node.label ? "" : `: ${node.text}`;
     const notes = node.noteCount ? `; ${node.noteCount} source note${node.noteCount === 1 ? "" : "s"}` : "";
-    g.setAttribute("aria-label", `${name}${shape ? ` (${shape})` : ""}${node.name ? ` @${node.name}` : ""}${text}${notes}`);
-    const title = element("title", {}, g); title.textContent = `${name}${node.name ? ` @${node.name}` : ""}${text}${notes}`;
+    const awaited = awaiting.get(node.id), state = node.ref.kind === "bearing" && quiet.has(node.ref.key)
+      ? "; already entailed by a stated relation"
+      : awaited ? `; target unstated for ${awaited.map(kind => bearingLabel(kind)).join(" and ")}` : "";
+    g.setAttribute("aria-label", `${name}${shape ? ` (${shape})` : ""}${node.name ? ` @${node.name}` : ""}${text}${notes}${state}`);
+    const title = element("title", {}, g); title.textContent = `${name}${node.name ? ` @${node.name}` : ""}${text}${notes}${state}`;
     if (node.noteCount) {
       element("text", { class: "cog-note-count", x: "11", y: "-10", "aria-hidden": "true" }, g).textContent = String(node.noteCount);
     }
@@ -394,6 +403,20 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
         "data-active": String(!guided || (related.has(tie.source) && related.has(tie.target))), "aria-hidden": "true" }, edgeLayer);
       if (entrance) path.style.opacity = String(lineIn(tie.source, tie.target));
     }
+    // An awaiting role: a short open stub up and to the right of its mark, in the awaited relation's tone, joined to nothing.
+    for (const [id, kinds] of awaiting) {
+      const shape = shapes.get(id);
+      if (!shape || shape.inline) continue;
+      const p = screen(world.get(id)!), r = ringR() * (endings.has(id) ? ENDING : 1);
+      kinds.forEach((kind, i) => {
+        const turn = Math.PI / 4 - i * STUB_TURN, ux = Math.cos(turn), uy = -Math.sin(turn);
+        const from = { x: p.x + ux * (r + 2), y: p.y + uy * (r + 2) }, to = { x: p.x + ux * (r + STUB), y: p.y + uy * (r + STUB) };
+        const g = element("g", { class: `cog-await cog-tone-${bearingMark(kind).tone}`, "data-active": String(!guided || related.has(id)), "aria-hidden": "true" }, edgeLayer);
+        element("path", { d: `M${from.x.toFixed(1)} ${from.y.toFixed(1)}L${to.x.toFixed(1)} ${to.y.toFixed(1)}` }, g);
+        element("circle", { cx: (to.x + ux * 2.4).toFixed(1), cy: (to.y + uy * 2.4).toFixed(1), r: "2.4" }, g);
+        if (entrance) g.style.opacity = String(pointIn(id));
+      });
+    }
     const at = (a: Point2, c1: Point2, c2: Point2, t: Point2, s: number) => {
       const u = 1 - s;
       return { x: u*u*u*a.x + 3*u*u*s*c1.x + 3*u*s*s*c2.x + s*s*s*t.x, y: u*u*u*a.y + 3*u*u*s*c1.y + 3*u*s*s*c2.y + s*s*s*t.y };
@@ -470,7 +493,8 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
       }
       const d = `M${a.x.toFixed(1)} ${a.y.toFixed(1)}C${c1.x.toFixed(1)} ${c1.y.toFixed(1)} ${c2.x.toFixed(1)} ${c2.y.toFixed(1)} ${t.x.toFixed(1)} ${t.y.toFixed(1)}`;
       const on = !guided || active.has(link.bearingKey);
-      const path = element("path", { d, class: `cog-link ${link.segment} cog-tone-${mark.tone}${mark.dashed ? " cog-dashed" : ""}`, "data-active": String(on), "data-bearing": link.bearingKey, "aria-hidden": "true" }, edgeLayer);
+      const hush = quiet.has(link.bearingKey) ? " cog-quiet" : "";
+      const path = element("path", { d, class: `cog-link ${link.segment} cog-tone-${mark.tone}${mark.dashed ? " cog-dashed" : ""}${hush}`, "data-active": String(on), "data-bearing": link.bearingKey, "aria-hidden": "true" }, edgeLayer);
       // The browser swells the stroke without redrawing or measuring the whole Map each frame.
       // If a drag redraws this path meanwhile, continue the original pulse instead of restarting it.
       if (pulseAt && guided && on) {
@@ -488,7 +512,7 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
         // Support arrives as a slim engraved barb, notched where the line enters it.
         // A challenge ends in a bar across its line, the notation for a check rather than a push; on a step,
         // the junction's facing side is that bar.
-        const head = element("path", { class: `cog-arrow${contest ? " cog-arrow-bar" : ""}${onStep ? " cog-arrow-step" : ""} cog-tone-${mark.tone}`, "data-active": String(on), "aria-hidden": "true",
+        const head = element("path", { class: `cog-arrow${contest ? " cog-arrow-bar" : ""}${onStep ? " cog-arrow-step" : ""} cog-tone-${mark.tone}${hush}`, "data-active": String(on), "aria-hidden": "true",
           d: onStep
             ? (() => {
               // On the diamond's facing side itself, short of its corners: the side is inked, nothing stands off it.
@@ -943,8 +967,16 @@ export function createGraphView(container: HTMLElement, options: GraphViewOption
       if (sameScope) for (const node of topology.nodes) { const p = world.get(node.id); if (p && node.name) carried.set(positionKey(node), p); }
       full = projectGraph(graph);
       endings = new Set(endingPoints(graph).map(point => referenceKey({ kind: "point", key: point.key })));
-      const exploration = projectExploration(full);
-      topology = { nodes: exploration.nodes, links: exploration.links };
+      const bearingKeys = new Set(graph.bearings.map(bearing => bearing.key)), pointIds = new Set(full.nodes.map(node => node.id));
+      quiet = new Set((context?.quiet ?? []).map(ref => ref.key).filter(key => bearingKeys.has(key)));
+      awaiting = new Map();
+      for (const { point, awaits } of context?.awaiting ?? []) {
+        const id = referenceKey(point);
+        if (pointIds.has(id) && !awaiting.get(id)?.includes(awaits)) awaiting.set(id, [...awaiting.get(id) ?? [], awaits]);
+      }
+      const exploration = projectExploration(full, quiet);
+      // Quiet relevance is drawn after the line it shares, so the stated relation keeps the straight course.
+      topology = { nodes: exploration.nodes, links: [...exploration.links.filter(link => !quiet.has(link.bearingKey)), ...exploration.links.filter(link => quiet.has(link.bearingKey))] };
       const drawn = new Set(topology.nodes.map(node => node.id));
       ties = (context?.outline ?? []).map(tie => ({ source: referenceKey(tie.child), target: referenceKey(tie.parent) }))
         .filter(tie => drawn.has(tie.source) && drawn.has(tie.target));

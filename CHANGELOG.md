@@ -21,6 +21,9 @@ Source that compiled under 0.6 can construct different relations; follow [Migrat
   `emitBearing.entailedBy` names the entailing Bearings, readback says “already entailed by”, host commitments carry `entailedByOccurrenceIds`, and View rows get `data-entailed`; the Graph is unchanged.
 - Reading lists and navigates every diagnostic's related companion and dependent location, while counting only root issues.
   `onNavigateDiagnostic` receives the unchanged root and an optional related entry; Block previews navigate that entry's exact source span.
+- Rename Bearing `derivedBy: "structural" | "operator"` to `targetBy: "position" | "name"` in Graph IR and Explain.
+  The field always recorded how the target was selected, by placement or by a written name; the mark, not the field, is what commits the relation.
+  Rename the key and map the two values when migrating saved JSON consumers.
 - Record an occurrence's framing as Explain effect `frameOccurrence` on two independent axes.
   `fit` (`home`, `compatible` or `opposed`, absent when nothing is constructed) compares the constructed kind with the mark; `intention` (`bound`, `unbound` with `awaits`, or `none`) says whether the mark's function has a stated object.
   So `[O @x +> @c]` is opposed but bound, and G beneath Q is compatible but unbound.
@@ -60,6 +63,9 @@ Source that compiled under 0.6 can construct different relations; follow [Migrat
 - Add `@cogitatum/core/host` with `prepareView(source, mode)`, the source-aware host view as plain, serializable data for Web, native and terminal renderers.
   The former View `projectReading`, `occurrenceAtLine` and `referenceKey` move there unchanged, so native hosts no longer reconstruct roles, parents or endpoints themselves; private View now renders this data and `outlineTies` remains View's Map placement.
 - Align private View with the 0.7 contracts: commitment descriptions follow `frameOccurrence`, example support is labelled, and outline ties appear only where no Bearing already joins a Point to its outline parent.
+- Add host commitment `bearing`, the surviving Bearing an occurrence constructs.
+- Add View `mapContext(unit)` for the Map and Strands: quiet relevance is drawn faintly beside the stated relation that entails it, and a role with an unstated object gets an open stub in the awaited relation's tone.
+  `GraphView.update` takes the whole context; `{ outline }` alone still works.
 - Snapshot the 0.6.0 schemas under `spec/0.6.0/`; the 0.7.0 schemas validate format 0.7 only.
 
 ## 0.6.2 — 9 November 2026

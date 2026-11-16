@@ -139,7 +139,7 @@ describe("target-form previews", () => {
         if (change === "member order") result.documents[0].blocks[0].children[0].children.reverse();
         if (change === "note ownership") result.graphs[0].notes[0].target = { kind: "point", key: result.graphs[0].points[0].key };
         if (change === "source order") result.graphs[0].bearings[0].sources.reverse();
-        if (change === "provenance") result.graphs[0].bearings[0].derivedBy = "structural";
+        if (change === "provenance") result.graphs[0].bearings[0].targetBy = "position";
         if (change === "diagnostic") result.diagnostics.push({ severity: "suggestion", code: "UNEXPECTED", message: "New concern." });
       }
       return result;
@@ -175,7 +175,7 @@ describe("target-form previews", () => {
       expect(preview.consequence).toContain(`The relation is now written as ${symbol}; changing the mark will no longer change it.`);
       const before = explainSource(source).graphs[0], after = explainSource(preview.proposedSource).graphs[0];
       expect(formatGraph(after)).toBe(formatGraph(before));
-      expect(after.bearings[0]).toMatchObject({ handle: "step", derivedBy: "operator" });
+      expect(after.bearings[0]).toMatchObject({ handle: "step", targetBy: "name" });
       expect(after.bearings[1].target).toEqual({ kind: "bearing", key: after.bearings[0].key });
     });
 
@@ -208,7 +208,7 @@ describe("target-form previews", () => {
           const before = explainSource(source).graphs[0], after = explainSource(preview.proposedSource).graphs[0];
           expect(formatGraph({ ...after, diagnostics: [] })).toBe(formatGraph({ ...before, diagnostics: [] }));
           expect(after.notes).toEqual(before.notes);
-          expect(after.bearings[0]).toMatchObject({ kind, handle: "step", derivedBy: "operator" });
+          expect(after.bearings[0]).toMatchObject({ kind, handle: "step", targetBy: "name" });
           expect(previewTargetForm(preview.proposedSource, { line: 4, form: "named" })).toMatchObject({ reason: "already-named" });
         }
       }

@@ -11,13 +11,13 @@
       { "line": 14, "form": "role", "role": "C", "id": "third" }
     ],
     "bearings": [
-      { "line": 5, "kind": "supports", "sources": [2], "target": { "kind": "point", "line": 3 }, "derivedBy": "structural", "handle": "step" },
-      { "line": 6, "kind": "challenges", "sources": [6], "target": { "kind": "bearing", "line": 5 }, "derivedBy": "structural" },
-      { "line": 7, "kind": "respondsTo", "sources": [7], "target": { "kind": "point", "line": 6 }, "derivedBy": "structural" },
-      { "line": 9, "kind": "supports", "sources": [2, 7], "target": { "kind": "point", "line": 8 }, "derivedBy": "structural", "handle": "joint" },
-      { "line": 12, "kind": "challenges", "sources": [6], "target": { "kind": "bearing", "line": 9 }, "derivedBy": "structural", "handle": "review" },
-      { "line": 13, "kind": "respondsTo", "sources": [7], "target": { "kind": "point", "line": 6 }, "derivedBy": "structural" },
-      { "line": 15, "kind": "supports", "sources": [3], "target": { "kind": "point", "line": 14 }, "derivedBy": "structural", "handle": "serial" }
+      { "line": 5, "kind": "supports", "sources": [2], "target": { "kind": "point", "line": 3 }, "targetBy": "position", "handle": "step" },
+      { "line": 6, "kind": "challenges", "sources": [6], "target": { "kind": "bearing", "line": 5 }, "targetBy": "position" },
+      { "line": 7, "kind": "respondsTo", "sources": [7], "target": { "kind": "point", "line": 6 }, "targetBy": "position" },
+      { "line": 9, "kind": "supports", "sources": [2, 7], "target": { "kind": "point", "line": 8 }, "targetBy": "position", "handle": "joint" },
+      { "line": 12, "kind": "challenges", "sources": [6], "target": { "kind": "bearing", "line": 9 }, "targetBy": "position", "handle": "review" },
+      { "line": 13, "kind": "respondsTo", "sources": [7], "target": { "kind": "point", "line": 6 }, "targetBy": "position" },
+      { "line": 15, "kind": "supports", "sources": [3], "target": { "kind": "point", "line": 14 }, "targetBy": "position", "handle": "serial" }
     ]
   }]
 }

@@ -6,7 +6,7 @@ describe("explicit Claim openness retirement", () => {
     const { graph, explain } = compileGraphWithExplain(parseDocument("- [C @target] Outer.\n  - " + header + "\n    - [G @child] No outward fallback.\n    - [_ @child +> @target] Independent.\n- [. use @old] No declaration."));
     expect(graph.points.map(point => point.id)).toEqual(["target", "child"]);
     expect(graph.bearings).toHaveLength(1);
-    expect(graph.bearings[0].derivedBy).toBe("operator");
+    expect(graph.bearings[0].targetBy).toBe("name");
     expect(graph.diagnostics.map(diagnostic => diagnostic.code)).toEqual(expect.arrayContaining(["RETIRED_CLAIM_OPENNESS", "FAILED_CONTEXT_REQUIRES_EXPLICIT_TARGET", "UNKNOWN_POINT_REFERENCE"]));
     expect(explain.entries[1].recognition.kind).toBe("invalid");
     expect(graph.diagnostics.filter(diagnostic => diagnostic.code === "RETIRED_CLAIM_OPENNESS")).toHaveLength(1);

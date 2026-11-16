@@ -25,7 +25,7 @@ describe("questions concerning a local Bearing", () => {
     expect(graph.bearings[0].sources).toEqual([{ kind: "point", key: graph.points[1].key }]);
     expect(graph.bearings[1]).toMatchObject({
       sources: [{ kind: "point", key: graph.points[2].key }],
-      target: { kind: "bearing", key: graph.bearings[0].key }, handle: "inquiry", derivedBy: "structural"
+      target: { kind: "bearing", key: graph.bearings[0].key }, handle: "inquiry", targetBy: "position"
     });
     expect(graph.bearings[1].text).toBeUndefined();
     expect(graph.bearings[2].target).toEqual({ kind: "point", key: graph.points[2].key });
@@ -60,7 +60,7 @@ describe("questions concerning a local Bearing", () => {
     expect(step.graph.diagnostics).toEqual([]);
     const endpoints = (graph: typeof bare.graph) => graph.bearings.map(({ kind, sources, target }) => ({ kind, sources, target }));
     expect(endpoints(bare.graph)).toEqual(endpoints(point.graph));
-    expect(bare.graph.bearings[1].derivedBy).toBe("structural");
+    expect(bare.graph.bearings[1].targetBy).toBe("position");
     expect(point.graph.bearings[1].target).toEqual({ kind: "point", key: point.graph.points[1].key });
     expect(step.graph.bearings[1].target).toEqual({ kind: "bearing", key: step.graph.bearings[0].key });
   });
@@ -89,7 +89,7 @@ describe("questions concerning a local Bearing", () => {
     expect(graph.diagnostics).toEqual([]);
     expect(graph.bearings.map(bearing => bearing.kind)).toEqual(["supports", "challenges"]);
     expect(graph.bearings[1]).toMatchObject({
-      derivedBy: "operator", target: { kind: "bearing", key: graph.bearings[0].key }
+      targetBy: "name", target: { kind: "bearing", key: graph.bearings[0].key }
     });
     expect(graph.points[2].declaration).toEqual({ form: "role", role: "Q" });
   });

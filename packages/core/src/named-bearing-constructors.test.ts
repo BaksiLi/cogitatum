@@ -22,7 +22,7 @@ describe("named canonical Bearing constructors", () => {
     expect(bearing.sources.map(ref => graph.points.find(point => point.key === ref.key)?.id)).toEqual(["second", "first"]);
     expect(bearing.target.kind).toBe("point");
     expect(bearing.text).toBe("Description mentions respondsTo without another clause.");
-    expect(bearing.derivedBy).toBe("operator");
+    expect(bearing.targetBy).toBe("name");
     expect(explain.entries[4].effects).toContainEqual(expect.objectContaining({ kind: "emitBearing", reason: "operator-clause", bearing: expect.objectContaining({ kind: kind }) }));
   });
 

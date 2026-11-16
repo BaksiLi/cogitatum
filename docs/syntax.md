@@ -454,7 +454,7 @@ Without listed sources, each direct child has one function, decided by what its 
 `[G]` and `[G +> ^]` are therefore both invalid direct members here; beneath a Q focus they have different meanings.
 All Point-family aliases apply, and a source may be a use of an existing Point.
 Their roles, content, optional anchors, and individual spans remain intact.
-The constructor has no Point of its own, and its Bearing uses `derivedBy: "structural"` when its target is positional, or `"operator"` when it is named.
+The constructor has no Point of its own, and its Bearing uses `targetBy: "position"` when its target is positional, or `"name"` when it is named.
 Its span is the header block's own, including continuations but excluding children.
 Optional prose after the header, including continuations, becomes that Bearing's `text`.
 It is a description of the connection, not a new Point, member, or parsed argument.
@@ -535,7 +535,7 @@ The Question's ordinary children follow the same rules as any Point's children: 
 
 The pair records the same selected graph structure, including the original support and the response to the Question.
 The local form also works when the step is anonymous.
-Spans, `derivedBy`, Explain and original source remain distinct.
+Spans, `targetBy`, Explain and original source remain distinct.
 
 | Written beneath the Ground | Recorded relation |
 | --- | --- |
@@ -895,7 +895,7 @@ When migrating a call that relied on automatic fence selection, pass `host` expl
 
 All input modes permit indentation-based authoring, explicit-relation authoring, or a mixture.
 These writing techniques are not additional compiler input modes.
-`derivedBy` records how an individual Bearing was produced, not the input mode or an authoring style for the document.
+`targetBy` records how an individual Bearing's target was selected, by placement or by a written name, not the input mode or an authoring style for the document.
 The three symbolic operators retain their meanings.
 Constructors, Point declarations and Point uses may use any case-sensitive canonical kind name, including `answers`, `respondsTo` and `interprets`, toward a named or positional target.
 A constructor writes a relation, never a role letter: `[_ +> ^]` or `[_ supports ^]`, not `[_ G]`.
@@ -1011,6 +1011,7 @@ including selectors and constructors; see [the preservation limits](graph-inspec
 
 A Graph IR Point holds `key`, optional `id`, shared `text`, its canonical declaration `sourceSpan`, and `declaration`.
 `declaration` records how the Point was introduced: `form` (`role` or `material`), with `role` required only for the role form.
+It is the declaring occurrence's presentation, not a type of the Point: the same Point can be used elsewhere with another mark, and a role commits to a relation only through a Bearing.
 Neither form carries a resolution status, and no use changes the declaration.
 Marks written at uses, including neutral and selector marks, live only in the AST annotation and Explain recognition; derive them from there, never from `declaration`.
 An attachment created at an occurrence is an ordinary Bearing.
@@ -1079,7 +1080,7 @@ Compilation rejects a clean listed-source constructor without a clause rather th
 | Point | Required `key` | Optional `id` |
 | Bearing | Required `key` | Optional `handle` |
 
-Graph references use `{ key, kind }`; AST references remain `{ id }`. Keys are opaque, nonempty strings, deterministic for one compilation and local to one graph, with no cross-revision promise. The current compiler emits keys such as `_p1` and `_b1`; consumers must not parse their prefixes or numbers, infer array indexes from them, or use them as authored references. Use `kind` to distinguish Point and Bearing references. A Bearing has `kind`, Point `sources`, one `target`, and `derivedBy: "operator" | "structural"`; optional `text` describes a route, and only `supports` may carry `profile: "example"`.
+Graph references use `{ key, kind }`; AST references remain `{ id }`. Keys are opaque, nonempty strings, deterministic for one compilation and local to one graph, with no cross-revision promise. The current compiler emits keys such as `_p1` and `_b1`; consumers must not parse their prefixes or numbers, infer array indexes from them, or use them as authored references. Use `kind` to distinguish Point and Bearing references. A Bearing has `kind`, Point `sources`, one `target`, and `targetBy: "name" | "position"`; optional `text` describes a route, and only `supports` may carry `profile: "example"`.
 
 Explain emission references use graph keys; Bearing emissions also have a graph index and optional handle. The index addresses this compilation's Bearing array only. Emitted summaries obey the same kind/target restrictions as canonical Bearings. Rejected candidates can retain unresolved authored `{ id }` references or a resolved target of the wrong kind: that mismatch can explain the rejection. They can also retain repeated sources when explaining a rejected joint; emitted summaries and Graph IR still require unique sources.
 They are not graph entities. An entry's `diagnosticCodes` lists, once each, the codes of diagnostics whose span shares a line with the entry's span.
@@ -1486,7 +1487,7 @@ JSON from earlier unpublished 0.4.0 candidates is not silently interchangeable w
 Historical 0.3 research records remain evidence of that version's behaviour.
 
 Package 0.4.11 retains failed boundaries at invalid indentation, corrects content columns after wider bullet separators, and keeps malformed-use error categories unique.
-Its Explain schema permits repeated sources only in rejected summaries and rejects the unsupported `derivedBy: "retired"` value.
+Its Explain schema permits repeated sources only in rejected summaries and rejects the unsupported `targetBy: "retired"` value.
 Reparse affected source and validate against this complete schema bundle; a matching format label alone does not identify these corrections.
 
 Package 0.4.10 changes recognition and some partial graphs, so reparse retained source rather than reusing stored AST, Graph IR or Explain.

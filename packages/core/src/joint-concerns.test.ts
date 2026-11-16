@@ -35,9 +35,9 @@ describe("joint concerns", () => {
     const [before, after, change] = graph.points.map(point => ({ kind: "point" as const, key: point.key }));
     expect(graph.bearings).toEqual([
       { key: expect.any(String), handle: "comparison", kind: "concerns", sources: [after, before], target: change,
-        derivedBy: "operator", sourceSpan: blocks[0].sourceSpan, text: "Read the versions together." },
+        targetBy: "name", sourceSpan: blocks[0].sourceSpan, text: "Read the versions together." },
       { key: expect.any(String), handle: "context", kind: "concerns", sources: [before, after],
-        target: { kind: "bearing", key: graph.bearings[0].key }, derivedBy: "operator",
+        target: { kind: "bearing", key: graph.bearings[0].key }, targetBy: "name",
         sourceSpan: blocks[1].sourceSpan, text: "Material concerning that comparison." }
     ]);
     for (const [index, bearing] of graph.bearings.entries()) {
@@ -54,7 +54,7 @@ describe("joint concerns", () => {
           kind: "emitBearing", reason: "operator-clause",
           ref: { kind: "bearing", key: bearing.key, handle: bearing.handle, graphIndex: index },
           bearing: { key: bearing.key, handle: bearing.handle, kind: "concerns",
-            sources: bearing.sources, target: bearing.target, derivedBy: "operator" }
+            sources: bearing.sources, target: bearing.target, targetBy: "name" }
         }])
       });
     }

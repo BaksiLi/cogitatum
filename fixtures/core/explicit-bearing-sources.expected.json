@@ -43,7 +43,7 @@
             "kind": "point",
             "line": 2
           },
-          "derivedBy": "operator",
+          "targetBy": "name",
           "handle": "joint-case"
         },
         {
@@ -56,7 +56,7 @@
             "kind": "bearing",
             "line": 5
           },
-          "derivedBy": "operator"
+          "targetBy": "name"
         },
         {
           "line": 7,
@@ -68,7 +68,7 @@
             "kind": "point",
             "line": 6
           },
-          "derivedBy": "structural"
+          "targetBy": "position"
         }
       ]
     }

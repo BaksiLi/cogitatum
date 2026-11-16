@@ -9,19 +9,19 @@ const base = "- [C @claim] 公共交通應該免費。\n- [. @p] 去年展會免
 
 describe("by example qualifies a constructed supports Bearing", () => {
   it.each([
-    ["- [. @x +> @claim by example] 例子。", ["x"], "operator"],
-    ["- [C @host] 宿主。\n  - [. @x supports ^ by example; @route] 例子。", ["x"], "structural"],
-    ["- [. use @p +> @claim by example]", ["p"], "operator"],
-    ["- [_ @p, @q +> @claim by example] 合起來是一個例子。", ["p", "q"], "operator"],
-    ["- [C @host] 宿主。\n  - [G @x by example] 例子。", ["x"], "structural"],
-    ["- [C @host] 宿主。\n  - [G use @p by example; @route]", ["p"], "structural"],
-    ["- [C @host] 宿主。\n  - [_ +> ^ by example; @route]\n    - [. use @p]\n    - [. use @q]", ["p", "q"], "structural"]
-  ])("%s", (source, sources, derivedBy) => {
+    ["- [. @x +> @claim by example] 例子。", ["x"], "name"],
+    ["- [C @host] 宿主。\n  - [. @x supports ^ by example; @route] 例子。", ["x"], "position"],
+    ["- [. use @p +> @claim by example]", ["p"], "name"],
+    ["- [_ @p, @q +> @claim by example] 合起來是一個例子。", ["p", "q"], "name"],
+    ["- [C @host] 宿主。\n  - [G @x by example] 例子。", ["x"], "position"],
+    ["- [C @host] 宿主。\n  - [G use @p by example; @route]", ["p"], "position"],
+    ["- [C @host] 宿主。\n  - [_ +> ^ by example; @route]\n    - [. use @p]\n    - [. use @q]", ["p", "q"], "position"]
+  ])("%s", (source, sources, targetBy) => {
     const { graph, codes } = compile(base + source);
     expect(codes).toEqual([]);
     const profiled = graph.bearings.filter(b => b.profile);
     expect(profiled).toHaveLength(1);
-    expect(profiled[0]).toMatchObject({ kind: "supports", profile: "example", derivedBy });
+    expect(profiled[0]).toMatchObject({ kind: "supports", profile: "example", targetBy });
     expect(profiled[0].sources.map(s => graph.points.find(p => p.key === s.key)?.id)).toEqual(sources);
     // The profile belongs to the Bearing: no Point records it.
     expect(JSON.stringify(graph.points)).not.toContain("example");

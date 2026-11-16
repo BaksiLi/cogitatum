@@ -34,7 +34,7 @@
             "kind": "point",
             "line": 2
           },
-          "derivedBy": "structural",
+          "targetBy": "position",
           "handle": "route"
         }
       ]

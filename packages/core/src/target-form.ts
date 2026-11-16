@@ -127,7 +127,7 @@ function preserves(before: ExplainedSource, after: ExplainedSource, unitIndex: n
   const expected = structuredClone(before.graphs);
   const changed = expected[unitIndex].bearings.find(b => b.key === bearingKey);
   if (!changed) return false;
-  changed.derivedBy = form === "named" ? "operator" : "structural";
+  changed.targetBy = form === "named" ? "name" : "position";
   if (!same(expected.map(({ diagnostics: _d, ...g }) => g), after.graphs.map(({ diagnostics: _d, ...g }) => g), ["sourceSpan"])) return false;
   // Messages can embed changed columns; compare severity, code and start.
   const signature = (diagnostics: Diagnostic[]) => diagnostics

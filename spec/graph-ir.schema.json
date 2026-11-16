@@ -121,7 +121,7 @@
     },
     "bearing": {
       "type": "object",
-      "required": ["key", "kind", "sources", "target", "derivedBy"],
+      "required": ["key", "kind", "sources", "target", "targetBy"],
       "properties": {
         "key": { "$ref": "#/$defs/bearingKey" },
         "handle": { "$ref": "#/$defs/authoredId" },
@@ -143,7 +143,7 @@
           ]
         },
         "text": { "type": "string", "minLength": 1, "description": "Derived only from this Bearing's accepted constructor-description record, never from object-note prose." },
-        "derivedBy": { "enum": ["operator", "structural"], "description": "structural: the target was selected by position (^, ^/ or a mark default); operator: the target was named." },
+        "targetBy": { "enum": ["name", "position"], "description": "position: the target was selected by placement (^, ^/ or a mark default); name: the target was written as a name." },
         "sourceSpan": { "$ref": "#/$defs/sourceSpan" }
       },
       "allOf": [

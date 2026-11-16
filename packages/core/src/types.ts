@@ -3,8 +3,8 @@ export const FORMAT_VERSION = "0.7.0";
 export type Role = "Q" | "C" | "G" | "O" | "R" | "D";
 export type BearingOp = "supports" | "challenges" | "concerns";
 export type BearingKind = BearingOp | "respondsTo" | "interprets" | "answers";
-/** How the target was selected: by position ("structural") or by name ("operator"). */
-export type BearingDerivedBy = "operator" | "structural";
+/** How the target was selected: by placement ("position") or by a written name ("name"). */
+export type BearingTargetBy = "name" | "position";
 export type Severity = "error" | "warning" | "suggestion";
 export type AnnotationSyntaxError = "operator" | "handle" | "mode" | "selector" | "reference" | "retired" | "note" | "profile";
 /**
@@ -190,7 +190,7 @@ type BearingBase = {
   sources: PointRef[];
   /** Derived only from this Bearing's constructor description, never object notes. */
   text?: string;
-  derivedBy: BearingDerivedBy;
+  targetBy: BearingTargetBy;
   sourceSpan?: SourceSpan;
 };
 
@@ -260,7 +260,7 @@ export type ExplainBearingSummary = {
   profile?: BearingProfile;
   sources: (PointRef | Ref)[];
   target: ExplainReference;
-  derivedBy: BearingDerivedBy;
+  targetBy: BearingTargetBy;
 };
 
 export type ExplainEmittedBearingSummary = Omit<BearingBase, "text" | "sourceSpan"> & BearingRelation;

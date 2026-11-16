@@ -34,7 +34,7 @@
             "kind": "point",
             "line": 2
           },
-          "derivedBy": "structural",
+          "targetBy": "position",
           "handle": "flat-route"
         },
         {
@@ -47,7 +47,7 @@
             "kind": "bearing",
             "line": 3
           },
-          "derivedBy": "operator"
+          "targetBy": "name"
         }
       ]
     }
