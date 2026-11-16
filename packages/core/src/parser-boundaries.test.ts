@@ -1,15 +1,9 @@
-import { readFileSync } from "node:fs";
-import { Ajv2020 } from "ajv/dist/2020.js";
 import { describe, expect, it } from "vitest";
 import { compileGraph, explainSource, parseDocument } from "./index.js";
 import type { GraphIR, SourceParseMode } from "./types.js";
+import { schemaValidators } from "./schema-helpers.test.mjs";
 
-const ajv = new Ajv2020({ allErrors: true });
-const schemas = ["ast", "graph-ir", "explain"].map((name) =>
-  JSON.parse(readFileSync(new URL(`../../../spec/${name}.schema.json`, import.meta.url), "utf8"))
-);
-for (const schema of schemas) ajv.addSchema(schema);
-const [validateAst, validateGraph, validateExplain] = schemas.map((schema) => ajv.getSchema(schema.$id)!);
+const [validateAst, validateGraph, validateExplain] = schemaValidators("ast", "graph-ir", "explain");
 
 function explainUnit(source: string, mode: SourceParseMode) {
   const input = mode === "host" ? `Host prose.\n\n\`\`\`cog\n${source}\n\`\`\`\n` : source;

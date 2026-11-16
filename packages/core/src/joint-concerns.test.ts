@@ -1,12 +1,8 @@
-import { readFileSync } from "node:fs";
-import { Ajv2020 } from "ajv/dist/2020.js";
 import { describe, expect, it } from "vitest";
 import { analyzeSourceReferences, explainSource, formatGraph } from "./index.js";
+import { schemaValidators } from "./schema-helpers.test.mjs";
 
-const ajv = new Ajv2020({ allErrors: true });
-const schema = (name: string) => JSON.parse(readFileSync(new URL(`../../../spec/${name}.schema.json`, import.meta.url), "utf8"));
-for (const name of ["ast", "graph-ir", "explain"]) ajv.addSchema(schema(name));
-const validateSource = ajv.compile(schema("source"));
+const [validateSource] = schemaValidators("source");
 const declarations = [
   "- [. @before] Original clause.",
   "- [. @after] Revised clause.",

@@ -1,5 +1,4 @@
 import { readFileSync } from "node:fs";
-import { Ajv2020 } from "ajv/dist/2020.js";
 import { describe, expect, it } from "vitest";
 import {
   compileGraph,
@@ -10,18 +9,9 @@ import {
   parseSource
 } from "./index.js";
 import { json } from "./test-helpers.test.mjs";
+import { schemaValidators } from "./schema-helpers.test.mjs";
 
-const ajv = new Ajv2020({ allErrors: true });
-const schema = (name: string) => JSON.parse(readFileSync(new URL(`../../../spec/${name}.schema.json`, import.meta.url), "utf8"));
-const astSchema = schema("ast");
-const graphSchema = schema("graph-ir");
-const explainSchema = schema("explain");
-const sourceSchema = schema("source");
-for (const contract of [astSchema, graphSchema, explainSchema]) ajv.addSchema(contract);
-const validateAst = ajv.getSchema(astSchema.$id)!;
-const validateGraph = ajv.getSchema(graphSchema.$id)!;
-const validateExplain = ajv.getSchema(explainSchema.$id)!;
-const validateSource = ajv.compile(sourceSchema);
+const [validateAst, validateGraph, validateExplain, validateSource] = schemaValidators("ast", "graph-ir", "explain", "source");
 
 describe("public compiler contract boundaries", () => {
   it.each(["+> ^/", "-> ^/", "~> ^/", "interprets ^/", "/"])("correlates the member-sourced [_ %s] through every public projection", clause => {

@@ -1,7 +1,6 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { basename, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { Ajv2020 } from "ajv/dist/2020.js";
 import { describe, expect, it } from "vitest";
 import {
   compileGraph,
@@ -13,6 +12,8 @@ import {
   parseSource
 } from "./index.js";
 import type { AstBlock, GraphIR, SourceParseMode } from "./types.js";
+import { compile } from "./test-helpers.test.mjs";
+import { schemaValidators } from "./schema-helpers.test.mjs";
 
 const repoRoot = fileURLToPath(new URL("../../../", import.meta.url));
 
@@ -129,7 +130,7 @@ describe("Cogitatum language contracts", () => {
   });
 
   it("constructs answer and relevance defaults while relation marks target the nearest Point", () => {
-    const graph = compileGraph(parseDocument(fixture("syntax/partial-indentation-defaults.cog.md")));
+    const graph = compile(fixture("syntax/partial-indentation-defaults.cog.md"));
     const ground = graph.points.find((point) => point.declaration.form === "role" && point.declaration.role === "G");
     const objection = graph.points.find((point) => point.declaration.form === "role" && point.declaration.role === "O");
 
@@ -153,7 +154,7 @@ describe("Cogitatum language contracts", () => {
   });
 
   it("does not add transitive support or coerce clarifications and replies to support", () => {
-    const graph = compileGraph(parseDocument(fixture("syntax/no-transitive-connections.cog.md")));
+    const graph = compile(fixture("syntax/no-transitive-connections.cog.md"));
 
     expect(graph.bearings).toEqual([
       expect.objectContaining({
@@ -210,11 +211,11 @@ describe("Cogitatum language contracts", () => {
   it("nests tab-indented outlines exactly as their space-indented equivalents", () => {
     const tabbed = fixture("syntax/tab-indentation.cog.md");
     const withoutSpans = (graph: GraphIR) => JSON.parse(JSON.stringify(graph, (key, value) => key === "sourceSpan" ? undefined : value));
-    const expected = withoutSpans(compileGraph(parseDocument(tabbed)));
+    const expected = withoutSpans(compile(tabbed));
     expect(expected.diagnostics).toEqual([]);
     for (const width of [2, 4]) {
       const spaced = tabbed.replace(/^\t+/gm, tabs => " ".repeat(tabs.length * width));
-      expect(withoutSpans(compileGraph(parseDocument(spaced)))).toEqual(expected);
+      expect(withoutSpans(compile(spaced))).toEqual(expected);
     }
     const ast = parseDocument(tabbed);
     expect(ast.blocks[0].children[0].children[0].sourceSpan).toMatchObject({ startLine: 3, startColumn: 5 });
@@ -274,8 +275,8 @@ describe("Cogitatum language contracts", () => {
   it("uses compilation keys for anonymous Points instead of source line numbers", () => {
     const source = "- [C] Claim.\n  - [G] Ground.\n";
     const shifted = "\n\n- [C] Claim.\n  - [G] Ground.\n";
-    const first = compileGraph(parseDocument(source));
-    const second = compileGraph(parseDocument(shifted));
+    const first = compile(source);
+    const second = compile(shifted);
 
     expect(first.points.map((point) => point.key)).toEqual(["_p1", "_p2"]);
     expect(second.points.map((point) => point.key)).toEqual(["_p1", "_p2"]);
@@ -524,9 +525,7 @@ describe("Cogitatum language contracts", () => {
   });
 
   it("uses ordinary body containers for titled grouping", () => {
-    const graph = compileGraph(
-      parseDocument("- Case title\n  - [Q @q1] What follows?\n    - [C @c1] An answer.\n")
-    );
+    const graph = compile("- Case title\n  - [Q @q1] What follows?\n    - [C @c1] An answer.\n");
 
     expect(graph.points.map((point) => point.id)).toEqual(["q1", "c1"]);
     expect(graph.bearings).toEqual([expect.objectContaining({ kind: "answers", sources: [pointRef(graph, "c1")], target: pointRef(graph, "q1") })]);
@@ -586,7 +585,7 @@ describe("Cogitatum language contracts", () => {
 
   it("still diagnoses reserved prefixes with invalid case or missing delimiters", () => {
     for (const prefix of ["[c]", "[Bearing]", "[ ]", "[Q?]", "[c @claim", "[Bearing @ground"]) {
-      const graph = compileGraph(parseDocument(`- ${prefix} Text.\n`));
+      const graph = compile(`- ${prefix} Text.\n`);
       expect(graph.points, prefix).toEqual([]);
       expect(graph.bearings, prefix).toEqual([]);
       expect(graph.diagnostics.some((item) => item.severity === "error"), prefix).toBe(true);
@@ -594,7 +593,7 @@ describe("Cogitatum language contracts", () => {
   });
 
   it("preserves independent arguments below nested body grouping", () => {
-    const graph = compileGraph(parseDocument(fixture("core/nested-grouping.cog.md")));
+    const graph = compile(fixture("core/nested-grouping.cog.md"));
 
     expect(graph.points.map((point) => point.id)).toEqual([
       "paper-q",
@@ -668,7 +667,7 @@ describe("Cogitatum language contracts", () => {
 
   it("does not accept ellipses or placeholder references as Bearing handles", () => {
     for (const annotation of ["G; ...", "G; @?"]) {
-      const graph = compileGraph(parseDocument(`- [C] Claim.\n  - [${annotation}] Ground.\n`));
+      const graph = compile(`- [C] Claim.\n  - [${annotation}] Ground.\n`);
 
       expect(graph.bearings, annotation).toEqual([]);
       expect(graph.diagnostics, annotation).toEqual([
@@ -678,9 +677,7 @@ describe("Cogitatum language contracts", () => {
   });
 
   it("rejects an undelimited secondary Bearing-handle notation", () => {
-    const graph = compileGraph(
-      parseDocument("- [C] Claim.\n  - [G @ground @route] Ambiguous identities.\n")
-    );
+    const graph = compile("- [C] Claim.\n  - [G @ground @route] Ambiguous identities.\n");
 
     expect(graph.points).toEqual([expect.objectContaining({ declaration: { form: "role", role: "C" } })]);
     expect(graph.bearings).toEqual([]);
@@ -690,13 +687,13 @@ describe("Cogitatum language contracts", () => {
   });
 
   it("keeps authored identifiers to lowercase ASCII slugs", () => {
-    const valid = compileGraph(parseDocument("- [C @zhu-zhang_2] 中文主張。\n"));
+    const valid = compile("- [C @zhu-zhang_2] 中文主張。\n");
 
     expect(valid.points.map((point) => point.id)).toEqual(["zhu-zhang_2"]);
     expect(valid.diagnostics).toEqual([]);
 
     for (const ref of ["@主張", "@Claim", "@éclair", "@1claim"]) {
-      const graph = compileGraph(parseDocument(`- [C ${ref}] Invalid identifier.\n`));
+      const graph = compile(`- [C ${ref}] Invalid identifier.\n`);
 
       expect(graph.points, ref).toEqual([]);
       expect(graph.diagnostics, ref).toEqual([
@@ -706,12 +703,8 @@ describe("Cogitatum language contracts", () => {
   });
 
   it("does not assign openness to Claims or Questions", () => {
-    const valid = compileGraph(parseDocument("- [C @claim] A claim.\n- [Q @question] A question.\n"));
-    const invalid = compileGraph(
-      parseDocument(
-        ["Q?", "G?", "O?", "R?", "D?"].map((role) => `- [${role}] Invalid open role.`).join("\n")
-      )
-    );
+    const valid = compile("- [C @claim] A claim.\n- [Q @question] A question.\n");
+    const invalid = compile(["Q?", "G?", "O?", "R?", "D?"].map((role) => `- [${role}] Invalid open role.`).join("\n"));
 
     expect(valid.points).toEqual([
       expect.objectContaining({ id: "claim", declaration: { form: "role", role: "C" } }),
@@ -724,11 +717,7 @@ describe("Cogitatum language contracts", () => {
   });
 
   it("keeps bearing lowercase and rejects the role-like Bearing spelling", () => {
-    const graph = compileGraph(
-      parseDocument(
-        "- [C @claim] Claim.\n- [G @ground] Ground.\n- [Bearing @ground +> @claim; @route] Invalid casing.\n"
-      )
-    );
+    const graph = compile("- [C @claim] Claim.\n- [G @ground] Ground.\n- [Bearing @ground +> @claim; @route] Invalid casing.\n");
 
     expect(graph.bearings).toEqual([]);
     expect(graph.diagnostics).toEqual([expect.objectContaining({ code: "MALFORMED_EXPLICIT_BEARING" })]);
@@ -738,7 +727,7 @@ describe("Cogitatum language contracts", () => {
     const source = fixture("diagnostics/edge-descendant-requires-target.cog.md");
 
     for (const graph of [
-      compileGraph(parseDocument(source)),
+      compile(source),
       compileSource(`Host prose.\n\n\`\`\`cog\n${source}\`\`\`\n`, "host").graphs[0]
     ]) {
       expect(graph.bearings).toEqual([
@@ -762,7 +751,7 @@ describe("Cogitatum language contracts", () => {
   });
 
   it("diagnoses the retired /> while -> reaches a Bearing by its name", () => {
-    const graph = compileGraph(parseDocument(fixture("diagnostics/retired-bearing-operator.cog.md")));
+    const graph = compile(fixture("diagnostics/retired-bearing-operator.cog.md"));
 
     expect(graph.points.map((point) => point.id)).toEqual([
       "claim",
@@ -784,7 +773,7 @@ describe("Cogitatum language contracts", () => {
   });
 
   it("compiles an operator-introduced challenge and its structural reply", () => {
-    const graph = compileGraph(parseDocument(fixture("core/explicit-challenge.cog.md")));
+    const graph = compile(fixture("core/explicit-challenge.cog.md"));
     const objection = graph.points.find((point) => point.declaration.form === "role" && point.declaration.role === "O");
     const reply = graph.points.find((point) => point.declaration.form === "role" && point.declaration.role === "R");
 
@@ -809,11 +798,7 @@ describe("Cogitatum language contracts", () => {
   });
 
   it("requires a Bearing family token for Bearing-only annotations", () => {
-    const graph = compileGraph(
-      parseDocument(
-        "- Keyword boundary\n  - [C @c1] Claim.\n  - [. @p1] Premise one.\n  - [. @p2] Premise two.\n  - [. @p1, @p2 +> @c1] Legacy ambiguous edge.\n"
-      )
-    );
+    const graph = compile("- Keyword boundary\n  - [C @c1] Claim.\n  - [. @p1] Premise one.\n  - [. @p2] Premise two.\n  - [. @p1, @p2 +> @c1] Legacy ambiguous edge.\n");
 
     expect(graph.diagnostics).toEqual(
       expect.arrayContaining([expect.objectContaining({ code: "MALFORMED_EXPLICIT_BEARING" })])
@@ -822,11 +807,7 @@ describe("Cogitatum language contracts", () => {
   });
 
   it("keeps roleless materials as Points when they have annotated children", () => {
-    const graph = compileGraph(
-      parseDocument(
-        "- Material pressure\n  - [C @c1] Claim.\n    - [. @p1] Linked premise.\n      - [O @o1] Objection to the premise.\n    - [_ @p1 +> @c1; @route] Premise supports claim.\n"
-      )
-    );
+    const graph = compile("- Material pressure\n  - [C @c1] Claim.\n    - [. @p1] Linked premise.\n      - [O @o1] Objection to the premise.\n    - [_ @p1 +> @c1; @route] Premise supports claim.\n");
 
     expect(graph.points.find((point) => point.id === "p1")).toMatchObject({ declaration: { form: "material" } });
     expect(graph.bearings).toEqual(
@@ -847,7 +828,7 @@ describe("Cogitatum language contracts", () => {
   });
 
   it("treats body children as prose rather than graph connectivity", () => {
-    const graph = compileGraph(parseDocument(fixture("syntax/neutral-point-with-body.cog.md")));
+    const graph = compile(fixture("syntax/neutral-point-with-body.cog.md"));
     expect(graph.points).toHaveLength(1);
     expect(graph.bearings).toEqual([]);
     expect(graph.diagnostics).toEqual([]);
@@ -983,7 +964,7 @@ describe("Cogitatum language contracts", () => {
   });
 
   it("keeps the trolley's moral premise joint and its objection on the step", () => {
-    const graph = compileGraph(parseDocument(example("trolley-switch.cog.md")));
+    const graph = compile(example("trolley-switch.cog.md"));
     expect(graph.diagnostics).toEqual([]);
     const route = graph.bearings.find((bearing) => bearing.handle === "fewer-deaths")!;
     expect(route.sources.map((ref) => graph.points.find((point) => point.key === ref.key)!.text)).toEqual([
@@ -995,7 +976,7 @@ describe("Cogitatum language contracts", () => {
   });
 
   it("supports naming neither, the Point, the Bearing, or both", () => {
-    const graph = compileGraph(parseDocument(fixture("core/naming-forms.cog.md")));
+    const graph = compile(fixture("core/naming-forms.cog.md"));
     const namedBearings = graph.bearings.filter((bearing) => bearing.handle).map((bearing) => bearing.handle);
 
     expect(graph.points.some((point) => point.id === "ground")).toBe(true);
@@ -1057,7 +1038,7 @@ describe("Cogitatum language contracts", () => {
   });
 
   it("compiles a Question selecting its local reply Bearing without exposing compiler rule names", () => {
-    const graph = compileGraph(parseDocument(fixture("core/question-concerns-bearing.cog.md")));
+    const graph = compile(fixture("core/question-concerns-bearing.cog.md"));
     const question = graph.points.find((point) => point.declaration.role === "Q");
     const bearing = graph.bearings.find((candidate) =>
       candidate.sources.some((source) => source.key === question?.key)
@@ -1074,7 +1055,7 @@ describe("Cogitatum language contracts", () => {
 
   it("uses graph-local Point identities for anonymous self-sourced Bearings", () => {
     const source = fixture("syntax/anonymous-point-bearing.cog.md");
-    const documentGraph = compileGraph(parseDocument(source));
+    const documentGraph = compile(source);
     const hostGraph = compileSource(`# Host\n\n\`\`\`cog\n${source}\`\`\`\n`, "host").graphs[0];
 
     for (const graph of [documentGraph, hostGraph]) {
@@ -1107,7 +1088,7 @@ describe("Cogitatum language contracts", () => {
   });
 
   it("compiles joint support from neutral Points without adding independent support routes", () => {
-    const graph = compileGraph(parseDocument(example("syllogism.cog.md")));
+    const graph = compile(example("syllogism.cog.md"));
     const supports = graph.bearings.filter((bearing) => bearing.kind === "supports");
 
     expect(graph.points.map(point => [point.declaration.role, point.text])).toEqual([
@@ -1137,7 +1118,7 @@ describe("Cogitatum language contracts", () => {
       graph.points.findIndex((point) => point.key === bearing.target.key),
       bearing.text
     ]);
-    const linked = compileGraph(parseDocument(source));
+    const linked = compile(source);
 
     expect(linked.diagnostics).toEqual([]);
     expect(linked.points.map((point) => [point.declaration.form, point.declaration.role, point.text])).toEqual([
@@ -1169,11 +1150,11 @@ describe("Cogitatum language contracts", () => {
       ...lines.slice(header + 1, end).map((line) => line.slice(2)),
       ...lines.slice(end)
     ].join("\n");
-    const neutral = compileGraph(parseDocument(withoutHeader));
+    const neutral = compile(withoutHeader);
     expect(neutral.bearings.filter((bearing) => bearing.kind === "supports")).toHaveLength(2);
 
     // Independent support requires an authorial decision to mark each source G.
-    const unlinked = compileGraph(parseDocument(withoutHeader.replaceAll("[.]", "[G]")));
+    const unlinked = compile(withoutHeader.replaceAll("[.]", "[G]"));
     expect(unlinked.diagnostics).toEqual([]);
     expect(unlinked.points.map((point) => point.text)).toEqual(linked.points.map((point) => point.text));
     expect(unlinked.points.slice(2, 4).map((point) => point.declaration)).toEqual([
@@ -1190,7 +1171,7 @@ describe("Cogitatum language contracts", () => {
   });
 
   it("keeps independent Grounds distinct from one explicit joint support route", () => {
-    const graph = compileGraph(parseDocument(fixture("core/independent-and-joint-support.cog.md")));
+    const graph = compile(fixture("core/independent-and-joint-support.cog.md"));
     const supports = graph.bearings.filter((bearing) => bearing.kind === "supports");
 
     expect(graph.points.map(point => [point.id, point.declaration.role])).toEqual([
@@ -1222,7 +1203,7 @@ describe("Cogitatum language contracts", () => {
   });
 
   it("rejects operator clauses with multiple targets", () => {
-    const graph = compileGraph(parseDocument(fixture("diagnostics/multiple-targets.cog.md")));
+    const graph = compile(fixture("diagnostics/multiple-targets.cog.md"));
 
     expect(graph.diagnostics).toEqual(
       expect.arrayContaining([
@@ -1252,7 +1233,7 @@ describe("Cogitatum language contracts", () => {
   });
 
   it("keeps a valid Point while rejecting an attached Bearing with an invalid handle", () => {
-    const graph = compileGraph(parseDocument(fixture("diagnostics/invalid-bearing-handle.cog.md")));
+    const graph = compile(fixture("diagnostics/invalid-bearing-handle.cog.md"));
 
     expect(graph.points.some((point) => point.id === "g1")).toBe(true);
     expect(graph.bearings.some((bearing) => bearing.sources.some((source) => source.key === pointRef(graph, "g1").key))).toBe(false);
@@ -1276,18 +1257,14 @@ describe("Cogitatum language contracts", () => {
 
   it("rejects unresolved Bearing sources and targets from canonical Graph IR", () => {
     for (const name of ["unknown-bearing-source.cog.md", "unknown-bearing-target.cog.md"]) {
-      const graph = compileGraph(parseDocument(fixture(`diagnostics/${name}`)));
+      const graph = compile(fixture(`diagnostics/${name}`));
 
       expect(graph.bearings, name).toEqual([]);
     }
   });
 
   it("rejects Bearings that target another Bearing which failed compilation", () => {
-    const graph = compileGraph(
-      parseDocument(
-        "- Dependent invalid Bearing\n  - [C @c1] Claim.\n  - [_ @missing +> @c1; @bad] Invalid base Bearing.\n  - [O @o1 -> @bad] Dependent undercut.\n"
-      )
-    );
+    const graph = compile("- Dependent invalid Bearing\n  - [C @c1] Claim.\n  - [_ @missing +> @c1; @bad] Invalid base Bearing.\n  - [O @o1 -> @bad] Dependent undercut.\n");
 
     expect(graph.bearings).toEqual([]);
     expect(graph.diagnostics.map(diagnostic => diagnostic.code)).toEqual(["UNKNOWN_SOURCE"]);
@@ -1298,7 +1275,7 @@ describe("Cogitatum language contracts", () => {
   });
 
   it("rejects an entire Bearing when one source reference is malformed", () => {
-    const graph = compileGraph(parseDocument(fixture("diagnostics/malformed-bearing-source.cog.md")));
+    const graph = compile(fixture("diagnostics/malformed-bearing-source.cog.md"));
 
     expect(graph.diagnostics).toEqual(
       expect.arrayContaining([
@@ -1312,7 +1289,7 @@ describe("Cogitatum language contracts", () => {
   });
 
   it("rejects duplicate Bearing handles", () => {
-    const graph = compileGraph(parseDocument(fixture("diagnostics/duplicate-bearing-handle.cog.md")));
+    const graph = compile(fixture("diagnostics/duplicate-bearing-handle.cog.md"));
 
     expect(graph.diagnostics).toEqual(
       expect.arrayContaining([
@@ -1337,24 +1314,18 @@ describe("Cogitatum language contracts", () => {
     ]);
   });
 
-  it("removes every Point and Bearing that depends on a duplicate Point anchor", () => {
-    const graph = compileGraph(parseDocument(fixture("diagnostics/duplicate-point-anchor.cog.md")));
-
-    expect(graph.points.map((point) => point.id)).toEqual(["ground"]);
+  it.each([
+    ["duplicate-point-anchor", ["ground"], "DUPLICATE_ID"],
+    ["point-bearing-id-conflict", ["claim", "ground"], "POINT_BEARING_ID_CONFLICT"]
+  ] as const)("rejects %s without removing valid Points", (name, points, code) => {
+    const graph = compile(fixture(`diagnostics/${name}.cog.md`));
+    expect(graph.points.map((point) => point.id)).toEqual(points);
     expect(graph.bearings).toEqual([]);
-    expect(graph.diagnostics).toEqual([expect.objectContaining({ code: "DUPLICATE_ID" })]);
-  });
-
-  it("rejects Point/Bearing namespace conflicts without removing valid Points", () => {
-    const graph = compileGraph(parseDocument(fixture("diagnostics/point-bearing-id-conflict.cog.md")));
-
-    expect(graph.points.map((point) => point.id)).toEqual(["claim", "ground"]);
-    expect(graph.bearings).toEqual([]);
-    expect(graph.diagnostics).toEqual([expect.objectContaining({ code: "POINT_BEARING_ID_CONFLICT" })]);
+    expect(graph.diagnostics).toEqual([expect.objectContaining({ code })]);
   });
 
   it("rejects a Bearing used as a source while retaining its valid base Bearing", () => {
-    const graph = compileGraph(parseDocument(fixture("diagnostics/bearing-used-as-source.cog.md")));
+    const graph = compile(fixture("diagnostics/bearing-used-as-source.cog.md"));
 
     expect(graph.bearings).toEqual([
       expect.objectContaining({ handle: "route", kind: "supports", target: pointRef(graph, "claim") })
@@ -1365,7 +1336,7 @@ describe("Cogitatum language contracts", () => {
   it("separates all compilation identities from authored names across revisions", () => {
     const source = "- Ordinary body.\n- [C @claim] Claim.\n  - [G; @route] Reason.\n- [O -> @route] Objection.\n";
     const first = compileGraphWithExplain(parseDocument(source));
-    const revised = compileGraph(parseDocument("- [Q] An earlier question.\n" + source));
+    const revised = compile("- [Q] An earlier question.\n" + source);
 
     expect(first.graph.points.map(({ key, id }) => ({ key, id }))).toEqual([
       { key: "_p1", id: "claim" }, { key: "_p2", id: undefined }, { key: "_p3", id: undefined }
@@ -1443,7 +1414,7 @@ describe("Cogitatum language contracts", () => {
 
     for (const entry of manifest.examples) {
       const source = readFileSync(join(repoRoot, "examples", entry.file), "utf8");
-      const actualCodes = compileGraph(parseDocument(source)).diagnostics.map((diagnostic) => diagnostic.code);
+      const actualCodes = compile(source).diagnostics.map((diagnostic) => diagnostic.code);
 
       expect(entry.purpose.length, entry.file).toBeGreaterThan(0);
       expect(actualCodes, entry.file).toEqual(entry.expectedDiagnosticCodes);
@@ -1470,14 +1441,7 @@ describe("Cogitatum language contracts", () => {
   });
 
   it("validates corpus schemas and reconciles every compiler trace with its graph", () => {
-    const ajv = new Ajv2020({ allErrors: true });
-    const validateAst = ajv.compile(JSON.parse(readFileSync(join(repoRoot, "spec", "ast.schema.json"), "utf8")));
-    const validateGraph = ajv.compile(
-      JSON.parse(readFileSync(join(repoRoot, "spec", "graph-ir.schema.json"), "utf8"))
-    );
-    const validateExplain = ajv.compile(
-      JSON.parse(readFileSync(join(repoRoot, "spec", "explain.schema.json"), "utf8"))
-    );
+    const [validateAst, validateGraph, validateExplain] = schemaValidators("ast", "graph-ir", "explain");
     const cases = [
       ...loadFixtureManifest().fixtures.map((entry) => ({
         entry,
@@ -1529,14 +1493,7 @@ describe("Cogitatum language contracts", () => {
   });
 
   it("locks schema versions and rejects duplicate source references in machine contracts", () => {
-    const ajv = new Ajv2020({ allErrors: true });
-    const validateAst = ajv.compile(JSON.parse(readFileSync(join(repoRoot, "spec", "ast.schema.json"), "utf8")));
-    const validateGraph = ajv.compile(
-      JSON.parse(readFileSync(join(repoRoot, "spec", "graph-ir.schema.json"), "utf8"))
-    );
-    const validateExplain = ajv.compile(
-      JSON.parse(readFileSync(join(repoRoot, "spec", "explain.schema.json"), "utf8"))
-    );
+    const [validateAst, validateGraph, validateExplain] = schemaValidators("ast", "graph-ir", "explain");
     const source = fixture("core/explicit-bearing-sources.cog.md");
     const ast = jsonValue(parseDocument(source));
     const compilation = compileGraphWithExplain(parseDocument(source));
@@ -1557,7 +1514,7 @@ describe("Cogitatum language contracts", () => {
     expect(validateGraph(graph)).toBe(false);
 
     const wrongAstVersion = jsonValue(parseDocument("- [C] Claim.\n"));
-    const wrongGraphVersion = jsonValue(compileGraph(parseDocument("- [C] Claim.\n")));
+    const wrongGraphVersion = jsonValue(compile("- [C] Claim.\n"));
     const wrongExplainVersion = jsonValue(compileGraphWithExplain(parseDocument("- [C] Claim.\n")).explain);
     wrongAstVersion.version = "0.2.0";
     wrongGraphVersion.version = "0.2.0";
@@ -1568,9 +1525,7 @@ describe("Cogitatum language contracts", () => {
   });
 
   it("rejects missing keys, legacy identity fields, and unresolved emission references in schemas", () => {
-    const ajv = new Ajv2020({ allErrors: true });
-    const validateGraph = ajv.compile(JSON.parse(readFileSync(join(repoRoot, "spec", "graph-ir.schema.json"), "utf8")));
-    const validateExplain = ajv.compile(JSON.parse(readFileSync(join(repoRoot, "spec", "explain.schema.json"), "utf8")));
+    const [validateGraph, validateExplain] = schemaValidators("graph-ir", "explain");
     const compilation = compileGraphWithExplain(parseDocument("- [C @claim] Claim.\n  - [G; @route] Reason.\n"));
     for (const mutate of [
       (graph: any) => { delete graph.points[0].key; },
@@ -1592,30 +1547,18 @@ describe("Cogitatum language contracts", () => {
     }
   });
 
-  it("rejects workflow origin fields and non-canonical Bearing derivation mechanisms", () => {
-    const ajv = new Ajv2020({ allErrors: true });
-    const validateGraph = ajv.compile(
-      JSON.parse(readFileSync(join(repoRoot, "spec", "graph-ir.schema.json"), "utf8"))
-    );
-    const importedDerivation = jsonValue(compileGraph(parseDocument(example("syllogism.cog.md"))));
-    const suggestedDerivation = jsonValue(compileGraph(parseDocument(example("syllogism.cog.md"))));
-    const suggestedOrigin = jsonValue(compileGraph(parseDocument(example("syllogism.cog.md"))));
-
-    (importedDerivation.bearings[0] as Record<string, unknown>).targetBy = "imported";
-    (suggestedDerivation.bearings[0] as Record<string, unknown>).targetBy = "suggested";
-    (suggestedOrigin.bearings[0] as Record<string, unknown>).origin = "suggested";
-
-    expect(validateGraph(importedDerivation)).toBe(false);
-    expect(validateGraph(suggestedDerivation)).toBe(false);
-    expect(validateGraph(suggestedOrigin)).toBe(false);
-  });
+  it.each([["targetBy", "imported"], ["targetBy", "suggested"], ["origin", "suggested"]])(
+    "rejects Bearing %s=%s in canonical Graph IR", (field, value) => {
+      const [validateGraph] = schemaValidators("graph-ir");
+      const graph = jsonValue(compile(example("syllogism.cog.md")));
+      (graph.bearings[0] as Record<string, unknown>)[field] = value;
+      expect(validateGraph(graph)).toBe(false);
+    }
+  );
 
   it("rejects removed Scope fields from canonical Graph IR", () => {
-    const ajv = new Ajv2020({ allErrors: true });
-    const validateGraph = ajv.compile(
-      JSON.parse(readFileSync(join(repoRoot, "spec", "graph-ir.schema.json"), "utf8"))
-    );
-    const graph = jsonValue(compileGraph(parseDocument(example("syllogism.cog.md"))));
+    const [validateGraph] = schemaValidators("graph-ir");
+    const graph = jsonValue(compile(example("syllogism.cog.md")));
     const legacyScopes = { ...graph, scopes: [] };
     const legacyPointScope = jsonValue(graph);
 
@@ -1626,13 +1569,9 @@ describe("Cogitatum language contracts", () => {
   });
 
   it("rejects generalized role openness in AST and Graph IR schemas", () => {
-    const ajv = new Ajv2020({ allErrors: true });
-    const validateAst = ajv.compile(JSON.parse(readFileSync(join(repoRoot, "spec", "ast.schema.json"), "utf8")));
-    const validateGraph = ajv.compile(
-      JSON.parse(readFileSync(join(repoRoot, "spec", "graph-ir.schema.json"), "utf8"))
-    );
+    const [validateAst, validateGraph] = schemaValidators("ast", "graph-ir");
     const ast = jsonValue(parseDocument("- [C @claim] Open claim.\n"));
-    const graph = jsonValue(compileGraph(parseDocument("- [C @claim] Open claim.\n")));
+    const graph = jsonValue(compile("- [C @claim] Open claim.\n"));
 
     if (ast.blocks[0].annotation?.kind === "role") {
       (ast.blocks[0].annotation as Record<string, unknown>).status = "open";
@@ -1642,31 +1581,28 @@ describe("Cogitatum language contracts", () => {
     expect(validateAst(ast)).toBe(false);
     expect(validateGraph(graph)).toBe(false);
 
-    const malformedMaterial = jsonValue(compileGraph(parseDocument("- [. @material] Material.\n")));
+    const malformedMaterial = jsonValue(compile("- [. @material] Material.\n"));
     malformedMaterial.points[0].declaration.role = "G";
     expect(validateGraph(malformedMaterial)).toBe(false);
   });
 
   it("rejects every Point-only and Bearing-only target-kind mismatch in Graph IR schema", () => {
-    const ajv = new Ajv2020({ allErrors: true });
-    const validateGraph = ajv.compile(
-      JSON.parse(readFileSync(join(repoRoot, "spec", "graph-ir.schema.json"), "utf8"))
-    );
+    const [validateGraph] = schemaValidators("graph-ir");
     const pointTargetSource =
       "- [Q @question] What follows?\n" +
       "  - [C @answer answers @question] An answer.\n" +
       "    - [O @objection] An objection.\n" +
       "      - [R @reply] A reply.\n" +
       "    - [D @distinction] A distinction.\n";
-    const pointTargetGraph = jsonValue(compileGraph(parseDocument(pointTargetSource)));
+    const pointTargetGraph = jsonValue(compile(pointTargetSource));
     const undercutGraph = jsonValue(
-      compileGraph(parseDocument(fixture("core/explicit-bearing-sources.cog.md")))
+      compile(fixture("core/explicit-bearing-sources.cog.md"))
     );
     const supportToBearingGraph = jsonValue(
-      compileGraph(parseDocument(fixture("core/route-handle-needed.cog.md")))
+      compile(fixture("core/route-handle-needed.cog.md"))
     );
     const concernsBearingGraph = jsonValue(
-      compileGraph(parseDocument(fixture("core/question-concerns-bearing.cog.md")))
+      compile(fixture("core/question-concerns-bearing.cog.md"))
     );
     const undercut = undercutGraph.bearings.find((bearing) => bearing.kind === "challenges" && bearing.target.kind === "bearing");
 
@@ -1702,12 +1638,8 @@ describe("Cogitatum language contracts", () => {
   });
 
   it("keeps authored ids and compiler-local Point keys distinct in schemas", () => {
-    const ajv = new Ajv2020({ allErrors: true });
-    const validateAst = ajv.compile(JSON.parse(readFileSync(join(repoRoot, "spec", "ast.schema.json"), "utf8")));
-    const validateGraph = ajv.compile(
-      JSON.parse(readFileSync(join(repoRoot, "spec", "graph-ir.schema.json"), "utf8"))
-    );
-    const anonymousGraph = jsonValue(compileGraph(parseDocument("- [C] Claim.\n  - [G] Ground.\n")));
+    const [validateAst, validateGraph] = schemaValidators("ast", "graph-ir");
+    const anonymousGraph = jsonValue(compile("- [C] Claim.\n  - [G] Ground.\n"));
     const authoredAst = jsonValue(parseDocument("- [C @claim] Claim.\n"));
 
     expect(validateGraph(anonymousGraph), JSON.stringify(validateGraph.errors)).toBe(true);
@@ -1722,11 +1654,8 @@ describe("Cogitatum language contracts", () => {
   });
 
   it("represents an optional Bearing description by absence rather than an empty string", () => {
-    const ajv = new Ajv2020({ allErrors: true });
-    const validateGraph = ajv.compile(
-      JSON.parse(readFileSync(join(repoRoot, "spec", "graph-ir.schema.json"), "utf8"))
-    );
-    const graph = jsonValue(compileGraph(parseDocument(fixture("core/edge-description-and-body.cog.md"))));
+    const [validateGraph] = schemaValidators("graph-ir");
+    const graph = jsonValue(compile(fixture("core/edge-description-and-body.cog.md")));
     const bare = graph.bearings.find((bearing) => bearing.kind === "supports");
     const described = graph.bearings.find((bearing) => bearing.kind === "concerns");
 
