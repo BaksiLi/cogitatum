@@ -8,7 +8,7 @@
 // Packing is deterministic, so rerunning on a pinned commit reproduces the host's recorded SHA-256 digests.
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { copyFileSync, cpSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { copyFileSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -41,7 +41,9 @@ try {
     packages[name] = { file: packed.filename, sha256 };
   }
   const showcase = join(source, "examples", "host-showcase.cog.md");
-  const showcaseSha256 = createHash("sha256").update(readFileSync(showcase)).digest("hex");
+  const showcaseSha256 = existsSync(showcase) ? createHash("sha256").update(readFileSync(showcase)).digest("hex") : undefined;
+  const verifier = join(source, "scripts", "host-pin.mjs");
+  if (!existsSync(verifier)) throw new Error("The requested source commit does not contain a host pin verifier.");
   process.stdout.write(`${JSON.stringify({ repository, ref: commit, packages }, null, 2)}\n`);
 
   for (const host of hosts.map(path => resolve(path))) {
@@ -60,11 +62,13 @@ try {
       specs.push(`@cogitatum/${name}@file:vendor/${file}`);
     }
     Object.assign(manifest.cogitatumSource, { repository, ref: commit });
-    manifest.cogitatumSource.sha256.showcase = showcaseSha256;
-    mkdirSync(join(host, "tests", "fixtures"), { recursive: true });
-    copyFileSync(showcase, join(host, "tests", "fixtures", "host-showcase.cog.md"));
+    if (showcaseSha256) {
+      manifest.cogitatumSource.sha256.showcase = showcaseSha256;
+      mkdirSync(join(host, "tests", "fixtures"), { recursive: true });
+      copyFileSync(showcase, join(host, "tests", "fixtures", "host-showcase.cog.md"));
+    } else delete manifest.cogitatumSource.sha256.showcase;
     writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
-    copyFileSync(join(root, "scripts", "host-pin.mjs"), join(host, "pin.mjs"));
+    copyFileSync(verifier, join(host, "pin.mjs"));
     run("npm", ["install", "--prefer-offline", "--no-audit", "--no-fund", ...specs], host, { stdio: ["ignore", "ignore", "inherit"] });
     run(process.execPath, [join(host, "pin.mjs")], host, { stdio: ["ignore", "ignore", "inherit"] });
     process.stdout.write(`Pinned ${host} to ${commit}.\n`);
