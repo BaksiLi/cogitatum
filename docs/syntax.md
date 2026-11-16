@@ -552,7 +552,8 @@ Use an Objection or a `challenges` clause when the content makes a challenge rat
 `[Q/ use @question]` uses an existing Point with a local Q mark and adds the `concerns` Bearing without changing shared content or declaration metadata.
 Like `G/`, `O/` and `D/`, it works under constructors and Bearing uses, and never skips a nearer Point without an attachment.
 Under a `Q/` occurrence, another selector addresses the Question's own `concerns` Bearing; `[_ note]` annotates that same local connection.
-There is no `C/` or `R/`: the Question-specific C default is `answers`, and both `answers` and `respondsTo` require a Point target.
+There is no `R/`, since `respondsTo` requires a Point target.
+`C/` and `./` construct `concerns`: a Bearing is never a Question, so a selector never constructs `answers`.
 
 ### Several sources about one step
 
