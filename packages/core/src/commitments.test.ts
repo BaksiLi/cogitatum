@@ -225,6 +225,93 @@ describe("correspondence", () => {
     const result = compared(compareCommitments(base, after, { points: identity, bearings: { [objection.key]: objection.key } }));
     expect(result.relation).toBe("revision");
     expect(result.retracted.map(c => c.kind).sort()).toEqual(["challenges"]);
-    expect(result.bearings).toEqual({ removed: [support.key], added: [replacement.key], changed: [] });
+    expect(result.bearings).toEqual({
+      removed: [support.key], added: [replacement.key],
+      changed: [{ before: objection.key, after: objection.key, target: true }]
+    });
+  });
+});
+
+describe("continued Bearing changes", () => {
+  const material = "- [C @c] Claim.\n- [C @d] Another claim.\n- [. @a] First reason.\n- [. @b] Second reason.\n";
+
+  it("reports parallel target swaps even when aggregate commitments stay equivalent", () => {
+    const source = material + "- [_ @a +> @c; @one]\n- [_ @a +> @d; @two]\n";
+    const before = graph(source);
+    const after = graph(source.replace("+> @c; @one", "+> @d; @one").replace("+> @d; @two", "+> @c; @two"));
+    const correspondence = suggestCorrespondence(before, after).correspondence;
+    const result = compared(compareCommitments(before, after, correspondence));
+    expect(result).toMatchObject({ relation: "equivalent", added: [], retracted: [] });
+    expect(result.bearings).toEqual({
+      removed: [], added: [],
+      changed: [
+        { before: "_b1", after: "_b1", target: true },
+        { before: "_b2", after: "_b2", target: true }
+      ]
+    });
+    const byTarget = { ...correspondence, bearings: { _b1: "_b2", _b2: "_b1" } };
+    expect(compared(compareCommitments(before, after, byTarget)).bearings.changed).toEqual([]);
+  });
+
+  it.each([
+    ["+>", "->", "revision"],
+    ["+>", "~>", "weakening"],
+    ["~>", "+>", "refinement"]
+  ])("reports a continued kind change from %s to %s", (from, to, relation) => {
+    const result = compare(
+      material + `- [_ @a ${from} @c; @step]\n`,
+      material + `- [_ @a ${to} @c; @step]\n`
+    );
+    expect(result.relation).toBe(relation);
+    expect(result.bearings.changed).toEqual([{ before: "_b1", after: "_b1", kind: true }]);
+  });
+
+  it.each(["@a", "@a, @d", "@a, @b, @d"])("reports a joint source set changing to %s", sources => {
+    const result = compare(
+      material + "- [_ @a, @b +> @c; @step]\n",
+      material + `- [_ ${sources} +> @c; @step]\n`
+    );
+    expect(result.relation).toBe("revision");
+    expect(result.bearings.changed).toEqual([{ before: "_b1", after: "_b1", sources: true }]);
+  });
+
+  it("ignores key renumbering and source order for continued Point and Bearing targets", () => {
+    const before = graph("- [C @c] Claim.\n- [. @a] First reason.\n- [. @b] Second reason.\n"
+      + "- [_ @a, @b +> @c; @step]\n- [_ @b -> @step; @objection]\n");
+    const after = graph("- [. @b] Second reason.\n- [C @c] Claim.\n- [. @a] First reason.\n"
+      + "- [_ @b -> @step; @objection]\n- [_ @b, @a +> @c; @step]\n");
+    const correspondence = suggestCorrespondence(before, after).correspondence;
+    expect(Object.entries(correspondence.points).every(([from, to]) => from !== to)).toBe(true);
+    expect(Object.entries(correspondence.bearings).every(([from, to]) => from !== to)).toBe(true);
+    const result = compared(compareCommitments(before, after, correspondence));
+    expect(result).toMatchObject({ relation: "equivalent", added: [], retracted: [] });
+    expect(result.bearings).toEqual({ removed: [], added: [], changed: [] });
+  });
+
+  it("reports a change from a Point target to a Bearing target", () => {
+    const before = material + "- [_ @a +> @c; @step]\n- [_ @b -> @c; @objection]\n";
+    const after = before.replace("@b -> @c", "@b -> @step");
+    const result = compare(before, after);
+    expect(result.relation).toBe("revision");
+    expect(result.bearings.changed).toEqual([{ before: "_b2", after: "_b2", target: true }]);
+  });
+
+  it.each([
+    ["_p1", "target"],
+    ["_p3", "sources"]
+  ])("reports missing endpoint correspondence for %s as a %s change", (key, flag) => {
+    const before = graph(material + "- [_ @a +> @c; @step]\n");
+    const correspondence = suggestCorrespondence(before, before).correspondence;
+    delete correspondence.points[key];
+    const result = compared(compareCommitments(before, before, correspondence));
+    expect(result.bearings.changed).toEqual([{ before: "_b1", after: "_b1", [flag]: true }]);
+  });
+
+  it("retains the exact profile-only change shape with equivalent aggregate commitments", () => {
+    const before = material + "- [_ @a +> @c; @one]\n- [_ @a +> @c by example; @two]\n";
+    const after = before.replace("+> @c; @one", "+> @c by example; @one");
+    const result = compare(before, after);
+    expect(result).toMatchObject({ relation: "equivalent", added: [], retracted: [] });
+    expect(result.bearings.changed).toEqual([{ before: "_b1", after: "_b1", profile: true }]);
   });
 });

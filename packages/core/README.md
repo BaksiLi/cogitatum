@@ -329,4 +329,6 @@ The classification concerns recorded connections and Point selection; `equivalen
 Changed Point content and declarations are reported for separate review, and notes and ordinary body remain outside the comparison.
 `suggestCorrespondence` proposes a correspondence by name, unique text and continued endpoints, and reports ambiguity instead of choosing.
 Public types are `Commitment`, `CommitmentComparison`, `CommitmentRelation`, `Correspondence`, `CorrespondenceBasis` and `CorrespondenceSuggestion`.
-The comparison is a separate result contract; it reports `bearings.changed` for per-Bearing profile changes even when aggregate commitments are equivalent.
+The comparison is a separate result contract; `bearings.changed` reports per-Bearing kind, source-set, typed-target and profile changes under the supplied correspondence.
+Only changed fields appear, with value `true`.
+Aggregate commitments can remain equivalent while individual Bearings change, for example when parallel Bearings exchange targets.

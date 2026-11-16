@@ -233,7 +233,12 @@ Graphs with errors, other format versions and invalid correspondences are `indet
 The order classifies recorded connections and Point selection, never whether a reading is correct.
 `equivalent` is limited to those commitments: a continued Point can change from a question to a claim, or change its wording, without changing this classification.
 The result reports changed Point content and declarations for separate review; it does not judge their meaning.
-`bearings.changed` reports each continued Bearing's profile change, even when another parallel Bearing makes the aggregate commitments equivalent.
+`bearings.changed` reports changes to each continued Bearing's kind, source set, typed target or profile.
+Only changed fields appear, with value `true`; source order alone is not a source-set change.
+Endpoint identities are compared through the supplied correspondence, not through coincidentally equal local keys.
+Two parallel Bearings can exchange targets while the aggregate commitments remain equivalent.
+Both continued Bearings still have a target change, which matters when reviewing an assessment of one particular step.
+This evidence does not determine whether that assessment remains applicable.
 Notes, body prose, names, marks, source order and positions are outside this order, and changes to them may still alter how the argument is read.
 
 採用 (adoption) explicitly chooses a profile, rules or assumptions for evaluation.

@@ -72,11 +72,11 @@ export type CommitmentComparison =
         removed: string[];
         added: string[];
         /**
-         * Continued Bearings whose own profile differs. A parallel Bearing may
-         * state the same commitment, so this can change while the aggregate
-         * commitments stay equivalent; both levels are reported.
+         * Continued Bearings whose kind, mapped endpoints or profile differ.
+         * Parallel Bearings may keep the aggregate commitments equivalent
+         * while individual Bearings change; both levels are reported.
          */
-        changed: { before: string; after: string; profile: true }[];
+        changed: { before: string; after: string; kind?: true; sources?: true; target?: true; profile?: true }[];
       };
     }
   | { status: "indeterminate"; reason: "unsupported-version" | "source-errors" | "invalid-correspondence"; message: string };
@@ -206,17 +206,31 @@ export function compareCommitments(before: GraphIR, after: GraphIR, corresponden
     status: "compared", relation, retracted, added, points,
     bearings: {
       removed: removed(before.bearings, maps.bearing), added: introduced(after.bearings, maps.bearing),
-      changed: changedProfiles(before, after, maps.bearing)
+      changed: changedBearings(before, after, maps)
     }
   };
 }
 
-function changedProfiles(before: GraphIR, after: GraphIR, bearings: Map<string, string>) {
+function changedBearings(before: GraphIR, after: GraphIR, maps: { point: Map<string, string>; bearing: Map<string, string> }) {
   const later = new Map(after.bearings.map(b => [b.key, b]));
   return before.bearings.flatMap(b => {
-    const continuation = bearings.get(b.key);
+    const continuation = maps.bearing.get(b.key);
     const next = continuation === undefined ? undefined : later.get(continuation);
-    return next && b.profile !== next.profile ? [{ before: b.key, after: next.key, profile: true as const }] : [];
+    if (!next) return [];
+    const kind = b.kind !== next.kind;
+    const earlierSources = new Set(b.sources.map(source => maps.point.get(source.key)));
+    const laterSources = new Set(next.sources.map(source => source.key));
+    const sources = earlierSources.size !== laterSources.size
+      || [...earlierSources].some(key => key === undefined || !laterSources.has(key));
+    const target = b.target.kind !== next.target.kind || maps[b.target.kind].get(b.target.key) !== next.target.key;
+    const profile = b.profile !== next.profile;
+    return kind || sources || target || profile ? [{
+      before: b.key, after: next.key,
+      ...(kind ? { kind: true as const } : {}),
+      ...(sources ? { sources: true as const } : {}),
+      ...(target ? { target: true as const } : {}),
+      ...(profile ? { profile: true as const } : {})
+    }] : [];
   });
 }
 

@@ -33,7 +33,8 @@ Source that compiled under 0.6 can construct different relations; follow [Migrat
 - Add example support: `by example` qualifies a constructed `supports` Bearing, as in `[G by example]` or `[. +> @c by example]`, recorded as `profile: "example"`.
   It records the authored use only; it chooses no inference scheme and judges no representativeness.
   A profile without a `supports` Bearing is `PROFILE_REQUIRES_SUPPORTS`, and a misspelt one `MALFORMED_BEARING_PROFILE`; the Point is kept and no fallback Bearing is built.
-  Commitments treat example support as entailing plain support, and comparison reports a profile change per Bearing.
+  Commitments treat example support as entailing plain support.
+  Comparison reports kind, source-set, typed-target and profile changes per continued Bearing, even when parallel Bearings preserve the same aggregate commitments.
   Relation edits refuse profiled Bearings; target-form edits preserve the profile.
 - Require whitespace or the end of the line after an annotation's closing `]`, including U+00A0 and U+3000.
   `[G]ood` is now `MISSING_ANNOTATION_SEPARATOR` instead of silently a Ground with body `ood`.

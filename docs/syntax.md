@@ -682,7 +682,8 @@ Only `trial` has the profile; the reused staffing Point's new support is plain.
 The Point is kept when otherwise valid, but neither a plain support nor a default Bearing replaces the rejected request.
 
 Example support entails plain support, not conversely; adding the profile refines the support (精進), while removing it weakens the support (修訂).
-`compareCommitments(...).bearings.changed` reports each continued Bearing's profile change, even when aggregate commitments remain equivalent because another Bearing already states that commitment.
+`compareCommitments(...).bearings.changed` reports changes to each continued Bearing's kind, source set, typed target or profile.
+A profile change is reported even when aggregate commitments remain equivalent because another Bearing already states that commitment.
 Checked edits refuse to join, separate or kind-decide a profiled relation with reason `profiled-relation`.
 `target-form` preserves the profile.
 
