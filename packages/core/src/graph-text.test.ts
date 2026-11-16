@@ -1,9 +1,9 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { compileGraph, formatGraph, GRAPH_TEXT_VERSION, parseDocument } from "./index.js";
+import { formatGraph, GRAPH_TEXT_VERSION } from "./index.js";
 import type { BearingKind, GraphIR } from "./index.js";
+import { compile } from "./test-helpers.test.mjs";
 
-const compile = (source: string) => compileGraph(parseDocument(source));
 const fixture = (path: string) => readFileSync(new URL(`../../../fixtures/${path}`, import.meta.url), "utf8");
 
 describe("graph text structure-v1", () => {

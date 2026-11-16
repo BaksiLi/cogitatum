@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { compileGraphWithExplain, parseDocument, previewTargetForm } from "./index.js";
+import { compileWithExplain as compile, spanless } from "./test-helpers.test.mjs";
 
-const compile = (text: string) => compileGraphWithExplain(parseDocument(text));
 const errors = (text: string) => compile(text).graph.diagnostics.filter(d => d.severity === "error").map(d => d.code);
 
 describe("authoring boundaries under the 0.7 construction table", () => {
@@ -90,7 +90,6 @@ describe("authoring boundaries under the 0.7 construction table", () => {
       expect(graph.bearings[2].target).toEqual({kind:"bearing",key:graph.bearings[0].key});
       expect(explain.entries[1].recognition).toEqual({kind:"bearing",members:true});
       // Naming the target changes only provenance; the members stay sources.
-      const spanless = (bearings: typeof graph.bearings) => bearings.map(({sourceSpan: _s, ...b}) => b);
       expect(spanless(compile(source.replace(`[_ ${kind} ^; @joint]`, `[_ ${kind} @target; @joint]`)).graph.bearings))
         .toEqual(spanless(graph.bearings).map((b, i) => i === 0 ? {...b, targetBy:"name"} : b));
       expect(graph.notes).toHaveLength(2);

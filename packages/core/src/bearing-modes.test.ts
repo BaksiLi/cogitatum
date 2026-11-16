@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { compileGraphWithExplain, parseAnnotation, parseDocument } from "./index.js";
-
-const compile = (source: string) => compileGraphWithExplain(parseDocument(source));
+import { parseAnnotation, parseDocument } from "./index.js";
+import { compileWithExplain as compile } from "./test-helpers.test.mjs";
 
 function expectRetiredConstructor(header: string, closer = "]") {
   const parsed = parseAnnotation(header);

@@ -2,15 +2,10 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { compileGraphWithExplain, explainSource, parseDocument } from "./index.js";
 import type { GraphIR } from "./types.js";
+import { compileWithExplain as compile, codes, relations } from "./test-helpers.test.mjs";
 
-const compile = (source: string) => compileGraphWithExplain(parseDocument(source));
 const declarations = "- [C @premise] Shared premise.\n- [C @claim] Shared claim.";
 const route = "- [_ @premise supports @claim; @route] Original route description.";
-const codes = (graph: GraphIR) => graph.diagnostics.map(diagnostic => diagnostic.code);
-const relations = (graph: GraphIR) => {
-  const names = new Map([...graph.points.map(point => [point.key, point.id] as const), ...graph.bearings.map(bearing => [bearing.key, bearing.handle] as const)]);
-  return graph.bearings.map(bearing => ({ kind: bearing.kind, handle: bearing.handle, sources: bearing.sources.map(ref => names.get(ref.key)), target: { kind: bearing.target.kind, name: names.get(bearing.target.key) } }));
-};
 
 describe("reference-only Bearing occurrences", () => {
   it("keeps quoted source, reconstructed content and stronger local notes distinct in the reading fixture", () => {

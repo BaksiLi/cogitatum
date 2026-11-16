@@ -3,12 +3,11 @@ import { Ajv2020 } from "ajv/dist/2020.js";
 import { describe, expect, it } from "vitest";
 import { compileGraph, compileGraphWithExplain, parseDocument } from "./index.js";
 import type { GraphIR } from "./types.js";
+import { codes, json } from "./test-helpers.test.mjs";
 
 const ajv = new Ajv2020({ allErrors: true });
 const astSchema = JSON.parse(readFileSync(new URL("../../../spec/ast.schema.json", import.meta.url), "utf8"));
 const validateAst = ajv.compile(astSchema);
-const json = (value: unknown) => JSON.parse(JSON.stringify(value));
-const codes = (graph: GraphIR) => graph.diagnostics.map(diagnostic => diagnostic.code);
 const ids = (graph: GraphIR) => graph.points.map(point => point.id ?? point.declaration.form);
 const message = (graph: GraphIR, code: string) => graph.diagnostics.find(diagnostic => diagnostic.code === code)?.message ?? "";
 

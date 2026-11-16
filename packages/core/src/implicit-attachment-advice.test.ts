@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { compileGraphWithExplain, explainSource, parseDocument } from "./index.js";
 import type { AstBlock, GraphCompilation } from "./types.js";
+import { compileWithExplain as compile } from "./test-helpers.test.mjs";
 
-const compile = (source: string) => compileGraphWithExplain(parseDocument(source));
 const advice = (result: GraphCompilation) => result.graph.diagnostics.filter(diagnostic => diagnostic.code === "IMPLICIT_ATTACHMENT_THROUGH_BODY");
 const throughBodySelections = (result: GraphCompilation) => result.explain.entries.flatMap(entry => entry.effects.filter(effect => effect.kind === "implicitAttachment" && effect.crossedBodySpans.length > 0).map(effect => ({ line: entry.sourceSpan.startLine, ...effect })));
 

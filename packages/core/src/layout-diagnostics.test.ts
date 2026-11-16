@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { compileGraphWithExplain, parseDocument } from "./index.js";
 import type { GraphIR } from "./types.js";
+import { compileWithExplain as compile } from "./test-helpers.test.mjs";
 
 const candidates = [
   {
@@ -33,7 +34,6 @@ const candidates = [
   }
 ];
 
-const compile = (source: string) => compileGraphWithExplain(parseDocument(source));
 const addMargin = (source: string) => source.split("\n").map(line => "  " + line).join("\n");
 const pointRef = (graph: GraphIR, id: string) => {
   const point = graph.points.find(point => point.id === id);

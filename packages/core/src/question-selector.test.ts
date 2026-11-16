@@ -3,8 +3,8 @@ import {
   analyzeSourceReferences, compileGraphWithExplain, explainSource, formatGraph,
   parseDocument, previewTargetForm
 } from "./index.js";
+import { compileWithExplain as compile } from "./test-helpers.test.mjs";
 
-const compile = (source: string) => compileGraphWithExplain(parseDocument(source));
 const premise = "- [C @claim] The visitor may be familiar.\n  - [G @silent; @step] The dog did not bark.";
 
 describe("questions concerning a local Bearing", () => {

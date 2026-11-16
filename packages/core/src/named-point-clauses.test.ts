@@ -1,9 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { analyzeSourceReferences, compileGraphWithExplain, parseDocument } from "./index.js";
-import type { BearingKind, GraphIR } from "./types.js";
+import { analyzeSourceReferences } from "./index.js";
+import type { BearingKind } from "./types.js";
+import { compileWithExplain as compile, codes } from "./test-helpers.test.mjs";
 
-const compile = (source: string) => compileGraphWithExplain(parseDocument(source));
-const codes = (graph: GraphIR) => graph.diagnostics.map(diagnostic => diagnostic.code);
 const kinds: BearingKind[] = ["supports", "challenges", "concerns", "answers", "respondsTo", "interprets"];
 const pointKinds = ["answers", "respondsTo"];
 

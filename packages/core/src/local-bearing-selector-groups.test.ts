@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { compileGraphWithExplain, explainSource, parseAnnotation, parseDocument } from "./index.js";
+import { explainSource, parseAnnotation } from "./index.js";
+import { compileWithExplain as compile } from "./test-helpers.test.mjs";
 
-const compile = (source: string) => compileGraphWithExplain(parseDocument(source));
 const names = (source: string) => {
   const { graph } = compile(source);
   const ids = new Map([...graph.points.map(p => [p.key, p.id]), ...graph.bearings.map(b => [b.key, b.handle])]);

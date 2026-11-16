@@ -29,15 +29,8 @@ function blockAnchor(block: AstBlock): string | undefined {
 }
 
 function findBlock(blocks: AstBlock[], id: string): AstBlock {
-  for (const block of blocks) {
-    if (blockAnchor(block) === id) {
-      return block;
-    }
-    const child = findBlockOptional(block.children, id);
-    if (child) {
-      return child;
-    }
-  }
+  const found = findBlockOptional(blocks, id);
+  if (found) return found;
   throw new Error(`Block @${id} not found.`);
 }
 

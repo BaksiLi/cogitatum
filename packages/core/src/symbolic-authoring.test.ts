@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { compileGraphWithExplain, explainSource, parseDocument } from "./index.js";
+import { explainSource } from "./index.js";
 import type { BearingKind } from "./types.js";
+import { compileWithExplain as compile } from "./test-helpers.test.mjs";
 
-const compile = (source: string) => compileGraphWithExplain(parseDocument(source));
 const codes = (source: string) => compile(source).graph.diagnostics.map(diagnostic => diagnostic.code);
 
 describe("consolidated symbolic authoring", () => {

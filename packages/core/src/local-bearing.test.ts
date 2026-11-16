@@ -1,9 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { compileGraph, compileGraphWithExplain, explainSource, parseAnnotation, parseDocument } from "./index.js";
 import type { GraphIR } from "./types.js";
-
-const compile = (source: string) => compileGraph(parseDocument(source));
-const codes = (graph: GraphIR) => graph.diagnostics.map(d => d.code);
+import { compile, codes } from "./test-helpers.test.mjs";
 
 // Compare semantic content and topology, deliberately excluding compilation-local
 // keys, order, locations, trace, and structural/operator provenance.

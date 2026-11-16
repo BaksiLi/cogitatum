@@ -9,6 +9,7 @@ import {
   parseDocument,
   parseSource
 } from "./index.js";
+import { json } from "./test-helpers.test.mjs";
 
 const ajv = new Ajv2020({ allErrors: true });
 const schema = (name: string) => JSON.parse(readFileSync(new URL(`../../../spec/${name}.schema.json`, import.meta.url), "utf8"));
@@ -21,7 +22,6 @@ const validateAst = ajv.getSchema(astSchema.$id)!;
 const validateGraph = ajv.getSchema(graphSchema.$id)!;
 const validateExplain = ajv.getSchema(explainSchema.$id)!;
 const validateSource = ajv.compile(sourceSchema);
-const json = (value: unknown) => JSON.parse(JSON.stringify(value));
 
 describe("public compiler contract boundaries", () => {
   it.each(["+> ^/", "-> ^/", "~> ^/", "interprets ^/", "/"])("correlates the member-sourced [_ %s] through every public projection", clause => {

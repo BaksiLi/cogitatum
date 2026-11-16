@@ -1,11 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { compileGraphWithExplain, explainSource, parseDocument } from "./index.js";
+import { explainSource } from "./index.js";
 import type { GraphIR } from "./types.js";
+import { graphNames, compileWithExplain as compile, codes } from "./test-helpers.test.mjs";
 
-const compile = (source: string) => compileGraphWithExplain(parseDocument(source));
-const codes = (graph: GraphIR) => graph.diagnostics.map(diagnostic => diagnostic.code);
 const projection = (graph: GraphIR) => {
-  const names = new Map([...graph.points.map(point => [point.key, point.id] as const), ...graph.bearings.map(bearing => [bearing.key, bearing.handle] as const)]);
+  const names = graphNames(graph);
   return {
     points: graph.points.map(({ key: _key, sourceSpan: _span, ...point }) => point),
     bearings: graph.bearings.map(({ key: _key, sourceSpan: _span, targetBy: _origin, ...bearing }) => ({ ...bearing, sources: bearing.sources.map(ref => names.get(ref.key)), target: { kind: bearing.target.kind, name: names.get(bearing.target.key) } }))

@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { compileGraphWithExplain, explainSource, parseDocument } from "./index.js";
 import type { AstBlock } from "./types.js";
+import { compileWithExplain as compile } from "./test-helpers.test.mjs";
 
-const compile = (source: string) => compileGraphWithExplain(parseDocument(source));
 const flatten = (blocks: AstBlock[]): AstBlock[] => blocks.flatMap(block => [block, ...flatten(block.children)]);
 
 describe("literal note subtrees", () => {

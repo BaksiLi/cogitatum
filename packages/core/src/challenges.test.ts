@@ -2,12 +2,12 @@ import { readFileSync } from "node:fs";
 import Ajv2020 from "ajv/dist/2020.js";
 import { describe, expect, it } from "vitest";
 import { compileGraph, compileGraphWithExplain, explainSource, parseDocument } from "./index.js";
+import { compileWithExplain as compile, spanless } from "./test-helpers.test.mjs";
 
 const declarations = `- [C @claim] Conclusion.
 - [G @a] First reason.
 - [G @b] Second reason.
 - [_ @a, @b +> @claim; @route] Joint step.`;
-const compile = (source: string) => compileGraphWithExplain(parseDocument(source));
 const errors = (source: string) => compile(source).graph.diagnostics.filter(d => d.severity === "error").map(d => d.code);
 const ajv = new Ajv2020({ allErrors: true });
 const schemas = Object.fromEntries(["ast", "graph-ir", "explain", "source"].map(name => {
@@ -108,7 +108,6 @@ describe("format 0.6 unified challenges", () => {
       ["supports", "point"], ["challenges", "bearing"], ["respondsTo", "point"]
     ]);
     // [O/] abbreviates [O -> ^/]; only the header's source extent differs.
-    const spanless = (bearings: typeof graph.bearings) => bearings.map(({ sourceSpan: _span, ...b }) => b);
     expect(spanless(compile(linked.replace("[O/]", "[O -> ^/]")).graph.bearings)).toEqual(spanless(graph.bearings));
     expect(errors(linked.replace("[O/]", "[O]"))).toContain("INVALID_LOCAL_BEARING_MEMBER");
     expect(errors(declarations + "\n  - [O] Bare objection.")).toContain("EXPLICIT_BEARING_DESCENDANT_REQUIRES_TARGET");

@@ -1,7 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { compileGraphWithExplain, parseDocument } from "./index.js";
-
-const compile = (source: string) => compileGraphWithExplain(parseDocument(source));
+import { compileWithExplain as compile } from "./test-helpers.test.mjs";
 
 describe("Bearing dependency validation", () => {
   it("rejects a long forward chain while retaining independent relations and valid cycles", () => {
