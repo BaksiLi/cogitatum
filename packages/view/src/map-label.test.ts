@@ -42,6 +42,11 @@ describe("Map inline code", () => {
     expect(wording(wrapMapLabel("\u6c34\u6cf5`AB`\u5b89\u5168", 6, 3, measure))).toEqual(["\u6c34\u6cf5AB", "\u5b89\u5168"]);
   });
 
+  it("never begins a CJK line with closing punctuation or ends one with an opening bracket", () => {
+    expect(wording(wrapMapLabel("\u6a4b\u5df2\u95dc\u9589\u3002", 4, 3, measure))).toEqual(["\u6a4b\u5df2\u95dc", "\u9589\u3002"]);
+    expect(wording(wrapMapLabel("\u8def\u300c\u6a4b\u300d\u3001\u8def", 4, 3, measure))).toEqual(["\u8def", "\u300c\u6a4b\u300d\u3001", "\u8def"]);
+  });
+
   it("truncates without leaking delimiters, splitting Unicode or inventing omitted content", () => {
     const lines = wrapMapLabel("`aa bb` after", 10, 1, measure);
     expect(wording(lines)).toEqual(["aa b\u2026"]);

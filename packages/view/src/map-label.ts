@@ -58,7 +58,9 @@ function sliceLabel(runs: LabelLine, start: number, end: number): LabelLine {
 export function wrapMapLabel(text: string, width: number, limit: number, measure: Measure): LabelLine[] {
   const runs = mapLabel(text), plain = runs.map(run => run.text).join("");
   function* tokens() {
-    for (const token of plain.matchAll(/[\u2e80-\u9fff\uf900-\ufaff\u3000-\u303f\uff00-\uffef]|[^\s\u2e80-\u9fff\uf900-\ufaff\u3000-\u303f\uff00-\uffef]+|\s+/gu)) {
+    // A wide character keeps opening brackets before it and closing punctuation after it,
+    // so no line ends with 「 or begins with 。 or 」.
+    for (const token of plain.matchAll(/[\u3008\u300a\u300c\u300e\u3010\uff08]*[\u2e80-\u9fff\uf900-\ufaff\u3000-\u303f\uff00-\uffef][\u3001\u3002\u3009\u300b\u300d\u300f\u3011\uff01\uff09\uff0c\uff1a\uff1b\uff1f]*|[^\s\u2e80-\u9fff\uf900-\ufaff\u3000-\u303f\uff00-\uffef]+|\s+/gu)) {
       let index = token.index;
       // Keep ordinary words whole. A URL or identifier wider than the entire measure must break too.
       if (/^\s+$/u.test(token[0]) || labelWidth(sliceLabel(runs, index, index + token[0].length), measure) <= width) {
