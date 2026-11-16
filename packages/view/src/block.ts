@@ -163,7 +163,7 @@ export function createBlockView(container: HTMLElement, options: BlockViewOption
     onSelect: selection => choose(selection.ref, selection.sourceSpan),
     onClear: () => choose(),
     onNavigate: options.onEdit ? selection => { void revealSource(selection.sourceSpan); } : undefined,
-    onNavigateDiagnostic: options.onEdit ? diagnostic => { void revealSource(diagnostic.sourceSpan); } : undefined
+    onNavigateDiagnostic: options.onEdit ? (diagnostic, related) => { void revealSource(related?.sourceSpan ?? diagnostic.sourceSpan); } : undefined
   });
   /** The block owns selection; view callbacks are echoes while it synchronises the other surfaces. */
   function choose(ref?: BearingTarget, span?: SourceSpan) {

@@ -21,6 +21,11 @@
       "expectedDiagnosticCodes": []
     },
     {
+      "file": "host-showcase.cog.md",
+      "purpose": "One cross-host regression source: local reuse, quiet but selectable relevance, unstated role targets, contextual answers and joint support.",
+      "expectedDiagnosticCodes": ["UNBOUND_GROUND_UNDER_QUESTION"]
+    },
+    {
       "file": "logseq-shaped-note.cog.md",
       "purpose": "A hypothetical reading inquiry with a stated reason; Logseq-shaped properties remain body without claiming native adapter support.",
       "expectedDiagnosticCodes": []
