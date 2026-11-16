@@ -28,7 +28,7 @@
             "kind": "point",
             "line": 7
           },
-          "derivedBy": "operator"
+          "targetBy": "name"
         }
       ]
     },
@@ -58,7 +58,7 @@
             "kind": "point",
             "line": 19
           },
-          "derivedBy": "operator"
+          "targetBy": "name"
         }
       ]
     }

@@ -16,8 +16,8 @@
       {"line": 2, "form": "role", "role": "C", "id": "q"}
     ],
     "bearings": [
-      {"line": 3, "kind": "supports", "sources": [1], "target": {"kind": "point", "line": 2}, "derivedBy": "structural", "handle": "r"},
-      {"line": 13, "kind": "supports", "sources": [1], "target": {"kind": "point", "line": 2}, "derivedBy": "operator", "handle": "s"}
+      {"line": 3, "kind": "supports", "sources": [1], "target": {"kind": "point", "line": 2}, "targetBy": "position", "handle": "r"},
+      {"line": 13, "kind": "supports", "sources": [1], "target": {"kind": "point", "line": 2}, "targetBy": "name", "handle": "s"}
     ]
   }]
 }

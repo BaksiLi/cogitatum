@@ -30,7 +30,7 @@ describe("Bearing mode selection", () => {
       expect(graph.diagnostics).toEqual([]);
       expect(graph.points.map(point => point.id)).toEqual(["target", "a", "b"]);
       expect(graph.bearings).toEqual([expect.objectContaining({
-        kind, handle: "route", text: "Step description.", derivedBy: "structural",
+        kind, handle: "route", text: "Step description.", targetBy: "position",
         sources: graph.points.slice(1).map(point => ({ kind: "point", key: point.key })),
         target: { kind: "point", key: graph.points[0].key }
       })]);

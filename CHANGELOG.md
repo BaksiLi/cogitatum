@@ -19,6 +19,9 @@ Source that compiled under 0.6 can construct different relations; follow [Migrat
   Detaching is positional: outdent to root rather than re-marking as `.`.
 - Mark placement relevance that a stronger stated relation already entails.
   `emitBearing.entailedBy` names the entailing Bearings, readback says “already entailed by”, host commitments carry `entailedByOccurrenceIds`, and View rows get `data-entailed`; the Graph is unchanged.
+- Rename Bearing `derivedBy: "structural" | "operator"` to `targetBy: "position" | "name"` in Graph IR and Explain.
+  The field always recorded how the target was selected, by placement or by a written name; the mark, not the field, is what commits the relation.
+  Rename the key and map the two values when migrating saved JSON consumers.
 - Record an occurrence's framing as Explain effect `frameOccurrence` on two independent axes.
   `fit` (`home`, `compatible` or `opposed`, absent when nothing is constructed) compares the constructed kind with the mark; `intention` (`bound`, `unbound` with `awaits`, or `none`) says whether the mark's function has a stated object.
   So `[O @x +> @c]` is opposed but bound, and G beneath Q is compatible but unbound.

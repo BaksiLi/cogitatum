@@ -64,11 +64,11 @@ function projectGraph(graph: GraphIR, blocks?: AstBlock[]) {
     points: graph.points.map(({ key, declaration: { form, role }, id }) => ({
       line: refLine("point", key), form, role, id
     })),
-    bearings: graph.bearings.map(({ key, kind, sources, target, derivedBy, handle }) => ({
+    bearings: graph.bearings.map(({ key, kind, sources, target, targetBy, handle }) => ({
       line: refLine("bearing", key), kind,
       sources: sources.map((ref) => refLine("point", ref.key)),
       target: { kind: target.kind, line: refLine(target.kind, target.key) },
-      derivedBy, handle
+      targetBy, handle
     }))
   };
 }

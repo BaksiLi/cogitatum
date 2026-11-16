@@ -61,7 +61,7 @@ describe("local joint support", () => {
     expect(graph.points).toHaveLength(4);
     expect(graph.bearings).toHaveLength(2);
     expect(graph.bearings.map(bearing => bearing.kind)).toEqual(["challenges", "supports"]);
-    expect(graph.bearings.find(bearing => bearing.handle === "independent")?.derivedBy).toBe("operator");
+    expect(graph.bearings.find(bearing => bearing.handle === "independent")?.targetBy).toBe("name");
     expect(explain.entries[1].effects).toContainEqual({ kind: "rejectBearing", reason: "invalid-local-bearing" });
     expect(explain.entries[2].effects).toContainEqual({ kind: "skipBearing", reason: "local-bearing-membership" });
   });
@@ -75,7 +75,7 @@ describe("local joint support", () => {
       ["c", "C", "Conclusion."], ["a", undefined, "Same prose."], ["b", undefined, "Same prose."]
     ]);
     expect(routes(graph)).toEqual([{ kind: "supports", handle: "route", sources: ["a", "b"], target: { kind: "point", name: "c" } }]);
-    expect(graph.bearings[0]).toMatchObject({ text: "說明這一步。", derivedBy: "structural", sourceSpan: ast.blocks[0].children[0].sourceSpan });
+    expect(graph.bearings[0]).toMatchObject({ text: "說明這一步。", targetBy: "position", sourceSpan: ast.blocks[0].children[0].sourceSpan });
     expect(ast.blocks[0].children[0]).toMatchObject({ annotation: { kind: "bearing", members: true, handle: "route" }, text: "說明這一步。", children: [{ text: "Same prose." }, { text: "Same prose." }] });
     expect(explain.entries[1]).toMatchObject({ recognition: { kind: "bearing", members: true }, effects: [
       { kind: "attachNote", note: { origin: "constructor-description", target: { kind: "bearing", key: graph.bearings[0].key }, sourceSpan: ast.blocks[0].children[0].sourceSpan } },

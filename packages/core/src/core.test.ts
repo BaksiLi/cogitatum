@@ -326,7 +326,7 @@ describe("Cogitatum language contracts", () => {
             kind: "supports",
             sources: [pointRef(compilation.graph, "ground")],
             target: pointRef(compilation.graph, "claim"),
-            derivedBy: "structural"
+            targetBy: "position"
           },
           reason: "annotated-containment"
         },
@@ -352,7 +352,7 @@ describe("Cogitatum language contracts", () => {
             kind: "concerns",
             sources: [pointRef(compilation.graph, "c1")],
             target: { id: "missing" },
-            derivedBy: "operator"
+            targetBy: "name"
           },
           reason: "validation-error"
         }
@@ -400,7 +400,7 @@ describe("Cogitatum language contracts", () => {
     expect(effect).toMatchObject({
       kind: "emitBearing",
       ref: { kind: "bearing", graphIndex: expect.any(Number), handle: "route" },
-      bearing: { handle: "route", kind: "supports", derivedBy: "structural" }
+      bearing: { handle: "route", kind: "supports", targetBy: "position" }
     });
   });
 
@@ -641,7 +641,7 @@ describe("Cogitatum language contracts", () => {
         sources: [pointRef(graph, "c1")],
         target: pointRef(graph, "c2"),
         text: "Continue the argument.",
-        derivedBy: "operator"
+        targetBy: "name"
       })
     ]);
   });
@@ -803,13 +803,13 @@ describe("Cogitatum language contracts", () => {
         kind: "challenges",
         sources: [{ key: objection?.key, kind: "point" }],
         target: pointRef(graph, "release-safe"),
-        derivedBy: "operator"
+        targetBy: "name"
       }),
       expect.objectContaining({
         kind: "respondsTo",
         sources: [{ key: reply?.key, kind: "point" }],
         target: { key: objection?.key, kind: "point" },
-        derivedBy: "structural"
+        targetBy: "position"
       })
     ]);
     expect(graph.diagnostics).toEqual([]);
@@ -1074,7 +1074,7 @@ describe("Cogitatum language contracts", () => {
     expect(bearing).toMatchObject({
       kind: "concerns",
       target: bearingRef(graph, "temporal-rebuttal"),
-      derivedBy: "structural"
+      targetBy: "position"
     });
     expect(graph.diagnostics).toEqual([]);
   });
@@ -1094,7 +1094,7 @@ describe("Cogitatum language contracts", () => {
           kind: "challenges",
           sources: [{ key: "_p2", kind: "point" }],
           target: pointRef(graph, "claim"),
-          derivedBy: "operator"
+          targetBy: "name"
         }),
         expect.objectContaining({
           handle: "route",
@@ -1106,7 +1106,7 @@ describe("Cogitatum language contracts", () => {
           kind: "challenges",
           sources: [{ key: "_p4", kind: "point" }],
           target: bearingRef(graph, "route"),
-          derivedBy: "operator"
+          targetBy: "name"
         })
       ]);
       expect(graph.diagnostics).toEqual([]);
@@ -1129,7 +1129,7 @@ describe("Cogitatum language contracts", () => {
           { key: graph.points[3].key, kind: "point" }
         ],
         target: { key: graph.points[1].key, kind: "point" },
-        derivedBy: "structural"
+        targetBy: "position"
       })
     ]);
     expect(graph.diagnostics).toEqual([]);
@@ -1208,12 +1208,12 @@ describe("Cogitatum language contracts", () => {
       expect.objectContaining({
         sources: [{ key: graph.points[1].key, kind: "point" }],
         target: pointRef(graph, "claim"),
-        derivedBy: "structural"
+        targetBy: "position"
       }),
       expect.objectContaining({
         sources: [{ key: graph.points[2].key, kind: "point" }],
         target: pointRef(graph, "claim"),
-        derivedBy: "structural"
+        targetBy: "position"
       }),
       expect.objectContaining({
         handle: "capacity-route",
@@ -1222,7 +1222,7 @@ describe("Cogitatum language contracts", () => {
           pointRef(graph, "forecast")
         ],
         target: pointRef(graph, "claim"),
-        derivedBy: "operator"
+        targetBy: "name"
       })
     ]);
     expect(graph.diagnostics).toEqual([]);
@@ -1608,8 +1608,8 @@ describe("Cogitatum language contracts", () => {
     const suggestedDerivation = jsonValue(compileGraph(parseDocument(example("syllogism.cog.md"))));
     const suggestedOrigin = jsonValue(compileGraph(parseDocument(example("syllogism.cog.md"))));
 
-    (importedDerivation.bearings[0] as Record<string, unknown>).derivedBy = "imported";
-    (suggestedDerivation.bearings[0] as Record<string, unknown>).derivedBy = "suggested";
+    (importedDerivation.bearings[0] as Record<string, unknown>).targetBy = "imported";
+    (suggestedDerivation.bearings[0] as Record<string, unknown>).targetBy = "suggested";
     (suggestedOrigin.bearings[0] as Record<string, unknown>).origin = "suggested";
 
     expect(validateGraph(importedDerivation)).toBe(false);

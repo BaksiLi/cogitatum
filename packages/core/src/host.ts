@@ -262,7 +262,7 @@ export function projectReading(source: string, explained: ExplainedSource): Read
         return endpoint(origin(ref), ref, "declaration");
       });
       const contexts = entry.effects.filter(effect => effect.kind === "implicitAttachment");
-      if (contexts.length !== (bearing.derivedBy === "structural" ? 1 : 0)) mismatch("missing or unexpected attachment context");
+      if (contexts.length !== (bearing.targetBy === "position" ? 1 : 0)) mismatch("missing or unexpected attachment context");
       let target: ReadingEndpoint;
       if (contexts.length) {
         const context = contexts[0];

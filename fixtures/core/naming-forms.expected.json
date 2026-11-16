@@ -78,7 +78,7 @@
             "kind": "point",
             "line": 3
           },
-          "derivedBy": "structural"
+          "targetBy": "position"
         },
         {
           "line": 7,
@@ -90,7 +90,7 @@
             "kind": "point",
             "line": 6
           },
-          "derivedBy": "structural"
+          "targetBy": "position"
         },
         {
           "line": 8,
@@ -102,7 +102,7 @@
             "kind": "point",
             "line": 7
           },
-          "derivedBy": "operator"
+          "targetBy": "name"
         },
         {
           "line": 11,
@@ -114,7 +114,7 @@
             "kind": "point",
             "line": 10
           },
-          "derivedBy": "structural",
+          "targetBy": "position",
           "handle": "route"
         },
         {
@@ -127,7 +127,7 @@
             "kind": "bearing",
             "line": 11
           },
-          "derivedBy": "operator"
+          "targetBy": "name"
         },
         {
           "line": 15,
@@ -139,7 +139,7 @@
             "kind": "point",
             "line": 14
           },
-          "derivedBy": "structural",
+          "targetBy": "position",
           "handle": "named-route"
         },
         {
@@ -152,7 +152,7 @@
             "kind": "point",
             "line": 15
           },
-          "derivedBy": "operator"
+          "targetBy": "name"
         },
         {
           "line": 17,
@@ -164,7 +164,7 @@
             "kind": "bearing",
             "line": 15
           },
-          "derivedBy": "operator"
+          "targetBy": "name"
         }
       ]
     }

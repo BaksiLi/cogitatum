@@ -12,12 +12,12 @@
       { "line": 15, "form": "role", "role": "G", "id": "warrant" }
     ],
     "bearings": [
-      { "line": 5, "kind": "supports", "sources": [2], "target": { "kind": "point", "line": 4 }, "derivedBy": "structural", "handle": "route" },
-      { "line": 9, "kind": "challenges", "sources": [9], "target": { "kind": "bearing", "line": 5 }, "derivedBy": "structural", "handle": "attack" },
-      { "line": 10, "kind": "challenges", "sources": [10], "target": { "kind": "point", "line": 9 }, "derivedBy": "structural" },
-      { "line": 11, "kind": "challenges", "sources": [11], "target": { "kind": "bearing", "line": 9 }, "derivedBy": "structural" },
-      { "line": 12, "kind": "respondsTo", "sources": [12], "target": { "kind": "point", "line": 9 }, "derivedBy": "structural" },
-      { "line": 15, "kind": "supports", "sources": [15], "target": { "kind": "bearing", "line": 5 }, "derivedBy": "structural" }
+      { "line": 5, "kind": "supports", "sources": [2], "target": { "kind": "point", "line": 4 }, "targetBy": "position", "handle": "route" },
+      { "line": 9, "kind": "challenges", "sources": [9], "target": { "kind": "bearing", "line": 5 }, "targetBy": "position", "handle": "attack" },
+      { "line": 10, "kind": "challenges", "sources": [10], "target": { "kind": "point", "line": 9 }, "targetBy": "position" },
+      { "line": 11, "kind": "challenges", "sources": [11], "target": { "kind": "bearing", "line": 9 }, "targetBy": "position" },
+      { "line": 12, "kind": "respondsTo", "sources": [12], "target": { "kind": "point", "line": 9 }, "targetBy": "position" },
+      { "line": 15, "kind": "supports", "sources": [15], "target": { "kind": "bearing", "line": 5 }, "targetBy": "position" }
     ]
   }]
 }

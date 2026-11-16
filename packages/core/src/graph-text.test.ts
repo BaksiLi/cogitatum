@@ -66,7 +66,7 @@ b5: challenges([p1], b5) handle="self"`);
     const graph: GraphIR = {
       version: "0.7.0", diagnostics: [], notes: [],
       points: [{ key: "shared-key", id: "b1", text: "Same", declaration: { form: "material" } }],
-      bearings: [{ key: "shared-key", handle: "p1", kind: "supports", sources: [{ kind: "point", key: "shared-key" }], target: { kind: "point", key: "shared-key" }, derivedBy: "operator" }]
+      bearings: [{ key: "shared-key", handle: "p1", kind: "supports", sources: [{ kind: "point", key: "shared-key" }], target: { kind: "point", key: "shared-key" }, targetBy: "name" }]
     };
     const result = formatGraph(graph);
     expect(result).toContain('p1: material id="b1" text="Same"');
@@ -116,7 +116,7 @@ b5: challenges([p1], b5) handle="self"`);
     rewritten.bearings[0].key = "another opaque key";
     rewritten.bearings[0].sources[0].key = rewritten.points[1].key;
     rewritten.bearings[0].target.key = rewritten.points[0].key;
-    rewritten.bearings[0].derivedBy = "operator";
+    rewritten.bearings[0].targetBy = "name";
     delete rewritten.bearings[0].sourceSpan;
     expect(formatGraph(rewritten)).toBe(text);
     rewritten.points[0].id = "new-name";

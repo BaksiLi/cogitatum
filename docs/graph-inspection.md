@@ -99,7 +99,7 @@ No graph row asserts truth, logical validity, defeat, acceptability or resolutio
 | Optional name/text absence versus empty string | Preserved by omitting the field or printing `=""` |
 | Point and Bearing array order | Used to allocate and print labels; no sorting or deduplication |
 | Compilation key spelling | Omitted; labels do not promise persistence between exports or revisions |
-| Entity `sourceSpan` and Bearing `derivedBy` | Omitted from the structural projection |
+| Entity `sourceSpan` and Bearing `targetBy` | Omitted from the structural projection |
 | `notes` source/target records | Omitted; identical structure text does not establish equal object notes |
 | Diagnostics | Reported separately in original order, including severity, code, message, optional span, explanation and related spans |
 | Original source, ordinary body, note prose and literal subtrees, use-occurrence prose and marks, AST target requirements, Explain trace | Not part of Graph IR and not reconstructed |
@@ -113,7 +113,7 @@ Changing the mark later therefore changes the first relation and leaves the seco
 
 A structural comparison under `structure-v1` applies within one format version to graphs without error diagnostics.
 It permits a separate bijection of Point identities and Bearing identities, preserving every Point's declaration, text and optional name, and every Bearing's kind, optional profile, ordered sources, typed target, optional handle and text.
-It may ignore compilation-key spelling, entity array order, entity spans and `derivedBy`.
+It may ignore compilation-key spelling, entity array order, entity spans and `targetBy`.
 Diagnostics must still be reviewed separately; a matching surviving subgraph cannot make a failed compilation equivalent to a deliberate omission.
 
 This defines a comparison scope, not a public comparison algorithm.

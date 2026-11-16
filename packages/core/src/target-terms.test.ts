@@ -12,7 +12,7 @@ function shape(source: string) {
   return {
     diagnostics: graph.diagnostics.map(diagnostic => diagnostic.code),
     points: graph.points.map(point => [point.id, point.role, point.text]),
-    bearings: graph.bearings.map(bearing => [bearing.kind, bearing.derivedBy, bearing.sources.map(end), end(bearing.target)])
+    bearings: graph.bearings.map(bearing => [bearing.kind, bearing.targetBy, bearing.sources.map(end), end(bearing.target)])
   };
 }
 
@@ -59,9 +59,9 @@ describe("Local target terms", () => {
   - [_ @a, @b +> ^] Joint support.`);
     expect(graph.diagnostics).toEqual([]);
     expect(graph.bearings).toEqual([
-      expect.objectContaining({ kind: "concerns", sources: [{ kind: "point", key: graph.points[1].key }], target: { kind: "point", key: graph.points[0].key }, derivedBy: "structural" }),
-      expect.objectContaining({ kind: "concerns", sources: [{ kind: "point", key: graph.points[2].key }], target: { kind: "point", key: graph.points[0].key }, derivedBy: "structural" }),
-      expect.objectContaining({ kind: "supports", sources: graph.points.slice(1).map(p => ({ kind: "point", key: p.key })), target: { kind: "point", key: graph.points[0].key }, derivedBy: "structural" })
+      expect.objectContaining({ kind: "concerns", sources: [{ kind: "point", key: graph.points[1].key }], target: { kind: "point", key: graph.points[0].key }, targetBy: "position" }),
+      expect.objectContaining({ kind: "concerns", sources: [{ kind: "point", key: graph.points[2].key }], target: { kind: "point", key: graph.points[0].key }, targetBy: "position" }),
+      expect.objectContaining({ kind: "supports", sources: graph.points.slice(1).map(p => ({ kind: "point", key: p.key })), target: { kind: "point", key: graph.points[0].key }, targetBy: "position" })
     ]);
   });
 
@@ -101,6 +101,6 @@ describe("Local target terms", () => {
     }
     const independent = compile(`- [C @c] Claim.\n  - [_ +> ^] Group.\n    - [. @a] A.\n    - [G +> @c] Elsewhere.`);
     expect(independent.diagnostics).toEqual([]);
-    expect(independent.bearings.map(bearing => [bearing.kind, bearing.derivedBy])).toEqual([["supports", "structural"], ["supports", "operator"]]);
+    expect(independent.bearings.map(bearing => [bearing.kind, bearing.targetBy])).toEqual([["supports", "position"], ["supports", "name"]]);
   });
 });

@@ -460,7 +460,7 @@ export function createReadingView(container: HTMLElement, options: ReadingViewOp
       }
       const groups = unit.bearings.map(route => svgElement("g", {
         class: `cog-reading-bearing cog-tone-${bearingMark(route.bearing.kind).tone}`, "data-bearing": route.bearing.key, "data-unit": String(unitIndex),
-        "data-subtle": String(route.bearing.derivedBy === "structural" && inline[unitIndex].has(route.bearing.key))
+        "data-subtle": String(route.bearing.targetBy === "position" && inline[unitIndex].has(route.bearing.key))
       }, svg));
       const glyphs = new Map<number, Position>();
       connectors.forEach((connector, index) => {

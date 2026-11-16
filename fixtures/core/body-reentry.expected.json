@@ -28,7 +28,7 @@
             "kind": "point",
             "line": 1
           },
-          "derivedBy": "structural"
+          "targetBy": "position"
         }
       ]
     }

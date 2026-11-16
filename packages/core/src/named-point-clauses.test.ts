@@ -23,8 +23,8 @@ describe("named Point clauses", () => {
     ]);
     expect(graph.points[2].text).toBe("Which time scale\ndo you mean?");
     expect(graph.bearings).toMatchObject([
-      { kind, handle: "step", sources: [{ key: graph.points[2].key }], target: { kind: "point", key: graph.points[0].key }, derivedBy: "operator" },
-      { kind: "answers", sources: [{ key: graph.points[3].key }], target: { kind: "point", key: graph.points[2].key }, derivedBy: "operator" }
+      { kind, handle: "step", sources: [{ key: graph.points[2].key }], target: { kind: "point", key: graph.points[0].key }, targetBy: "name" },
+      { kind: "answers", sources: [{ key: graph.points[3].key }], target: { kind: "point", key: graph.points[2].key }, targetBy: "name" }
     ]);
     expect(graph.bearings[0].text).toBeUndefined();
     expect(graph.notes.map(note => note.target)).toEqual([

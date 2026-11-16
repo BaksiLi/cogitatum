@@ -140,7 +140,7 @@ describe("opposed framing", () => {
   it("constructs exactly the written support and advises without claiming contradiction", () => {
     const compiled = explainSource(source);
     expect(compiled.graphs[0].bearings).toHaveLength(1);
-    expect(compiled.graphs[0].bearings[0]).toMatchObject({ kind: "supports", derivedBy: "operator" });
+    expect(compiled.graphs[0].bearings[0]).toMatchObject({ kind: "supports", targetBy: "name" });
     expect(compiled.diagnostics).toEqual([expect.objectContaining({ severity: "suggestion", code: "OPPOSED_FRAMING" })]);
     expect(compiled.diagnostics[0].explanation).toContain("[O use @cost] at root");
     expect(formatExplain(compiled)).toContain("Presented as Objection; the clause alone constructs the relation, which the mark opposes.");

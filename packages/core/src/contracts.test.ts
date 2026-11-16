@@ -65,7 +65,7 @@ describe("public compiler contract boundaries", () => {
     const header = result.documents[0].blocks[0].children[0].annotation;
     expect(header).toMatchObject({ kind: "bearing", members: true, operatorClause: { op: kind, sources: "members", target: { local: "point" } } });
     expect(result.explanations[0].entries[1].recognition).toEqual({ kind: "bearing", members: true });
-    expect(result.graphs[0].bearings[0]).toMatchObject({ kind, handle: "route", derivedBy: "structural" });
+    expect(result.graphs[0].bearings[0]).toMatchObject({ kind, handle: "route", targetBy: "position" });
     header.role = "G";
     expect(validateAst(result.documents[0])).toBe(false);
     delete header.role;
@@ -118,11 +118,11 @@ describe("public compiler contract boundaries", () => {
       const explain = json(compileGraphWithExplain(parseDocument(source)).explain);
       const effect = explain.entries.flatMap((entry: any) => entry.effects).find((effect: any) => effect.bearing);
       expect(effect).toBeDefined();
-      for (const derivedBy of ["operator", "structural"]) {
-        effect.bearing.derivedBy = derivedBy;
+      for (const targetBy of ["name", "position"]) {
+        effect.bearing.targetBy = targetBy;
         expect(validateExplain(explain), JSON.stringify(validateExplain.errors)).toBe(true);
       }
-      effect.bearing.derivedBy = "retired";
+      effect.bearing.targetBy = "retired";
       expect(validateExplain(explain)).toBe(false);
     }
   });

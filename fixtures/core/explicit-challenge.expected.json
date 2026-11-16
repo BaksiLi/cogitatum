@@ -32,7 +32,7 @@
             "kind": "point",
             "line": 2
           },
-          "derivedBy": "operator"
+          "targetBy": "name"
         },
         {
           "line": 4,
@@ -44,7 +44,7 @@
             "kind": "point",
             "line": 3
           },
-          "derivedBy": "structural"
+          "targetBy": "position"
         }
       ]
     }

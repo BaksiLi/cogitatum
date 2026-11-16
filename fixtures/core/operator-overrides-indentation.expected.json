@@ -33,7 +33,7 @@
             "kind": "point",
             "line": 3
           },
-          "derivedBy": "operator"
+          "targetBy": "name"
         }
       ]
     }

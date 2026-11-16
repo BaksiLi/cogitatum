@@ -44,14 +44,14 @@
           "kind": "supports",
           "sources": [3],
           "target": { "kind": "point", "line": 1 },
-          "derivedBy": "structural"
+          "targetBy": "position"
         },
         {
           "line": 6,
           "kind": "respondsTo",
           "sources": [6],
           "target": { "kind": "point", "line": 5 },
-          "derivedBy": "structural"
+          "targetBy": "position"
         }
       ]
     }
